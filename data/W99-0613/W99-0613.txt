@@ -1,0 +1,1075 @@
+Unsupervised Models for Named Entity Classification
+Michael Collins and Yoram Singer
+AT&T Labs-Research,
+180 Park Avenue, Florham Park, NJ 07932
+{mcollins, singer}@research, att. com
+Abstract
+This paper discusses the use of unlabeled examples
+for the problem of named entity classification. A
+large number of rules is needed for coverage of the
+domain, suggesting that a fairly large number of la-
+beled examples should be required to train a classi-
+fier. However, we show that the use of unlabeled
+data can reduce the requirements for supervision
+to just 7 simple "seed" rules. The approach gains
+leverage from natural redundancy in the data: for
+many named-entity instances both the spelling of
+the name and the context inwhich it appears are
+sufficient to determine its type.
+We present two algorithms. The first method uses
+a similar algorithm to that of (Yarowsky 95), with
+modifications motivated by (Blum and Mitchell 98).
+The second algorithm extends ideas from boosting
+algorithms, designed for supervised learning tasks,
+to the framework suggested by (Blum and Mitchell
+98).
+1 Introduction
+Many statistical or machine-learning approaches for
+natural language problems require a relatively large
+amount of supervision, in the form of labeled train-
+ing examples. Recent results (e.g., (Yarowsky 95;
+Brill 95; Blum and Mitchell 98)) have suggested
+that unlabeled data can be used quite profitably in
+reducing the need for supervision. This paper dis-
+cusses the use of unlabeled examples for the prob-
+lem of named entity classification.
+The task is to learn a function from an in-
+put string (proper name) to its type, which we
+will assume to be one of the categories Person,
+Organization, or Location. For example, a
+good classifier would identify Mrs. Frank as a per-
+son, Steptoe & Johnson as a company, and Hon-
+duras as a location. The approach uses both spelling
+and contextual rules. A spelling rule might be a sim-
+ple look-up for the string (e.g., a rule that Honduras
+is a location) or a rule that looks at words within a
+string (e.g., a rule that any string containing Mr. is
+a person). A contextual rule considers words sur-
+rounding the string in the sentence in which it ap-
+pears (e.g., a rule that any proper name modified by
+an appositive whose head is president is a person).
+The task can be considered to be one component
+of the MUC (MUC-6, 1995) named entity task (the
+other task is that of segmentation, i.e., pulling pos-
+sible people, places and locations from text before
+sending them to the classifier). Supervised meth-
+ods have been applied quite successfully to the full
+MUC named-entity task (Bikel et el. 97).
+At first glance, the problem seems quite com-
+plex: a large number of rules is needed to cover the
+domain, suggesting that a large number of labeled
+examples is required to train an accurate classifier.
+But we will show that the use of unlabeled data can
+drastically reduce the need for supervision. Given
+around 90,000 unlabeled examples, the methods de-
+scribed in this paper classify names with over 91%
+accuracy. The only supervision is in the form of 7
+seed rules (namely, that New York, California and
+U.S. are locations; that any name containing Mr. is
+a person; that any name containing Incorporated is
+an organization; and that LB.M. and Microsoft are
+organizations).
+The key to the methods we describe is redun-
+dancy in the unlabeled data. In many cases, inspec-
+tion of either the spelling or context alone is suffi-
+cient to classify an example. For example, in
+.., says Mr. Cooper, a vice president of ..
+both a spelling feature (that the string contains Mr.)
+and a contextual feature (that president modifies the
+string) are strong indications that Mr. Cooper is
+of type Person. Even if an example like this is
+not labeled, it can be interpreted as a "hint" that Mr.
+and president imply the same category. The unla-
+beled data gives many such "hints" that two features
+should predict the same label, and these hints turn
+out to be surprisingly useful when building a classi-
+fier.
+We present two algorithms. The first method
+builds on results from (Yarowsky 95) and (Blum and
+100
+I
+Mitchell 98). (Yarowsky 95) describes an algorithm
+for word-sense disambiguation that exploits redun-
+dancy in contextual features, and gives impressive
+performance. Unfortunately, Yarowsky's method is
+not well understood from a theoretical viewpoint:
+we would like to formalize the notion of redun-
+dancy in unlabeled data, and set up the learning
+task as optimization of some appropriate objective
+function. (Blum and Mitchell 98) offer a promis-
+ing formulation of redundancy, also prove some re-
+sults about how the use of unlabeled examples can
+help classification, and suggest an objective func-
+tion when training :with unlabeled examples. Our
+first algorithm is similar to Yarowsky's, but with
+some important modifications motivated by (Blum
+and Mitchell 98). The algorithm can be viewed as
+heuristically optimizing an objective function sug-
+gested by (Blum and Mitchell 98); empirically it is
+shown to be quite successful in optimizing this cri-
+teflon.
+The second algorithm builds on a boosting al-
+gorithm called AdaBoost (Freund and Schapire 97;
+Schapire and Singer 98). The AdaBoost algorithm
+was developed for supervised learning. AdaBoost
+finds a weighted combination of simple (weak) clas-
+sifiers, where the w'eights are chosen to minimize a
+function that bounds the classification error on a set
+of training examples. Roughly speaking, the new
+algorithm presented in this paper performs a sim-
+ilar search, but instead minimizes a bound on the
+number of (unlabeled) examples on which two clas-
+sifiers disagree. The algorithm builds two classifiers
+iteratively: each iteration involves minimization of
+a continuously differential function which bounds
+the number of examples on which the two classifiers
+disagree.
+1.1 Additional Related Work
+There has been additional recent work on induc-
+ing lexicons or other knowledge sources from large
+corpora. (Brin 98)idescribes a system for extract-
+ing (author, book-tiile) pairs from the World Wide
+Web using an approach that bootstraps from an ini-
+tial seed set of examples. (Berland and Charniak
+99) describe a method for extracting parts of ob-
+jects from wholes (e.g., "speedometer" from "car")
+from a large corpus using hand-crafted patterns.
+(Hearst 92) describes a method for extracting hy-
+ponyms from a corpus (pairs of words in "isa" re-
+lations). (Riloff and Shepherd 97) describe a boot-
+strapping approach ifor acquiring nouns in particu-
+lar categories (such as "vehicle" or "weapon" cate-
+gofies). The approach builds from an initial seed set
+for a category, and is quite similar to the decision
+list approach described in (Yarowsky 95). More
+recently, (Riloff and Jones 99) describe a method
+they term "mutual bootstrapping" for simultane-
+ously constructing a lexicon and contextual extrac-
+tion patterns. The method shares some characteris-
+tics of the decision list algorithm presented in this
+paper. (Riloff and Jones 99) was brought to our at-
+tention as we were preparing the final version of this
+paper.
+2 The Problem
+2.1 The Data
+971,746 sentences of New York Times text were
+parsed using the parser of (Collins 96).1 Word se-
+quences that met the following criteria were then ex-
+tracted as named entity examples:
+• The word sequence was a sequence of consecu-
+tive proper nouns (words tagged as NNP or NNPS)
+within a noun phrase, and whose last word was head
+of the noun phrase.
+• The NP containing the word sequence appeared
+in one of two contexts:
+1. There was an appositive modifier to the NP,
+whose head is a singular noun (tagged NN). For ex-
+ample, take
+.... says Maury Cooper, a vice president at
+S.&R
+In this case, Maury Cooper is extracted. It is a se-
+quence of proper nouns within an NP; its last word
+Cooper is the head of the NP; and the NP has an ap-
+positive modifier (a vice president at S.&P) whose
+head is a singular noun (president).
+2. The NP is a complement to a preposition,
+which is the head of a PP. This PP modifies another
+NP, whose head is a singular noun. For example,
+... fraud related to work on a federally
+funded sewage plant in Georgia
+In this case, Georgia is extracted: the NP contain-
+ing it is a complement to the preposition in; the PP
+headed by in modifies the NP a federally funded
+sewageplant, whose head is the singular noun plant.
+In addition to the named-entity string (Maury
+Cooper or Georgia), a contextual predictor was also
+extracted. In the appositive case, the contextual
+IThanksto CiprianChelbafor runningthe parserand pro-
+vidingthedata.
+101
+predictor was the head of the modifying appositive
+(president in the Maury Cooper example); in the
+second case, the contextual predictor was the prepo-
+sition together with the noun it modifies (plant_in in
+the Georgia example). From here on we will refer
+to the named-entity string itself as the spelling of the
+entity, and the contextual predicate as the context.
+2.2 Feature Extraction
+Having found (spelling, context) pairs in the parsed
+data, a number of features are extracted. The fea-
+tures are used to represent each example for the
+learning algorithm. In principle a feature could be
+an arbitrary predicate of the (spelling, context) pair;
+for reasons that will become clear, features are lim-
+ited to querying either the spelling or context alone.
+The following features were used:
+fuil-string=x The full string (e.g., for Maury
+Cooper, ful i- s tring=Maury_Cooper).
+contains(x) If the spelling contains more
+than one word, this feature applies
+for any words that the string contains
+(e.g., Maury Cooper contributes two
+such features, contains (Maury) and
+contains (Cooper).
+allcapl This feature appears if the spelling is a sin-
+gle word which is all capitals (e.g., IBM would
+contribute this feature).
+ailcap2 This feature appears if the spelling is a sin-
+gle word which is all capitals or full periods,
+and contains at least one period. (e.g., N.Y.
+would contribute this feature, IBM would not).
+nonalpha=x Appears if the spelling contains any
+characters other than upper or lower case
+letters. In this case nonalpha is the
+string formed by removing all upper/lower
+case letters from the spelling (e.g., for
+Thomas E. Petry nonalpha=., for A.T.&T.
+nonalpha=.. &. ).
+context=x The context for the entity. The
+Maury Cooper and Georgia examples would
+contribute context=president and
+c ont ex t =p iant_in respectively.
+context-type=x context-type=appos in the
+appositive case, context-type=prep in
+the PP case.
+Table 1 gives some examples of entities and their
+features.
+3 Unsupervised Algorithms based on
+Decision Lists
+3.1 Supervised Decision List Learning
+The first unsupervised algorithm we describe is
+based on the decision list method from (Yarowsky
+95). Before describing the unsupervised case we
+first describe the supervised version of the algo-
+rithm:
+Input to the learning algorithm: n labeled ex-
+amples of the form (xi, Yi). Yi is the label of the ith
+example (given that there are k possible labels, Yi
+is a member of y = {1...k}). xiisasetofmi
+features {xil, xi2... Ximi} associated with the ith
+example. Each xij is a member of A', where X is a
+set of possible features.
+Output of the learning algorithm: a function
+h : &' × y ~ [0, 1] where h(x,y) is an estimate
+of the conditional probability p(ylx) of seeing label
+y given that feature x is present. Alternatively, h
+can be thought of as defining a decision list of roles
+x ~ y ranked by their "strength" h(x, y).
+The label for a test example with features x is
+then defined as
+y(x) =arg max h(x,y) (1)
+xEx,yrY
+In this paper we define h(x, y) as the following
+function of counts seen in training data:
+Count(x, y) + ol
+h(x,y) = Count(x) +ks (2)
+Count(x, y) is the number of times feature x is
+seen with label y in training data, Count(x) =
+~ueyC°unt(x'Y)" a is a smoothing parame-
+ter, and k is the number of possible labels. In
+this paper k = 3 (the three labels are person,
+organization, location), and we set ~ =
+0.1. Equation 2 is an estimate of the conditional
+probability of the label given the feature, P(ylx). z
+3.2 An Unsupervised Algorithm
+We now introduce a new algorithm for learning
+from unlabeled examples, which we will call DL-
+Co'IYain (DL stands for decision list, the term Co-
+train is taken from (Blum and Mitchell 98)). The
+2(Yarowsky 95) describes the use of more sophisticated
+smoothingmethods. It's not clear how to apply thesemethods
+intheunsupervisedcase,as theyrequiredcross-validationtech-
+niques: for this reason we use the simpler smoothing method
+shownhere.
+102
+Sentence ] Entities (Spelling/Context) Features
+But Robert Jordan, alpartner at Robert Jordan/partner full-string=RobertJordan contains(Robert)
+Steptoe & Johnson who took ... contains(Jordan) context=partner context-type=appos
+Steptoe & Johnson/partner_at full-string=Steptoe_&_Johnson contains(Steptoe)
+contains(&) contains(Johnson) nonalpha=&
+context=partner_at context-type=prep
+By hiring a company like A.T.&T./company_like full-string=A.T.&T, allcap2 nonalpha=..&.
+A.T.&T.... context=company_like context-type=prep
+Hanson acquired Kidde Incor- Kidde Incorporated/parent full-string=Kidde_Incorporated contains(Kidde)
+porated, parent of Kidde Credit, contains(Incorporated) context=parent context-type=appos
+for . . . .
+Kidde-Credit/parenLof full-string=Kidde_Credit contains(Kidde)
+' contains(Credit) context=parent_of context-type=prep
+Table 1: Some example named entities and their features.
+input to the unsupervised algorithm is an initial,
+"seed" set of rules. In the named entity domain
+these rules were
+full-string=N~w-York -+ Location
+full-string=California -+ Location
+full-string=U~S. -~ Location
+contains(Mr.), -~ Person
+contains(Incorporated) -~ Organization
+full-string=Microsoft --~ Organization
+full-string=I,B.M. --+ Organization
+Each of these rules was given a strength of
+0.9999. The following algorithm was then used to
+induce new rules:
+1. Set n = 5. (n is the maximum number of rules
+of each type induced at each iteration.)
+2. Initialization: Set the spelling decision list
+equal to the set of seed rules.
+3. Label the training set using the current set of
+spelling rules. Examples where no rule applies
+are left unlabeled.
+4. Use the labeled examples to induce a decision
+list of contextual rules, using the method de-
+scribed in section 3.1.
+Let Count'(x) be the number of times fea-
+ture x is seen with some known label in
+the training data. For each label (Person,
+Organization and Location), take the
+n contextual rules with the highest value of
+Countt(x) whose unsmoothed3 strength is
+above some threshold Pmin. (If fewer than
+n rules have precision greater than Pmin, we
+3Note that taking tile top n most frequent rules already
+makes the method robust to low count events, hence we do not
+use smoothing, allowing low-count high-precision features to
+be chosen on later iterations.
+.
+.
+.
+keep only those rules which exceed the preci-
+sion threshold.) Pmin was fixed at 0.95 in all
+experiments in this paper.
+Thus at each iteration the method induces at
+most n x k rules, where k is the number of
+possible labels (k = 3 in the experiments in
+this paper).
+Label the training set using the current set of
+contextual rules. Examples where no rule ap-
+plies are left unlabeled.
+On this new labeled set, select up to n x k
+spelling rules using the same method as in step
+4. Set the spelling rules to be the seed set plus
+the rules selected.
+Ifn < 2500 set n = n+ 5 and return to
+step 3. Otherwise, label the training data with
+the combined spelling/contextual decision list,
+then induce a final decision list from the la-
+beled examples where all rules (regardless of
+strength) are added to the decision list.
+3.3 The Algorithm in (Yarowsky 95)
+We can now compare this algorithm to that of
+(Yarowsky 95). The core of Yarowsky's algorithm
+is as follows:
+.
+.
+.
+Initialization: Set the decision list equal to the
+set of seed rules.
+Label the training set using the current set of
+rules.
+Use the labels to learn a decision list h(z, y)
+where h is defined by the formula in equa-
+tion 2, with counts restricted to training data
+examples that have been labeled in step 2.
+103
+Set the decision list to include all rules whose
+(smoothed) strength is above some threshold
+Prain .
+4. Return to step 2.
+There are two differences between this method
+and the DL-CoTrain algorithm:
+• The DL-CoTrain algorithm is rather more cau-
+tious, imposing a gradually increasing limit on the
+number of rules that can be added at each iteration.
+• The DL-CoTrain algorithm has separated the
+spelling and contextual features, alternating be-
+tween labeling and learning with the two types of
+features. Thus an explicit assumption about the re-
+dundancy of the features -- that either the spelling
+or context alone should be sufficient to build a clas-
+sifier -- has been built into the algorithm.
+To measure the contribution of each modification,
+a third, intermediate algorithm, Yarowsky-cautious
+was also tested. Yarowsky-cautious does not sep-
+arate the spelling and contextual features, but does
+have a limit on the number of rules added at each
+stage. (Specifically, the limit n starts at 5 and in-
+creases by 5 at each iteration.)
+The first modification - cautiousness - is a rel-
+atively minor change. It was motivated by the ob-
+servation that the (Yarowsky 95) algorithm added
+a very large number of rules in the first few iter-
+ations. Taking only the highest frequency rules is
+much "safer", as they tend to be very accurate. This
+intuition is born out by the experimental results.
+The second modification is more important, and
+is discussed in the next section.
+3.4 Justification for the Separation of
+Contextual and Spelling Features
+An important reason for separating the two types of
+features is that this opens up the possibility of the-
+oretical analysis of the use of unlabeled examples.
+(Blum and Mitchell 98) describe learning in the fol-
+lowing situation:
+• Each example is represented by a feature vector
+x drawn from a set of possible values (an instance
+space) X. The task is to learn a classification func-
+tion f : X ~ Y where Y is a set of possible labels.
+• The features can be separated into two types:
+X = X1 x X2 where X 1 and X2 correspond to
+two different "views" of an example. In the named
+entity task, X1 might be the instance space for the
+spelling features, X2 might be the instance space
+for the contextual features. By this assumption,
+each element x E X can also be represented as
+(xl, x2) E X1 x X2.
+• Each view of the example is sufficient for clas-
+sification. That is, there exist functions fl and f2
+such that for any example x = (xl,x2), f(x) =
+fl(Xl) = f2(x2). We never see an example x =
+(xl, x2) in training or test data such that fl(xl) #
+f2(x2).
+Thus the method makes the fairly strong assump-
+tion that the features can be partitioned into two
+types such that each type alone is sufficient for clas-
+sification.
+• Xl and x2 are not correlated too tightly. (For
+example, there is not a deterministic function from
+x I to x2.)
+Now assume we have n pairs (xl,i, x2,i) drawn
+from X1 × X2, where the first m pairs have labels Yi,
+whereas for i = m+ 1...n the pairs are unlabeled. In
+a fully supervised setting, the task is to learn a func-
+tion f such that for all i = 1...m, f(Xl,i, x2,i) ----Yi.
+In the cotraining case, (Blum and Mitchell 98) ar-
+gue that the task should be to induce functions fl
+and f2 such that
+1. fl(Xl,i) = f2(x2,i) = Yi for/ = 1...m
+2. fl(xl,i) = f2(x2,i) for/ = m + 1...n
+So fl and f2 must (1) correctly classify the la-
+beled examples, and (2) must agree with each other
+on the unlabeled examples. The key point is that
+the second constraint can be remarkably powerful
+in reducing the complexity of the learning problem.
+(Blum and Mitchell 98) give an example that il-
+lustrates just how powerful the second constraint
+can be. Consider the case where IXll = ]Xa] = N
+and N is a "medium" sized number so that it is fea-
+sible to collect O(N) unlabeled examples. Assume
+that the two classifiers are "rote learners": that is, fl
+and f2 are defined through look-up tables that list a
+label for each member of X1 or X2. The problem is
+a binary classification problem. The problem can be
+represented as a graph with 2N vertices correspond-
+ing to the members of X1 and X2. Each unlabeled
+pair (xl,i, x2,i) is represented as an edge between
+nodes corresponding to Xl,i and x2,i in the graph.
+An edge indicates that the two features must have
+the same label. Given a sufficient number of ran-
+domly drawn unlabeled examples (i.e., edges), we
+will induce two completely connected components
+that together span the entire graph. Each vertex
+within a connected component must have the same
+label -- in the binary classification case, we need a
+104
+single labeled example to identify which component
+should get which label.
+(Blum and Mitchell 98) go on to give PAC re-
+sults for learning in the cotraining case. They also
+describe an application of cotraining to classifying
+web pages (the tw~ofeature sets are the words on
+the page, and other pages pointing to the page).
+The method halves the error rate in comparison to
+a method using the' labeled examples alone.
+i
+Limitations of (B!um and Mitchell 98): While
+the assumptions of (Blum and Mitchell 98) are use-
+ful in developing both theoretical results and an in-
+tuition for the problem, the assumptions are quite
+limited. In particul~, it may not be possible to learn
+functions fl(xl,i)i = f2(x2,i) for i = m + 1...n:
+either because there is some noise in the data, or
+because it is just not realistic to expect to learn per-
+fect classifiers given the features used for represen-
+tation. It may be more realistic to replace the sec-
+ond criteria with a softer one, for example (Blum
+and Mitchell 98) suggest the alternative
+1. fl(Xl,i) = f2(x2,i) = Yi fori = 1...m
+2. The choice of fa and f2 must minimize the
+number of examples for which fl(Xl,i) 7~
+f2(z2,i).
+Alternatively, if fl and f2 are probabilistic learn-
+ers, it might make sense to encode the second con-
+straint as one of minimizing some measure of the
+distance between the distributions given by the two
+learners. The question of what soft function to pick,
+and how to design 'algorithms which optimize it, is
+an open question, but appears to be a promising way
+of looking at the problem.
+The DL-CoTrain algorithm can be motivated as
+being a greedy method of satisfying the above 2
+constraints. At each iteration the algorithm in-
+creases the number of rules, while maintaining a
+high level of agregment between the spelling and
+contextual decision lists. Inspection of the data
+shows that at n = 2500, the two classifiers both give
+labels on 44,281 (4,9.2%) of the unlabeled examples,
+and give the same ~label on 99.25% of these cases.
+So the success of the algorithm may well be due to
+its success in max!mizing the number of unlabeled
+examples on which the two decision lists agree. In
+the next section we present an alternative approach
+that builds two classifiers while attempting to sat-
+isfy the above constraints as much as possible. The
+algorithm, called CoBoost, has the advantage of be-
+ing more general than the decision-list learning al-
+l
+Input: (xl,Yl),..., (xm,Ym); xi E 2"V,yi = ±1
+Initialize D1 (i) = 1/m.
+Fort = 1,...,T:
+• Get weak hypothesis ht : 2x -+ II~by training
+weak learner using distribution Dt.
+• Choose at E I1~.
+• Update:
+Dt+l (i) = Dt(i)e-atyiht(xd /zt
+where Zt = E~--1 Dt(i) e-atyiht(xi).
+Output final hypothesis:
+f(x) = sign (•T: 1 o~tht(x))
+Figure 1: The AdaBoost algorithm for binary prob-
+lems (Schapire and Singer 98).
+gorithm, and, in fact, can be combined with almost
+any supervised machine learning algorithm.
+4 A Boosting-based algorithm
+This section describes an algorithm based on boost-
+ing algorithms, which were previously developed
+for supervised machine learning problems. We first
+give a brief overview of boosting algorithms. We
+then discuss how we adapt and generalize a boost-
+ing algorithm, AdaBoost, to the problem of named
+entity classification. The new algorithm, which we
+call CoBoost, uses labeled and unlabeled data and
+builds two classifiers in parallel. (We would like
+to note though that unlike previous boosting algo-
+rithms, the CoBoost algorithm presented here is not
+a boosting algorithm under Valiant's (Valiant 84)
+Probably Approximately Correct (PAC) model.)
+4.1 The AdaBoost algorithm
+This section describes AdaBoost, which is the ba-
+sis for the CoBoost algorithm. AdaBoost was first
+introduced in (Freund and Schapire 97); (Schapire
+and Singer 98) gave a generalization of AdaBoost
+which we will use in this paper. For a description of
+the application of AdaBoost to various NLP prob-
+lems see the paper by Abney, Schapire, and Singer
+in this volume.
+The input to AdaBoost is a set of training exam-
+ples ((Xl, Yl),. • • , (Xrn, Ym))- Each xi E 2x is the
+set of features constituting the ith example. For the
+moment we will assume that there are only two pos-
+sible labels: each Yi is in {-1, +1}. AdaBoost is
+given access to a weak learning algorithm, which
+105
+accepts as input the training examples, along with
+a distribution over the instances. The distribution
+specifies the relative weight, or importance, of each
+example -- typically, the weak learner will attempt
+to minimize the weighted error on the training set,
+where the distribution specifies the weights.
+The weak learner for two-class problems com-
+putes a weak hypothesis h from the input space into
+the reals (h : 2x --+ 11~),where the sign4 of h(x)
+is interpreted as the predicted label and the mag-
+nitude Ih(x)l is the confidence in the prediction:
+large numbers for Ih(x) l indicate high confidence in
+the prediction, and numbers close to zero indicate
+low confidence. The weak hypothesis can abstain
+from predicting the label of an instance x by set-
+ting h(x) = 0. The final strong hypothesis, denoted
+f (x), is then the sign of a weighted sum of the weak
+hypotheses, f(x) = sign (~tT=l atht(x)), where
+the weights at are determined during the run of the
+algorithm, as we describe below.
+Pseudo-code describing the generalized boosting
+algorithm of Schapire and Singer is given in Fig-
+ure 1. Note that Zt is a normalization constant that
+ensures the distribution Dt+l sums to 1; it is a func-
+tion of the weak hypothesis ht and the weight for
+that hypothesis at chosen at the tth round. The nor-
+malization factor plays an important role in the Ad-
+aBoost algorithm. Schapire and Singer show that
+the training error is bounded above by
+1 exp --Yi o~tht(xi) HZt . (3)
+i=1 t
+Thus, in order to greedily minimize an upper bound
+on training error, on each iteration we should search
+for the weak hypothesis ht and the weight at that
+minimize Zt.
+In our implementation, we make perhaps the sim-
+plest choice of weak hypothesis. Each ht is a func-
+tion that predicts a label (+1 or -1) on examples
+containing a particular feature xt, while abstaining
+on other examples:
+±1 xtCx
+ht(x) = 0 Xt ~ x
+The prediction of the strong hypothesis can then be
+written as
+awe definesign(O) = O.
+We now briefly describe how to choose ht and o~t
+at each iteration. Our derivation is slightly different
+from the one presented in (Schapire and Singer 98)
+as we restrict o~t to be positive. Zt can be written as
+follows
+Zt = ~ Dt(i)
+i:ggt~xi
++ E nt(i) exp(-Yiatht(xi)). (4)
+i:XtExi
+Let
+Wo = E Dt(i),
+i:ht(xl)=O
+W+ = E Dt(i) ,
+i:ht(xi)=yl
+W_ = E Dr(i).
+i:ht(xl)=-yi
+Following the derivation of Schapire and Singer,
+providing that W+ > W_, Equ. (4) is minimized
+by setting
+at = ~ In . (5)
+Since a feature may be present in only a few ex-
+amples, W_ can be in practice very small or even
+0, leading to extreme confidence values. To pre-
+vent this we "smooth" the confidence by adding a
+small value, e, to both W+ and W_, giving st =
+Plugging the value of at from Equ. (5) and ht into
+Equ. (4) gives
+Zt = Wo + 2v/W+W_ (6)
+In order to minimize Zt, at each iteration the final
+algorithm should choose the weak hypothesis (i.e.,
+a feature xt) which has values for W+ and W_ that
+minimize Equ. (6), with W+ > W_.
+4.2 The CoBoost algorithm
+We now describe the CoBoost algorithm for the
+named entity problem. Following the convention
+presented in earlier sections, we assume that each
+example is an instance pair of the from (Xl,i, X2,i)
+where Xj,i E 2"vJ,j E {1,2}. In the named-
+entity problem each example is a (spelling,context)
+pair. The first rn pairs have labels Yi, whereas for
+i = m + 1,...,n the pairs are unlabeled. We
+make the assumption that for each example, both
+106
+I
+i
+xl,i and x2,i alone are sufficient to determine the la-
+bel Yi. The learning task is to find two classifiers
+fx : 2& --+ {-1, +1} f2 : 2x'2 --+ {-1, +1} such
+that fl(xl,i) = f2(x2,i) = Yi for examples i =
+1,..., m, and fl(Xl,i) = f2(x2,i) as often as possi-
+ble on examples i = m + 1,..., n. To achieve this
+goal we extend the auxiliary function that bounds
+the training error (see Equ. (3)) to be defined over
+unlabeled as well as labeled instances. Denote by
+gj(x) = ~t4h~:(x),j E {1,2} the unthresholded
+strong-hypothesis (i.e., fj (x) = sign(gj (x))). We
+define the following function:
+m
+Xco de_=y Zexp(_yigl(Xl,i))
++
+i=1
+m
+exp(-y g (x ,d)
+i=1
+n
+-q- Z exp(--f2(x2,i)gl(xl,i))
+i=m+l
+n
++ ~ exp(-fl(xl,i)g2(x2,i)). (7)
+i=m+l
+If Zco is small, then it follows that the two classi-
+fiers must have a'low error rate on the labeled ex-
+amples, and that they also must give the same la-
+bel on a large number of unlabeled instances. To
+see this, note that the first two terms in the above
+equation correspond to the function that AdaBoost
+attempts to minimize in the standard supervised set-
+ting (Equ. (3)), With one term for each classifier.
+The two new terms force the two classifiers to agree,
+as much as possible, on the unlabeled examples.
+Put another way, the minimum of Equ. (7) is at
+0 when: 1)Vi : sign(gl(xi)) = sign(g2(xi));
+2) Igj(xi)l ~ ~; and 3) sign(gj(xi)) = yi for
+i = 1,...,m. In fact, Zco provides a bound on
+the sum of the classification error of the labeled ex-
+amples and the number of disagreements between
+the two classifiers on the unlabeled examples. For-
+mally, let el (e2) be the number of classification er-
+rors of the first (second) learner on the training data,
+and let eco be the number of unlabeled examples on
+which the two classifiers disagree. Then, it can be
+verified that
+q + e2 + 2eco _< Zco •
+We can now derive the CoBoost algorithm as a
+means of minimizing Zco. The algorithm builds
+two classifiers in parallel from labeled and unla-
+beled data. As in boosting, the algorithm works in
+rounds. Each round is composed of two stages; each
+stage updates one of the classifiers while keeping
+the other classifier fixed. Denote the unthresholded
+classifiers after t - 1 rounds by 9}-x and assume
+that it is the turn for the first classifier to be updated
+while the second one is kept fixed. We first define
+"pseudo-labels", yi, as follows:
+Yi l<i<m
+Yi = sign(g~-l(x2,i)) m < i <_n
+Thus the first m labels are simply copied from the
+labeled examples, while the remaining (n - m) ex-
+amples are taken as the current output of the second
+classifier. We can now add a new weak hypothesis
+ht1 based on a feature in P(1 with a confidence value
+oct
+1. ht1 and tit1 are chosen to minimize the function
+n
+Zclo = Z exp(--,Yi(g~-l(xi) + c~tlh~(xl,i)))" (8)
+i=1
+We now define, for 1 < i < n, the following virtual
+distribution,
+1
+Dtl(i) = z--~exp(-~ig~-l(xl,i) ),
+As before, Zt1 is a normalization constant. Equ. (8)
+can now be rewritten5 as
+n
+Z Dtl(i)exp(-,Yi~h~(xl, i))'
+i=l
+which is of the same form as the function Zt used
+in AdaBoost. Using the virtual distribution Dtl(i)
+and pseudo-labels ~)i, values for W0, W+ and W_
+can be calculated for each possible weak hypothesis
+(i.e., for each feature x E ,121); the weak hypothe-
+sis with minimal value for W0 + 2~+W_ can be
+chosen as before; and the weight for this weak hy-
+pothesis c~t = ½In \ w_ +~) can be calculated. This
+procedure is repeated for T rounds while alternat-
+ing between the two classifiers. The pseudo-code
+describing the algorithm is given in Fig. 2.
+The CoBoost algorithm described above divides
+the function Zco into two parts: Zco = Zclo + Zc2o•
+•On each step CoBoost searches for a feature and
+a weight so as to minimize either Zclo or Zc2o. In
+5up to a constant factor Zt~ which does not affect the mini-
+mization of Equ. (8) w.r.t, ht and at.
+107
+n m
+Input: {(xl,i, x2,i) }i=l , {Yi}i=l
+Initialize: Vi, j : g°(x/) = 0.
+Fort = 1, .... T and forj = 1,2:
+• Set pseudo-labels:
+Yi l<i<m
+Yi = sign(9~-}(x3_j,{)) m < i _< n
+• Set virtual distribution:
+D{(i) = 1
+-~- exp (-gig]-I (xj,i))
+Zt
+where Zt3 = E~=I exp(-Yi9] -1 (xj,i)).
+• Get a weak hypothesis ht
+3 : 2A:J --+ IR. by train-
+ing weak learner j using distribution D~.
+• Choose at 6 ~.
+• Update:
+t X -~- ]--l:x
+Vi : gj( j,i) g ~ j,i) + c~th~(xj,i) .
+Output final hypothesis:
+f(x) = sign(E~=igT(Xj))
+Figure 2: The CoBoost algorithm.
+practice, this greedy approach almost always results
+in an overall decrease in the value of Zco. Note,
+however, that there might be situations in which
+Zco in fact increases.
+One implementation issue deserves some elab-
+oration. Note that in our formalism a weak-
+hypothesis can abstain. In fact, during the first
+rounds many of the predictions of gl, 92 are zero.
+Thus corresponding pseudo-labels for instances on
+which 9j abstainare set to zero and these instances
+do not contribute to the objective function. Each
+learner is free to pick the labels for these instances.
+This allow the learners to "bootstrap" each other by
+filling the labels of the instances on which the other
+side has abstained so far.
+The CoBoost algorithm just described is for the
+case where there are two labels: for the named en-
+tity task there are three labels, and in general it will
+be useful to generalize the CoBoost algorithm to the
+multiclass case. Several extensions of AdaBoost for
+multiclass problems have been suggested (Freund
+and Schapire 97; Schapire and Singer 98). In this
+work we extended the AdaBoost.MH (Schapire and
+Singer 98) algorithm to the cotraining case. Ad-
+aBoost.MH maintains a distribution over instances
+and labels; in addition, each weak-hypothesis out-
+puts a confidence vector with one confidence value
+for each possible label. We again adopt an approach
+where we alternate between two classifiers: one
+classifier is modified while the other remains fixed.
+Pseudo-labels are formed by taking seed labels on
+the labeled examples, and the output of the fixed
+classifier on the unlabeled examples. AdaBoost.MH
+can be applied to the problem using these pseudo-
+labels in place of supervised examples.
+For the experiments in this paper we made a cou-
+ple of additional modifications to the CoBoost al-
+gorithm. The algorithm in Fig. (2) was extended
+to have an additional, innermost loop over the (3)
+possible labels. The weak hypothesis chosen was
+then restricted to be a predictor in favor of this la-
+bel. Thus at each iteration the algorithm is forced
+to pick features for the location, person and
+organization in turn for the classifier being
+trained. This modification brings the method closer
+to the DL-CoTrain algorithm described earlier, and
+is motivated by the intuition that all three labels
+should be kept healthily populated in the unlabeled
+examples, preventing one label from dominating --
+this deserves more theoretical investigation.
+We also removed the context-type feature
+type when using the CoBoost approach. This "de-
+fault" feature type has 100% coverage (it is seen on
+every example) but a low, baseline precision. When
+this feature type was included, CoBoost chose this
+default feature at an early iteration, thereby giving
+non-abstaining pseudo-labels for all examples, with
+eventual convergence to the two classifiers agreeing
+by assigning the same label to almost all examples.
+Again, this deserves further investigation.
+Finally, we would like to note that it is possible to
+devise similar algorithms based with other objective
+functions than the one given in Equ. (7), such as the
+likelihood function used in maximum-entropy prob-
+lems and other generalized additive models (Laf-
+ferty 99). We are currently exploring such algo-
+rithms.
+5 An EM-based approach
+The Expectation Maximization (EM) algorithm
+(Dempster, Laird and Rubin 77) is a common ap-
+proach for unsupervised training; in this section we
+describe its application to the named entity prob-
+lem. A generative model was applied (similar to
+naive Bayes) with the three labels as hidden vari-
+108
+!
+ables on unlabeled examples, and observed vari-
+ables on (seed) labeled examples. The model was
+parameterized such that the joint probability of a
+(label,feature-sei) pair P(Yi, xi) is written as
+P(Yi, xi) = P(Yi, Xil''. Ximi)
+mi
+= P(yi)P(mi) N P(xij]Yi)
+j=l
+(9)
+The model assumes that (y, x) pairs are generated
+by an underlying process where the label is first cho-
+sen with some prior probability P(Yi); the number
+of features mi is then chosen with some probability
+P(mi); finally th~ features are independently gen-
+erated with probabilities P(xij [Yi).
+We again assume a training set of n examples
+{xl ... Xn} where the first m examples have labels
+{Yl ... ym}, and the last (n - m) examples are un-
+labeled. For the purposes of EM, the "observed"
+data is {(xx,ya)i... (Xm,Ym),Xm+l...Xn}, and
+the hidden data is {ym+l ... Yn}. The likelihood of
+the observed data under the model is
+m n k
+l~ P(yi, xl) × II ~ P(y, xi)
+i=1 i=m+l y=l
+(10)
+where P(Yi, xi) is defined as in (9). Training under
+this model involves estimation of parameter values
+for P(y), P(m) and P(xly). The maximum likeli-
+hood estimates (i.e., parameter values which maxi-
+mize 10) can not be found analytically, but the EM
+algorithm can be used to hill-climb to a local max-
+imum of the likelihood function from some initial
+parameter settings. In our experiments we set the
+parameter values randomly, and then ran EM to con-
+vergence.
+Given parameter estimates, the label for a test ex-
+ample x is defined as
+f(x) = argum{~xk}P(x,y) (11)
+We should note that the model in equation 9
+is deficient, in that it assigns greater than zero
+probability to some feature combinations that
+are impossible. For example, the indepen-
+dence assumptions mean that the model fails
+to capture the dependence between specific and
+more general features (for example the fact that
+the feature full'-string=New_York is always
+seen with the features contains (New) and
+Learning Algorithm Accuracy Accuracy
+(Clean) (Noise)
+Baseline
+EM
+(Yarowsky 95)
+Yarowsky-cautious
+DL-CoTrain
+CoBoost
+45.8%
+83.1%
+81.3%
+91.2%
+91.3%
+91.1%
+41.8%
+75.8%
+74.1%
+83.2%
+83.3%
+83.1%
+Table 2: Accuracy for different learning methods.
+The baseline method tags all entities as the most fre-
+quent class type (organization).
+contains (York) and is never seen with a fea-
+ture suchas contains (Group)). Unfortunately,
+modifying the model to account for these kind of
+dependencies is not at all straightforward.
+6 Evaluation
+88,962 (spelling,context) pairs were extracted as
+training data. 1,000 of these were picked at
+random, and labeled by hand to produce a test
+set. We chose one of four labels for each exam-
+ple: location, person, organization,
+or noise where the noise category was used for
+items that were outside the three categories. The
+numbers falling into the location, person,
+organi z at i on categories were 186, 289 and 402
+respectively.
+123 examples fell into the noise category. Of
+these cases, 38 were temporal expressions (either a
+day of the week or month of the year). We excluded
+these from the evaluation as they can be easily iden-
+tified with a list of days/months. This left 962 ex-
+amples, of which 85 were noise. Taking Arc to be
+the number of examples an algorithm classified cor-
+rectly (where all gold standard items labeled no i s e
+were counted as being incorrect), we calculated two
+measures of accuracy:
+Nc
+Accuracy : Noise -- (12)
+962
+Nc
+Accuracy :Clean - (13)
+962 - 85
+See Tab. 2 for the accuracy ofthe different meth-
+ods. Note that on some examples (around 2% of
+the test set) CoBoost abstained altogether; in these
+cases we labeled the test example with the baseline,
+organization, label. Fig. (3) shows learning
+curves for CoBoost.
+109
+1
+0.9
+0.8
+0.7
+0.6
+0.5
+0.4
+0.3
+0.2
+0.1
+"
+.,.¢¢"
+..................... ' ............
+.,,.,,,~.-" Coverage:train ----*
+....
+.~ : Agreements:train ..... • ....
+10 1O0 1000 10000
+Number of rounds
+Figure 3: Learning curves for CoBoost. The graph
+gives the accuracy on the test set, the coverage (pro-
+portion of examples on which both classifiers give a
+label rather than abstaining), and the proportion of
+these examples on which the two classifiers agree.
+With each iteration more examples are assigned la-
+bels by both classifiers, while a high level of agree-
+ment (> 94%) is maintained between them. The
+test accuracy more or less asymptotes.
+7 Conclusions
+Unlabeled examples in the named-entity classifica-
+tion problem can reduce the need for supervision to
+a handful of seed rules. In addition to a heuristic
+based on decision list learning, we also presented a
+boosting-like framework that builds on ideas from
+(Blum and Mitchell 98). The method uses a "soft"
+measure of the agreement between two classifiers
+as an objective function; we described an algorithm
+which directly optimizes this function. We are cur-
+rently exploring other methods that employ simi-
+lar ideas and their formal properties. Future work
+should also extend the approach to build a complete
+named entity extractor -- a method that pulls proper
+names from text and then classifies them. The con-
+textual rules are restricted and may not be applicable
+to every example, but the spelling rules are gener-
+ally applicable and should have good coverage. The
+problem of "noise" items that do not fall into any of
+the three categories also needs to be addressed.
+References
+M. Berland and E. Charniak. 1999. Finding Parts in Very Large
+Corpora. In Proceedings of the the 37th Annual Meeting of
+the Association for Computational Linguistics (ACL-99).
+D. M. Bikel, S. Miller, R. Schwartz, and R. Weischedel. 1997.
+Nymble: a High-Performance Learning Name-finder. In
+Proceedings of the Fifth Conference on Applied Natural
+Language Processing, pages 194-201.
+A. Blum and T. Mitchell. 1998. Combining Labeled and
+Unlabeled Data with Co-Training. In Proceedings of the
+l lth Annual Conference on Computational Learning The-
+ory (COLT-98).
+E. Brill. 1995. Unsupervised Learning of Disambiguation
+Rules for Part of Speech Tagging. In Proceedings of the
+Third Workshopon VeryLarge Corpora.
+S. Brin. 1998. Extracting Patterns and Relations from the World
+Wide Web. In WebDB Wokshopat EDBT '98.
+M. Collins. 1996. A New Statistical Parser Based on Bi-
+gram Lexical Dependencies. Proceedings ofthe 34thAnnual
+Meeting of the Association for Computational Linguistics,
+pages 184-191.
+A.P. Dempster, N.M. Laird, and D.B. Rubin, (1977). Maximum
+Likelihood from Incomplete Data Via the EM Algorithm,
+Journal of the Royal Statistical Society, Ser B, 39, 1-38.
+Y. Freund. Boosting a weak learning algorithm by majority.
+Information and Computation, 121(2):256-285, 1995.
+Y. Freund and R. E. Schapire. A decision-theoretic general-
+ization of on-line learning and an application to boosting.
+Journal of Computer and System Sciences, 55( 1):I 19-139,
+1997.
+M. Hearst. 1992. Automatic Acquisition of Hyponyms from
+Large Text Corpora. In Proceedings of the Fourteenth In-
+ternational Conference on Computational Linguistics.
+Michael Kearns. Thoughts on hypothesis boosting. Unpub-
+lished manuscript, December 1988.
+J. Lafferty. Additive Models, Boosting, and Inference for Gen-
+eralized Divergences. In Proceedings of the TwelfthAnnual
+Conference on Computational Learning Theory, 1999.
+Proceedings of the Sixth Message Understanding Conference
+(MUC-6). Morgan Kaufmann, San Mateo, CA.
+E. Riloff and J. Shepherd. 1997. A Corpus-Based Approach
+for Building Semantic Lexicons. In Proceedings of the Sec-
+ond Conference on Empirical Methods in Natural Language
+Processing (EMNLP-2).
+E. Riloff and R. Jones. 1999. Learning Dictionaries for Infor-
+mation Extraction by Multi-Level Bootstrapping. In Pro-
+ceedings of the Sixteenth National Conference on Artificial
+Intelligence (AAAI-99).
+R. E. Schapire. The strength of weak learnability. Machine
+Learning, 5(2): 197-227, 1990.
+R. E. Schapire and Y. Singer. Improved boosting algorithms
+using confidence-rated predictions. In Proceedings of the
+Eleventh Annual Conference on Computational Learning
+Theory, pages 80-91, 1998. To appear, Machine Learning.
+G. Valiant. A theory of the learnable. Communications of
+the ACM, 27(11): 1134-1142, November 1984.
+Yarowsky. 1995. Unsupervised Word Sense Disambiguation
+Rivaling Supervised Methods.In Proceedings of the 33rd
+Annual Meeting of the Association for Computational Lin-
+guistics. Cambridge, MA, pp. 189-196.
+L.
+D.
+110
+

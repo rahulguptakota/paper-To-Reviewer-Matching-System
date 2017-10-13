@@ -1,0 +1,925 @@
+Discriminative Training Methods for Hidden Markov Models:
+Theory and Experiments with Perceptron Algorithms
+Michael Collins
+AT&T Labs-Research, Florham Park, New Jersey.
+mcollins@research.att.com
+Abstract
+We describe new algorithms for train-
+ing tagging models, as an alternative
+to maximum-entropy models or condi-
+tional random elds (CRFs). The al-
+gorithms rely on Viterbi decoding of
+training examples, combined with sim-
+ple additive updates. We describe the-
+ory justifying the algorithms through
+a modication of the proof of conver-
+gence of the perceptron algorithm for
+classication problems. We give exper-
+imental results on part-of-speech tag-
+gingandbasenounphrasechunking,in
+both cases showing improvements over
+results for a maximum-entropy tagger.
+1 Introduction
+Maximum-entropy (ME) models are justiably
+a very popular choice for tagging problems in
+Natural Language Processing: for example see
+(Ratnaparkhi 96) for their use on part-of-speech
+tagging, and (McCallum et al. 2000) for their
+use on a FAQ segmentation task. ME models
+have the advantage of being quite exible in the
+features that can be incorporated in the model.
+However, recenttheoreticalandexperimentalre-
+sults in (Laerty et al. 2001) have highlighted
+problemswiththeparameterestimationmethod
+for ME models. In response to these problems,
+they describe alternative parameter estimation
+methods based on Conditional Markov Random
+Fields(CRFs). (Laerty et al. 2001) give exper-
+imental results suggesting that CRFs can per-
+form signicantly better than ME models.
+In this paper we describe parameter estima-
+tionalgorithmswhicharenaturalalternativesto
+CRFs. The algorithms are based on the percep-
+tron algorithm (Rosenblatt 58), and the voted
+or averaged versions of the perceptron described
+in (Freund & Schapire 99). These algorithms
+have been shown by (Freund & Schapire 99) to
+be competitive withmodern learningalgorithms
+such as support vector machines; however, they
+have previously been applied mainly to classi-
+cation tasks, and it is not entirely clear how the
+algorithms can be carried across to NLP tasks
+such as tagging or parsing.
+This paper describes variants of the percep-
+tron algorithm for tagging problems. The al-
+gorithms rely on Viterbi decoding of training
+examples, combined with simple additive up-
+dates. We describe theory justifying the algo-
+rithmthroughamodicationoftheproofofcon-
+vergence of the perceptron algorithm for classi-
+cation problems. We give experimental results
+on part-of-speech tagging and base noun phrase
+chunking, in both cases showing improvements
+over results for a maximum-entropy tagger (a
+11.9% relative reduction in error for POS tag-
+ging, a 5.1% relative reduction in error for NP
+chunking). Although we concentrate on tagging
+problems in this paper, the theoretical frame-
+work and algorithm described in section 3 of
+this paper should be applicable to a wide va-
+riety of models where Viterbi-style algorithms
+can be used for decoding: examples are Proba-
+bilistic Context-Free Grammars, or ME models
+for parsing. See (Collinsand Duy 2001; Collins
+and Duy 2002; Collins 2002) for other applica-
+tions of the voted perceptronto NLP problems.1
+2 Parameter Estimation
+2.1 HMM Taggers
+In this section, as a motivating example, we de-
+scribe a special case of the algorithm in this
+paper: the algorithm applied to a trigram tag-
+ger. In a trigram HMM tagger, each trigram
+1The theorems in section 3, and the proofs in sec-
+tion 5, apply directly to the work in these other papers.
+Association for Computational Linguistics.
+Language Processing (EMNLP), Philadelphia, July 2002, pp. 1-8.
+Proceedings of the Conference on Empirical Methods in Natural
+of tags and each tag/word pair have associated
+parameters. We write the parameter associated
+with a trigram hx;y;zi as x;y;z, and the param-
+eter associated with a tag/word pair (t;w) as
+t;w. A common approach is to take the param-
+etersto beestimatesofconditionalprobabilities:
+x;y;z = logP(z j x;y), t;w = logP(w j t).
+For convenience we will use w[1:n] as short-
+hand for a sequence of words [w1;w2 :::wn],
+and t[1:n] as shorthand for a taq sequence
+[t1;t2 :::tn]. In a trigram tagger the score for
+a tagged sequence t[1:n] paired with a word se-
+quence w[1:n] is2 Pn
+i=1 ti 2;ti 1;ti + Pn
+i=1 ti;wi.
+When the parameters are conditional probabil-
+ities as above this \score" is an estimate of the
+log of the joint probability P(w[1:n];t[1:n]). The
+Viterbialgorithmcanbeusedto ndthe highest
+scoring tagged sequence under this score.
+As an alternative to maximum{likelihood pa-
+rameter estimates, this paper will propose the
+following estimation algorithm. Say the train-
+ing set consists of n tagged sentences, the i'th
+sentence being of length ni. We will write these
+examples as (wi
+[1:ni];ti
+[1:ni]) for i = 1:::n. Then
+the training algorithm is as follows:
+ Choose a parameter T dening the number
+of iterations over the training set.3
+ Initially set all parameters x;y;z and t;w
+to be zero.
+ For t = 1:::T;i = 1:::n: Use the Viterbi
+algorithm to nd the best tagged sequence for
+sentence wi
+[1:ni] under the current parameter
+settings: we call this tagged sequence z[1:ni].
+For every tag trigram hx;y;zi seen c1 times in
+ti
+[1:ni] and c2 times in z[1:ni] where c1 6= c2 set
+x;y;z = x;y;z + c1 c2. For every tag/word
+pair ht;wi seen c1 times in (wi
+[1:ni];ti
+[1:ni]) and
+c2 times in (wi
+[1:ni];z[1:ni]) where c1 6= c2 set
+t;w = t;w +c1 c2.
+As an example, say the i'th tagged sentence
+(wi
+[1:ni];ti
+[1:ni]) in training data is
+the/D man/N saw/V the/D dog/N
+and under the current parameter settings the
+highest scoring tag sequence (wi
+[1:ni];z[1:ni]) is
+2We take t 1 and t 2 to be special NULL tag symbols.
+3T is usually chosen by tuning on a development set.
+the/D man/N saw/N the/D dog/N
+Then the parameter update will add 1 to the
+parameters D;N;V , N;V;D, V;D;N, V;saw and
+subtract 1 from the parameters D;N;N, N;N;D,
+N;D;N, N;saw. Intuitively this has the ef-
+fect of increasing the parameter values for fea-
+tures which were \missing" from the proposed
+sequence z[1:ni], and downweighting parameter
+values for \incorrect" features in the sequence
+z[1:ni]. Note that if z[1:ni] = ti
+[1:ni] | i.e., the
+proposed tag sequence is correct | no changes
+are made to the parameter values.
+2.2 Local and Global Feature Vectors
+Wenowdescribehowtogeneralizethealgorithm
+to more general representations of tagged se-
+quences. In this section we describe the feature-
+vector representations whichare commonlyused
+in maximum-entropy models for tagging, and
+which are also used in this paper.
+In maximum-entropy taggers (Ratnaparkhi
+96; McCallum et al. 2000), the tagging prob-
+lem is decomposed into sequence of decisions in
+tagging the problem in left-to-right fashion. At
+each point there is a \history" { the context in
+which a tagging decision is made { and the task
+is to predict the tag given the history. Formally,
+a history is a 4-tuple ht 1;t 2;w[1:n];ii where
+t 1;t 2 are the previoustwo tags, w[1:n] isan ar-
+ray specifyingthe n words in the inputsentence,
+and i is the index of the word being tagged. We
+use H to denote the set of all possible histories.
+Maximum-entropy models represent the tag-
+gingtaskthroughafeature-vector representation
+ofhistory-tagpairs. Afeaturevector representa-
+tion  : HT ! Rd is a function  that maps a
+history{tag pair to a d-dimensional feature vec-
+tor. Each component s(h;t) for s = 1:::d
+could be an arbitrary function of (h;t). It is
+common (e.g., see (Ratnaparkhi 96)) for each
+feature s to be an indicator function. For ex-
+ample, one such feature might be
+1000(h;t) =
+8
+>
+<
+>
+:
+1 if current word wi is the
+and t = DT
+0 otherwise
+Similar features might be dened for every
+word/tag pair seen in training data. Another
+feature type might track trigramsof tags, for ex-
+ample 1001(h;t) = 1 if ht 2;t 1;ti = hD, N, Vi
+and 0 otherwise. Similar features would be de-
+ned for all trigrams of tags seen in training. A
+real advantage of these models comes from the
+freedom in dening these features: for example,
+(Ratnaparkhi 96; McCallum et al. 2000) both
+describe feature sets which would be diÆcult to
+incorporate in a generative model.
+In addition to feature vector representations
+of history/tag pairs, we will nd it convenient
+to dene feature vectors of (w[1:n];t[1:n]) pairs
+where w[1:n] is a sequence of n words, and t[1:n]
+is an entire tag sequence. We use  to de-
+note a function from (w[1:n];t[1:n]) pairs to d-
+dimensional feature vectors. We will often refer
+to  as a \global" representation, in contrast
+to  as a \local" representation. The particular
+global representations considered in this paper
+are simple functions of local representations:
+s(w[1:n];t[1:n]) =
+n
+X
+i=1
+s(hi;ti) (1)
+where hi = hti 1;ti 2;w[1:n];ii. Each global
+feature s(w[1:n];t[1:n]) is simply the value for
+the local representation s summed over all his-
+tory/tag pairs in (w[1:n];t[1:n]). If the local fea-
+turesareindicatorfunctions,thentheglobalfea-
+tures will typically be \counts". For example,
+with 1000 dened as above, 1000(w[1:n];t[1:n])
+is the number of times the is seen tagged as DT
+in the pair of sequences (w[1:n];t[1:n]).
+2.3 Maximum-Entropy Taggers
+In maximum-entropy taggers the feature vectors
+ together with a parameter vector 
+ 2 Rd are
+used to dene a conditional probability distri-
+bution over tags given a history as
+P(t j h; 
+) = e
+P
+s
+ss(h;t)
+Z(h; 
+)
+where Z(h; 
+) = P
+l2T e
+P
+s
+ss(h;l). The log of
+this probability has the form logp(t j h; 
+) =
+Pd
+s=1 ss(h;t) logZ(h; 
+), and hence the log
+probability for a (w[1:n];t[1:n]) pair will be
+X
+i
+d
+X
+s=1
+ss(hi;ti)
+X
+i
+logZ(hi; 
+) (2)
+where hi = hti 1;ti 2;w[1:n];ii. Given parame-
+ter values 
+, and an input sentence w[1:n], the
+highest probability tagged sequence under the
+formula in Eq. 2 can be found eÆciently using
+the Viterbi algorithm.
+The parameter vector 
+ is estimated from a
+training set of sentence/tagged-sequence pairs.
+Maximum-likelihood parameter values can be
+estimated using Generalized Iterative Scaling
+(Ratnaparkhi 96), or gradient descent methods.
+In some cases it may be preferable to apply a
+bayesian approach which includes a prior over
+parameter values.
+2.4 A New Estimation Method
+We now describe an alternative method for es-
+timating parameters of the model. Given a se-
+quence of words w[1:n] and a sequence of part of
+speech tags, t[1:n], we will take the \score" of a
+tagged sequence to be
+n
+X
+i=1
+d
+X
+s=1
+ss(hi;ti) =
+d
+X
+s=1
+ss(w[1:n];t[1:n]) :
+where hi is again hti 1;ti 2;w[1:n];ii. Note that
+this is almost identical to Eq. 2, but without the
+local normalization terms logZ(hi; 
+). Under
+this method for assigning scores to tagged se-
+quences, the highest scoring sequence of tags for
+an inputsentence can befoundusingthe Viterbi
+algorithm. (We can use an almost identical de-
+coding algorithm to that for maximum-entropy
+taggers, the dierence being that local normal-
+ization terms do not need to be calculated.)
+We then propose the trainingalgorithm ing-
+ure 1. The algorithm takes T passes over the
+training sample. All parameters are initially set
+to be zero. Each sentence in turn is decoded us-
+ing the current parameter settings. If the high-
+est scoring sequence under the current model is
+not correct, the parameters s are updated in a
+simple additive fashion.
+Note that if the local features s are indica-
+tor functions, then the global features s willbe
+counts. In this case the update will add cs ds
+to each parameter s, where cs is the number
+of times the s'th feature occurred in the cor-
+rect tag sequence, and ds is the number of times
+Inputs: A training set of tagged sentences,
+(wi
+[1:ni];ti
+[1:ni]) for i = 1:::n. A parameter T
+specifying number of iterations over the training set. A
+\local representation"  which is a function that maps
+history/tag pairs to d-dimensional feature vectors. The
+global representation  is dened through  as in Eq. 1.
+Initialization: Set parameter vector 
+ = 0.
+Algorithm:
+For t = 1:::T;i = 1:::n
+ Use the Viterbi algorithm to nd the output of the
+model on the i'th training sentence with the current pa-
+rameter settings, i.e.,
+z[1:ni] = argmaxu[1:ni]2Tni
+P
+s ss(wi
+[1:ni];u[1:ni])
+where T ni is the set of all tag sequences of length ni.
+ If z[1:ni] 6= ti
+[1:ni] then update the parameters
+s = s +s(wi
+[1:ni];ti
+[1:ni]) s(wi
+[1:ni];z[1:ni])
+Output: Parameter vector 
+.
+Figure 1: The training algorithm for tagging.
+it occurs in highest scoring sequence under the
+current model. For example, if the features s
+are indicator functions tracking all trigrams and
+word/tag pairs, then the training algorithm is
+identical to that given in section 2.1.
+2.5 Averaging Parameters
+There is a simple renement to the algorithm
+in gure 1, called the \averaged parameters"
+method. Dene t;i
+s to be the value for the s'th
+parameter after the i'th training example has
+been processed in pass t over the training data.
+Then the \averaged parameters" are dened as
+s = P
+t=1:::T;i=1:::n t;i
+s =nT for all s = 1:::d.
+It is simple to modify the algorithm to store
+this additional set of parameters. Experiments
+in section 4 show that the averaged parameters
+perform signicantly better than the nal pa-
+rameters T;n
+s . The theory in the next section
+gives justication for the averaging method.
+3 Theory Justifying the Algorithm
+In this section we give a general algorithm for
+problems such as tagging and parsing, and give
+theorems justifyingthe algorithm. We alsoshow
+how the tagging algorithm in gure 1 is a spe-
+cial case of this algorithm. Convergence theo-
+rems for the perceptron applied to classication
+problems appear in (Freund & Schapire 99) {
+the results in this section, and the proofs in sec-
+tion 5, show how the classicationresults can be
+Inputs: Training examples (xi;yi)
+Initialization: Set 
+ = 0
+Algorithm:
+For t = 1:::T, i = 1:::n
+Calculate zi = argmaxz2GEN(xi) (xi;z) 
+
+If(zi 6= yi) then 
+ = 
+ +(xi;yi) (xi;zi)
+Output: Parameters 
+
+Figure 2: A variant of the perceptron algorithm.
+carried over to problems such as tagging.
+The task is to learn a mapping from inputs
+x 2 X to outputs y 2 Y. For example, X might
+be a set of sentences, with Y being a set of pos-
+sible tag sequences. We assume:
+ Training examples (xi;yi) for i = 1:::n.
+ A function GEN which enumerates a set of
+candidates GEN(x) for an input x.
+ Arepresentation mappingeach(x;y) 2
+X Y to a feature vector (x;y) 2 Rd.
+ A parameter vector 
+ 2 Rd.
+ThecomponentsGEN;and 
+ deneamap-
+ping from an input x to an output F(x) through
+F(x) = arg max
+y2GEN(x)
+(x;y) 
+
+where (x;y)  
+ is the inner product
+P
+s ss(x;y). The learning task is to set the
+parameter values 
+ using the training examples
+as evidence.
+The tagging problem in section 2 can be
+mapped to this setting as follows:
+ Thetrainingexamplesaresentence/tagged-
+sequence pairs: xi = wi
+[1:ni] and yi = ti
+[1:ni]
+for i = 1:::n.
+ Given a set of possible tags T , we dene
+GEN(w[1:n]) = T n, i.e., the function GEN
+maps an input sentence w[1:n] to the set of
+all tag sequences of length n.
+ The representation (x;y) =
+(w[1:n];t[1:n]) is dened through local
+feature vectors (h;t) where (h;t) is a
+history/tag pair. (See Eq. 1.)
+Figure 2 shows an algorithm for setting the
+weights 
+. It can be veried that the training
+algorithm for taggers in gure 1 is a special case
+of this algorithm, if we dene (xi;yi);GEN and
+ as just described.
+We will now give a rst theorem regarding
+the convergence of this algorithm. This theorem
+therefore also describes conditions under which
+the algorithm in gure 1 converges. First, we
+need the following denition:
+Denition 1 Let GEN(xi) = GEN(xi) fyig. In
+other words GEN(xi) is the set of incorrect candidates
+for an example xi. We will say that a training sequence
+(xi;yi) for i = 1:::n is separable with margin Æ > 0
+if there exists some vector U with jjUjj = 1 such that
+8i;8z 2 GEN(xi); U (xi;yi) U (xi;z)  Æ (3)
+(jjUjj is the 2-norm of U, i.e., jjUjj =
+pP
+s U2
+s.)
+We can then state the following theorem (see
+section 5 for a proof):
+Theorem 1 For any training sequence (xi;yi) which is
+separable with margin Æ, then for the perceptron algorithm
+in gure 2
+Number of mistakes  R2
+Æ2
+where R is a constant such that 8i;8z 2
+GEN(xi) jj(xi;yi) (xi;z)jj  R.
+This theorem implies that if there is a param-
+eter vector U which makes zero errors on the
+training set, then after a nite number of itera-
+tions the training algorithm will have converged
+to parameter values with zero training error. A
+crucialpointisthatthenumberofmistakesisin-
+dependent of the number of candidates for each
+example (i.e. the size of GEN(xi) for each i),
+dependingonly on the separation of the training
+data, where separation is dened above. This
+is important because in many NLP problems
+GEN(x) can be exponential in the size of the
+inputs. All of the convergence and generaliza-
+tion results in this paper depend on notions of
+separability rather than the size of GEN.
+Two questions come to mind. First, are there
+guarantees for the algorithm if the training data
+is not separable? Second, performance on a
+training sample is all very well, but what does
+this guarantee about how well the algorithm
+generalizes to newly drawn test examples? (Fre-
+und & Schapire 99) discuss how the theory can
+beextendedtodealwithbothofthesequestions.
+The next sections describe how these results can
+be applied to the algorithms in this paper.
+3.1 Theory for inseparable data
+Inthissection we give boundswhichapplywhen
+the data is not separable. First, we need the
+following denition:
+Denition 2 Given a sequence (xi;yi), for a U, Æ pair
+dene mi = U(xi;yi) maxz2GEN(xi) U(xi;z) and
+i = maxf0;Æ mig. Finally, dene DU;Æ =
+pPn
+i=1 2
+i .
+The value DU;Æ is a measure of how close U
+is to separating the training data with margin Æ.
+DU;Æ is 0 if the vector U separates the data with
+at least margin Æ. If U separates almost all of
+the examples with margin Æ, but a few examples
+are incorrectly tagged or have margin less than
+Æ, then DU;Æ will take a relatively small value.
+The following theorem then applies (see sec-
+tion 5 for a proof):
+Theorem 2 For any training sequence (xi;yi), for the
+rst pass over the training set of the perceptron algorithm
+in gure 2,
+Number of mistakes  min
+U;Æ
+(R +DU;Æ)2
+Æ2
+where R is a constant such that 8i;8z 2
+GEN(xi) jj(xi;yi) (xi;z)jj  R, and the
+min is taken over Æ > 0, jjUjj = 1.
+This theorem implies that if the training data
+is \close" to being separable with margin Æ {
+i.e., there exists some U such that DU;Æ is rela-
+tivelysmall{thenthealgorithmwillagainmake
+a small number of mistakes. Thus theorem 2
+shows that the perceptron algorithm can be ro-
+bust to some training data examples being dif-
+cult or impossible to tag correctly.
+3.2 Generalization results
+Theorems 1 and 2 give results bounding the
+number of errors on training samples, but the
+question we are really interested in concerns
+guarantees of how well the method generalizes
+to new test examples. Fortunately, there are
+several theoretical results suggesting that if the
+perceptron algorithm makes a relatively small
+number of mistakes on a training sample then it
+islikelyto generalize wellto newexamples. This
+section describes some of these results, which
+originally appeared in (Freund & Schapire 99),
+and are derived directly from results in (Helm-
+bold and Warmuth 95).
+First we dene a modication of the percep-
+tron algorithm, the voted perceptron. We can
+consider the rst pass of the perceptron algo-
+rithm to build a sequence of parameter set-
+tings 
+1;i for i = 1:::n. For a given test ex-
+ample x, each of these will dene an output
+vi = argmaxz2GEN(x) 
+1;i  (x;z). The voted
+perceptron takes the most frequently occurring
+output in the set fv1 :::vng. Thus the voted
+perceptron is a method where each of the pa-
+rameter settings 
+1;i for i = 1:::n get a sin-
+gle vote for the output, and the majority wins.
+The averaged algorithm in section 2.5 can be
+considered to be an approximation of the voted
+method, withthe advantage that a single decod-
+ing with the averaged parameters can be per-
+formed, rather than n decodings with each of
+the n parameter settings.
+In analyzing the voted perceptron the one as-
+sumption we will make is that there is some
+unknown distribution P(x;y) over the set X 
+Y, and that both training and test examples
+are drawn independently, identically distributed
+(i.i.d.) from this distribution. Corollary 1 of
+(Freund & Schapire 99) then states:
+Theorem 3 (Freund & Schapire 99) Assume all ex-
+amples are generated i.i.d. at random. Let
+h(x1;y1)i:::(xn;yn)i be a sequence of training examples
+and let (xn+1;yn+1) be a test example. Then the prob-
+ability (over the choice of all n + 1 examples) that the
+voted-perceptron algorithm does not predict yn+1 on in-
+put xn+1 is at most
+2
+n +1En+1
+
+min
+U;Æ
+(R +DU;Æ)2
+Æ2
+
+where En+1[] is an expected value taken over n + 1 ex-
+amples, R and DU;Æ are as dened above, and the min is
+taken over Æ > 0, jjUjj = 1.
+4 Experiments
+4.1 Data Sets
+We ran experiments on two data sets: part-of-
+speech tagging on the Penn Wall Street Journal
+treebank (Marcus et al. 93), and base noun-
+phrase recognition on the data sets originallyin-
+troduced by (Ramshaw and Marcus 95). In each
+casewehadatraining,developmentandtestset.
+For part-of-speech tagging the training set was
+sections 0{18 of the treebank, the development
+set was sections 19{21 and the nal test set was
+sections 22-24. In NP chunking the training set
+Current word wi & ti
+Previous word wi 1 & ti
+Word two back wi 2 & ti
+Next word wi+1 & ti
+Word two ahead wi+2 & ti
+Bigram features wi 2; wi 1 & ti
+wi 1; wi & ti
+wi; wi+1 & ti
+wi+1; wi+2 & ti
+Current tag pi & ti
+Previous tag pi 1 & ti
+Tag two back pi 2 & ti
+Next tag pi+1 & ti
+Tag two ahead pi+2 & ti
+Bigram tag features pi 2; pi 1 & ti
+pi 1; pi & ti
+pi; pi+1 & ti
+pi+1; pi+2 & ti
+Trigram tag features pi 2; pi 1; pi & ti
+pi 1; pi; pi+1 & ti
+pi; pi+1; pi+2 & ti
+Figure 3: Feature templates used in the NP chunking
+experiments. wi is the current word, and w1 :::wn is the
+entire sentence. pi is POS tag for the current word, and
+p1 :::pn is the POS sequence for the sentence. ti is the
+chunking tag assigned to the i'th word.
+was taken from section 15{18, the development
+set was section 21, and the test set was section
+20. For POS tagging we report the percentage
+of correct tags on a test set. For chunking we
+report F-measure in recovering bracketings cor-
+responding to base NP chunks.
+4.2 Features
+For POS tagging we used identical features to
+those of (Ratnaparkhi 96), the only dierence
+being that we did not make the rare word dis-
+tinction in table 1 of (Ratnaparkhi 96) (i.e.,
+spelling features were included for all words in
+training data, and the word itself was used as a
+featureregardlessofwhetherthewordwasrare).
+The feature set takes into account the previous
+tag and previous pairs of tags in the history, as
+well as the word being tagged, spelling features
+of the words being tagged, and various features
+of the words surroundingthe word beingtagged.
+In the chunking experiments the input \sen-
+tences"includedwordsaswellasparts-of-speech
+forthosewordsfromthetagger in(Brill95). Ta-
+ble3 showsthefeatures usedinthe experiments.
+The chunking problem is represented as a three-
+tag task, where the tags are B, I, O for words
+beginning a chunk, continuing a chunk, and be-
+ing outside a chunk respectively. All chunks be-
+gin with a B symbol, regardless of whether the
+previous word is tagged O or I.
+NP Chunking Results
+Method F-Measure Numits
+Perc, avg, cc=0 93.53 13
+Perc, noavg, cc=0 93.04 35
+Perc, avg, cc=5 93.33 9
+Perc, noavg, cc=5 91.88 39
+ME, cc=0 92.34 900
+ME, cc=5 92.65 200
+POS Tagging Results
+Method Error rate/% Numits
+Perc, avg, cc=0 2.93 10
+Perc, noavg, cc=0 3.68 20
+Perc, avg, cc=5 3.03 6
+Perc, noavg, cc=5 4.04 17
+ME, cc=0 3.4 100
+ME, cc=5 3.28 200
+Figure 4: Results for various methods on the part-of-
+speech tagging and chunking tasks on development data.
+All scores are error percentages. Numits is the number
+of training iterations at which the best score is achieved.
+Perc is the perceptron algorithm, ME is the maximum
+entropy method. Avg/noavg is the perceptron with or
+without averaged parameter vectors. cc=5 means only
+features occurring 5 times or more in training are in-
+cluded, cc=0 means all features in training are included.
+4.3 Results
+We applied both maximum-entropy models and
+the perceptron algorithm to the two tagging
+problems. We tested several variants for each
+algorithm on the development set, to gain some
+understanding of how the algorithms' perfor-
+mance varied with various parameter settings,
+and to allow optimization of free parameters so
+that the comparison on the nal test set is a fair
+one. For both methods, we tried the algorithms
+with feature count cut-os set at 0 and 5 (i.e.,
+we ran experiments with all features in training
+data included, or with all features occurring 5
+times or more included { (Ratnaparkhi 96) uses
+a count cut-o of 5). In the perceptron algo-
+rithm, the numberof iterations T over the train-
+ing set was varied, and the method was tested
+with both averaged and unaveraged parameter
+vectors (i.e., with T;n
+s and T;n
+s , as dened in
+section 2.5, for a variety of values for T). In
+the maximum entropy model the number of it-
+erations of training using Generalized Iterative
+Scaling was varied.
+Figure 4 shows results on development data
+on the two tasks. The trends are fairly clear:
+averaging improves results signicantly for the
+perceptron method, as does including all fea-
+tures rather than imposing a count cut-o of 5.
+In contrast, the ME models' performance suers
+when all features are included. The best percep-
+tron conguration gives improvements over the
+maximum-entropy models in both cases: an im-
+provement in F-measure from 92:65% to 93:53%
+in chunking, and a reduction from 3:28% to
+2:93% error rate in POS tagging. In looking
+at the results for dierent numbers of iterations
+on development data we found that averaging
+not only improves the best result, but also gives
+much greater stability of the tagger (the non-
+averaged variant has much greater variance in
+its scores).
+As a nal test, the perceptron and ME tag-
+gers were applied to the test sets, with the op-
+timal parameter settings on development data.
+On POS tagging the perceptron algorithm gave
+2.89% error compared to 3.28% error for the
+maximum-entropy model (a 11.9% relative re-
+duction in error). In NP chunking the percep-
+tronalgorithmachieves anF-measureof93.63%,
+in contrast to an F-measure of 93.29% for the
+ME model (a 5.1% relative reduction in error).
+5 Proofs of the Theorems
+This section gives proofs of theorems 1 and 2.
+The proofs are adapted from proofs for the clas-
+sication case in (Freund & Schapire 99).
+Proof of Theorem 1: Let 
+k be the weights
+before the k'th mistake is made. It follows that
+
+1 = 0. Suppose the k'th mistake is made at
+the i'th example. Take z to the output proposed
+at this example, z = argmaxy2GEN(xi) (xi;y)
+
+k. It follows from the algorithm updates that
+
+k+1 = 
+k +(xi;yi) (xi;z). We take inner
+products of both sides with the vector U:
+U  
+k+1 = U  
+k
++U (xi;yi) U (xi;z)
+ U  
+k
++Æ
+wheretheinequalityfollowsbecauseofthe prop-
+erty of U assumed in Eq. 3. Because 
+1 = 0,
+and therefore U  
+1 = 0, it follows by induc-
+tion on k that for all k, U  
+k+1  kÆ. Be-
+cause U  
+k+1  jjUjj jj
+k+1jj, it follows that
+jj
+k+1jj  kÆ.
+We also derive an upper bound for jj
+k+1jj2:
+jj
+k+1jj2 = jj
+k
+jj2 +jj(xi;yi) (xi;z)jj2
++2
+k
+((xi;yi) (xi;z))
+ jj
+k
+jj2 +R2
+where the inequality follows because
+jj(xi;yi) (xi;z)jj2  R2 by assump-
+tion, and 
+k  ((xi;yi) (xi;z))  0 because
+z is the highest scoring candidate for xi under
+the parameters 
+k. It follows by induction that
+jj
+k+1jj2  kR2.
+Combining the bounds jj
+k+1jj  kÆ and
+jj
+k+1jj2  kR2 gives the result for all k that
+k2Æ2  jj
+k+1jj2  kR2 ) k  R2=Æ2
+Proof of Theorem 2: We transformtherep-
+resentation (x;y) 2 Rd to a new representation
+
+(x;y) 2 Rd+n as follows. For i = 1:::d de-
+ne 
+i(x;y) = i(x;y). For j = 1:::n dene
+
+d+j(x;y) =  if (x;y) = (xj;yj), 0 otherwise,
+where  is a parameter which is greater than 0.
+Similary, say we are given a U;Æ pair, and cor-
+responding values for i as dened above. We
+dene a modied parameter vector 
+U 2 Rd+n
+with 
+Ui = Ui for i = 1:::d and 
+Ud+j = j=
+for j = 1:::n. Under these denitions it can be
+veried that
+8i;8z 2 GEN(xi); 
+U  
+(xi;yi) 
+U  
+(xi;z)  Æ
+8i;8z 2 GEN(xi); jj
+(xi;yi) 
+(xi;z)jj2  R2 +2
+jj
+Ujj2 = jjUjj2 +P
+i 2
+i =2 = 1+D2
+U;Æ=2
+It can be seen that the vector 
+U=jj
+Ujj separates
+the data withmarginÆ=
+q
+1+D2
+U;Æ=2. By the-
+orem 1, this means that the rst pass of the per-
+ceptron algorithm with representation 
+ makes
+at most kmax() = 1
+Æ2 (R2 +2)(1+ D2
+U;Æ
+2 ) mis-
+takes. But the rst pass of the original algo-
+rithm with representation  is identical to the
+rst pass of the algorithm with representation
+
+, because the parameter weights for the addi-
+tional features 
+d+j for j = 1:::n each aect a
+singleexampleoftrainingdata, anddonotaect
+the classication of test data examples. Thus
+the original perceptron algorithm also makes at
+most kmax() mistakes on its rst pass over the
+trainingdata. Finally,wecanminimizekmax()
+with respect to , giving  = p
+RDU;Æ, and
+kmax(p
+RDU;Æ) = (R2 +D2
+U;Æ)=Æ2, implying the
+bound in the theorem.
+6 Conclusions
+We have described new algorithms for tagging,
+whose performance guarantees depend on a no-
+tion of \separability" of training data exam-
+ples. The generic algorithm in gure 2, and
+the theorems describing its convergence prop-
+erties, could be applied to several other models
+in the NLP literature. For example, a weighted
+context-free grammar can also be conceptual-
+ized as a way of dening GEN,  and 
+, so the
+weights for generative models such as PCFGs
+could be trained using this method.
+Acknowledgements
+Thanksto NigelDuy, Rob SchapireandYoram
+Singer for many useful discussions regarding
+the algorithms in this paper, and to Fernando
+Pereira for pointers to the NP chunking data
+set, and for suggestions regarding the features
+used in the experiments.
+References
+Brill, E. (1995). Transformation-Based Error-Driven
+Learning and Natural Language Processing: A Case
+Study in Part of Speech Tagging. Computational Lin-
+guistics.
+Collins, M., and Duy, N. (2001). Convolution Kernels
+for Natural Language. In Proceedings of Neural Infor-
+mation Processing Systems (NIPS 14).
+Collins, M., and Duy, N. (2002). New Ranking Algo-
+rithms for Parsing and Tagging: Kernels over Discrete
+Structures, and the Voted Perceptron. In Proceedings
+of ACL 2002.
+Collins, M. (2002). Ranking Algorithms for Named{
+Entity Extraction: Boosting and the Voted Percep-
+tron. In Proceedings of ACL 2002.
+Freund, Y. & Schapire, R. (1999). Large Margin Classi-
+cation using the Perceptron Algorithm. In Machine
+Learning, 37(3):277{296.
+Helmbold,D., andWarmuth,M. Onweaklearning. Jour-
+nal of Computer and System Sciences, 50(3):551-573,
+June 1995.
+Laerty, J., McCallum, A., and Pereira, F. (2001). Con-
+ditional random elds: Probabilistic models for seg-
+menting and labeling sequence data. In Proceedings of
+ICML 2001.
+McCallum, A., Freitag, D., and Pereira, F. (2000) Max-
+imum entropy markov models for information extrac-
+tion and segmentation. In Proceedings of ICML 2000.
+Marcus, M., Santorini, B., & Marcinkiewicz, M. (1993).
+Building a large annotated corpus of english: The
+Penn treebank. Computational Linguistics, 19.
+Ramshaw, L., and Marcus, M. P. (1995). Text Chunking
+Using Transformation-Based Learning. In Proceedings
+of the Third ACL Workshop on Very Large Corpora,
+Association for Computational Linguistics, 1995.
+Ratnaparkhi, A. (1996). A maximum entropy part-of-
+speech tagger. In Proceedings of the empirical methods
+in natural language processing conference.
+Rosenblatt, F. 1958. The Perceptron: A Probabilistic
+ModelforInformationStorageandOrganizationinthe
+Brain. Psychological Review, 65, 386{408. (Reprinted
+in Neurocomputing (MIT Press, 1998).)
+
