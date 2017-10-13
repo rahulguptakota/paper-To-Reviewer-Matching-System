@@ -1,0 +1,2 @@
+# paper-To-Reviewer-Matching-System
+Paper to Reviewer Assignment is a tedious but a very crucial job for conference organizers. Till date the Toronto Paper Matching System (TPMS) is a widely used tool to solve this problem but the results of this system are not found to be up to the mark. We aim to build a better system by taking into account the structure and semantic analysis of the paper to be reviewed.
