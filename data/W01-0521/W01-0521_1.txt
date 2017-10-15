@@ -1,0 +1,526 @@
+b'Corpus Variation and Parser Performance
+Daniel Gildea
+University of California, Berkeley, and
+International Computer Science Institute
+gildea@cs.berkeley.edu
+Abstract
+Most work in statistical parsing has focused on a
+single corpus: the Wall Street Journal portion of the
+Penn Treebank. While this has allowed for quanti-
+tative comparison of parsing techniques, it has left
+open the question of how other types of text might
+a\x0bect parser performance, and how portable pars-
+ing models are across corpora. We examine these
+questions by comparing results for the Brown and
+WSJ corpora, and also consider which parts of the
+parser\'s probability model are particularly tuned to
+the corpus on which it was trained. This leads us
+to a technique for pruning parameters to reduce the
+size of the parsing model.
+1 Introduction
+The past several years have seen great progress in
+the \x0celd of naturallanguageparsing, through the use
+of statistical methods trained using large corpora of
+hand-parsed training data. The techniques of Char-
+niak (1997), Collins (1997), and Ratnaparkhi (1997)
+achieved roughly comparable results using the same
+sets of training and test data. In each case, the cor-
+pus used was the Penn Treebank\'s hand-annotated
+parses of Wall Street Journal articles. Relatively
+few quantitative parsing results have been reported
+on other corpora (though see Stolcke et al. (1996)
+for results on Switchboard, as well as Collins et
+al. (1999) for results on Czech and Hwa (1999) for
+bootstrapping from WSJ to ATIS). The inclusion of
+parses for the Brown corpus in the Penn Treebank
+allows us to compare parser performance across cor-
+pora. In this paper we examine the following ques-
+tions:
+\x0f To what extent is the performance of statistical
+parsers on the WSJ task due to its relatively
+uniform style, and how might such parsers fare
+on the more varied Brown corpus?
+\x0f Can training data from one corpus be applied
+to parsing another?
+\x0f What aspects of the parser\'s probability model
+are particularly tuned to one corpus, and which
+are more general?
+Our investigation of these questions leads us to
+a surprising result about parsing the WSJ corpus:
+over a third of the model\'s parameters can be elim-
+inated with little impact on performance. Aside
+from cross-corpus considerations, this is an impor-
+tant \x0cnding if a lightweightparser is desired or mem-
+ory usage is a consideration.
+2 Previous Comparisons of Corpora
+A great deal of work has been done outside of the
+parsing communityanalyzingthe variationsbetween
+corpora and di\x0berent genres of text. Biber (1993)
+investigated variation in a number syntactic fea-
+tures over genres, or registers, of language. Of
+particular importance to statistical parsers is the
+investigation of frequencies for verb subcategoriza-
+tions such as Roland and Jurafsky (1998). Roland
+et al. (2000) \x0cnd that subcategorization frequen-
+cies for certain verbs vary signi\x0ccantly between the
+Wall Street Journal corpus and the mixed-genre
+Brown corpus, but that they vary less so between
+genre-balanced British and American corpora. Ar-
+gument structure is essentially the task that auto-
+matic parsers attempt to solve, and the frequencies
+of various structures in training data are re
+ected in
+a statistical parser\'s probability model. The varia-
+tion in verb argument structure found by previous
+research caused us to wonder to what extent a model
+trained on one corpus would be useful in parsing an-
+other. The probability models of modern parsers
+include not only the number and syntactic type of
+a word\'s arguments, but lexical information about
+their \x0cllers. Although we are not aware of previous
+comparisons of the frequencies of argument \x0cllers,
+we can only assume that they vary at least as much
+as the syntactic subcategorization frames.
+3 The Parsing Model
+We take as our baseline parser the statistical model
+of Model 1 of Collins (1997). The model is a history-
+based, generative model, in which the probabilityfor
+a parse tree is found by expanding each node in the
+tree in turn into its child nodes, and multiplying the
+probabilitiesfor each action in the derivation. It can
+\x0cbe thought of as a variety of lexicalized probabilis-
+tic context-free grammar, with the rule probabilities
+factored into three distributions. The \x0crst distribu-
+tion gives probability of the syntactic category H
+of the head child of a parent node with category
+P, head word Hhw with the head tag (the part of
+speech tag of the head word) Hht:
+Ph(HjP;Hht;Hhw)
+The head word and head tag of the new node H are
+de\x0cned to be the same as those of its parent. The
+remaining two distributions generate the non-head
+children one after the other. A special #STOP#
+symbol is generated to terminate the sequence of
+children for a given parent. Each child is gener-
+ated in two steps: \x0crst its syntactic category C and
+head tag Cht are chosen given the parent\'s and head
+child\'s features and a function \x01 representing the
+distance from the head child:
+Pc(C;ChtjP;H;Hht;Hhw;\x01)
+Then the new child\'s head word Chw is chosen:
+Pcw(ChwjP;H;Hht;Hhw;\x01;C;Cht)
+For each of the three distributions, the empiricaldis-
+tribution of the training data is interpolated with
+less speci\x0cc backo\x0b distributions, as we will see in
+Section 5. Further details of the model, including
+the distance features used and special handling of
+punctuation, conjunctions, and base noun phrases,
+are described in Collins (1999).
+The fundamental features of used in the proba-
+bility distributions are the lexical heads and head
+tags of each constituent, the co-occurrences of par-
+ent nodes and their head children, and the co-
+occurrences of child nodes with their head siblings
+and parents. The probability models of Charniak
+(1997), Magerman (1995) and Ratnaparkhi (1997)
+di\x0ber in their details but are based on similar fea-
+tures. Models 2 and 3 of Collins (1997) add some
+slightly more elaborate features to the probability
+model, as do the additions of Charniak (2000) to
+the model of Charniak (1997).
+Our implementation of Collins\' Model 1 performs
+at 86% precision and recall of labeled parse con-
+stituents on the standard Wall Street Journal train-
+ing and test sets. While this does not re
+ect
+the state-of-the-art performance on the WSJ task
+achieved by the more the complex models of Char-
+niak (2000) and Collins (2000), we regard it as a
+reasonable baseline for the investigation of corpus
+e\x0bects on statistical parsing.
+4 Parsing Results on the Brown
+Corpus
+We conducted separate experiments using WSJ
+data, Brown data, and a combination of the two
+as training material. For the WSJ data, we ob-
+served the standard division into training (sections
+2 through 21 of the treebank) and test (section 23)
+sets. For the Brown data, we reserved every tenth
+sentence in the corpus as test data, using the other
+nine for training. This may underestimate the dif-
+\x0cculty of the Brown corpus by including sentences
+from the same documents in training and test sets.
+However, because of the variation within the Brown
+corpus, we felt that a single contiguous test section
+might not be representative. Only the subset of the
+Brown corpus available in the Treebank II bracket-
+ing format was used. This subset consists primarily
+of various \x0cction genres. Corpus sizes are shown in
+Table 1.
+Training Set Test Set
+Corpus Sentences Words Sentences Words
+WSJ 39,832 950,028 2245 48,665
+Brown 21,818 413,198 2282 38,109
+Table 1: Corpus sizes. Both test sets were restricted
+to sentences of 40 words or less. The Brown test
+set\'s average sentence was shorter despite the length
+restriction.
+Training Data Test Set Recall Prec.
+WSJ WSJ 86.1 86.6
+WSJ Brown 80.3 81.0
+Brown Brown 83.6 84.6
+WSJ+Brown Brown 83.9 84.8
+WSJ+Brown WSJ 86.3 86.9
+Table 2: Parsing results by training and test corpus
+Results for the Brown corpus, along with WSJ
+results for comparison, are shown in Table 2. The
+basic mismatch between the two corpora is shown
+in the signi\x0ccantly lower performance of the WSJ-
+trained model on Brown data than on WSJ data
+(rows 1 and 2). A model trained on Brown data only
+does signi\x0ccantly better, despite the smaller size of
+the training set. Combining the WSJ and Brown
+training data in one model improves performance
+further, but by less than 0.5% absolute. Similarly,
+adding the Brown data to the WSJ model increased
+performance on WSJ by less than 0.5%. Thus, even
+a large amount of additional data seems to have rel-
+atively little impact if it is not matched to the test
+material.
+The more varied nature of the Brown corpus also
+seems to impact results, as all the results on Brown
+are lower than the WSJ result.
+5 The E\x0bect of Lexical
+Dependencies
+The parserscited above alluse somevarietyof lexical
+dependency feature to capture statistics on the co-
+\x0coccurrence of pairs of words being found in parent-
+child relations within the parse tree. These word
+pair relations, also called lexical bigrams (Collins,
+1996), are reminiscentof dependency grammarssuch
+as Me\x13
+l\x15
+cuk (1988) and the link grammar of Sleator
+and Temperley(1993). In Collins\'Model 1, the word
+pair statistics occur in the distribution
+Pcw(ChwjP;H;Hht;Hhw;\x01;C;Cht)
+where Hhw representthe head wordof a parent node
+in the tree and Chw the head word of its (non-head)
+child. (The head word of a parent is the same as the
+head word of its head child.) Because this is the only
+part of the model that involves pairs of words, it is
+alsowhere the bulk of the parametersare found. The
+large number of possible pairs of words in the vocab-
+ulary make the training data necessarily sparse. In
+order to avoid assigning zero probability to unseen
+events, it is necessary to smooth the training data.
+The Collins model uses linear interpolation to es-
+timate probabilities from empirical distributions of
+varying speci\x0ccities:
+Pcw(ChwjP;H;Hht;Hhw;\x01;C;Cht) =
+\x151 ~
+P(ChwjP;H;Hht;Hhw;\x01;C;Cht) +
+(1 ,\x151)
+\x10
+\x152 ~
+P(ChwjP;H;Hht;\x01;C;Cht)+
+(1 ,\x152) ~
+P(ChwjCht)
+\x11
+(1)
+where ~
+P represents the empirical distribution de-
+rived directly from the counts in the training data.
+The interpolation weights \x151, \x152 are chosen as a
+function of the number of examples seen for the con-
+ditioning events and the number of unique values
+seen for the predicted variable. Only the \x0crst distri-
+bution in this interpolation scheme involves pairs of
+words, and the third component is simply the prob-
+ability of a word given its part of speech.
+Because the word pair feature is the most spe-
+ci\x0cc in the model, it is likely to be the most corpus-
+speci\x0cc. The vocabularies used in corpora vary, as
+do the word frequencies. It is reasonable to ex-
+pect word co-occurrences to vary as well. In or-
+der to test this hypothesis, we removed the distribu-
+tion ~
+P(ChwjP;H;Hht;Hhw;C;Cht) from the pars-
+ing model entirely, relyingon the interpolationof the
+two less speci\x0cc distributions in the parser:
+Pcw2(ChwjP;H;Hht;\x01;C;Cht) =
+\x152
+~
+P(ChwjP;H;Hht;\x01;C;Cht) +
+(1 ,\x152) ~
+P(ChwjCht) (2)
+We performed cross-corpus experiments as before
+to determine whether the simpler parsing model
+might be more robust to corpus e\x0bects. Results are
+shown in Table 3.
+Perhaps the most striking result is just how little
+the eliminationof lexicalbigramsa\x0bects the baseline
+system: performance on the WSJ corpus decreases
+by less than 0.5% absolute. Moreover, the perfor-
+mance of a WSJ-trained system without lexical bi-
+grams on Brown test data is identical to the WSJ-
+trained system with lexical bigrams. Lexical co-
+occurrence statistics seem to be of no bene\x0ct when
+attempting to generalize to a new corpus.
+6 Pruning Parser Parameters
+The relatively high performance of a parsing model
+with no lexical bigram statistics on the WSJ task
+led us to explore whether it might be possible to
+signi\x0ccantly reduce the size of the parsing model
+by selectively removing parameters without sacri-
+\x0ccing performance. Such a technique reduces the
+parser\'s memory requirements as well as the over-
+head of loading and storing the model, which could
+be desirable for an application where limited com-
+puting resources are available.
+Signi\x0ccant e\x0bort has gone into developing tech-
+niques for pruning statistical language models for
+speech recognition, and we borrow from this work,
+using the weighted di\x0berence technique of Seymore
+and Rosenfeld (1996). This technique applies to any
+statistical model which estimates probabilities by
+backing o\x0b, that is, using probabilities from a less
+speci\x0cc distribution when no data are available are
+available for the full distribution, as the following
+equations show for the general case:
+P(ejh) = P1(ejh) if e 62 BO(h)
+= \x0b(h)P2(ejh0
+) if e 2 BO(h)
+Here e is the event to be predicted, h is the set of
+conditioning events or history, \x0b is a backo\x0b weight,
+and h0
+is the subset of conditioning events used for
+the less speci\x0cc backo\x0b distribution. BO is the back-
+o\x0b set of events for which no data are present in the
+speci\x0cc distribution P1. In the case of n-gram lan-
+guage modeling, e is the next word to be predicted,
+and the conditioning events are the n ,1 preceding
+words. In our case the speci\x0cc distribution P1 of the
+backo\x0b model is Pcw of equation 1, itself a linear in-
+terpolation of three empirical distributions from the
+training data. The less speci\x0cc distribution P2 of the
+backo\x0b model is Pcw2 of equation 2, an interpolation
+of two empirical distributions. The backo\x0b weight \x0b
+is simply 1 , \x151 in our linear interpolation model.
+The Seymore/Rosenfeld pruning technique can be
+used to prune backo\x0b probability models regardless
+of whether the backo\x0b weights are derived from lin-
+ear interpolation weights or discounting techniques
+such as Good-Turing. In order to ensure that the
+model\'s probabilities still sum to one, the backo\x0b
+\x0cw/ bigrams w/o bigrams
+Training Data Test Set Recall Prec. Recall Prec.
+WSJ WSJ 86.1 86.6 85.6 86.2
+WSJ Brown 80.3 81.0 80.3 81.0
+Brown Brown 83.6 84.6 83.5 84.4
+WSJ+Brown Brown 83.9 84.8 83.4 84.3
+WSJ+Brown WSJ 86.3 86.9 85.7 86.4
+Table 3: Parsing results by training and test corpus
+weight \x0b must be adjusted whenever a parameter is
+removed from the model. In the Seymore/Rosenfeld
+approach, parameters are pruned according to the
+following criterion:
+N(e;h)(logp(ejh) ,logp0
+(ejh0
+)) (3)
+where p0
+(ejh0
+) represents the new backed o\x0b proba-
+bility estimate after removing p(ejh) from the model
+and adjusting the backo\x0b weight, and N(e;h) is the
+count in the training data. This criterion aims to
+prune probabilities that are similar to their back-
+o\x0b estimates, and that are not frequently used. As
+shown by Stolcke (1998), this criterion is an approx-
+imation of the relative entropy between the original
+and pruned distributions, but does not take into ac-
+count the e\x0bect of changing the backo\x0b weight on
+other events\' probabilities.
+Adjusting the threshold \x12 below which parameters
+are pruned allows us to successively remove more
+and more parameters. Results for di\x0berent values of
+\x12 are shown in Table 4.
+The complete parsing model derived from the
+WSJ training set has 735,850 parameters in a to-
+tal of nine distributions: three levels of backo\x0b for
+each of the three distributions Ph, Pc and Pcw. The
+lexical bigrams are contained in the most speci\x0cc
+distribution for Pcw. Removing all these parameters
+reduces the total model size by 43%. The results
+show a gradual degradation as more parameters are
+pruned.
+The ten lexical bigrams with the highest scores for
+the pruning metric are shown in Table 5 for WSJ
+and Table 6. The pruning metric of equation 3 has
+been normalized by corpus size to allow compari-
+son between WSJ and Brown. The only overlap
+between the two sets is for pairs of unknown word
+tokens. The WSJ bigrams are almost all speci\x0cc
+to \x0cnance, are all word pairs that are likely to ap-
+pear immediately adjacent to one another, and are
+all children of the base NP syntactic category. The
+Brown bigrams, which have lower correlation val-
+ues by our metric, include verb/subject and prepo-
+sition/object relations and seem more broadly ap-
+plicable as a model of English. However, the pairs
+are not strongly related semantically, no doubt be-
+cause the \x0crst term of the pruning criterion favors
+the most frequent words, such as forms of the verbs
+\\be" and \\have".
+Child word Head word Parent Pruning
+Chw Hhw P Metric
+New York NPB .0778
+Stock Exchange NPB .0336
+< unk > < unk > NPB .0313
+vice president NPB .0312
+Wall Street NPB .0291
+San Francisco NPB .0291
+York Stock NPB .0243
+Mr. < unk > NPB .0241
+third quarter NPB .0227
+Dow Jones NPB .0227
+Table 5: Ten most signi\x0ccant lexical bigrams from
+WSJ, with parent category (other syntactic context
+variables not shown) and pruning metric
+. NPB is Collins\' \\base NP" category.
+Child word Head word Parent Pruning
+Chw Hhw P Metric
+It was S .0174
+it was S .0169
+< unk > of PP .0156
+< unk > in PP .0097
+course Of PP .0090
+been had VP .0088
+< unk > < unk > NPB .0079
+they were S .0077
+I \'m S .0073
+time at PP .0073
+Table 6: Ten most signi\x0ccant lexical bigrams from
+Brown
+7 Conclusion
+Our results show strong corpus e\x0bects for statistical
+parsing models: a small amount of matched train-
+ing data appears to be more useful than a large
+amount of unmatched data. The standard WSJ
+task seems to be simpli\x0ced by its homogenous style.
+Adding training data from from an unmatched cor-
+pus doesn\'t hurt, but doesn\'t help a greatdealeither.
+In particular, lexical bigram statistics appear to
+be corpus-speci\x0cc, and our results show that they
+\x0cThreshold # parameters % reduction
+\x12 removed model size Recall Prec.
+0 (full model) 0 0 86.1 86.6
+1 96K 13 86.0 86.4
+2 166K 23 85.9 86.2
+3 213K 29 85.7 86.2
+1 316K 43 85.6 86.2
+Table 4: Parsing results with pruned probability models. The complete parsing model contains 736K pa-
+rameters in nine distributions. Removing all lexical bigram parameters reducing the size of the model by
+43%.
+are of no use when attempting to generalize to new
+training data. In fact, they are of surprisingly little
+bene\x0ct even for matched training and test data |
+removing them from the model entirely reduces per-
+formance by less than 0.5% on the standard WSJ
+parsing task. Our selective pruning technique al-
+lows for a more \x0cne grained tuning of parser model
+size, and would be particularly applicable to cases
+where large amounts of training data are available
+but memory usage is a consideration. In our im-
+plementation, pruning allowed models to run within
+256MB that, unpruned, required larger machines.
+The parsing models of Charniak (2000) and
+Collins (2000) add more complex features to the
+parsing model that we use as our baseline. An
+area for future work is investigation of the degree
+to which such features apply across corpora, or, on
+the other hand, further tune the parser to the pe-
+culiarities of the Wall Street Journal. Of particu-
+lar interest are the automatic clusterings of lexical
+co-occurrences used in Charniak (1997) and Mager-
+man (1995). Cross-corpus experiments could reveal
+whether these clusters uncover generally applicable
+semantic categories for the parser\'s use.
+Acknowledgments This work was undertaken as
+part of the FrameNet project at ICSI, with funding
+from National Science Foundation grant ITR/HCI
+#0086132.
+References
+Douglas Biber. 1993. Using register-diversi\x0ced cor-
+pora for general language studies. Computational
+Linguistics, 19(2):219{241, June.
+Eugene Charniak. 1997. Statistical parsing with
+a context-free grammar and word statistics. In
+AAAI97, Brown University, Providence, Rhode
+Island, August.
+Eugene Charniak. 2000. A maximum-entropy-
+inspired parser. In Proceedings of the 1st Annual
+Meeting of the North American Chapter of the
+ACL (NAACL), Seattle, Washington.
+Michael Collins, Jan Hajic, Lance Ramshaw, and
+Christoph Tillmann. 1999. A statisticalparser for
+czech. In Proceedings of the 37th Annual Meeting
+of the ACL, College Park, Maryland.
+Michael Collins. 1996. A new statistical parser
+based on bigram lexical dependencies. In Proceed-
+ings of the 34th Annual Meeting of the ACL.
+Michael Collins. 1997. Three generative, lexicalised
+models for statistical parsing. In Proceedings of
+the 35th Annual Meeting of the ACL.
+Michael Collins. 1999. Head-Driven Statistical Mod-
+els for Natural Language Parsing. Ph.D. thesis,
+University of Pennsylvania, Philadelphia.
+Michael Collins. 2000. Discriminative reranking for
+natural language parsing. In Proceedings of the
+ICML.
+Rebecca Hwa. 1999. Supervised grammar induction
+using training data with limited constituent infor-
+mation. In Proceedings of the 37th Annual Meet-
+ing of the ACL, College Park, Maryland.
+David Magerman. 1995. Statistical decision-tree
+models for parsing. In Proceedings of the 33rd An-
+nual Meeting of the ACL.
+Ivan A. Me\x13
+l\x15
+cuk. 1988. Dependency Syntax: Theory
+and Practice. State University of New York Press.
+Adwait Ratnaparkhi. 1997. A linear observed time
+statistical parser based on maximum entropy
+models. In Proceedings of the Second Conference
+on Empirical Methods in Natural Language Pro-
+cessing.
+Douglas Roland and Daniel Jurafsky. 1998. How
+verb subcategorization frequencies are a\x0bected by
+corpus choice. In Proceedings of COLING/ACL,
+pages 1122{1128.
+Douglas Roland, Daniel Jurafsky, Lise Menn, Su-
+sanne Gahl, Elizabeth Elder, and Chris Riddoch.
+2000. Verb subcategorization frequency di\x0ber-
+ences between business-news and balanced cor-
+pora: the role of verb sense. In Proceedings of the
+Association for Computational Linguistics (ACL-
+2000) Workshop on Comparing Corpora.
+Kristie Seymore and Roni Rosenfeld. 1996. Scalable
+backo\x0b language models. In ICSLP-96, volume 1,
+pages 232{235, Philadelphia.
+Daniel Sleator and Davy Temperley. 1993. Pars-
+ing english with a link grammar. In Third Inter-
+national Workshop on Parsing Technologies, Au-
+gust.
+\x0cA. Stolcke, C. Chelba, D. Engle, V. Jimenez,
+L. Mangu, H. Printz, E. Ristad, R. Rosenfeld,
+D. Wu, F. Jelinek, and S. Khudanpur. 1996. De-
+pendency language modeling. Summer Workshop
+Final Report 24, Center for Language and Speech
+Processing, Johns Hopkins University, Baltimore,
+April.
+Andreas Stolcke. 1998. Entropy-based pruning
+of backo\x0b language models. In Proc. DARPA
+Broadcast News Transcription and Understanding
+Workshop, pages 270{274, Lansdowne, Va.
+\x0c'

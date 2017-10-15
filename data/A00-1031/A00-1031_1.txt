@@ -1,0 +1,708 @@
+b'TnT -- A Statistical Part-of-Speech Tagger
+Thorsten Brants
+Saarland University
+Computational Linguistics
+D-66041 Saarbriicken, Germany
+thorst en@coli, uni-sb, de
+Abstract
+Trigrams\'n\'Tags (TnT) is an efficient statistical
+part-of-speech tagger. Contrary to claims found
+elsewhere in the literature, we argue that a tagger
+based on Markov models performs at least as well as
+other current approaches, including the Maximum
+Entropy framework. A recent comparison has even
+shown that TnT performs significantlybetter for the
+tested corpora. We describe the basic model of TnT,
+the techniques used for smoothing and for handling
+unknown words. Furthermore, we present evalua-
+tions on two corpora.
+1 Introduction
+A large number of current language processing sys-
+tems use a part-of-speech tagger for pre-processing.
+The tagger assigns a (unique or ambiguous) part-of-
+speech tag to each token in the input and passes its
+output to the next processing level, usually a parser.
+Furthermore, there is a large interest in part-of-
+speech tagging for corpus annotation projects, who
+create valuable linguistic resources by a combination
+of automatic processing and human correction.
+For both applications, a tagger with the highest
+possible accuracy is required. The debate about
+which paradigm solves the part-of-speech tagging
+problem best is not finished. Recent comparisons
+of approaches that can be trained on corpora (van
+Halteren et al., 1998; Volk and Schneider, 1998) have
+shown that in most cases statistical aproaches (Cut-
+ting et al., 1992; Schmid, 1995; Ratnaparkhi, 1996)
+yield better results than finite-state, rule-based, or
+memory-based taggers (Brill, 1993; Daelemans et al.,
+1996). They are only surpassed by combinations of
+different systems, forming a "voting tagger".
+Among the statistical approaches, the Maximum
+Entropy framework has a very strong position. Nev-
+ertheless, a recent independent comparison of 7 tag-
+gets (Zavrel and Daelemans, 1999) has shown that
+another approach even works better: Markov mod-
+els combined with a good smoothing technique and
+with handling of unknown words. This tagger, TnT,
+not only yielded the highest accuracy, it also was the
+fastest both in training and tagging.
+The tagger comparison was organized as a "black-
+box test": set the same task to every tagger and
+compare the outcomes. This paper describes the
+models and techniques used by TnT together with
+the implementation.
+The reader will be surprised how simple the under-
+lying model is. The result of the tagger comparison
+seems to support the maxime "the simplest is the
+best". However, in this paper we clarify a number
+of details that are omitted in major previous pub-
+lications concerning tagging with Markov models.
+As two examples, (Rabiner, 1989) and (Charniak
+et al., 1993) give good overviews of the techniques
+and equations used for Markov models and part-of-
+speech tagging, but they are not very explicit in the
+details that are needed for their application. We ar-
+gue that it is not only the choice of the general model
+that determines the result of the tagger but also the
+various "small" decisions on alternatives.
+The aim of this paper is to give a detailed ac-
+count of the techniques used in TnT. Additionally,
+we present results of the tagger on the NEGRA cor-
+pus (Brants et al., 1999) and the Penn Treebank
+(Marcus et al., 1993). The Penn Treebank results
+reported here for the Markov model approach are
+at least equivalent to those reported for the Maxi-
+mum Entropy approach in (Ratnaparkhi, 1996). For
+a comparison to other taggers, the reader is referred
+to (Zavrel and Daelemans, 1999).
+2 Architecture
+2.1 The Underlying Model
+TnT uses second order Markov models for part-of-
+speech tagging. The states of the model represent
+tags, outputs represent the words. Transition prob-
+abilities depend on the states, thus pairs of tags.
+Output probabilities only depend on the most re-
+cent category. To be explicit, we calculate
+argmax P(tilti-1, ti-2)P(wilti P(tr+l ItT)
+ti...iT
+(i)
+for a given sequence of words w I . . . W T of length T.
+tl... tT are elements of the tagset, the additional
+224
+\x0ctags t-l, to, and tT+l are beginning-of-sequence
+and end-of-sequence markers. Using these additional
+tags, even if they stem from rudimentary process-
+ing of punctuation marks, slightly improves tagging
+results. This is different from formulas presented
+in other publications, which just stop with a "loose
+end" at the last word. If sentence boundaries are
+not marked in the input, TnT adds these tags if it
+encounters one of [.!?;] as a token.
+Transition and output probabilities are estimated
+from a tagged corpus. As a first step, we use the
+maximum likelihood probabilities /5 which are de-
+rived from the relative frequencies:
+Unigrams: /5(t3) = f(t3) (2)
+N
+f(t2, t3) (3)
+Bigrams: P(t31t~)= f(t2)
+f(ta, t2, t3)
+Trigrams: /5(t3ltx,t~) - f(tl,t2) (4)
+Lexical: /5(w3 It3) - /(w3, t3) (5)
+f(t3)
+for all tl, t2, t3 in the tagset and w3 in the lexi-
+con. N is the total number of tokens in the training
+corpus. We define a maximum likelihood probabil-
+ity to be zero if the corresponding nominators and
+denominators are zero. As a second step, contex-
+tual frequencies are smoothed and lexical frequences
+are completed by handling words that are not in the
+lexicon (see below).
+2.2 Smoothing
+Trigram probabilities generated from a corpus usu-
+ally cannot directly be used because of the sparse-
+data problem. This means that there are not enough
+instances for each trigram to reliably estimate the
+probability. Furthermore, setting a probability to
+zero because the corresponding trigram never oc-
+cured in the corpus has an undesired effect. It causes
+the probability of a complete sequence to be set to
+zero if its use is necessary for a new text sequence,
+thus makes it impossible to rank different sequences
+containing a zero probability.
+The smoothing paradigm that delivers the best
+results in TnT is linear interpolation of unigrams,
+bigrams, and trigrams. Therefore, we estimate a
+trigram probability as follows:
+P(t3ltl, t2) = AlP(t3) + Ag_/5(t31t2)+ A3/5(t3[t1, t2)
+(6)
+/5 are maximum likelihood estimates of the proba-
+bilities, and A1 + A2 + A3 = 1, so P again represent
+probability distributions.
+We use the context-independent variant of linear
+interpolation, i.e., the values of the As do not depend
+on the particular trigram. Contrary to intuition,
+this yields better results than the context-dependent
+variant. Due to sparse-data problems, one cannot es-
+timate a different set of As for each trigram. There-
+fore, it is common practice to group trigrams by fre-
+quency and estimate tied sets of As. However, we
+are not aware of any publication that has investi-
+gated frequency groupings for linear interpolation in
+part-of-speech tagging. All groupings that we have
+tested yielded at most equivalent results to context-
+independent linear interpolation. Some groupings
+even yielded worse results. The tested groupings
+included a) one set of As for each frequency value
+and b) two classes (low and high frequency) on the
+two ends of the scale, as well as several groupings
+in between and several settings for partitioning the
+classes.
+The values of Ax, A2, and A3 are estimated by
+deleted interpolation. This technique successively
+removes each trigram from the training corpus and
+estimates best values for the As from all other n-
+grams in the corpus. Given the frequency counts
+for uni-, bi-, and trigrams, the weights can be very
+efficiently determined with a processing time linear
+in the number of different trigrams. The algorithm
+is given in figure 1. Note that subtracting 1 means
+taking unseen data into account. Without this sub-
+traction the model would overfit the training data
+and would generally yield worse results.
+2.3 Handling of Unknown Words
+Currently, the method of handling unknown words
+that seems to work best for inflected languages is
+a suffix analysis as proposed in (Samuelsson, 1993).
+Tag probabilities are set according to the word\'s end-
+ing. The suffix is a strong predictor for word classes,
+e.g., words in the Wall Street Journal part of the
+Penn Treebank ending in able are adjectives (JJ) in
+98% of the cases (e.g. fashionable, variable), the rest
+of 2% are nouns (e.g. cable, variable).
+The probability distribution for a particular suf-
+fix is generated from all words in the training set
+that share the same suffix of some predefined max-
+imum length. The term suffix as used here means
+"final sequence of characters of a word" which is not
+necessarily a linguistically meaningful suffix.
+Probabilities are smoothed by successive abstrac-
+tion. This calculates the probability of a tag t
+given the last m letters li of an n letter word:
+P(tlln-r,+l,...ln). The sequence of increasingly
+more general contexts omits more and more char-
+acters of the suffix, such that P(tlln_m+2,...,ln),
+P(t[ln-m+3,...,l~), ..., P(t) are used for smooth-
+ing. The recursiou formula is
+P(tll,_i+l, . . . ln)
+= P(tlln-i+l,... In) + OiP(tll~-,..., ln) (7)
+1 +0~
+225
+\x0cset )%1 ----)%2 = )%3 = 0
+foreach trigram tl,t2,t3 with f(tl,t2,t3) > 0
+depending on the maximum of the following three values:
+f(tl ,t2,ts)-- 1
+case f(h,t2)-I " increment )%3 by f(tl,t2,t3)
+f(t2,t3)-I
+case f(t2)-I " increment )%2 by f(tl,t2,ts)
+f(t3)--i
+case N-1 " increment )%1 by f(tl,t2,t3)
+end
+end
+normalize )%1,
+)%2,)%3
+Figure 1: Algorithm for calculting the weights for context-independent linear interpolation )%1,)%2,)%3 when
+the n-gram frequencies are known. N is the size of the corpus If the denominator in one of the expressions
+is 0, we define the result of that expression to be 0.
+for i = m... 0, using the maximum likelihood esti-
+mates/5 from frequencies in the lexicon, weights Oi
+and the initialization
+P(t) =/5(t). (8)
+The maximum likelihood estimate for a suffix of
+length i is derived from corpus frequencies by
+P(ti/~-i+l, .. l~) = f(t, 1~-~+1,... l~)
+ (9)
+For the Markov model, we need the inverse condi-
+tional probabilities P(/,-i+l,... lnlt) which are ob-
+tained by Bayesian inversion.
+A theoretical motivated argumentation uses the
+standard deviation of the maximum likelihood prob-
+abilities for the weights 0i (Samuelsson, 1993)
+This leaves room for interpretation.
+1) One has to identify a good value for m, the
+longest suffix used The approach taken for TnT is
+the following: m depends on the word in question.
+We use the longest suffix that we can find in the
+training set (i.e., for which the frequency is greater
+than or equal to 1), but at most 10 characters. This
+is an empirically determined choice
+2) We use a context-independent approach for 0i,
+as we did for the contextual weights )%i. It turned
+out to be a good choice to set all 0i to the standard
+deviation of the unconditioned maximum likelihood
+probabilities of the tags in the training corpus, i.e.,
+we set
+1
+$
+Oi = ~--~(/5(tj) - 15)2 (10)
+s 1
+j=l
+for all i = 0... m - 1, using a tagset of s tags and
+the average
+$
+/5 = 1 ~/5(tj) (11)
+8
+j----I
+This usually yields values in the range 0.03 ... 0.10.
+3) We use different estimates for uppercase and
+lowercase words, i.e., we maintain two different suffix
+tries depending on the capitalization of the word.
+This information improves the tagging results
+4) Another freedom concerns the choice of the
+words in the lexicon that should be used for suf-
+fix handling. Should we use all words, or are some
+of them better suited than others? Accepting that
+unknown words are most probably infrequent, one
+can argue that using suffixes of infrequent words in
+the lexicon is a better approximation for unknown
+words than using suffixes of frequent words. There-
+fore, we restrict the procedure of suffix handling to
+words with a frequency smaller than or equal to some
+threshold value. Empirically, 10 turned out to be a
+good choice for this threshold.
+2.4 Capitalization
+Additional information that turned out to be use-
+ful for the disambiguation process for several cor-
+pora and tagsets is capitalization information. Tags
+are usually not informative about capitalization, but
+probability distributions of tags around capitalized
+words are different from those not capitalized. The
+effect is larger for English, which only capitalizes
+proper names, and smaller for German, which capi-
+talizes all nouns.
+We use flags ci that are true if wi is a capitalized
+word and false otherwise These flags are added to
+the contextual probability distributions. Instead of
+P(tsItl,t2) (12)
+we use
+P(t3, c3[tl , cl, t2, c2) (13)
+and equations (3) to (5) are updated accordingly.
+This is equivalent to doubling the size of the tagset
+and using different tags depending on capitalization.
+226
+\x0c2.5 Beam Search
+The processing time of the Viterbi algorithm (Ra-
+biner, 1989) can be reduced by introducing a beam
+search. Each state that receives a 5 value smaller
+than the largest 5 divided by some threshold value
+is excluded from further processing. While the
+Viterbi algorithm is guaranteed to find the sequence
+of states with the highest probability, this is no
+longer true when beam search is added. Neverthe-
+less, for practical purposes and the right choice of
+0, there is virtually no difference between the algo-
+rithm with and without a beam. Empirically, a value
+of 0 = 1000 turned out to approximately double the
+speed of the tagger without affecting the accuracy.
+The tagger currently tags between 30~000 and
+60,000 tokens per second (including file I/O) on a
+Pentium 500 running Linux. The speed mainly de-
+pends on the percentage of unknown words and on
+the average ambiguity rate.
+3 Evaluation
+We evaluate the tagger\'s performance under several
+aspects. First of all, we determine the tagging ac-
+curacy averaged over ten iterations. The overall ac-
+curacy, as well as separate accuracies for known and
+unknown words are measured.
+Second, learning curves are presented, that indi-
+cate the performance when using training corpora of
+different sizes, starting with as few as 1,000 tokens
+and ranging to the size of the entire corpus (minus
+the test set).
+An important characteristic of statistical taggers
+is that they not only assign tags to words but also
+probabilities in order to rank different assignments.
+We distinguish reliable from unreliable assignments
+by the quotient of the best and second best assign-
+ments 1. All assignments for which this quotient is
+larger than some threshold are regarded as reliable,
+the others as unreliable. As we will see below, accu-
+racies for reliable assignments are much higher.
+The tests are performed on partitions of the cor-
+pora that use 90% as training set and 10% as test
+set, so that the test data is guaranteed to be unseen
+during training. Each result is obtained by repeat-
+ing the experiment 10 times with different partitions
+and averaging the single outcomes.
+In all experiments, contiguous test sets are used.
+The alternative is a round-robin procedure that puts
+every 10th sentence into the test set. We argue that
+contiguous test sets yield more realistic results be-
+cause completely unseen articles are tagged. Using
+the round-robin procedure, parts of an article are al-
+ready seen, which significantly reduces the percent-
+age of unknown words. Therefore, we expect even
+1By definition, this quotient is co if there is only one pos-
+sible tag for a given word.
+higher results when testing on every 10th sentence
+instead of a contiguous set of 10%.
+In the following, accuracy denotes the number of
+correctly assigned tags divided by the number of to-
+kens in the corpus processed. The tagger is allowed
+to assign exactly one tag to each token.
+We distinguish the overall accuracy, taking into
+account all tokens in the test corpus, and separate
+accuracies for known and unknown tokens. The lat-
+ter are interesting, since usually unknown tokens are
+much more difficult to process than known tokens,
+for which a list of valid tags can be found in the
+lexicon.
+3.1 Tagging the NEGRA corpus
+The German NEGRA corpus consists of 20,000 sen-
+tences (355,000 tokens) of newspaper texts (Frank-
+furter Rundschau) that are annotated with parts-of-
+speech and predicate-argument structures (Skut et
+al., 1997). It was developed at the Saarland Univer-
+sity in Saarbrficken2. Part of it was tagged at the
+IMS Stuttgart. This evaluation only uses the part-
+of-speech annotation and ignores structural annota-
+tions.
+Tagging accuracies for the NEGRA corpus are
+shown in table 2.
+Figure 3 shows the learning curve of the tagger,
+i.e., the accuracy depending on the amount of train-
+ing data. Training length is the nmnber of tokens
+used for training. Each training length was tested
+ten times, training and test sets were randomly cho-
+sen and disjoint, results were averaged. The training
+length is given on a logarithmic scale.
+It is remarkable that tagging accuracy for known
+words is very high even for very small training cot-
+pora. This means that we have a good chance of
+getting the right tag if a word is seen at least once
+during training. Average percentages of unknown
+tokens are shown in the bottom line of each diagram.
+We exploit the fact that the tagger not only de-
+termines tags, but also assigns probabilities. If there
+is an alternative that has a probability "close to"
+that of the best assignment, this alternative can be
+viewed as almost equally well suited. The notion of
+"close to" is expressed by the distance of probabil-
+ities, and this in turn is expressed by the quotient
+of probabilities. So, the distance of the probabili-
+ties of a best tag tbest and an alternative tag tart
+is expressed by P(tbest)/p(tau), which is some value
+greater or equal to 1 since the best tag assignment
+has the highest probability.
+Figure 4 shows the accuracy when separating as-
+signments with quotients larger and smaller than
+the threshold (hence reliable and unreliable assign-
+ments). As expected, we find that accuracies for
+2Foravailability, please check
+h~tp ://w~. col i.uni-sb, de/sfb378/negra-corpus
+777
+227
+\x0cTable 2: Part-of-speech tagging accuracy for the NEGRA corpus, averaged over 10 test runs, training and
+test set are disjoint. The table shows the percentage of unknown tokens, separate accuracies and standard
+deviations for known and unknown tokens, as well as the overall accuracy.
+percentage
+unknowns
+NEGRA corpus 11.9%
+known
+ace.
+97.7% 0.23
+unknown
+acc. (x
+89.0% 0.72
+overall
+aCE. o"
+96.7% 0.29
+NEGRA Corpus: POS Learning Curve
+100
+9O
+80
+70 /S
+6O
+50 , i
+1 2 5
+50.8 46.4 41.4
+I i i I I I i
+10 20 50 100 200 320 500
+36.0 30.7 23.0 18.3 14.3 11.911).3
+Overall
+min =78.1%
+max=96.7%
+e Known
+rain =95.7%
+max=97.7%
+---a--- Unknown
+rain =61.2%
+max=89.0%
+I
+1000 x 1000 Training Length
+St avg. percentage unknown
+Figure 3: Learning curve for tagging the NEGRA corpus. The training sets of variable sizes as well as test
+sets of 30,000 tokens were randomly chosen. Training and test sets were disjoint, the procedure was repeated
+10 times and results were averaged. Percentages of unknowns for 500k and 1000k training are determined
+from an untagged extension.
+NEGRA Corpus: Accuracy of reliable assignments
+100
+99
+98
+97
+A
+f "
+/
+:. Reliable
+rain =96.7%
+max=99.4%
+96 I i i i i i i i i i i
+2 5 10 20 50 100 500 2000 10000 threshold 0
+100 97.9 95.1 92.7 90.3 86.8 84.1 81.0 76.1 71.9 68.3 64.1 62.0 % cases reliable
+- 53.5 62.9 69.6 74.5 79.8 82.7 85.2 88.0 89.6 90.8 91.8 92.2 acc. of complement
+Figure 4: Tagging accuracy for the NEGRA corpus when separating reliable and unreliable assignments. The
+curve shows accuracies for reliable assignments. The numbers at the bottom line indicate the percentage of
+reliable assignments and the accuracy of the complement set (i.e., unreliable assignments).
+228
+\x0cTable 5: Part-of-speech tagging accuracy for the Penn Treebank. The table shows the percentage of unknown
+tokens, separate accuracies and standard deviations for known and unknown tokens, as well as the overall
+accuracy.
+I percentage known
+unknowns acc. a
+Penn Treebank 2.9% 97.0% 0.15
+unknown
+aCC. O"
+85.5% 0.69
+overall
+aCE. O"
+96.7% 0.15
+100
+9O
+80
+70
+<
+60
+Penn Treebank: POS Learning Curve
+/
+50 I I ~ i I I I i I
+1 2 5 10 20 50 100 200 500
+50.3 42.8 33.4 26.8 20.2 13.2 9.8 7.0 4.4
+Overall
+rain =78.6%
+max=96.7%
+Known
+rain =95.2%
+max=97.0%
+Unknown
+min =62.2%
+max=85.5%
+I
+1000  1000 Training Length
+2.9 avg. percentage unknown
+Figure 6: Learning curve for tagging the Penn Treebank. The training sets of variable sizes as well as test sets
+of 100,000 tokens were randomly chosen. Training and test sets were disjoint, the procedure was repeated
+10 times and results were averaged.
+Penn Treebank: Accuracy of reliable assignments
+100
+99
+98
+97
+Overall
+rain =96.6%
+max=99.4%
+96 i i i i t i i i i i i i
+2 5 10 20 50 100 500 2000 10000 threshold 0
+100 97.7 94.6 92.2 89.8 86.3 83.5 80.4 76.6 73.8 71.0 67.2 64.5 % cases reliable
+- 53.5 62.8 68.9 73.9 79.3 82.6 85.2 87.5 88.8 89.8 91.0 91.6 acc. of complement
+Figure 7: Tagging accuracy for the Penn Treebank when separating reliable and unreliable assignments. The
+curve shows accuracies for reliable assignments. The numbers at the bottom line indicate the percentage of
+reliable assignments and the accuracy of the complement set.
+229
+\x0creliable assignments are much higher than for unre-
+liable assignments. This distinction is, e.g., useful
+for annotation projects during the cleaning process,
+or during pre-processing, so the tagger can emit mul-
+tiple tags if the best tag is classified as unreliable.
+3.2 Tagging the Penn Treebank
+We use the Wall Street Journal as contained in the
+Penn Treebank for our experiments. The annotation
+consists of four parts: 1) a context-free structure
+augmented with traces to mark movement and dis-
+continuous constituents, 2) phrasal categories that
+are annotated as node labels, 3) a small set of gram-
+matical functions that are annotated as extensions to
+the node labels, and 4) part-of-speech tags (Marcus
+et al., 1993). This evaluation only uses the part-of-
+speech annotation.
+The Wall Street Journal part of the Penn Tree-
+bank consists of approx. 50,000 sentences (1.2 mil-
+lion tokens).
+Tagging accuracies for the Penn Treebank are
+shown in table 5. Figure 6 shows the learning curve
+of the tagger, i.e., the accuracy depending on the
+amount of training data. Training length is the num-
+ber of tokens used for training. Each training length
+was tested ten times. Training and test sets were
+disjoint, results are averaged. The training length is
+given on a logarithmic scale. As for the NEGRA cor-
+pus, tagging accuracy is very high for known tokens
+even with small amounts of training data.
+We exploit the fact that the tagger not only de-
+termines tags, but also assigns probabilities. Figure
+7 shows the accuracy when separating assignments
+with quotients larger and smaller than the threshold
+(hence reliable and unreliable assignments). Again,
+we find that accuracies for reliable assignments are
+much higher than for unreliable assignments.
+3.3 Summary of Part-of-Speech Tagging
+Results
+Average part-of-speech tagging accuracy is between
+96% and 97%, depending on language and tagset,
+which is at least on a par with state-of-the-art re-
+sults found in the literature, possibly better. For
+the Penn Treebank, (Ratnaparkhi, 1996) reports an
+accuracy of 96.6% using the Maximum Entropy ap-
+proach, our much simpler and therefore faster HMM
+approach delivers 96.7%. This comparison needs to
+be re-examined, since we use a ten-fold crossvalida-
+tion and averaging of results while Ratnaparkhi only
+makes one test run.
+The accuracy for known tokens is significantly
+higher than for unknown tokens. For the German
+newspaper data, results are 8.7% better when the
+word was seen before and therefore is in the lexicon,
+than when it was not seen before (97.7% vs. 89.0%).
+Accuracy for known tokens is high even with very
+small amounts of training data. As few as 1000 to-
+kens are sufficient to achieve 95%-96% accuracy for
+them. It is important for the tagger to have seen a
+word at least once during training.
+Stochastic taggers assign probabilities to tags. We
+exploit the probabilities to determine reliability of
+assignments. For a subset that is determined during
+processing by the tagger we achieve accuracy rates
+of over 99%. The accuracy of the complement set is
+much lower. This information can, e.g., be exploited
+in an annotation project to give an additional treat-
+ment to the unreliable assignments, or to pass se-
+lected ambiguities to a subsequent processing step.
+4 Conclusion
+We have shown that a tagger based on Markov mod-
+els yields state-of-the-art results, despite contrary
+claims found in the literature. For example, the
+Markov model tagger used in the comparison of (van
+Halteren et al., 1998) yielded worse results than all
+other taggers. In our opinion, a reason for the wrong
+claim is that the basic algorithms leave several deci-
+sions to the implementor. The rather large amount
+of freedom was not handled in detail in previous pub-
+lications: handling of start- and end-of-sequence, the
+exact smoothing technique, how to determine the
+weights for context probabilities, details on handling
+unknown words, and how to determine the weights
+for unknown words. Note that the decisions we made
+yield good results for both the German and the En-
+glish Corpus. They do so for several other corpora
+as well. The architecture remains applicable to a
+large variety of languages.
+According to current tagger comparisons (van
+Halteren et al., 1998; Zavrel and Daelemans, 1999),
+and according to a comparsion of the results pre-
+sented here with those in (Ratnaparkhi, 1996), the
+Maximum Entropy framework seems to be the only
+other approach yielding comparable results to the
+one presented here. It is a very interesting future
+research topic to determine the advantages of either
+of these approaches, to find the reason for their high
+accuracies, and to find a good combination of both.
+TnT is freely available to universities and re-
+lated organizations for research purposes (see
+http ://www. coli. uni-sb, de/-thorsten/tnt).
+Acknowledgements
+Many thanks go to Hans Uszkoreit for his sup-
+port during the development of TnT. Most of the
+work on TnT was carried out while the author
+received a grant of the Deutsche Forschungsge-
+meinschaft in the Graduiertenkolleg Kognitionswis-
+senschaft Saarbriicken. Large annotated corpora are
+the pre-requisite for developing and testing part-of-
+speech taggers, and they enable the generation of
+high-quality language models. Therefore, I would
+230
+\x0clike to thank all the people who took the effort
+to annotate the Penn Treebank, the Susanne Cor-
+pus, the Stuttgarter Referenzkorpus, the NEGRA
+Corpus, the Verbmobil Corpora, and several others.
+And, last but not least, I would like to thank the
+users of TnT who provided me with bug reports and
+valuable suggestions for improvements.
+References
+Thorsten Brants, Wojciech Skut, and Hans Uszko-
+reit. 1999. Syntactic annotation of a German
+newspaper corpus. In Proceedings of the ATALA
+Treebank Workshop, pages 69-76, Paris, France.
+Eric Brill. 1993. A Corpus-Based Approach to Lan-
+guage Learning. Ph.D. Dissertation, Department
+of Computer and Information Science, University
+of Pennsylvania.
+Eugene Charniak, Curtis Hendrickson, Neil Ja-
+cobson, and Mike Perkowitz. 1993. Equations
+for part-of-speech tagging. In Proceedings of the
+Eleventh National Con[erence on Artificial In-
+telligence, pages 784-789, Menlo Park: AAAI
+Press/MIT Press.
+Doug Cutting, Julian Kupiec, Jan Pedersen, and
+Penelope Sibun. 1992. A practical part-of-speech
+tagger. In Proceedings of the 3rd Conference
+on Applied Natural Language Processing (ACL),
+pages 133-140.
+Walter Daelemans, Jakub Zavrel, Peter Berck, and
+Steven Gillis. 1996. Mbt: A memory-based part
+of speech tagger-generator. In Proceedings of the
+Workshop on Very Large Corpora, Copenhagen,
+Denmark.
+Mitchell Marcus, Beatrice Santorini, and Mary Ann
+Marcinkiewicz. 1993. Building a large annotated
+corpus of English: The Penn Treebank. Compu-
+tational Linguistics, 19(2):313-330.
+Lawrence R. Rabiner. 1989. A tutorial on Hid-
+den Markov Models and selected applications in
+speech recognition. In Proceedings o] the IEEE,
+volume 77(2), pages 257-285.
+Adwait Ratnaparkhi. 1996. A maximum entropy
+model for part-of-speech tagging. In Proceedings
+o] the Conference on Empirical Methods in Nat-
+ural Language Processing EMNLP-96, Philadel-
+phia, PA.
+Christer Samuelsson. 1993. Morphological tag-
+ging based entirely on Bayesian inference. In
+9th Nordic Conference on Computational Lin-
+guistics NODALIDA-93, Stockholm University,
+Stockholm, Sweden.
+Helmut Schmid. 1995. Improvements in part-of-
+speech tagging with an application to German.
+In Helmut Feldweg and Erhard Hinrichts, editors,
+Lexikon und Text. Niemeyer, Tfibingen.
+Wojciech Skut, Brigitte Krenn, Thorsten Brants,
+and Hans Uszkoreit. 1997. An annotation scheme
+for free word order languages. In Proceedings of
+the Fifth Conference on Applied Natural Language
+Processing ANLP-97, Washington, DC.
+Hans van Halteren, Jakub Zavrel, and Walter Daele-
+mans. 1998. Improving data driven wordclass tag-
+ging by system combination. In Proceedings of the
+International Conference on Computational Lin-
+guistics COLING-98, pages 491-497, Montreal,
+Canada.
+Martin Volk and Gerold Schneider. 1998. Compar-
+ing a statistical and a rule-based tagger for ger-
+man. In Proceedings of KONVENS-98, pages 125-
+137, Bonn.
+Jakub Zavrel and Walter Daelemans. 1999. Eval-
+uatie van part-of-speech taggers voor bet cor-
+pus gesproken nederlands. CGN technical report,
+Katholieke Universiteit Brabant, Tilburg.
+231
+\x0c'

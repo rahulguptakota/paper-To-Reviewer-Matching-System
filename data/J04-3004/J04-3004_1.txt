@@ -1,0 +1,2499 @@
+b'c
+\x01 2004 Association for Computational Linguistics
+Understanding the Yarowsky Algorithm
+Steven Abney
+University of Michigan
+Many problems in computational linguistics are well suited for bootstrapping (semisupervised
+learning) techniques. The Yarowsky algorithm is a well-known bootstrapping algorithm, but
+it is not mathematically well understood. This article analyzes it as optimizing an objective
+function. More specifically, a number of variants of the Yarowsky algorithm (though not the
+original algorithm itself) are shown to optimize either likelihood or a closely related objective
+function K.
+1. Introduction
+Bootstrapping, or semisupervised learning, has become an important topic in com-
+putational linguistics. For many language-processing tasks, there are an abundance
+of unlabeled data, but labeled data are lacking and too expensive to create in large
+quantities, making bootstrapping techniques desirable.
+The Yarowsky (1995) algorithm was one of the first bootstrapping algorithms to be-
+come widely known in computational linguistics. In brief, it consists of two loops. The
+inner loop or base learner is a supervised learning algorithm. Specifically, Yarowsky
+uses a simple decision list learner that considers rules of the form If instance x con-
+tains feature f, then predict label j and selects those rules whose precision on the
+training data is highest.
+The outer loop is given a seed set of rules to start with. In each iteration, it uses
+the current set of rules to assign labels to unlabeled data. It selects those instances
+regarding which the base learners predictions are most confident and constructs a
+labeled training set from them. It then calls the inner loop to construct a new classifier
+(that is, a new set of rules), and the cycle repeats.
+An alternative algorithm, co-training (Blum and Mitchell 1998), has subsequently
+become more popular, perhaps in part because it has proven amenable to theoretical
+analysis (Dasgupta, Littman, and McAllester 2001), in contrast to the Yarowsky al-
+gorithm, which is as yet mathematically poorly understood. The current article aims
+to rectify this lack of understanding, increasing the attractiveness of the Yarowsky
+algorithm as an alternative to co-training. The Yarowsky algorithm does have the ad-
+vantage of placing less of a restriction on the data sets it can be applied to. Co-training
+requires data attributes to be separable into two views that are conditionally indepen-
+dent given the target label; the Yarowsky algorithm makes no such assumption about
+its data.
+In previous work, I did propose an assumption about the data called precision
+independence, under which the Yarowsky algorithm could be shown effective (Ab-
+ney 2002). That assumption is ultimately unsatisfactory, however, not only because it
+ 4080 Frieze Bldg., 105 S. State Street, Ann Arbor, MI 48109-1285. E-mail: abney.umich.edu.
+Submission received: 26 August 2003; Revised submission received: 21 December 2003; Accepted for
+publication: 10 February 2004
+\x0c366
+Computational Linguistics Volume 30, Number 3
+Table 1
+The Yarowsky algorithm variants. Y-1/DL-EM reduces H; the others
+reduce K.
+Y-1/DL-EM- EM inner loop that uses labeled examples only
+Y-1/DL-EM-X EM inner loop that uses all examples
+Y-1/DL-1-R Near-original Yarowsky inner loop, no smoothing
+Y-1/DL-1-VS Near-original Yarowsky inner loop, variable smoothing
+YS-P Sequential update, antismoothing
+YS-R Sequential update, no smoothing
+YS-FS Sequential update, original Yarowsky smoothing
+restricts the data sets on which the algorithm can be shown effective, but also for ad-
+ditional internal reasons. A detailed discussion would take us too far afield here, but
+suffice it to say that precision independence is a property that it would be preferable
+not to assume, but rather to derive from more basic properties of a data set, and that
+closer empirical study shows that precision independence fails to be satisfied in some
+data sets on which the Yarowsky algorithm is effective.
+This article proposes a different approach. Instead of making assumptions about
+the data, it views the Yarowsky algorithm as optimizing an objective function. We will
+show that several variants of the algorithm (though not the algorithm in precisely its
+original form) optimize either negative log likelihood H or an alternative objective
+function, K, that imposes an upper bound on H.
+Ideally, we would like to show that the Yarowsky algorithm minimizes H. Un-
+fortunately, we are not able to do so. But we are able to show that a variant of the
+Yarowsky algorithm, which we call Y-1/DL-EM, decreases H in each iteration. It com-
+bines the outer loop of the Yarowsky algorithm with a different inner loop based on
+the expectation-maximization (EM) algorithm.
+A second proposed variant of the Yarowsky algorithm, Y-1/DL-1, has the advan-
+tage that its inner loop is very similar to the original Yarowsky inner loop, unlike
+Y-1/DL-EM, whose inner loop bears little resemblance to the original. Y-1/DL-1 has
+the disadvantage that it does not directly reduce H, but we show that it does reduce
+the alternative objective function K.
+We also consider a third variant, YS. It differs from Y-1/DL-EM and Y-1/DL-1
+in that it updates sequentially (adding a single rule in each iteration), rather than in
+parallel (updating all rules in each iteration). Besides having the intrinsic interest of
+sequential update, YS can be proven effective when using exactly the same smoothing
+method as used in the original Yarowsky algorithm, in contrast to Y-1/DL-1, which
+uses either no smoothing or a nonstandard variable smoothing. YS is proven to
+decrease K.
+The Yarowsky algorithm variants that we consider are summarized in Table 1. To
+the extent that these variants capture the essence of the original algorithm, we have
+a better formal understanding of its effectiveness. Even if the variants are deemed to
+depart substantially from the original algorithm, we have at least obtained a family
+of new bootstrapping algorithms that are mathematically understood.
+2. The Generic Yarowsky Algorithm
+2.1 The Original Algorithm Y-0
+The original Yarowsky algorithm, which we refer to as Y-0, is given in table 2. It is
+an iterative algorithm. One begins with a seed set (0)
+of labeled examples and a
+\x0c367
+Abney Understanding the Yarowsky Algorithm
+Table 2
+The generic Yarowsky algorithm (Y-0)
+(1) Given: examples X, and initial labeling Y(0)
+(2) For t  {0, 1, . . .}
+(2.1) Train classifier on labeled examples ((t)
+, Y(t)
+), where (t)
+= {x  X|Y(t)
+\x05= }
+The resulting classifier predicts label j for example x with probability 
+(t+1)
+x (j)
+(2.2) For each example x  X:
+(2.2.1) Set y = arg maxj 
+(t+1)
+x (j)
+(2.2.2) Set Y
+(t+1)
+x =
+
+
+
+Y
+(0)
+x if x  (0)
+y if 
+(t+1)
+x (y) > 
+ otherwise
+(2.3) If Y(t+1)
+= Y(t)
+, stop
+set V(0)
+of unlabeled examples. At each iteration, a classifier is constructed from the
+labeled examples; then the classifier is applied to the unlabeled examples to create a
+new labeled set.
+To discuss the algorithm formally, we require some notation. We assume first a set
+of examples X and a feature set Fx for each x  X. The set of examples with feature f
+is Xf . Note that x  Xf if and only if f  Fx.
+We also require a series of labelings Y(t)
+, where t represents the iteration number.
+We write Y
+(t)
+x for the label of example x under labeling Y(t)
+. An unlabeled example is
+one for which Y
+(t)
+x is undefined, in which case we write Y
+(t)
+x = . We write V(t)
+for
+the set of unlabeled examples and (t)
+for the set of labeled examples. It will also be
+useful to have a notation for the set of examples with label j:
+
+(t)
+j  {x  X|Y
+(t)
+x = j \x06= }
+Note that (t)
+is the disjoint union of the sets 
+(t)
+j . When t is clear from context, we
+drop the superscript (t) and write simply j, V, Yx, etc.
+At the risk of ambiguity, we will also sometimes write f for the set of labeled
+examples with feature f, trusting to the index to discriminate between f (labeled
+examples with feature f) and j (labeled examples with label j). We always use f and
+g to represent features and j and k to represent labels. The reader may wish to refer
+to Table 3, which summarizes notation used throughout the article.
+In each iteration, the Yarowsky algorithm uses a supervised learner to train a clas-
+sifier on the labeled examples. Let us call this supervised learner the base learning
+algorithm; it is a function from (X, Y(t)
+) to a classifier  drawn from a space of classi-
+fiers . It is assumed that the classifier makes confidence-weighted predictions. That
+is, the classifier defines a scoring function (x, j), and the predicted label for example
+x is
+y  arg max
+j
+(x, j) (1)
+Ties are broken arbitrarily. Technically, we assume a fixed order over labels and define
+the maximization as returning the first label in the ordering, in case of a tie.
+It will be convenient to assume that the scoring function is nonnegative and
+bounded, in which case we can normalize it to make (x, j) a conditional distribution
+over labels j for a given example x. Henceforward, we write x(j) instead of (x, j),
+\x0c368
+Computational Linguistics Volume 30, Number 3
+Table 3
+Summary of notation.
+X set of examples, both labeled and unlabeled
+Y the current labeling; Y(t)
+is the labeling at iteration t
+ the (current) set of labeled examples
+V the (current) set of unlabeled examples
+x an example index
+f, g feature indices
+j, k label indices
+Fx the features of example x
+Yx the label of example x; value is undefined () if x is unlabeled
+Xf , f , Vf examples, labeled examples, unlabeled examples that have feature f
+j, fj examples with label j, examples with feature f and label j
+m the number of features of a given example: |Fx| (cf. equation (12))
+L the number of labels
+x(j) labeling distribution (equation (5))
+x(j) prediction distribution (equation (12); except for DL-0, which uses equation (11))
+fj score for rule f  j; we view f as the prediction distribution of f
+y label that maximizes x(j) for given x (equation (1)
+[[]] truth value of : value is 0 or 1
+H objective function, negative log-likelihood (equation (6))
+H(p) entropy of distribution p
+H(p||q) cross entropy: 
+\x04
+x
+p(x) log q(x) (cf. equations (2) and (3))
+K objective function, upper bound on H (equation (20))
+qf (j) precision of rule f  j (equation (9))
+qf (j) smoothed precision (equation (10))
+qf (j) peaked precision (equation (25))
+j the label that maximizes precision qf (j) for a given feature f (equation (26))
+j the label that maximizes rule score fj for a given feature f (equation (28))
+u() uniform distribution
+understanding x to be a probability distribution over labels j. We call this distribution
+the prediction distribution of the classifier on example x.
+To complete an iteration of the Yarowsky algorithm, one recomputes labels for
+examples. Specifically, the label y is assigned to example x if the score x(y) exceeds a
+threshold , called the labeling threshold. The new labeled set (t+1)
+contains all ex-
+amples for which x(y) > . Relabeling applies only to examples in V(0)
+. The labels for
+examples in (0)
+are indelible, because (0)
+constitutes the original manually labeled
+data, as opposed to data that have been labeled by the learning algorithm itself.
+The algorithm continues until convergence. The particular base learning algorithm
+that Yarowsky uses is deterministic, in the sense that the classifier induced is a deter-
+ministic function of the labeled data. Hence, the algorithm is known to have converged
+at whatever point the labeling remains unchanged.
+Note that the algorithm as stated leaves the base learning algorithm unspecified.
+We can distinguish between the generic Yarowsky algorithm Y-0, for which the base
+learning algorithm is an open parameter, and the specific Yarowsky algorithm, which
+includes a specification of the base learner. Informally, we call the generic algorithm
+the outer loop and the base learner the inner loop of the specific Yarowsky algorithm.
+The base learner that Yarowsky assumes is a decision list induction algorithm. We
+postpone discussion of it until Section 3.
+\x0c369
+Abney Understanding the Yarowsky Algorithm
+2.2 An Objective Function
+Machine learning algorithms are typically designed to optimize some objective func-
+tion that represents a formal measure of performance. The maximum-likelihood crite-
+rion is the most commonly used objective function. Suppose we have a set of examples
+, with labels Yx for x  , and a parametric family of models  such that (j|x; )
+represents the probability of assigning label j to example x, according to the model.
+The likelihood of  is the probability of the full data set according to the model, viewed
+as a function of , and the maximum-likelihood criterion instructs us to choose the
+parameter settings  that maximize likelihood, or equivalently, log-likelihood:
+l() = log
+\x05
+x
+(Yx|x; )
+=
+\x06
+x
+log (Yx|x; )
+=
+\x06
+x
+\x06
+j
+[[j = Yx]] log (j|x; )
+(The notation [[]] represents the truth value of the proposition ; it is one if  is true
+and zero otherwise.)
+Let us define
+x(j) = [[j = Yx]] for x  
+Note that x satisfies the formal requirements of a probability distribution over labels
+j: Specifically, it is a point distribution with all its mass concentrated on Yx. We call it
+the labeling distribution. Now we can write
+l() =
+\x06
+x
+\x06
+j
+x(j) log (j|x; )
+= 
+\x06
+x
+H(x||x) (2)
+In (2) we have written x for the distribution (|x; ), leaving the dependence on 
+implicit. We have also used the nonstandard notation H(p||q) for what is sometimes
+called cross entropy. It is easy to verify that
+H(p||q) = H(p) + D(p||q) (3)
+where H(p) is the entropy of p and D is Kullback-Leibler divergence. Note that when
+p is a point distribution, H(p) = 0 and hence H(p||q) = D(p||q). In particular:
+l() = 
+\x06
+x
+D(x||x) (4)
+Thus when, as here, x is a point distribution, we can restate the maximum-likelihood
+criterion as instructing us to choose the model that minimizes the total divergence
+between the empirical labeling distributions x and the models prediction distribu-
+tions x.
+To extend l() to unlabeled examples, we need only observe that unlabeled exam-
+ples are ones about whose labels the data provide no information. Accordingly, we
+\x0c370
+Computational Linguistics Volume 30, Number 3
+revise the definition of x to treat unlabeled examples as ones whose labeling distribu-
+tion is the maximally uncertain distribution, which is to say, the uniform distribution:
+x(j) =
+\x07
+[[j = Yx]] for x  
+1
+L for x  V
+(5)
+where L is the number of labels. Equivalently:
+x(j) = [[x  j]] + [[x  V]]
+1
+L
+When we replace  with X, expressions (2) and (4) are no longer equivalent; we
+must use (2). Since H(x||x) = H(x) + D(x||x), and H(x) is minimized when x is
+labeled, minimizing H(x||x) forces one to label unlabeled examples. On labeled ex-
+amples, H(x||x) = D(x||x), and D(x||x) is minimized when the labels of examples
+agree with the predictions of the model.
+In short, we adopt as objective function
+H 
+\x06
+xX
+H(x||x) = l(, ) (6)
+We seek to minimize H.
+2.3 The Modified Algorithm Y-1
+We can show that a modified version of the Yarowsky algorithm finds a local minimum
+of H. Two modifications are necessary:
+ The labeling function Y is recomputed in each iteration as before, but
+with the constraint that an example once labeled stays labeled. The label
+may change, but a labeled example cannot become unlabeled again.
+ We eliminate the threshold  or (equivalently) fix it at 1/L. As a result,
+the only examples that remain unlabeled after the labeling step are those
+for which x is the uniform distribution. The problem with an arbitrary
+threshold is that it prevents the algorithm from converging to a
+minimum of H. A threshold that gradually decreases to 1/L would also
+address the problem but would complicate the analysis.
+The modified algorithm, Y-1, is given in Table 4.
+To obtain a proof, it will be necessary to make an assumption about the supervised
+classifier (t+1)
+induced by the base learner in step 2.1 of the algorithm. A natural as-
+sumption is that the base learner chooses (t+1)
+so as to minimize
+\x04
+x(t) D(
+(t)
+x ||
+(t+1)
+x ).
+A weaker assumption will suffice, however. We assume that the base learner reduces
+divergence, if possible. That is, we assume
+D 
+\x06
+x(t)
+D(
+(t)
+x ||
+(t+1)
+x ) 
+\x06
+x(t)
+D(
+(t)
+x ||
+(t)
+x )  0 (7)
+with equality only if there is no classifier (t+1)
+  that makes D < 0. Note
+that any learning algorithm that minimizes
+\x04
+x(t) D(
+(t)
+x ||
+(t+1)
+x ) satisfies the weaker
+assumption (7), inasmuch as the option of setting 
+(t+1)
+x = 
+(t)
+x is always available.
+\x0c371
+Abney Understanding the Yarowsky Algorithm
+Table 4
+The modified generic Yarowsky algorithm (Y-1).
+(1) Given: X, Y(0)
+(2) For t  {0, 1, . . .}
+(2.1) Train classifier on ((t)
+, Y(t)
+); result is (t+1)
+(2.2) For each example x  X:
+(2.2.1) Set y = arg maxj 
+(t+1)
+x (j)
+(2.2.2) Set Y
+(t+1)
+x =
+
+
+
+Y
+(0)
+x if x  (0)
+y if x  (t)
+ 
+(t+1)
+x (y) > 1/L
+ otherwise
+(2.3) If Y(t+1)
+= Y(t)
+, stop
+We also consider a somewhat stronger assumption, namely, that the base learner
+reduces divergence over all examples, not just over labeled examples:
+DX 
+\x06
+xX
+D(
+(t)
+x ||
+(t+1)
+x ) 
+\x06
+xX
+D(
+(t)
+x ||
+(t)
+x )  0 (8)
+If a base learning algorithm satisfies (8), the proof of theorem 1 is shorter; but (7) is
+the more natural condition for a base learner to satisfy.
+We can now state the main theorem of this section.
+Theorem 1
+If the base learning algorithm satisfies (7) or (8), algorithm Y-1 decreases H at each
+iteration until it reaches a critical point of H.
+We require the following lemma in order to prove the theorem:
+Lemma 1
+For all distributions p
+H(p)  log
+1
+maxj p(j)
+with equality iff p is the uniform distribution.
+Proof
+By definition, for all k:
+p(k)  max
+j
+p(j)
+log
+1
+p(k)
+ log
+1
+maxj p(j)
+Since this is true for all k, it is true if we take the expectation with respect to p:
+\x06
+k
+p(k) log
+1
+p(k)
+
+\x06
+k
+p(k) log
+1
+maxj p(j)
+H(p)  log
+1
+maxj p(j)
+\x0c372
+Computational Linguistics Volume 30, Number 3
+We have equality only if p(k) = maxj p(j) for all k, that is, only if p is the uniform
+distribution.
+We now prove the theorem.
+Proof of Theorem 1
+The algorithm produces a sequence of labelings (0)
+, (1)
+, . . . and a sequence of clas-
+sifiers (1)
+, (2)
+, . . . . The classifier (t+1)
+is trained on (t)
+, and the labeling (t+1)
+is
+created using (t+1)
+.
+Recall that
+H =
+\x06
+xX
+\x08
+H(x) + D(x||x)
+\t
+In the training step (2.1) of the algorithm, we hold  fixed and change , and in the
+labeling step (2.2), we hold  fixed and change . We will show that the training step
+minimizes H as a function of , and the labeling step minimizes H as a function of 
+except in examples in which it is at a critical point of H. Hence, H is nonincreasing in
+each iteration of the algorithm and is strictly decreasing unless ((t)
+, (t)
+) is a critical
+point of H.
+Let us consider the labeling step first. In this step,  is held constant, but  (pos-
+sibly) changes, and we have
+H =
+\x06
+xX
+H(x)
+where
+H(x)  H(
+(t+1)
+x ||
+(t+1)
+x )  H(
+(t)
+x ||
+(t+1)
+x )
+We can show that H is nonpositive if we can show that H(x) is nonpositive for all
+x.
+We can guarantee that H(x)  0 if (t+1)
+minimizes H(p||
+(t+1)
+x ) viewed as a
+function of p. By definition:
+H(p||
+(t+1)
+x ) =
+\x06
+j
+pj log
+1
+
+(t+1)
+x (j)
+We wish to find the distribution p that minimizes H(p||
+(t+1)
+x ). Clearly, we accomplish
+that by placing all the mass of p in pj, where j minimizes  log 
+(t+1)
+x (j). If there
+is more than one minimizer, H(p||
+(t+1)
+x ) is minimized by any distribution p that dis-
+tributes all its mass among the minimizers of  log 
+(t+1)
+x (j). Observe further that
+arg min
+j
+log
+1
+
+(t+1)
+x (j)
+= arg max
+j
+
+(t+1)
+x (j)
+= y
+That is, we minimize H(p||
+(t+1)
+x ) by setting pj = [[j = y]], which is to say, by labeling
+x as predicted by (t+1)
+. That is how algorithm Y-1 defines 
+(t+1)
+x for all examples
+x  (t+1)
+whose labels are modifiable (that is, excluding x  (0)
+).
+Note that 
+(t+1)
+x does not minimize H(p||
+(t+1)
+x ) for examples x  V(t+1)
+, that is, for
+examples x that remain unlabeled at t + 1. However, in algorithm Y-1, any example
+that is unlabeled at t + 1 is necessarily also unlabeled at t, so for any such example,
+\x0c373
+Abney Understanding the Yarowsky Algorithm
+H(x) = 0. Hence, if any label changes in the labeling step, H decreases, and if no
+label changes, H remains unchanged; in either case, H does not increase.
+We can show further that even for examples x  V(t+1)
+, the labeling distribution
+
+(t+1)
+x assigned by Y-1 represents a critical point of H. For any example x  V(t+1)
+,
+the prediction distribution 
+(t+1)
+x is the uniform distribution (otherwise Y-1 would
+have labeled x). Hence the divergence between (t+1)
+and (t+1)
+is zero, and thus at
+a minimum. It would be possible to decrease H(
+(t+1)
+x ||
+(t+1)
+x ) by decreasing H(
+(t+1)
+x )
+at the cost of an increase in D(
+(t+1)
+x ||
+(t+1)
+x ), but all directions of motion (all ways of
+selecting labels to receive increased probability mass) are equally good. That is to say,
+the gradient of H is zero; we are at a critical point.
+Essentially, we have reached a saddle point. We have minimized H with respect
+to x(j) along those dimensions with a nonzero gradient. Along the remaining dimen-
+sions, we are actually at a local maximum, but without a gradient to choose a direction
+of descent.
+Now let us consider the algorithms training step (2.1). In this step,  is held
+constant, so the change in H is equal to the change in Drecall that H(||) = H() +
+D(||). By the hypothesis of the theorem, there are two cases: The base learner satisfies
+either (7) or (8). If it satisfies (8), the base learner minimizes D as a function of , hence
+it follows immediately that it minimizes H as a function of .
+Suppose instead that the base learner satisfies (7). We can express H as
+H =
+\x06
+xX
+H(x) +
+\x06
+x(t)
+D(x||x) +
+\x06
+xV(t)
+D(x||x)
+In the training step, the first term remains constant. The second term decreases, by
+hypothesis. But the third term may increase. However, we can show that any increase
+in the third term is more than offset in the labeling step.
+Consider an arbitrary example x in V(t)
+. Since it is unlabeled at time t, we know
+that 
+(t)
+x is the uniform distribution u:
+u(j) =
+1
+L
+Moreover, 
+(t)
+x must also be the uniform distribution; otherwise example x would
+have been labeled in a previous iteration. Therefore the value of H(x) = H(x||x) at
+the beginning of iteration t is H0:
+H0 =
+\x06
+j
+
+(t)
+x (j) log
+1
+
+(t)
+x (j)
+=
+\x06
+j
+u(j) log
+1
+u(j)
+= H(u)
+After the training step, the value is H1:
+H1 =
+\x06
+j
+
+(t)
+x (j) log
+1
+
+(t+1)
+x (j)
+If x remains unchanged in the training step, then the new distribution 
+(t+1)
+x , like the
+old one, is the uniform distribution, and the example remains unlabeled. Hence there
+is no change in H, and in particular, H is nonincreasing, as desired. On the other hand,
+if x does change, then the new distribution 
+(t+1)
+x is nonuniform, and the example is
+\x0c374
+Computational Linguistics Volume 30, Number 3
+labeled in the labeling step. Hence the value of H(x) at the end of the iteration, after
+the labeling step, is H2:
+H2 =
+\x06
+j
+
+(t+1)
+x (j) log
+1
+
+(t+1)
+x (j)
+= log
+1
+
+(t+1)
+x (y)
+By Lemma 1, H2 < H(u); hence H2 < H0.
+As we observed above, H1 > H0, but if we consider the change overall, we find
+that the increase in the training step is more than offset in the labeling step:
+H(x) = H2  H1 + H1  H0 < 0
+3. The Specific Yarowsky Algorithm
+3.1 The Original Decision List Induction Algorithm DL-0
+When one speaks of the Yarowsky algorithm, one often has in mind not just the generic
+algorithm Y-0 (or Y-1), but an algorithm whose specification includes the particular
+choice of base learning algorithm made by Yarowsky. Specifically, Yarowskys base
+learner constructs a decision list, that is, a list of rules of form f  j, where f is a
+feature and j is a label, with score fj. A rule f  j matches example x if x possesses
+the feature f. The label predicted for a given example x is the label of the highest
+scoring rule that matches x.
+Yarowsky uses smoothed precision for rule scoring. As the name suggests,
+smoothed precision qf (j) is a smoothed version of (raw) precision qf (j), which is the
+probability that rule f  j is correct given that it matches
+qf (j) 
+\x07
+|fj|/|f | if |f | > 0
+1/L otherwise
+(9)
+where f is the set of labeled examples that possess feature f, and fj is the set of
+labeled examples with feature f and label j.
+Smoothed precision q(j|f; \t) is defined as follows:
+q(j|f; \t) 
+|fj| + \t
+|f | + L\t
+(10)
+We also write qf (j) when \t is clear from context.
+Yarowsky defines a rules score to be its smoothed precision:
+fj = qf (j)
+Anticipating later needs, we will also consider raw precision as an alternative: fj =
+qf (j). Both raw and smoothed precision have the properties of a conditional probability
+distribution. Generally, we view fj as a conditional distribution over labels j for a fixed
+feature f.
+Yarowsky defines the confidence of the decision list to be the score of the highest-
+scoring rule that matches the instance being classified. This is equivalent to defining
+x(j)  max
+fFx
+fj (11)
+(Recall that Fx is the set of features of x.) Since the classifiers prediction for x is
+defined, in equation (1), to be the label that maximizes x(j), definition (11) implies
+\x0c375
+Abney Understanding the Yarowsky Algorithm
+Table 5
+The decision list induction algorithm DL-0. The value accumulated in N[f, j] is |fj|, and the
+value accumulated in Z[f] is |f |.
+(0) Given: a fixed value for \x08 > 0
+Initialize arrays N[f, j] = 0, Z[f] = 0 for all f, j
+(1) For each example x  
+(1.1) Let j be the label of x
+(1.2) Increment N[f, j], Z[f], for each feature f of x
+(2) For each feature f and label j
+(2.1) Set fj =
+N[f,j]+\x01
+Z[f]+L\x01
+(*) Define x(j)  maxfFx fj
+that the classifiers prediction is the label of the highest-scoring rule matching x, as
+desired.
+We have written  in (11) rather than = because maximizing fj across f  Fx for
+each label j will not in general yield a probability distribution over labelsthough the
+scores will be positive and bounded, and hence normalizable. Considering only the
+final predicted label y for a given example x, the normalization will have no effect,
+inasmuch as all scores fj being compared will be scaled in the same way.
+As characterized by Yarowsky, a decision list contains only those rules f  j whose
+score qf (j) exceeds the labeling threshold . This can be seen purely as an efficiency
+measure. Including rules whose score falls below the labeling threshold will have no
+effect on the classifiers predictions, as the threshold will be applied when the classifier
+is applied to examples. For this reason, we do not prune the list. That is, we represent
+a decision list as a set of parameters {fj}, one for every possible rule f  j in the cross
+product of the set of features and the set of labels.
+The decision list induction algorithm used by Yarowsky is summarized in Table 5;
+we refer to it as DL-0. Note that the step labeled (*) is not actually a step of the
+induction algorithm but rather specifies how the decision list is used to compute a
+prediction distribution x for a given example x.
+Unfortunately, we cannot prove anything about DL-0 as it stands. In particular,
+we are unable to show that DL-0 reduces divergence between prediction and labeling
+distributions (7). In the next section, we describe an alternative decision list induc-
+tion algorithm, DL-EM, that does satisfy (7); hence we can apply Theorem 1 to the
+combination Y-1/DL-EM to show that it reduces H. However, a disadvantage of DL-
+EM is that it does not resemble the algorithm DL-0 used by Yarowsky. We return in
+section 3.4 to a close variant of DL-0 called DL-1 and show that though it does not
+directly reduce H, it does reduce the upper bound K.
+3.2 The Decision List Induction Algorithm DL-EM
+The algorithm DL-EM is a special case of the EM algorithm. We consider two versions
+of the algorithm: DL-EM- and DL-EM-X. They differ in that DL-EM- is trained on
+labeled examples only, whereas DL-EM-X is trained on both labeled and unlabeled
+examples. However, the basic outline of the algorithm is the same for both.
+First, the DL-EM algorithms do not assume Yarowskys definition of , given in
+(11). As discussed above, the parameters fj can be thought of as defining a prediction
+distribution f (j) over labels j for each feature f. Hence equation (11) specifies how the
+prediction distributions f for the features of example x are to be combined to yield a
+\x0c376
+Computational Linguistics Volume 30, Number 3
+prediction distribution x for x. Instead of combining distributions by maximizing fj
+across f  Fx as in equation (11), DL-EM takes a mixture of the f :
+x(j) =
+1
+m
+\x06
+fFx
+fj (12)
+Here m = |Fx| is the number of features that x possesses; for the sake of simplicity, we
+assume that all examples have the same number of features. Since f is a probability
+distribution for each f, and since any convex combination of distributions is also a
+distribution, it follows that x as defined in (12) is a probability distribution.
+The two definitions for x(j), (11) and (12), will often have the same mode y, but
+that is guaranteed only in the rather severely restricted case of two features and two
+labels. Under definition (11), the prediction is determined entirely by the strongest
+f , whereas definition (12) permits a bloc of weaker f to outvote the strongest one.
+Yarowsky explicitly wished to avoid the possibility of such interactions. Nonetheless,
+definition (12), used by DL-EM, turns out to make analysis of other base learners more
+manageable, and we will assume it henceforth, not only for DL-EM, but also for the
+algorithms DL-1 and YS discussed in subsequent sections.
+DL-EM also differs from DL-0 in that DL-EM does not construct a classifier from
+scratch but rather seeks to improve on a previous classifier. In the context of the
+Yarowsky algorithm, the previous classifier is the one from the previous iteration of
+the outer loop. We write old
+fj for the parameters and old
+x for the prediction distributions
+of the previous classifier.
+Conceptually, DL-EM considers the label j assigned to an example x to be gen-
+erated by choosing a feature f  Fx and then assigning the label j according to the
+features prediction distribution f (j). The choice of feature f is a hidden variable. The
+degree to which an example labeled j is imputed to feature f is determined by the old
+distribution:
+old
+(f|x, j) =
+[[f  Fx]]old
+fj
+\x04
+g [[g  Fx]]old
+gj
+=
+[[f  Fx]] 1
+m old
+fj
+old
+x (j)
+One can think of old
+(f|x, j) either as the posterior probability that feature f was re-
+sponsible for the label j, or as the portion of the labeled example (x, j) that is imputed
+to feature f. We also write old
+xj (f) as a synonym for old
+(f|x, j). The new estimate fj is
+obtained by summing imputed occurrences of (f, j) and normalizing across labels. For
+DL-EM-, this takes the form
+fj =
+\x04
+xj
+old
+(f|x, j)
+\x04
+k
+\x04
+xk
+old(f|x, k)
+The algorithm is summarized in Table 6.
+The second version of the algorithm, DL-EM-X, is summarized in Table 7. It is like
+DL-EM-, except that it uses the update rule
+fj =
+\x04
+xj
+old
+(f|x, j) + 1
+L
+\x04
+xV old
+(f|x, j)
+\x04
+k
+
+\x04
+xk
+old(f|x, k) + 1
+L
+\x04
+xV old(f|x, k)
+\x0b (13)
+Update rule (13) includes unlabeled examples as well as labeled examples. Concep-
+tually, it divides each unlabeled example equally among the labels, then divides the
+resulting fractional labeled example among the examples features.
+\x0c377
+Abney Understanding the Yarowsky Algorithm
+Table 6
+DL-EM- decision list induction algorithm.
+(0) Initialize N[f, j] = 0 for all f, j
+(1) For each example x labeled j
+(1.1) Let Z =
+\x04
+gFx
+old
+gj
+(1.2) For each f  Fx, increment N[f, j] by 1
+Z
+old
+fj
+(2) For each feature f
+(2.1) Let Z =
+\x04
+j
+N[f, j]
+(2.2) For each label j, set fj = 1
+Z
+N[f, j]
+Table 7
+DL-EM-X decision list induction algorithm.
+(0) Initialize N[f, j] = 0 and U[f, j] = 0, for all f, j
+(1) For each example x labeled j
+(1.1) Let Z =
+\x04
+gFx
+old
+gj
+(1.2) For each f  Fx, increment N[f, j] by 1
+Z
+old
+fj
+(2) For each unlabeled example x
+(2.1) Let Z =
+\x04
+gFx
+old
+gj
+(2.2) For each f  Fx, increment U[f, j] by 1
+Z
+old
+fj
+(3) For each feature f
+(3.1) Let Z =
+\x04
+j
+(N[f, j] + 1
+L
+U[f, j])
+(3.2) For each label j, set fj = 1
+Z
+\x0c
+N[f, j] + 1
+L
+U[f, j]
+
+We note that both variants of the DL-EM algorithm constitute a single iteration
+of an EM-like algorithm. A single iteration suffices to prove the following theorem,
+though multiple iterations would also be effective:
+Theorem 2
+The classifier produced by the DL-EM- algorithm satisfies equation (7), and the clas-
+sifier produced by the DL-EM-X algorithm satisfies equation (8).
+Combining Theorems 1 and 2 yields the following corollary:
+Corollary
+The Yarowsky algorithm Y-1, using DL-EM- or DL-EM-X as its base learning algo-
+rithm, decreases H at each iteration until it reaches a critical point of H.
+Proof of Theorem 2
+Let old
+represent the parameter values at the beginning of the call to DL-EM, let 
+represent a family of free variables that we will optimize, and let old
+and  be the
+corresponding prediction distributions. The labeling distribution  is fixed. For any
+set of examples , let D be the change in
+\x04
+x D(x||x) resulting from the change
+in . We are obviously particularly interested in two cases: that in which  is the set
+of all examples X (for DL-EM-X) and that in which  is the set of labeled examples
+\x0c378
+Computational Linguistics Volume 30, Number 3
+ (for DL-EM-). In either case, we will show that D  0, with equality only if no
+choice of  decreases D.
+We first derive an expression for D that we will put to use shortly:
+D =
+\x06
+x
+
+
+D(x||old
+x )  D(x||x)
+\x0b
+=
+\x06
+x
+
+
+H(x||old
+x )  H(x)  H(x||x) + H(x)
+\x0b
+=
+\x06
+x
+\x06
+j
+x(j)
+
+
+log x(j)  log old
+x (j)
+\x0b
+(14)
+The EM algorithm is based on the fact that divergence is non-negative, and strictly
+positive if the distributions compared are not identical:
+0 
+\x06
+j
+\x06
+x
+x(j)D(old
+xj ||xj)
+=
+\x06
+j
+\x06
+x
+x(j)
+\x06
+fFx
+old
+xj (f) log
+old
+xj (f)
+xj(f)
+=
+\x06
+j
+\x06
+x
+x(j)
+\x06
+fFx
+old
+xj (f) log
+\x0e
+old
+fj
+old
+x (j)
+
+x(j)
+fj
+\x0f
+which yields the inequality
+\x06
+j
+\x06
+x
+x(j)
+
+
+log x(j)  log old
+x (j)
+\x0b
+
+\x06
+j
+\x06
+x
+x(j)
+\x06
+fFx
+old
+xj (f)
+
+
+log fj  log old
+fj
+\x0b
+By (14), this can be written as
+ D 
+\x06
+j
+\x06
+x
+x(j)
+\x06
+fFx
+old
+xj (f)
+
+
+log fj  log old
+fj
+\x0b
+(15)
+Since old
+fj is constant, by maximizing
+\x06
+j
+\x06
+x
+x(j)
+\x06
+fFx
+old
+xj (f) log fj (16)
+we maximize a lower bound on D. It is easy to see that D is bounded above
+by zero: we simply set fj = old
+fj . Since divergence is zero only if the two distributions
+are identical, we have strict inequality in (15) unless the best choice for  is old
+, in
+which case no choice of  makes D < 0.
+It remains to show that DL-EM computes the parameter set  that maximizes (16).
+We wish to maximize (16) under the constraints that the values {fj} for fixed f sum to
+unity across choices of j, so we apply Lagranges method. We express the constraints
+in the form
+Cf = 0
+where
+Cf 
+\x06
+j
+fj  1
+\x0c379
+Abney Understanding the Yarowsky Algorithm
+We seek a solution to the family of equations that results from expressing the gradient
+of (16) as a linear combination of the gradients of the constraints:
+
+fj
+\x06
+k
+\x06
+x
+x(k)
+\x06
+gFx
+old
+xk (g) log gk = f
+Cf
+fj
+(17)
+We derive an expression for the derivative on the left-hand side:
+
+fj
+\x06
+k
+\x06
+x
+x(k)
+\x06
+gFx
+old
+xk (g) log gk =
+\x06
+xXf 
+x(j)old
+xj (f)
+1
+fj
+Similarly for the right-hand side:
+Cf
+fj
+= 1
+Substituting these into equation (17):
+\x06
+xXf 
+x(j)old
+xj (f)
+1
+fj
+= f
+fj =
+\x06
+xXf 
+x(j)old
+xj (f)
+1
+f
+(18)
+Using the constraint Cf = 0 and solving for f :
+\x06
+j
+\x06
+xXf 
+x(j)old
+xj (f)
+1
+f
+ 1 = 0
+f =
+\x06
+j
+\x06
+xXf 
+x(j)old
+xj (f)
+Substituting back into (18):
+fj =
+\x04
+xXf  x(j)old
+xj (f)
+\x04
+k
+\x04
+xXf  x(k)old
+xk (f)
+(19)
+If we consider the case where  is the set of all examples and expand x in (19),
+we obtain
+fj =
+1
+Z
+
+
+\x06
+xfj
+old
+xj (f) +
+1
+L
+\x06
+xVf
+old
+xj (f)
+
+
+where Z normalizes f . It is not hard to see that this is the update rule that DL-EM-X
+computes, using the intermediate values:
+N[f, j] =
+\x06
+xfj
+old
+xj (f)
+U[f, j] =
+\x06
+xVf
+old
+xj (f)
+\x0c380
+Computational Linguistics Volume 30, Number 3
+If we consider the case where  is the set of labeled examples and expand x in (19),
+we obtain
+fj =
+1
+Z
+\x06
+xfj
+old
+xj (f)
+This is the update rule that DL-EM- computes. Thus we see that DL-EM-X reduces
+DX, and DL-EM- reduces D.
+We note in closing that DL-EM-X can be simplified when used with algorithm Y-1,
+inasmuch as it is known that fj = 1/L for all (f, j), where f  Fx for some x  V. Then
+the expression for U[f, j] simplifies as follows:
+\x06
+xVf
+old
+xj (f)
+=
+\x06
+xVf
+\x14
+1/L
+\x04
+gFx
+1/L
+\x15
+=
+|Vf |
+m
+The dependence on j disappears, so we can replace U[f, j] with U[f] in algorithm
+DL-EM-X, delete step 2.1, and replace step 2.2 with the statement For each f  Fx,
+increment U[f] by 1/m.
+3.3 The Objective Function K
+Y-1/DL-EM is the only variation on the Yarowsky algorithm that we can show to
+reduce negative log-likelihood, H. The variants that we discuss in the remainder of
+the article, Y-1/DL-1 and YS, reduce an alternative objective function, K, which we
+now define.
+The value K (or, more precisely, the value K/m) is an upper bound on H, which
+we derive using Jensens inequality, as follows:
+H = 
+\x06
+xX
+\x06
+j
+xj log
+\x06
+gFx
+1
+m
+gj
+ 
+\x06
+xX
+\x06
+j
+xj
+\x06
+gFx
+1
+m
+log gj
+=
+1
+m
+\x06
+xX
+\x06
+gFx
+H(x||g)
+We define
+K 
+\x06
+xX
+\x06
+gFx
+H(x||g) (20)
+By minimizing K, we minimize an upper bound on H. Moreover, it is in principle
+possible to reduce K to zero. Since H(x||g) = H(x) + D(x||g), K is reduced to zero
+if all examples are labeled, each feature concentrates its prediction distribution in a
+single label, and the label of every example agrees with the prediction of every feature
+it possesses. In this limiting case, any minimizer of K is also a minimizer of H.
+\x0c381
+Abney Understanding the Yarowsky Algorithm
+Table 8
+The decision list induction algorithm DL-1-R.
+(0) Initialize N[f, j] = 0, Z[f] = 0 for all f, j
+(1) For each example-label pair (x, j)
+(1.1) For each feature f  Fx, increment N[f, j], Z[f]
+(2) For each feature f and label j
+(2.1) Set fj =
+N[f,j]
+Z[f]
+(*) Define x(j) = 1
+m
+\x04
+fFx
+fj
+Table 9
+The decision list induction algorithm DL-1-VS.
+(0) Initialize N[f, j] = 0, Z[f] = 0, U[f] = 0 for all f, j
+(1) For each example-label pair (x, j)
+(1.1) For each feature f  Fx, increment N[f, j], Z[f]
+(2) For each unlabeled example x
+(2.1) For each feature f  Fx, increment U[f]
+(3) For each feature f and label j
+(3.1) Set \x08 = U[f]/L
+(3.2) Set fj =
+N[f,j]+\x01
+Z[f]+U[f]
+(*) Define x(j) = 1
+m
+\x04
+fFx
+fj
+We hasten to add a proviso: It is not possible to reduce K to zero for all data sets.
+The following provides a necessary and sufficient condition for being able to do so.
+Consider an undirected bipartite graph G whose nodes are examples and features.
+There is an edge between example x and feature f just in case f is a feature of x.
+Define examples x1 and x2 to be neighbors if they both belong to the same connected
+component of G. K is reducible to zero if and only if x1 and x2 have the same label
+according to Y(0)
+, for all pairs of neighbors x1 and x2 in (0)
+.
+3.4 Algorithm DL-1
+We consider two variants of DL-0, called DL-1-R and DL-1-VS. They differ from DL-0
+in two ways. First, the DL-1 algorithms assume the mean definition of x given in
+equation (12) rather than the max definition of equation (11). This is not actually a
+difference in the induction algorithm itself, but in the way the decision list is used to
+construct a prediction distribution x.
+Second, the DL-1 algorithms use update rules that differ from the smoothed pre-
+cision of DL-0. DL-1-R (Table 8) uses raw precision instead of smoothed precision.
+DL-1-VS (Table 9) uses smoothed precision, but unlike DL-0, DL-1-VS does not use
+a fixed smoothing constant \t; rather \t varies from feature to feature. Specifically, in
+computing the score fj, DL-1-VS uses |Vf |/L as its value for \t.
+The value of \t used by DL-1-VS can be expressed in another way that will prove
+useful. Let us define
+p(|f) 
+|f |
+|Xf |
+p(V|f) 
+|Vf |
+|Xf |
+\x0c382
+Computational Linguistics Volume 30, Number 3
+Lemma 2
+The parameter values {fj} computed by DL-1-VS can be expressed as
+fj = p(|f)qf (j) + p(V|f)u(j) (21)
+where u(j) is the uniform distribution over labels.
+Proof
+If |f | = 0, then p(|f) = 0 and fj = u(j). Further, N[f, j] = Z[f] = 0, so DL-1-VS
+computes fj = u(j), and the lemma is proved. Hence we need only consider the case
+|f | > 0.
+First we show that smoothed precision can be expressed as a convex combination
+of raw precision (9) and the uniform distribution. Define  = \t/|f |. Then:
+qf (j) =
+|fj| + \t
+|f | + L\t
+=
+|fj|/|f | + 
+1 + L
+=
+1
+1 + L
+qf (j) +
+L
+1 + L
+
+
+L
+=
+1
+1 + L
+qf (j) +
+L
+1 + L
+u(j) (22)
+Now we show that the mixing coefficient 1/(1 + L) of (22) is the same as the mixing
+coefficient p(|f) of the lemma, when \t = |Vf |/L as in step 3.1 of DL-1-VS:
+\t =
+|Vf |
+L
+=
+|f |
+L
+
+p(V|f)
+p(|f)
+L =
+1
+p(|f)
+ 1
+1
+1 + L
+= p(|f)
+The main theorem of this section (Theorem 5) is that the specific Yarowsky al-
+gorithm Y-1/DL-1 decreases K in each iteration until it reaches a critical point. It is
+proved as a corollary of two theorems. The first (Theorem 3) shows that DL-1 min-
+imizes K as a function of , holding  constant, and the second (Theorem 4) shows
+that Y-1 decreases K as a function of , holding  constant. More precisely, DL-1-R
+minimizes K over labeled examples , and DL-1-VS minimizes K over all examples
+X. Either is sufficient for Y-1 to be effective.
+Theorem 3
+DL-1 minimizes K as a function of , holding  constant. Specifically, DL-1-R minimizes
+K over labeled examples , and DL-1-VS minimizes K over all examples X.
+Proof
+We wish to minimize K as a function of  under the constraints
+Cf 
+\x06
+j
+fj  1 = 0
+\x0c383
+Abney Understanding the Yarowsky Algorithm
+for each f. As before, to minimize K under the constraints Cf = 0, we express the
+gradient of K as a linear combination of the gradients of the constraints and solve the
+resulting system of equations:
+K
+fj
+= f
+Cf
+fj
+(23)
+First we derive expressions for the derivatives of Cf and K. The variable  represents
+the set of examples over which we are minimizing K:
+Cf
+fj
+= 1
+K
+fj
+= 
+
+fj
+\x06
+x
+\x06
+gFx
+\x06
+k
+xk log gk
+= 
+\x06
+xXf 
+xj
+1
+fj
+We substitute these expressions into (23) and solve for fj:
+
+\x06
+xXf 
+xj
+1
+fj
+= f
+fj = 
+\x06
+xXf 
+xj/f
+Substituting the latter expression into the equation for Cf = 0 and solving for f yields
+\x06
+j
+
+
+\x06
+xXf 
+xj/f
+
+ = 1
+|Xf  | = f
+Substituting this back into the expression for fj gives us
+fj =
+1
+|Xf  |
+\x06
+xXf 
+xj (24)
+If  = , we have
+fj =
+1
+|f |
+\x06
+xf
+[[x  j]]
+= qf (j)
+This is the update computed by DL-1-R, showing that DL-1-R computes the parameter
+values {fj} that minimize K over the labeled examples .
+\x0c384
+Computational Linguistics Volume 30, Number 3
+If  = X, we have
+fj =
+1
+|Xf |
+\x06
+xf
+[[x  j]] +
+1
+|Xf |
+\x06
+xVf
+1
+L
+=
+|f |
+|Xf |
+
+|fj|
+|f |
++
+|Vf |
+|Xf |
+
+1
+L
+= p(|f)  qf (j) + p(V|f)  u(j)
+By Lemma 2, this is the update computed by DL-1-VS, hence DL-1-VS minimizes K
+over the complete set of examples X.
+Theorem 4
+If the base learner decreases K over X or over , where the prediction distribution is
+computed as
+x(j) =
+1
+m
+\x06
+fFx
+fj
+then algorithm Y-1 decreases K at each iteration until it reaches a critical point, con-
+sidering K as a function of  with  held constant.
+Proof
+The proof has the same structure as the proof of Theorem 1, so we give only a sketch
+here. We minimize K as a function of  by minimizing it for each example separately:
+K(x) =
+\x06
+gFx
+H(x||g)
+=
+\x06
+j
+xj
+\x06
+gFx
+log
+1
+gj
+To minimize K(x), we choose xj so as to concentrate all mass in
+arg min
+j
+\x06
+gFx
+log
+1
+gj
+= arg max
+j
+x(j)
+This is the labeling rule used by Y-1.
+If the base learner minimizes over  only, rather than X, it can be shown that any
+increase in K on unlabeled examples is compensated for in the labeling step, as in the
+proof of Theorem 1.
+Theorem 5
+The specific Yarowsky algorithms Y-1/DL-1-R and Y-1/DL-1-VS decrease K at each
+iteration until they reach a critical point.
+Proof
+Immediate from Theorems 3 and 4.
+4. Sequential Algorithms
+4.1 The Family YS
+The Yarowsky algorithm variants we have considered up to now do parallel updates
+in the sense that the parameters {fj} are completely recomputed at each iteration. In
+\x0c385
+Abney Understanding the Yarowsky Algorithm
+this section, we consider a family YS of sequential variants of the Yarowsky al-
+gorithm, in which a single feature is selected for update at each iteration. The YS
+algorithms resemble the Yarowsky-Cautious algorithm of Collins & Singer (1999),
+though they differ from that algorithm in that they update a single feature in each iter-
+ation, rather than a small set of features, as in Yarowsky-Cautious. The YS algorithms
+are intended to be as close to the Y-1/DL-1 algorithm as is consonant with single-
+feature updates. The YS algorithms differ from one another, and from Y-1/DL-1, in
+the choice of update rule. An interesting range of update rules work in the sequential
+setting. In particular, smoothed precision with fixed \t, as in the original algorithm
+Y-0/DL-0, works in the sequential setting, though with a proviso that will be spelled
+out later.
+Instead of an initial labeled set, there is an initial classifier consisting of a set of
+selected features S0 and initial parameter set (0)
+with 
+(0)
+fj = 1/L for all f \x06 S0. At
+each iteration, one feature is selected to be added to the selected set. A feature, once
+selected, remains in the selected set. It is permissible for a feature to be selected more
+than once; this permits us to continue reducing K even after all features have been
+selected. In short, there is a sequence of selected features f0, f1, . . . , and
+St+1 = St  {ft}
+The parameters for the selected feature are also updated. At iteration t, the pa-
+rameters gj, with g = ft, may be modified, but all other parameters remain constant.
+That is:
+
+(t+1)
+gj = 
+(t)
+gj for g \x06= ft
+It follows that, for all t:
+
+(t)
+gj =
+1
+L
+for g \x06 St
+However, parameters for features in S0 may not be modified, inasmuch as they play
+the role of manually labeled data.
+In each iteration, one selects a feature ft and computes (or recomputes) the predic-
+tion distribution ft
+for the selected feature ft. Then labels are recomputed as follows.
+Recall that y  arg maxj x(j), where we continue to assume x(j) to have the mix-
+ture definition (equation (12)). The label of example x is set to y if any feature of x
+belongs to St+1. In particular, all previously labeled examples continue to be labeled
+(though their labels may change), and any unlabeled examples possessing feature ft
+become labeled.
+The algorithm is summarized in Table 10. It is actually an algorithm schema;
+the definition for update needs to be supplied. We consider three different update
+functions: one that uses raw precision as its prediction distribution, one that uses
+smoothed precision, and one that goes in the opposite direction, using what we might
+call peaked precision. As we have seen, smoothed precision can be expressed as a
+mixture of raw precision and the uniform (i.e., maximum-entropy) distribution (22).
+Peaked precision q(f) mixes in a certain amount of the point (i.e., minimum-entropy)
+distribution that has all its mass on the label that maximizes raw precision:
+qf (j)  p((t)
+|f)qf (j) + p(V(t)
+|f)[[j = j]] (25)
+where
+j  arg max
+j
+qf (j) (26)
+\x0c386
+Computational Linguistics Volume 30, Number 3
+Table 10
+The sequential algorithm YS.
+(0) Given: S(0)
+, (0)
+, with 
+(0)
+gj = 1/L for g \x05 S(0)
+(1) Initialization
+(1.1) Set S = S(0)
+,  = (0)
+(1.2) For each example x  X
+If x possesses a feature in S(0)
+, set Yx = y, else set Yx = 
+(2) Loop:
+(2.1) Choose a feature f \x05 S(0)
+such that f \x05=  and f \x05= qf
+If there is none, stop
+(2.2) Add f to S
+(2.3) For each label j, set fj = update(f, j)
+(2.4) For each example x possessing a feature in S, set Yx = y
+Note that peaked precision involves a variable amount of peaking; the mixing pa-
+rameters depend on the relative proportions of labeled and unlabeled examples. Note
+also that j is a function of f, though we do not explicitly represent that dependence.
+The three instantiations of algorithm YS that we consider are
+YS-P (peaked) fj = qf (j)
+YS-R (raw) fj = qf (j)
+YS-FS (fixed smoothing) fj = qf (j)
+We will show that the first two algorithms reduce K in each iteration. We will show
+that the third algorithm, YS-FS, reduces K in iterations in which ft is a new feature,
+not previously selected. Unfortunately, we are unable to show that YS-FS reduces K
+when ft is a previously selected feature. This suggests employing a mixed algorithm
+in which smoothed precision is used for new features but raw or peaked precision is
+used for previously selected features.
+A final issue with the algorithm schema YS concerns the selection of features
+in step 2.1. The schema as stated does not specify which feature is to be selected.
+In essence, the manner in which rules are selected does not matter, as long as one
+selects rules that have room for improvement, in the sense that the current prediction
+distribution f differs from raw precision qf . (The justification for this choice is given
+in Theorem 9.) The theorems in the following sections show that K decreases in each
+iteration, so long as any such rule can be found.
+One could choose greedily by choosing the feature that maximizes gain G (equa-
+tion (27)), though in the next section we give lower bounds for G that are rather more
+easily computed (Theorems 6 and 7).
+4.2 Gain
+From this point on, we consider a single iteration of the YS algorithm and discard the
+variable t. We write old
+and old
+for the parameter set and labeling at the beginning of
+the iteration, and we write simply  and  for the new parameter set and new label-
+ing. The set  (respectively, V) represents the examples that are labeled (respectively,
+unlabeled) at the beginning of the iteration. The selected feature is f.
+We wish to choose a prediction distribution for f so as to guarantee that K decreases
+in each iteration. The gain in the current iteration is
+G =
+\x06
+xX
+\x06
+gFx
+
+
+H(old
+x ||old
+g )  H(x||g)
+\x0b
+(27)
+\x0c387
+Abney Understanding the Yarowsky Algorithm
+Gain is the negative change in K; it is positive when K decreases.
+In considering the reduction in K from (old
+, old
+) to (, ), it will be convenient to
+consider the following intermediate values:
+K0 =
+\x06
+xX
+\x06
+gFx
+H(old
+x ||old
+g )
+K1 =
+\x06
+xX
+\x06
+gFx
+H(x||old
+g )
+K2 =
+\x06
+xX
+\x06
+gFx
+H(x||g)
+K3 =
+\x06
+xX
+\x06
+gFx
+H(x||g)
+where
+xj =
+\x07
+[[j = j]] if x  Vf
+old
+xj otherwise
+and
+j  arg max
+j
+fj (28)
+One should note that
+ f is the new prediction distribution for the candidate f; gj = old
+gj for
+g \x06= f.
+  is the new label distribution, after relabeling. It is defined as
+xj =
+\x07
+[[j = y(x)]] if x    Xf
+1
+L otherwise
+(29)
+ for x  Vf , the only selected feature at t + 1 is f, hence j = y for such
+examples. It follows that  and  agree on examples in Vf . They also
+agree on examples that are unlabeled at t + 1, assigning them the
+uniform label distribution. If  and  differ, it is only on old labeled
+examples () that need to be relabeled, given the addition of f.
+The gain G can be represented as the sum of three intermediate gains, correspond-
+ing to the intermediate values just defined:
+G = GV + G + G (30)
+where
+GV = K0  K1
+G = K1  K2
+G = K2  K3
+The gain GV intuitively represents the gain that is attributable to labeling previously
+unlabeled examples in accordance with the predictions of . The gain G represents the
+gain that is attributable to changing the values fj, where f is the selected feature. The
+\x0c388
+Computational Linguistics Volume 30, Number 3
+gain G represents the gain that is attributable to changing the labels of previously
+labeled examples to make labels agree with the predictions of the new model . The
+gain G corresponds to step 2.3 of algorithm YS, in which  is changed but  is held
+constant; and the combined GV and G gains correspond to step 2.4 of algorithm YS,
+in which  is changed while holding  constant.
+In the remainder of this section, we derive two lower bounds for G. In following
+sections, we show that the updates YS-P, YS-R, and YS-FS guarantee that the lower
+bounds given below are non-negative, and hence that G is non-negative.
+Lemma 3
+GV = 0
+Proof
+We show that K remains unchanged if we substitute  for old
+in K0. The only property
+of  that we need is that it agrees with old
+on previously labeled examples.
+Since x = old
+x for x  , we need only consider examples in V. Since these
+examples are unlabeled at the beginning of the iteration, none of their features have
+been selected, hence old
+gj = 1/L for all their features g. Hence
+K1 = 
+\x06
+xV
+\x06
+gFx
+\x06
+j
+xj log old
+gj
+= 
+\x06
+xV
+\x06
+gFx
+
+
+\x06
+j
+xj
+
+ log
+1
+L
+= 
+\x06
+xV
+\x06
+gFx
+
+
+\x06
+j
+old
+xj
+
+ log
+1
+L
+= 
+\x06
+xV
+\x06
+gFx
+\x06
+j
+old
+xj log old
+gj = K0
+(Note that xj is not in general equal to old
+xj , but
+\x04
+j xj and
+\x04
+j old
+xj both equal 1.) This
+shows that K0 = K1, and hence that GV = 0.
+Lemma 4
+G  0.
+We must show that relabeling old labeled examplesthat is, setting x(j) = [[j = y]]
+for x  does not increase K. The proof has the same structure as the proof of
+Theorem 1 and is omitted.
+Lemma 5
+G is equal to
+|f |
+
+
+H(qf ||old
+f )  H(qf ||f )
+\x0b
++ |Vf |
+\x1a
+log L  log
+1
+fj
+\x1b
+(31)
+Proof
+By definition, G = K1K2, and K1 and K2 are identical everywhere except on examples
+\x0c389
+Abney Understanding the Yarowsky Algorithm
+in Xf . Hence
+G =
+\x06
+xXf
+\x06
+gFx
+
+
+H(x||old
+g )  H(x||g)
+\x0b
+We divide this sum into three partial sums:
+G = A + B + C (32)
+A =
+\x06
+xf
+
+
+H(x||old
+f )  H(x||f )
+\x0b
+B =
+\x06
+xVf
+
+
+H(x||old
+f )  H(x||f )
+\x0b
+C =
+\x06
+xXf
+\x06
+g\x04=fFx
+
+
+H(x||old
+g )  H(x||g)
+\x0b
+We consider each partial sum separately:
+A =
+\x06
+xf
+
+
+H(x||old
+f )  H(x||f )
+\x0b
+= 
+\x06
+xf
+\x06
+k
+xk
+
+
+log old
+fk  log fk
+\x0b
+= 
+\x06
+xf
+\x06
+k
+[[x  k]]
+
+
+log old
+fk  log fk
+\x0b
+= 
+\x06
+k
+|fk|
+
+
+log old
+fk  log fk
+\x0b
+= |f |
+\x06
+k
+qf (k)
+
+
+log old
+fk  log fk
+\x0b
+= |f |
+
+
+H(qf ||old
+f )  H(qf ||f )
+\x0b
+(33)
+B =
+\x06
+xVf
+
+
+H(x||old
+f )  H(x||f )
+\x0b
+= 
+\x06
+xVf
+\x06
+k
+xk
+
+
+log old
+fk  log fk
+\x0b
+= 
+\x06
+xVf
+\x06
+k
+[[k = j]]
+
+
+log old
+fk  log fk
+\x0b
+= |Vf |
+\x14
+log
+1
+old
+fj
+ log
+1
+fj
+\x15
+= |Vf |
+\x1a
+log L  log
+1
+fj
+\x1b
+(34)
+The justification for the last step is a bit subtle. If f is a new feature, not previously
+selected, then old
+fk = 1/L for all k, and the substitution is valid. On the other hand, if
+f is a previously selected feature, then |Vf | = 0, and even though the substitution of
+\x0c390
+Computational Linguistics Volume 30, Number 3
+1/L for old
+fj may not be valid, it is innocuous.
+C =
+\x06
+xXf
+\x06
+g\x04=fFx
+
+
+H(x||old
+g )  H(x||g)
+\x0b
+=
+\x06
+xXf
+\x06
+g\x04=fFx
+
+
+H(x||old
+g )  H(x||old
+g )
+\x0b
+= 0 (35)
+Combining (32), (33), (34), and (35) yields the lemma.
+Theorem 6
+G is bounded below by (31).
+Proof
+Combining (30) with Lemmas 3, 4, and 5.
+Theorem 7
+G is bounded below by
+|f |
+
+
+H(qf ||old
+f )  H(qf ||f )
+\x0b
+Proof
+The theorem follows immediately from Theorem 6 if we can show that
+log L  log
+1
+fj
+ 0
+Observe first that log L = H(u). (Recall that u(j) = 1/L is the uniform distribution over
+labels.) By Lemma 1, we know that
+H(u)  log
+1
+fj
+ H(u)  H(f )
+ 0
+The latter follows because the uniform distribution maximizes entropy.
+Theorem 8
+G is bounded below by
+|f |
+
+
+D(qf ||old
+f )  D(qf ||f )
+\x0b
+Proof
+Immediate from Theorem 7 and the fact that
+H(qf ||old
+f )  H(qf ||f ) = H(qf ) + D(qf ||old
+f )  H(qf )  D(qf ||f )
+= D(qf ||old
+f )  D(qf ||f )
+Theorem 9
+If old
+f \x06= qf , then there is a choice of f that yields strictly positive gain.
+\x0c391
+Abney Understanding the Yarowsky Algorithm
+Proof
+If old
+f \x06= qf , then
+D(qf ||old
+f ) > 0
+Setting f = qf has the result that
+|f |
+
+
+D(qf ||old
+f )  D(qf ||f )
+\x0b
+= |f |D(qf ||old
+f ) > 0
+Hence G > 0 by Theorem 8.
+4.3 Algorithm YS-P
+We now use the results of the previous section to show that the algorithm YS-P is
+correct in the sense that it reduces K in every iteration.
+Theorem 10
+In each iteration of algorithm YS-P, K decreases.
+Proof
+We wish to show that G > 0. By Theorem 6, that is true if expression (31) is positive.
+By Theorem 9, there exist choices for f that make (31) positive, hence in particular,
+we guarantee G > 0 by maximizing (31). We maximize (31) by minimizing
+|f |H(qf ||f ) + |Vf | log
+1
+fj
+(36)
+Since
+H(qf ||f ) = H(qf ) + D(qf ||f )
+we minimize (36) by minimizing
+|f |D(qf ||f ) + |Vf | log
+1
+fj
+(37)
+Both terms are nonnegative. The first term is zero if f = qf . The second term is zero
+for any distribution that concentrates all its mass in a single label j; it is symmetric
+in all choices of j and decreases monotonically as fj approaches one. Hence, the
+minimum of (37) will have j equal to the mode of qf , though it may be more peaked
+than qf , at the cost of an increase in the first term, but offset by a decrease in the
+second term.
+Recall that j = arg maxj qf (j). By the reasoning of the previous paragraph, we
+know that j = j at the minimum of (37). Hence we can minimize (37) by minimizing
+|f |D(qf ||f )  |Vf |
+\x06
+k
+[[k = j]] log fk (38)
+We compute the gradient:
+
+fj
+\x14
+|f |D(qf ||f )  |Vf |
+\x06
+k
+[[k = j]] log fk
+\x15
+=
+
+fj
+\x14
+|f |H(qf ||f )  |f |H(qf )  |Vf |
+\x06
+k
+[[k = j]] log fk
+\x15
+\x0c392
+Computational Linguistics Volume 30, Number 3
+=
+
+fj
+|f |H(qf ||f ) 
+
+fj
+|Vf |
+\x06
+k
+[[k = j]] log fk
+= |f |
+
+fj
+\x06
+k
+qf (k) log fk  |Vf |
+
+fj
+\x06
+k
+[[k = j]] log fk
+= |f |
+
+fj
+qf (j) log fj  |Vf |
+
+fj
+[[j = j]] log fj
+= |f |qf (j)
+1
+fj
+ |Vf |[[j = j]]
+1
+fj
+(39)
+As before, the derivative of the constraint Cf = 0 is one, and we minimize (38) under
+the constraint by solving
+|f |qf (j)
+1
+fj
+ |Vf |[[j = j]]
+1
+fj
+= 
+fj =
+\x0c
+|f |qf (j)  |Vf |[[j = j]]
+
+/ (40)
+Substituting into the constraint gives us
+\x06
+j
+\x0c
+|f |qf (j)  |Vf |[[j = j]]
+
+/ = 1
+|f |  |Vf | = 
+|Xf | = 
+Substituting this back into (40) yields:
+fj = p(|f)qf (j) + p(V|f)[[j = j]] (41)
+That is, the maximizing solution is peaked precision, which is the update rule for YS-P.
+4.4 Algorithm YS-R
+We now show that YS-R also decreases K in each iteration. In fact, it has essentially
+already been proven.
+Theorem 11
+Algorithm YS-R decreases K in each iteration.
+Proof
+In the proof of Theorem 9, we showed that the choice
+f = qf
+yields strictly positive gain. This is the update rule used by YS-R.
+4.5 Algorithm YS-FS
+The original Yarowsky algorithm YS-0/DL-0 used smoothed precision with fixed \t
+as update rule. We have been unsuccessful at justifying this choice of update rule
+in general. However, we are able at least to show that it does decrease K when the
+selected feature is a new feature, not previously selected.
+\x0c393
+Abney Understanding the Yarowsky Algorithm
+Theorem 12
+Algorithm YS-FS has positive gain in each iteration in which the selected feature has
+not been previously selected.
+Proof
+By Theorem 7, gain is positive if
+H(qf ||old
+f ) > H(qf ||f ) (42)
+By the assumption that the selected feature f has not been previously selected, old
+f is
+the uniform distribution u, and the left-hand side of (42) is equal to H(qf ||u). It is easy
+to verify that H(p||u) = H(u) for any distribution p; hence the left-hand side of (42) is
+equal to H(u). Further, YS-FS uses smoothed precision as update rule, f = qf , so (42)
+can be rewritten as
+H(u) > H(qf ||qf )
+This condition does not hold trivially, inasmuch as cross entropy, like divergence, is
+unbounded. But we can show that it holds in this particular case.
+We derive an upper bound for H(qf ||qf ):
+H(qf ||qf ) = 
+\x06
+j
+qf (j) log qf (j)
+= 
+\x06
+j
+qf (j) log
+\x1a
+1
+1 + L\t
+qf (j) +
+L\t
+1 + L\t
+u(j)
+\x1b
+ 
+\x06
+j
+qf (j)
+\x1a
+1
+1 + L\t
+log qf (j) +
+L\t
+1 + L\t
+log u(j)
+\x1b
+=
+1
+1 + L\t
+H(qf ) +
+L\t
+1 + L\t
+H(qf ||u)
+=
+1
+1 + L\t
+H(qf ) +
+L\t
+1 + L\t
+H(u) (43)
+Observe that
+H(u) >
+1
+1 + L\t
+H(qf ) +
+L\t
+1 + L\t
+H(u) (44)
+iff \x1a
+1 
+L\t
+1 + L\t
+\x1b
+H(u) >
+1
+1 + L\t
+H(qf )
+iff
+H(u) > H(qf )
+We know that H(u)  H(qf ) because the uniform distribution maximizes entropy. We
+know that the inequality is strict by the following reasoning. Since f is a new feature,
+old
+f = u. Because of the restriction on step 2.1 in algorithm YS, old
+f \x06= qf , hence qf \x06= u,
+and H(u) is strictly greater than H(qf ).
+Hence (44) is true, and combining (44) with (43), we have shown (42) to be true,
+proving the theorem.
+\x0c394
+Computational Linguistics Volume 30, Number 3
+5. Minimization of Feature Entropy
+At the beginning of the article, the co-training algorithm was mentioned as an alterna-
+tive to the Yarowsky algorithm. There is in fact a connection between co-training and
+the Yarowsky algorithm. In the original co-training paper (Blum and Mitchell 1998), it
+was suggested that the algorithm be understood as seeking to maximize agreement on
+unlabeled data between classifiers trained on two different views of the data. Subse-
+quent work (Dasgupta, Littman, and McAllester 2001) has proven a direct connection
+between classifier error and such cross-view agreement on unlabeled data.
+In the current context, there is also justification for pursuing agreement on unla-
+beled data. However, the Yarowsky algorithm does not assume the existence of two
+conditionally independent views of the data. Rather, there is a motivation for seeking
+agreement on unlabeled data between arbitrary pairs of features.
+Recall that our original objective function, H, can be expressed as the sum of an
+entropy term and a divergence term:
+H =
+\x06
+xX
+\x08
+H(x) + D(x||x)
+\t
+As D(x||x) becomes small and H(x) becomes small, H(x) necessarily also becomes
+small; hence we can limit H by limiting H(x) and D(x||x). Intuitively, we wish to
+reduce the uncertainty of the models predictions, while also improving the fit between
+the models predictions and the known labels.
+Let us focus now on the uncertainty of the models predictions:
+H(x) = 
+\x06
+j
+x(j) log x(j)
+= 
+\x06
+j
+x(j) log
+
+
+\x06
+gFx
+1
+m
+gj
+
+
+ 
+\x06
+j
+x(j)
+\x06
+gFx
+1
+m
+log gj
+= 
+\x06
+j
+
+
+\x06
+fFx
+1
+m
+fj
+
+
+\x06
+gFx
+1
+m
+log gj
+= 
+1
+m2
+\x06
+fFx
+\x06
+gFx
+\x06
+j
+fj log gj
+=
+1
+m2
+\x06
+fFx
+\x06
+gFx
+H(f ||g)
+=
+1
+m2
+\x06
+fFx
+\x06
+gFx
+\x08
+H(f ) + D(f ||g)
+\t
+=
+1
+m
+\x06
+fFx
+H(f ) +
+1
+m2
+\x06
+fFx
+\x06
+gFx
+D(f ||g) (45)
+In other words, by decreasing the uncertainty of the prediction distributions of indi-
+vidual features and simultaneously increasing the agreement among features (that is,
+decreasing their pairwise divergence), we decrease an upper bound on H(x). This
+\x0c395
+Abney Understanding the Yarowsky Algorithm
+motivates interfeature agreement without recourse to an assumption of independent
+views.
+6. Conclusion
+In this article, we have presented a number of variants of the Yarowsky algorithm,
+and we have shown that they optimize natural objective functions. We considered
+first the modified generic Yarowsky algorithm Y-1 and showed that it minimizes the
+objective function H (which is equivalent to maximizing likelihood), provided that its
+base learner reduces H.
+We then considered three families of specific Yarowsky-like algorithms. The
+Y-1/DL-EM algorithms (Y-1/DL-EM- and Y-1/DL-EM-X) minimize H but have the
+disadvantage that the DL-EM base learner has no similarity to Yarowskys original base
+learner. A much better approximation to Yarowskys original base learner is provided
+by DL-1, and the Y-1/DL-1 algorithms (Y-1/DL-1-R and Y-1/DL-1-VS) were shown to
+minimize the objective function K, an upper bound for H. Finally, the YS algorithms
+(YS-P, YS-R, and YS-FS) are sequential variants, reminiscent of the Yarowsky-Cautious
+algorithm of Collins and Singer; we showed that they minimize K.
+To the extent that these algorithms capture the essence of the original Yarowsky
+algorithm, they provide a formal understanding of Yarowskys approach. Even if they
+are deemed to diverge too much from the original to cast light on its workings, they
+at least represent a new family of bootstrapping algorithms with solid mathematical
+foundations.
+References
+Abney, Steven. 2002. Bootstrapping. In
+Proceedings of 40th Annual Meeting of the
+Association for Computational Linguistics
+(ACL), Philadelphia, pages 360367.
+Blum, Avrim and Tom Mitchell. 1998.
+Combining labeled and unlabeled data
+with co-training. In Proceedings of the 11th
+Annual Conference on Computational
+Learning Theory (COLT), pages 92100.
+Morgan Kaufmann, San Francisco.
+Collins, Michael and Yoram Singer. 1999.
+Unsupervised models for named entity
+classification. In Proceedings of Empirical
+Methods in Natural Language Processing
+(EMNLP), College Park, MD,
+pages 100110.
+Dasgupta, Sanjoy, Michael Littman, and
+David McAllester. 2001. PAC
+generalization bounds for co-training. In
+Proceedings of Advances in Neural
+Information Processing Systems 14 (NIPS),
+Vancouver, British Columbia, Canada.
+Yarowsky, David. 1995. Unsupervised word
+sense disambiguation rivaling supervised
+methods. In Proceedings of the 33rd Annual
+Meeting of the Association for Computational
+Linguistics, Cambridge, MA, pages
+189196.
+\x0c'

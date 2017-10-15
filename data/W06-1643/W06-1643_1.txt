@@ -1,0 +1,998 @@
+b"Proceedings of the 2006 Conference on Empirical Methods in Natural Language Processing (EMNLP 2006), pages 364372,
+Sydney, July 2006. c
+
+2006 Association for Computational Linguistics
+A Skip-Chain Conditional Random Field for
+Ranking Meeting Utterances by Importance
+Michel Galley
+Columbia University
+Department of Computer Science
+New York, NY 10027, USA
+galley@cs.columbia.edu
+Abstract
+We describe a probabilistic approach to content se-
+lection for meeting summarization. We use skip-
+chain Conditional Random Fields (CRF) to model
+non-local pragmatic dependencies between paired
+utterances such as QUESTION-ANSWER that typi-
+cally appear together in summaries, and show that
+these models outperform linear-chain CRFs and
+Bayesian models in the task. We also discuss dif-
+ferent approaches for ranking all utterances in a se-
+quence using CRFs. Our best performing system
+achieves 91.3% of human performance when evalu-
+ated with the Pyramid evaluation metric, which rep-
+resents a 3.9% absolute increase compared to our
+most competitive non-sequential classifier.
+1 Introduction
+Summarization of meetings faces many challenges
+not found in texts, i.e., high word error rates, ab-
+sence of punctuation, and sometimes lack of gram-
+maticality and coherent ordering. On the other
+hand, meetings present a rich source of structural
+and pragmatic information that makes summariza-
+tion of multi-party speech quite unique. In par-
+ticular, our analyses of patterns in the verbal ex-
+change between participants found that adjacency
+pairs (AP), a concept drawn from the conver-
+sational analysis literature (Schegloff and Sacks,
+1973), have particular relevance to summarization.
+APs are pairs of utterances such as QUESTION-
+ANSWER or OFFER-ACCEPT, in which the second
+utterance is said to be conditionally relevant on the
+first. We show that there is a strong correlation be-
+tween the two elements of an AP in summariza-
+tion, and that one is unlikely to be included if the
+other element is not present in the summary.
+Most current statistical sequence models in nat-
+ural language processing (NLP), such as hidden
+
+This material is based on research supported in part by
+the U.S. National Science Foundation (NSF) under Grants
+No. IIS-0121396 and IIS-05-34871, and the Defense Ad-
+vanced Research Projects Agency (DARPA) under Contract
+No. HR0011-06-C-0023. Any opinions, findings and con-
+clusions or recommendations expressed in this material are
+those of the author and do not necessarily reflect the views of
+the NSF or DARPA.
+Markov models (HMMs) (Rabiner, 1989), are lin-
+ear chains that only encode local dependencies
+between utterances to be labeled. In multi-party
+speech, the two elements of an AP are gener-
+ally arbitrarily distant, and such models can only
+poorly account for dependencies underlying APs
+in summarization. We use instead skip-chain se-
+quence models (Sutton and McCallum, 2004),
+which allow us to explicitly model dependencies
+between distant utterances, and turn out to be par-
+ticularly effective in the summarization task.
+In this paper, we compare two types of network
+structureslinear-chain and skip-chainand two
+types of network semanticsBayesian Networks
+(BNs) and Conditional Random Fields (CRFs).
+We discuss the problem of estimating the class
+posterior probability of each utterance in a se-
+quence in order to extract the N most proba-
+ble ones, and show that the cost assigned by a
+CRF to each utterance needs to be locally nor-
+malized in order to outperform BNs. After ana-
+lyzing the predictive power of a large set of dura-
+tional, acoustical, lexical, structural, and informa-
+tion retrieval features, we perform feature selec-
+tion to have a competitive set of predictors to test
+the different models. Empirical evaluations using
+two standard summarization metricsthe Pyra-
+mid method (Nenkova and Passonneau, 2004b)
+and ROUGE (Lin, 2004)show that the best
+performing system is a CRF incorporating both
+order-2 Markov dependencies and skip-chain de-
+pendencies, which achieves 91.3% of human per-
+formance in Pyramid score, and outperforms our
+best-performing non-sequential model by 3.9%.
+2 Corpus
+The work presented here was applied to the ICSI
+Meeting Corpus (Janin et al., 2003), a corpus
+of naturally-occurring meetings, i.e. meetings
+that would have taken place anyway. Their style
+is quite informal, and topics are primarily con-
+cerned with speech, natural language, artificial
+364
+\x0cintelligence, and networking research. The cor-
+pus contains 75 meetings, which are 60 minutes
+long on average, and involve a number of partic-
+ipants ranging from 3 to 10 (6 on average). The
+total number of unique speakers is 60, includ-
+ing 26 non-native English speakers. Experiments
+in this paper are based either on human ortho-
+graphic transcriptions or automatic speech recog-
+nition output, which were available for all meet-
+ings. For automatic recognition, we used the ICSI-
+SRI-UW speech recognition system (Mirghafori
+et al., 2004), a state-of-the-art conversational tele-
+phone speech (CTS) recognizer whose language
+and acoustic models were adapted to the meeting
+domain. It achieves 34.8% WER on the ICSI cor-
+pus, which is indicative of the difficulty involved
+in processing meetings automatically.
+We also used additional annotation that has
+been developed to support higher-level analyses of
+meeting structure, in particular the ICSI Meeting
+Recorder Dialog act (MRDA) corpus (Shriberg et
+al., 2004). Dialog act (DA) labels describe the
+pragmatic function of utterances, e.g. a STATE-
+MENT or a BACKCHANNEL. This auxiliary cor-
+pus consists of over 180,000 human-annotated
+dialog act labels ( = .8), for which so-called
+adjacency pair (AP) relations (e.g., APOLOGY-
+DOWNPLAY) were also labeled. This latter anno-
+tation was used to train an AP classifier that is in-
+strumental in automatically determining the struc-
+ture of our sequence models. Note that, in the case
+of three or more speakers, adjacency pair is ad-
+mittedly an unfortunate term, since labeled APs
+are generally not adjacent (e.g., see Table 1), but
+we will nevertheless use the same terminology to
+enforce consistency with previous work.
+To train and evaluate our summarizer, we used
+a corpus of extractive summaries produced at the
+University of Edinburgh (Murray et al., 2005). For
+each of the 75 meetings, human judges were asked
+to select transcription utterances segmented by DA
+to include in summaries, resulting in an average
+compression ratio of 6.26% (though no strict limit
+was imposed). Inter-labeler agreement was mea-
+sured using six meetings that were summarized by
+multiple coders (average  = .323). While this
+level of agreement is quite low, this situation is
+not uncommon to summarization, since there may
+be many good summaries for a given document;
+a main challenge lies in using evaluation schemes
+that properly accounts for this diversity.
+3 Content selection
+State sequence Markov models such as hidden
+Markov models (Rabiner, 1989) have been highly
+successful in many speech and natural language
+processing applications, including summarization.
+Following an intuition that the probability of a
+given sentence may be locally conditioned on the
+previous one, Conroy (2004) built a HMM-based
+summarizer that consistently ranked among the
+top systems in recent Document Understanding
+Conference (DUC) evaluations.
+Inter-sentential influences become more com-
+plex in the case of dialogues or correspondences,
+especially when they involve multiple parties.
+In the case of summarization of conversational
+speech, Zechner (2002) found, for instance, that
+a simple technique consisting of linking together
+questions and answers in summariesand thus
+preventing the selection of orphan questions or
+answerssignificantly improved their readability
+according to various human summary evaluations.
+In email summarization (Rambow et al., 2004),
+Shrestha and McKeown (2004) obtained good per-
+formance in automatic detection of questions and
+answers, which can help produce summaries that
+highlight or focus on the question and answer ex-
+change. In a combined chat and email summariza-
+tion task, a technique (Zhou and Hovy, 2005) con-
+sisting of identifying APs and appending any rele-
+vant responses to topic initiating messages was in-
+strumental in outperforming two competitive sum-
+marization baselines.
+The need to model pragmatic influences, such
+as between a question and an answer, is also preva-
+lent in meeting summarization. In fact, question-
+answer pairs are not the only discourse relations
+that we need to preserve in order to create co-
+herent summaries, and, as we will see, most in-
+stances of APs would need to be preserved to-
+gether, either inside or outside the summary. Ta-
+ble 1 displays an AP construction with one state-
+ment (A part) and three respondents (B parts).
+This example illustrates that the number of turns
+between constituents of APs is variable and thus
+difficult to model with standard sequence models.
+This example also illustrates some of the predic-
+tors investigated in this paper. First, many speak-
+ers respond to As utterance, which is generally a
+strong indicator that the A utterance should be in-
+cluded. Secondly, while APs are generally char-
+acterized in terms of pre-defined dialog acts, such
+365
+\x0cTime Speaker AP Transcript
+1480.85-1493.91 1 A are - are those d- delays adjustable? see a lot of people who actually build stuff
+with human computer interfaces understand that delay, and - and so when you -
+by the time you click it itll be right on because itll go back in time to put the -
+1489.71-1489.94 2 yeah.
+1493.95-1495.41 3 B yeah, uh, not in this case.
+1494.31-1495.83 2 B it could do that, couldnt it.
+1495.1-1497.07 4 B we could program that pretty easily , couldnt we?
+Table 1: Snippet of a meeting displaying an AP construction, where a question (A) initiates three responses (B). Sentences in
+italic are not present in the reference summary.
+as OFFER-ACCEPT, we found that the type of di-
+alog act has much less importance than the ex-
+istence of the AP connection itself (APs in the
+data represent a great variety of DA pairs, includ-
+ing many that are not characterized as APs in the
+litteraturee.g., STATEMENT-STATEMENT in the
+table). Since DAs seem to matter less than adja-
+cency pairs, the aim will be to build techniques to
+automatically identify such relations and exploit
+them in utterance selection.
+In the current work, we use skip-chain sequence
+models (Sutton and McCallum, 2004) to repre-
+sent dependencies between both contiguous ut-
+terances and paired utterances appearing in the
+same AP constructions. The graphical represen-
+tations of skip-chain models, such as the CRF rep-
+resented in Figure 1, are composed of two types of
+edges: linear-chain and skip-chain edges. The lat-
+ter edges model AP links, which we represent as
+a set of (s, d) index pairs (note that no more than
+one AP may share the same second element d).
+The intuition that the summarization labels (1
+or 1) are highly correlated with APs is confirmed
+in Table 2. While contiguous labels yt1 and yt
+seem to seldom influence each other, the correla-
+tion between AP elements ys and yd is particularly
+strong, and they have a tendency to be either both
+included or both excluded. Note that the second
+table is not symmetric, because the data allows an
+A part to be linked to multiple B parts, but not
+vice-versa. While counts in Table 2 reflect hu-
+man labels, we only use automatically predicted
+(s, d) pairs in the experiments of the remaining
+part of this paper. To find these pairs automati-
+cally, we trained a non-sequential log-linear model
+that achieves a .902 accuracy (Galley et al., 2004).
+4 Skip-Chain Sequence Models
+In this paper, we investigate conditional models
+for paired sequences of observations and labels. In
+the case of utterance selection, the observation se-
+quence x = x1:T = (x1, . . . , xT ) represents local
+Statement
+x1 x2 x3 x4 x5
+BackChannel Statement Statement Statement
+y1 y2 y3 y4 y5
+Figure 1: A skip-chain CRF with pragmatic-level links.
+Linear-chain edges yt = 1 yt = 1
+yt1 = 1 529 7742
+yt1 = 1 7742 116040
+Skip-chain edges yd = 1 yd = 1
+ys = 1 6792 2191
+ys = 1 1479 121591
+Table 2: Contingency tables: while the correlation between
+adjacent labels yt1 and yt is not significant (2
+= 2.3,
+p > .05), empirical evidence clearly shows that ys and yd
+influence each other (2
+= 78948, p < .001).
+summarization predictors (see Section 6), and the
+binary sequence y = y1:T = (y1, . . . , yT ) (where
+yt  {1, 1}) determines which utterances must
+be included in the summary. In a discriminative
+framework, we concentrate our modeling effort on
+estimating p(y|x) from data, and do not explicitly
+model the prior probability p(x), since x is fixed
+during testing anyway.
+Many probabilistic approaches to modeling se-
+quences have relied on directed graphical mod-
+els, also known as Bayesian networks (BN),1 in
+particular hidden Markov models (Rabiner, 1989)
+and conditional Markov models (McCallum et al.,
+2000). However, prominent recent approaches
+have focused on undirected graphical models, in
+particular conditional random fields (CRF) (Laf-
+ferty et al., 2001), and provided state-of-the-art
+performance in many NLP tasks. In our work, we
+will provide empirical results for state sequence
+models of both semantics, and we will now de-
+1
+In the existing literature, sequence models that satisfy the
+Markovian conditioni.e., the state of the system at time t
+depend only on its immediate past t  k:t  1 (typically just
+t  1)are generally termed dynamic Bayesian networks
+(DBN). Since the particular models under investigation, i.e.
+skip-chain models, do not have this property, we will simply
+refer to them as Bayesian networks.
+366
+\x0cscribe skip-chain models for both BNs and CRFs.
+In a BN, the probability of the sequence y fac-
+torizes as a product of probabilities of local predic-
+tions yt conditioned on their parents (yt) (Equa-
+tion 1). In a CRF, the probability of the sequence y
+factorizes according to a set of clique potentials
+{c}cC, where C is represents the cliques of the
+underlying graphical model (Equation 2).
+pBN(y|x) =
+T
+Y
+i=1
+pBN(yt|x, (yt)) (1)
+pCRF(y|x) 
+Y
+cC
+c(xc, yc) (2)
+We parameterize these BNs and CRFs as log-
+linear models, and factorize both BNs local pre-
+diction probabilities and CRFs clique potentials
+using two types of feature functions. Linear-chain
+feature functions fj(ytk:t, x, t) represent local
+dependencies that are consistent with an order-k
+Markov assumption. For instance, one such func-
+tion could be a predicate that is true if and only if
+yt1 = 1, yt = 1, and (xt1, xt) indicates that
+both utterances are produced by the same speaker.
+Given a set of skip edges S = {(st, t)} specifying
+source and destination indices, skip-chain feature
+functions gj(yst , yt, x, st, t) exploit dependencies
+between variables that are arbitrarily distant in
+the chain. For instance, the finding that OFFER-
+REJECT pairs are often linked in summaries might
+be encoded as a skip-chain feature predicate that
+is true if and only if yst = 1, yt = 1, and the first
+word of the t-th utterance is no.
+Log-linear models for skip-chain sequence
+models are defined in terms of weights {k} and
+{k}, one for each feature function. In the case of
+BNs, we write:
+log pBN(yt|x, (yt)) 
+J
+X
+j=1
+jfj(x, ytk:t, t) +
+J0
+X
+j=1
+jgj(x, yst , yt, st, t)
+We can reduce a particular skip-chain CRF to rep-
+resent only the set of cliques along (yt1, yt) adja-
+cency edges and (yst , yt) skip edges, resulting in
+only two potential functions:
+log LIN(x, ytk:t, t) =
+J
+X
+j=1
+jfj(x, ytk:t, t)
+log SKIP(x, yst , yt, t) =
+J0
+X
+j=1
+jgj(x, yst , yt, st, t)
+4.1 Inference and Parameter Estimation
+Our CRF and BN models were designed us-
+ing MALLET (McCallum, 2002), which provides
+tools for training log-linear models with L-BFGS
+optimization techniques and maximize the log-
+likelihood of our training data D = (x(i), y(i))
+N
+i=1,
+and provides probabilistic inference algorithms for
+linear-chain BNs and CRFs.
+Most previous work with CRFs containing non-
+local dependencies used approximate probabilis-
+tic inference techniques, including TRP (Sutton
+and McCallum, 2004) and Gibbs sampling (Finkel
+et al., 2005). Approximation is needed when
+the junction tree of a graphical model is associ-
+ated with prohibitively large cliques. For exam-
+ple, the worse case reported in (Sutton and Mc-
+Callum, 2004) is a clique of 61 nodes. In the
+case of skip-chain models representing APs, the
+inference problem is somewhat simpler: loops in
+the graph are relatively short, 98% of AP edges
+span no more than 5 time slices, and the maximum
+clique size in the entire data is 5. While exact in-
+ference might be possible in our case, we used the
+simpler approach of adapting standard inference
+algorithms for linear-chain models.
+Specifically, to account for skip-edges, we used
+a technique inspired by (Sha and Pereira, 2003),
+in which multiple state dependencies, such as an
+order-2 Markov model, are encoded using auxil-
+iary tags. For instance, an order-2 Markov model
+is parameterized using state triples yt2:t, and each
+possible triple is converted to a label zt = yt2:t.
+Using these auxiliary labels only, we can then
+use the standard forward-backward algorithm for
+computing marginal distributions in linear-chain
+CRFs, and Viterbi decoding in linear-chain CRFs
+and BNs. The only requirement is to ensure that
+a transition between zt and zt+1 is forbidden if
+the sub-states yt1:t common to both states differ,
+i.e., is assigned an infinite cost. This approach can
+be extended to the case of skip-chain transitions.
+For instance, an order-1 Markov model with skip-
+edges can be constructed using zt = (yst , yt1, yt)
+triples, where the first element yst represents the
+label at the source of the skip-edge. Similarly to
+the case of order-2 Markov models, we need to
+ensure that only valid sequences of labels are con-
+sidered, which is trivial to enforce if we assume
+that no skip edge ranges more than a predefined
+threshold of k time slices.
+While this approach is not exact, it still provides
+367
+\x0ccompetitive performance as we will see in Sec-
+tion 8. In future work, we plan to explore more
+accurate probabilistic inference techniques.
+5 Ranking Utterances by Importance
+As we will see in Section 8, using the actual
+{1, 1} label predictions of our BNs and CRFs
+leads to significantly sub-optimal results, which
+might be explained by the following reasons. First,
+our models are optimized to maximize the condi-
+tional log-likelihood of the training data, a mea-
+sure that does not correlate well with utility mea-
+sures generally used in retrieval oriented tasks
+such as summarization, especially when faced
+with a significant class imbalance (only 6.26%
+of reference instances are positive). Second, the
+MAP decision rule doesnt give us the freedom to
+select an arbitrary number of sentences in order
+to satisfy any constraint on length. Instead of us-
+ing actual predictions, it seems more reasonable
+to compute the posterior probability of each lo-
+cal prediction yt, and extract the N most probable
+summary sentences (yr1 , . . . , yrk
+), where N may
+depend on a length expressed in number of words,
+as it is the case in our evaluation in Section 7.
+BNs assign probability distributions over entire
+sequences by estimating the probability of each in-
+dividual instance yt in the sequence (Equation 1),
+and seem thus particularly suited for ranking utter-
+ances. A first approach is then to rank utterances
+according to the cost of predicting yt = 1 at each
+time step on the Viterbi path. While these costs
+are well-formed (negative log) probabilities in the
+case of BNs, they cannot be interpreted as such in
+the case of CRFs, and turn out to produce poor re-
+sults with CRFs. Indeed, the set of CRF potentials
+associated with each time step have no immedi-
+ate probabilistic interpretation, and cannot be used
+directly to rank sentences. Since BNs and CRFs
+are here parameterized as log-linear models and
+rely on the same set of feature functions, a second
+approach is to use CRF-trained model parameters
+to build a BN classifier that assigns a probability
+to each yt. Specifically, the CRF model is first
+used to generate label predicitons y, from which
+the locally-normalized model estimates the cost
+of predicting yt = 1 given a label history y1:t1.
+This ensures that we have a well-formed probabil-
+ity distribution at each time slice, while capitaliz-
+ing on the good performance of CRF models.
+Lexical features:
+ n-grams (n  3)
+ number of words
+ number of digits
+ number of consecutive repeats
+Information retrieval features:
+ max/sum/mean frequency of all terms in ut
+ max/sum/mean idf score
+ max/sum/mean tf idf score
+ cosine similarity between word vector of ut with cen-
+troid of of the meeting
+ scores of LSA with 5, 10, 50, 100, 200, 300 concepts
+Acoustic features:
+ seconds of silence before/during/after the turn
+ speech rate
+ min/max/mean/median/stddev/onset/outset f0 of utter-
+ance t, and of first and last word
+ min/max/mean/stddev energy
+ .05, .25, .5, .75, .95 quantiles of f0 and energy
+ pitch range
+ f0 mean absolute slope
+Durational and structural features:
+ duration of the previous/current/next utterance
+ relative position within meeting (i.e., index t)
+ relative position within speaker turn
+ large number of structural predicates, i.e. is the previ-
+ous utterance of the same speaker?
+ number of APs initiated in yt
+Discourse features:
+ lexical cohesion score (for topic shifts) (Hearst, 1994)
+ first and second word of utterance, if in cue word list
+ number of pronouns
+ number of fillers and fluency devices (e.g., uh, um)
+ number of backchannel and acknowledgment tokens
+(e.g., uh-huh, ok, right)
+Table 3: Features for extractive summarization. Unless oth-
+erwise mentioned, we refer to features of utterance t whose
+label yt we are trying to predict.
+6 Features for extractive summarization
+We started our analyses with a large collection
+of features found to be good predictors in ei-
+ther speech (Inoue et al., 2004; Maskey and
+Hirschberg, 2005; Murray et al., 2005) or text
+summarization (Mani and Maybury, 1999). Our
+goal is to build a very competitive feature set that
+capitalizes on recent advances in summarization of
+both genres. Table 3 lists some important features.
+There is strong evidence that lexical cues such
+as significant and great are strong predictors
+in many summarization tasks (Edmundson, 1968).
+Such cues are admittedly quite genre specific,
+so we did not want to commit ourselves to any
+specific list, which may not carry over well to
+our specific speech domain, and we automatically
+selected a list of n-grams (n  3) using cross-
+validation on the training data. More specifically,
+we computed the mutual information of each n-
+368
+\x0cTranscript:
+I think - one thing that makes a difference is this DC offset compensation.1-13
+Did you have a look at meeting digits if they have a them?14-26
+I didn't. No.27-29
+Hmm.30
+No. The DC component is negligible. All mikes have DC removal.31-41
+Yeah.42
+Because there's a sample and hold in the A-to-D.43-51
+And I also, um, did some experiments about normalizing the phase.52-62
+And came up with a web page people can take a look at.63-75
+Model 1 (len=20):
+31-41
+43-51
+Model 2 (len=22):
+31-41
+52-62
+Model 3 (len=24):
+52-62
+63-75
+Peer (len=22):
+1-13
+43-51
+Optimal (len=22):
+31-41
+52-62
+1
+1
+2
+3
+4
+3
+3
+2
+2
+Speaker:
+Figure 2: Model, peer, and optimal summaries are all extracts taken from the same transcription.
+gram with the class variable, and selected for each
+n the 200 best scoring n-grams. Other lexical fea-
+tures include: the number of digits, which is help-
+ful for identifying sections of the meetings where
+participants collect data by recording digits; the
+number of repeats, which may indicate the kind of
+hesitations and disfluencies that negatively corre-
+lates with what is included in the summary.
+The information retrieval feature set contains
+many features that are generally found helpful in
+summarization, in particular tf idf and scores de-
+rived from centroid methods. In particular, we
+used the latent semantic analysis (LSA) feature
+discussed in (Murray et al., 2005), which attempts
+to determine sentence importance through singu-
+lar value decomposition, and whose resulting sin-
+gular values and singular vectors can be exploited
+to associate each utterance a degree of relevance to
+one of the top-n concepts of the meetings (where n
+represents the number of dimensions in the LSA).
+We used the same scoring mechanism as (Mur-
+ray et al., 2005), though we extracted features for
+many different n values.
+Acoustic features extracted with Praat
+(Boersma and Weenink, 2006) were normal-
+ized by channel and speaker, including many
+raw features such as f0 and energy. Structural
+features listed in the table are those computed
+from the sequence model before decoding, e.g.,
+the duration that separates the two elements
+of an AP. Finally, discourse features represent
+predictors that may substitute to DA labels. While
+DA tagging is not directly our concern, it is
+presumably helpful to capitalize on discourse
+characteristics of utterances involved in adjacency
+pairs, since different types of dialog acts may be
+unequally likely to appear in a summary.
+7 Evaluation
+Evaluating summarization is a difficult problem
+and there is no broad consensus on how to best
+perform this task. Two metrics have become
+quite popular in multi-document summarization,
+namely the Pyramid method (Nenkova and Pas-
+sonneau, 2004b) and ROUGE (Lin, 2004). Pyra-
+mid and ROUGE are techniques looking for con-
+tent units repeated in different model summaries,
+i.e., summary content units (SCUs) such as clauses
+and noun phrases for the Pyramid method, and n-
+grams for ROUGE. The underlying hypothesis is
+that different model sentences, clauses, or phrases
+may convey the same meaning, which is a reason-
+able assumption when dealing with reference sum-
+maries produced by different authors, since it is
+quite unlikely that any two abstractors would use
+the exact same words to convey the same idea.
+Our situation is however quite different, since
+all model summaries of a given document are ut-
+terance extracts of that same document, as this can
+been seen in the excerpt of Figure 2. In our own
+annotation of three meetings with SCUs defined
+as in (Nenkova and Passonneau, 2004a), we found
+that repetitions and reformulation of the same in-
+formation are particularly infrequent, and that tex-
+tual units that express the same content among
+model summaries are generally originating from
+the same document sentence (e.g., in the figure,
+the first sentence in model 1 and 2 emanate from
+the same document sentence). Very short SCUs
+(e.g., base noun phrases) sometimes appeared in
+different locations of a meeting, but we think it is
+problematic to assume that connections between
+such short units are indicative of any similarity
+of sentential meaning: the contexts are different,
+and words may be uttered by different speakers,
+which may lead to unrelated or conflicting prag-
+matic forces. For instance, an SCU realized as
+DC offset and DC component appears in two
+different sentences in the figure, i.e. those iden-
+tified as 1-13 and 31-41. However, the two sen-
+tences have contradictory meanings, and it would
+be unfortunate to increase the score of a peer sum-
+mary containing the former sentence because the
+369
+\x0clatter is included in some model summaries.
+For all these reasons, we believe that sum-
+marization evaluation in our case should rely on
+the following restrictive matching: two summary
+units should be considered equivalent if and only
+if they are extracted from the same location in
+the original document (e.g., the DC appearing
+in models 1 and 2 is not the same as the DC in
+the peer summary, since they are extracted from
+different sentences). This constraint on the match-
+ing is reflected in our Pyramid evaluation, and we
+define an SCU as a word and its document po-
+sition, which lets us distinguish (DC,11) from
+(DC,33). While this restriction on SCUs forces
+us to disregard scarcely occurring paraphrases and
+repetitions of the same information, it provides the
+benefit of automated evaluation.
+Once all SCUs have been identified, the Pyra-
+mid method is applied as in (Nenkova and Passon-
+neau, 2004b): we compute a score D by adding for
+each SCU present in the summary a score equal
+to the number of model summaries in which that
+SCU appears. The Pyramid score P is computed
+by dividing D by the maximum D value that is
+obtainable given the constraint on length. For in-
+stance, the peer summary in the figure gets a score
+D = 9 (since the 9 SCUs in range 43-51 occur in
+one model), and the maximum obtainable score is
+D = 44 (all SCUs of the optimal summary ap-
+pear in exactly two model summaries), hence the
+peer summarys score is P = .204.
+While our evaluation scheme is similar to com-
+paring the binary predictions of model and peer
+summarieseach prediction determining whether
+a given transcription word is included or not
+and averaging precision scores over all peer-model
+pairs, the Pyramid evaluation differs on an im-
+portant point, which makes us prefer the Pyramid
+evaluation method: the maximum possible Pyra-
+mid score is always guaranteed to be 1, but av-
+erage precision scores can become arbitrarily low
+as the consensus between summary annotators de-
+creases. For instance, the average precision score
+of the optimal summary in the figure is PR = 2
+3 .2
+2
+Precision scores of the optimal summary compared
+against the the three model summaries are .5, 1, and .5, re-
+spectively, and hence average 2
+3
+. We can show that P =
+PR/PR
+, where PR
+is the average precision of the op-
+timal summary. Lack of space prevent us from providing a
+proof, so we will just show that the equality holds in our ex-
+ample: since the peer summarys precision scores against the
+three model summaries are respectively 9
+22
+, 0, and 0, we have
+PR/PR
+= ( 9
+66
+)/(2
+3
+) = 9
+44
+= P.
+FEATURE F=1
+1 utterance duration .246
+2 100-dimension LSA .268
+3 duration of utterance t  1 .275
+4 time between utterances s and d = t .281
+5 IDF mean .284
+6 meeting position .286
+7 number of APs initiated in t .288
+8 duration of utterance t + 1 .288
+9 number of fillers .289
+10 .25-quantile of energy .290
+11 number of lexical repeats .292
+12 lexical cohesion score .294
+13 f0 mean of last word of utterance t .294
+14 LSA 50 dimensions .295
+15 utterances (t,t + 1) by same speaker .298
+16 speech rate .302
+17 is that .303
+18 for the .303
+19 (ut1,ut) by same speaker .305
+20 to try .305
+21 meetings .305
+22 utterance starts with and .306
+23 we have .306
+24 new .307
+25 utterance starts with what .307
+Table 4: Forward feature selection.
+In the case of the six test meetings, which all have
+either 3 or 4 model summaries, the maximum pos-
+sible average precision is .6405.
+8 Experiments
+We follow (Murray et al., 2005) in using the same
+six meetings as test data, since each of these meet-
+ings has multiple reference summaries. The re-
+maining 69 meetings were used for training, which
+represent in total more than 103,000 training in-
+stances (or DA units), of which 6,464 are posi-
+tives (6.24%). The multi-reference test set con-
+tains more than 28,000 instances.
+The goal of a preliminary experiment was to de-
+vise a set of useful predictors from a full set of
+1171. We performed feature selection by incre-
+mentally growing a log-linear model with order-
+0 features f(x, yt) using a forward feature selec-
+tion procedure similar to (Berger et al., 1996).
+Probably due to the imbalance between positive
+and negative samples, we found it more effective
+to rank candidate features by gains in F-measure
+(through 5-fold cross validation on the entire train-
+ing set). The increase in F1 by adding new features
+to the model is displayed in Table 4; this greedy
+search resulted in a set S of 217 features.
+We now analyze the performance of different
+sequence models on our test set. The target length
+of each summary was set to 12.7% of the number
+of words of the full document, which is the aver-
+370
+\x0cage on the entire training data (the average on the
+test data is 12.9%). In Table 5, we use an order-0
+CRF to compare S against all features and various
+categorical groupings. Overall, we notice lexical
+predictors and statistics derived from them (e.g.
+LSA features) represent the most helpful feature
+group (.497), though all other features combined
+achieve a competitive performance (.476).
+Table 6 displays performance for sequence
+models incorporating linear-chain features of in-
+creasing order k. Its second column indicates
+what criterion was used to rank utterances. In the
+case of pred, we used actual model {1, 1} pre-
+dictions, which in all cases generated summaries
+much shorted than the allowable length, and pro-
+duced poor performance. Costs and norm-CRF
+refer to the two ranking criteria presented in Sec-
+tion 5, and it is clear that the performance of CRFs
+degrades with increasing orders without local nor-
+malization. While the contingency counts in Ta-
+ble 2 only hinted a limited benefit of linear-chain
+features, empirical results show the contrary
+especially for order k = 2. However, the further
+increase of k causes overfitting, and skip-chain
+features seem a better way to capture non-local
+dependencies while keeping the number of model
+parameters relatively small. Overall, the addition
+of skip-chain edges to linear-chain models provide
+noticeable improvement in Pyramid scores. Our
+system that performed best on cross-validation
+data is an order-2 CRF with skip-chain transitions,
+which achieves a Pyramid score of P = .554.
+We now assess the significance of our results
+by comparing our best system against: (1) a lead
+summarizer that always selects the first N utter-
+ances to match the predefined length; (2) human
+performance, which is obtained by leave-one-out
+comparisons among references (Table 7); (3) op-
+timal summaries generated using the procedure
+explained in (Nenkova and Passonneau, 2004b)
+by ranking document utterances by the number of
+model summaries in which they appear. It ap-
+pears that our system is considerably better than
+the baseline, and achieves 91.3% of human per-
+formance in terms of Pyramid scores, and 83% if
+using ASR transcription. This last result is partic-
+ularly positive if we consider our strong reliance
+on lexical features.
+For completeness, we also included standard
+ROUGE (1, 2, and L) scores in Table 7, which
+were obtained using parameters defined for the
+FEATURE SET P
+lexical .471
+IR .415
+lexical + IR .497
+acoustic .407
+structural/durational .478
+acoustic + structural/durational .476
+all features .507
+selected features (S) .515
+Table 5: Pyramid score for each feature set.
+MODEL RANKING k = 1 2 3
+linear-chain BN pred .241 .267 .269
+linear-chain BN costs .512 .519 .525
+skip-chain BN costs .543 .549 .542
+linear-chain CRF pred .326 .36 .348
+linear-chain CRF costs .508 .475 .447
+linear-chain CRF norm-CRF .53 .548 .54
+skip-chain CRF norm-CRF .541 .554 .559
+Table 6: Pyramid scores for different sequence models, where
+k stands for the order of linear-chain features. The value in
+bold is the performance of the model that was selected after
+a 5-fold cross validation on the training data, which obtained
+the highest F1 score.
+SUMMARIZER P R-1 R-2 R-L
+baseline .188 .501 .210 .495
+skip-chain CRF (transcript) .554 .715 .442 .709
+skip-chain CRF (ASR) .504 .714 .42 .706
+human .607 .720 .477 .715
+optimal 1 .791 .648 .788
+Table 7: Pyramid, and average ROUGE scores for summaries
+produces by a baseline (lead summarizer), our best system,
+humans, and the optimal summarizer.
+DUC-05 evaluation. Since system summaries
+have on average approximately the same length
+as references, we only report recall measures of
+ROUGE (precision and F averages are within 
+.002).3 It may come as a surprise that our best sys-
+tem (both with ASR and true words) performs al-
+most as well as humans; it seems more reasonable
+to conclude that, in our case, ROUGE has trouble
+discriminating between systems with moderately
+close performance. This seems to confirm our im-
+pression that content evaluation in our task should
+be based on exact matches.
+We performed a last experiment to compare our
+best system against Murray et al. (2005), who used
+the same test data, but constrained summary sizes
+in terms of number of DA units instead of words.
+In their experiments, 10% of DAs had to be se-
+lected. Our system achieves .91 recall, .5 preci-
+sion, and .64 F1 with the same length constraint.
+3
+Human performance with ROUGE was assessed by
+cross-validating reference summaries of each meeting (i.e.,
+n references for a given meeting resulted in n evaluations
+against the other references). We used the same leave-one-
+out procedure with other summarizers, in order to get results
+comparable to humans.
+371
+\x0cThe discrepancy between recall and precision is
+largely due to the fact that generated summaries
+are on average much longer than model summaries
+(10% vs. 6.26% of DAs), which explains why our
+precision is relatively low in this last evaluation.
+The best ROUGE-1 measure reported in (Murray
+et al., 2005) is .69 recall, which is significantly
+lower than ours according to confidence intervals.
+9 Conclusion
+An order-2 CRF with skip-chain dependencies de-
+rived from the automatic analysis of participant
+interaction was shown to outperform linear-chain
+BNs and CRFs, despite the incorporation in all
+cases of the same competitive set of predictors
+resulting from cross-validated feature selection.
+Compared to an order-0 CRF model, the absolute
+increase in performance is 3.9% (7.5% relative in-
+crease), which indicates that it is helpful to use
+skip-chain sequence models in the summarization
+task. Our best performing system reaches 91.3%
+of human performance, and scales relatively well
+on automatic speech recognition output.
+Acknowledgments
+This work has benefited greatly from suggestions
+and advice from Kathleen McKeown. I also would
+like to thank Jean Carletta, Steve Renals and
+Gabriel Murray for giving me access to their sum-
+marization corpus, Ani Nenkova for helpful dis-
+cussions about summarization evaluation, Michael
+Collins, Daniel Ellis, Julia Hirschberg, and Owen
+Rambow for useful preliminary discussions, and
+three anonymous reviewers for their insightful
+comments on an earlier version of this paper.
+References
+A. Berger, S. Della Pietra, and V. Della Pietra. 1996. A max-
+imum entropy approach to natural language processing.
+Computational Linguistics, 22(1):3972.
+P. Boersma and D. Weenink. 2006. Praat: doing phonetics
+by computer. http://www.praat.org/.
+J. Conroy, J. Schlesinger, J. Goldstein, and D. OLeary. 2004.
+Left-brain/right-brain multi-document summarization. In
+DUC 04 Conference Proceedings.
+H.P. Edmundson. 1968. New methods in automatic extract-
+ing. Journal of the ACM, 16(2):264285.
+J. Finkel, T. Grenager, and C. Manning. 2005. Incorporating
+non-local information into information extraction systems
+by gibbs sampling. In Proc. of ACL, pages 363370.
+M. Galley, K. McKeown, J. Hirschberg, and E. Shriberg.
+2004. Identifying agreement and disagreement in conver-
+sational speech: Use of bayesian networks to model prag-
+matic dependencies. In Proc. of ACL, pages 669676.
+M. Hearst. 1994. Multi-paragraph segmentation of exposi-
+tory text. In Proc. of ACL, pages 916.
+A. Inoue, T. Mikami, and Y. Yamashita. 2004. Improvement
+of speech summarization using prosodic information. In
+Proc. of Speech Prosody.
+A. Janin, D. Baron, J. Edwards, D. Ellis, D. Gelbart, N. Mor-
+gan, B. Peskin, T. Pfau, E. Shriberg, A. Stolcke, and
+C. Wooters. 2003. The ICSI meeting corpus. In Proc.
+of ICASSP.
+J. Lafferty, A. McCallum, and F. Pereira. 2001. Conditional
+random fields: Probabilistic models for segmenting and
+labeling sequence data. In Proc. of ICML, pages 282289.
+C.-Y. Lin. 2004. ROUGE: a package for automatic evalua-
+tion of summaries. In Proc. of workshop on text summa-
+rization, ACL-04.
+I. Mani and M. Maybury. 1999. Advances in Automatic Text
+Summarization. MIT Press.
+S. Maskey and J. Hirschberg. 2005. Comparing lexial,
+acoustic/prosodic, discourse and structural features for
+speech summarization. In Proc. of Eurospeech.
+A. McCallum, D. Freitag, and F. Pereira. 2000. Maxi-
+mum entropy markov models for information extraction
+and segmentation. In Proc. of ICML.
+A. McCallum. 2002. MALLET: A machine learning for
+language toolkit. http://mallet.cs.umass.edu.
+N. Mirghafori, A. Stolcke, C. Wooters, T. Pirinen, I. Bulyko,
+D. Gelbart, M. Graciarena, S. Otterson, B. Peskin, and
+M. Ostendorf. 2004. From switchboard to meetings: De-
+velopment of the 2004 ICSI-SRI-UW meeting recognition
+system. In Proc. of ICSLP.
+G. Murray, S. Renals, J. Carletta, and J. Moore. 2005. Eval-
+uating automatic summaries of meeting recordings. In
+Proc. of the ACL Workshop on Intrinsic and Extrinsic
+Evaluation Measures for MT and/or Summarization.
+A. Nenkova and R. Passonneau. 2004a. Evaluating con-
+tent selection in human- or machine-generated summaries:
+The pyramid scoring method. Technical Report CUCS-
+025-03, Columbia University, CS Department.
+A. Nenkova and R. Passonneau. 2004b. Evaluating con-
+tent selection in summarization: The pyramid method. In
+Proc. of HLT/NAACL, pages 145152.
+L. Rabiner. 1989. A tutorial on hidden markov models and
+selected applications in speech recogntion. Proc. of the
+IEEE, 77(2):257286.
+O. Rambow, L. Shrestha, J. Chen, and C. Lauridsen. 2004.
+Summarizing email threads. In Proc. of HLT-NAACL.
+E. Schegloff and H. Sacks. 1973. Opening up closings.
+Semiotica, 7-4:289327.
+F. Sha and F. Pereira. 2003. Shallow parsing with conditional
+random fields. In Proc. of NAACL, pages 134141.
+L. Shrestha and K. McKeown. 2004. Detection of question-
+answer pairs in email conversations. In Proc. of COLING,
+pages 889895.
+E. Shriberg, R. Dhillon, S. Bhagat, J. Ang, and H. Carvey.
+2004. The ICSI meeting recorder dialog act (MRDA) cor-
+pus. In SIGdial Workshop on Discourse and Dialogue,
+pages 97100.
+C. Sutton and A. McCallum. 2004. Collective segmenta-
+tion and labeling of distant entities in information extrac-
+tion. Technical Report TR # 04-49, University of Mas-
+sachusetts.
+K. Zechner. 2002. Automatic summarization of open domain
+multi-party dialogues in diverse genres. Computational
+Liguistics, 28(4):447485.
+L. Zhou and E. Hovy. 2005. Digesting virtual geek culture:
+The summarization of technical internet relay chats. In
+Proc. of ACL, pages 298305.
+372
+\x0c"

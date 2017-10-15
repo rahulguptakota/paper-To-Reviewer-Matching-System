@@ -1,0 +1,630 @@
+b'Balto-Slavonic Natural Language Processing 2007, June 29, 2007, pages 8893,
+Prague, June 2007. c
+
+2007 Association for Computational Linguistics
+Named Entity Recognition for Ukrainian: A Resource-Light Approach
+Sophia Katrenko
+HCSL, University of Amsterdam,
+Kruislaan 419, 1098VA Amsterdam,
+the Netherlands
+katrenko@science.uva.nl
+Pieter Adriaans
+HCSL, University of Amsterdam,
+Kruislaan 419, 1098VA Amsterdam,
+the Netherlands
+pitera@science.uva.nl
+Abstract
+Named entity recognition (NER) is a subtask
+of information extraction (IE) which can be
+used further on for different purposes. In this
+paper, we discuss named entity recognition
+for Ukrainian language, which is a Slavonic
+language with a rich morphology. The ap-
+proach we follow uses a restricted number of
+features. We show that it is feasible to boost
+performance by considering several heuris-
+tics and patterns acquired from the Web data.
+1 Introduction
+The information extraction task has proved to be dif-
+ficult for a variety of domains (Riloff, 1995). The
+extracted information can further be used for ques-
+tion answering, information retrieval and other ap-
+plications. Depending on the final purpose, the ex-
+tracted information can be of different type, e.g.,
+temporal events, locations, etc. The information cor-
+responding to locations and names, is referred to as
+the information about named entities. Hence, named
+entity recognition constitutes a subtask of the infor-
+mation extraction in general.
+It is especially challenging to extract the named
+entities from the text sources written in languages
+other than English which, in practice, is supported
+by the results of the shared tasks on the named entity
+recognition (Tjong Kim Sang, 2002).
+Named entity recognition for the languages with
+a rich morphology and a free word order is difficult
+because of several reasons. The entropy of texts in
+such languages is usually higher than the entropy
+of English texts. It is either needed to use such
+resources as morphological analyzers to reduce the
+data sparseness or to annotate a large amount of data
+in order to obtain a good performance. Luckily, the
+free word order is not crucial for the named entity
+recognition task as the local context of a named en-
+tity should be sufficient for its detection. Besides,
+a free word order usually implies a free order of
+constituents (such as noun phrases or verb phrases)
+rather than words as such. For instance, although
+(1)1 is grammatically correct and can occur in the
+data, it would be less frequent than (2).
+\x02\x01\x04\x03\x06\x05\x08\x07
+\t\x0c\x0b\x0e
+\x10\x0f\x0c\x11
+\x12\x14\x13\x16\x15
+\x0b\x0e
+\x10\x0f\x18\x17
+\x19\x14\x1a \x13 \x1b
+\t\x0c\x1c\x08\x1d\x1e\x17 \x1f
+\x1a\x08!\x10" \x15 \x19 #
+\x0b%$
+\x1b #
+\x11
+& !\x04\' \x13
+\x12
+\x19\x14\x1a \x13 \x1a\x08!\x10" \x15 \x19)( \x12\x14\x13\x16\x15 & !\x04\' \x13
+\x12
++*\x0e\x03\x06\x0b\x0e
+\x10\x0f\x18\x17
+\x19\x14\x1a \x13 \x1b
+\t\x0c\x1c\x08\x1d\x1e\x17 \x1f
+\x1a\x08!\x10" \x15 \x19
+\x05\x08\x07
+\t\x0c\x0b\x0e
+\x10\x0f\x0c\x11
+\x12\x14\x13\x16\x15 #
+\x0b%$
+\x1b #
+\x11
+& !\x04\' \x13
+\x12
+\x19\x14\x1a \x13 \x1a\x08!\x10" \x15 \x19)( \x12\x14\x13\x16\x15 & !\x04\' \x13
+\x12
+The first phrase exemplifies that an adjective
+, \x05\x08\x07
+\t\x0c\x0b\x0e
+\x10\x0f\x0c\x11 ,
+is in a focus, whereas the second reflects
+the word order which is more likely to occur. In
+terms of named entities, an entity consisting of sev-
+eral words is also less likely to be split (consider,
+e.g., National saw she Bank where National Bank
+represents one named entity of type organization).
+In the newspaper corpus we annotated, we have ob-
+served no examples of split named entities.
+In this paper, we study different data represen-
+tation and machine learning methods to extract the
+named entities from text. Our goal is two-fold. First,
+1
+all examples in the paper are in Ukrainian, for convenience
+translated and sometimes transliterated
+88
+\x0cwe explore the possibility of using patterns induced
+from the data gathered on the Web. We also con-
+sider Levenshtein distance to find the most similar
+instances in the test data given a training set. Be-
+sides, we study the impact of different feature sets
+on the resulting classification performance.
+We start with the short overview of the methods
+for NER proposed by the IE community. After-
+wards, the experiments are described. We conclude
+with the outlook for the future work.
+2 Related work
+The existing NER systems use many sources in or-
+der to be able to extract NEs from the text data.
+Some of them rely on hand-written rules and pre-
+compiled lists of city names, person names and
+other NEs in a given language, while others explore
+methods to automatically extract NEs without prior
+knowledge. In the first case, the gazetteers will in
+most cases improve NER results (Carreras et al.,
+2002) but, unfortunately, they may not exist for a
+language one is working on. Hand-written rules can
+also cover more NEs but building such patterns will
+be a very time-consuming process.
+There have been many methods applied to NER,
+varying from the statistical to the memory-based ap-
+proaches. Most work on NER has been focused on
+English but there are also approaches to other lan-
+guages such as Spanish (Kozareva et al., 2005), Ger-
+man, or Dutch. In addition, several competitions
+have been organized, with a focus on multilingual
+NER (Tjong Kim Sang, 2002). While analyzing
+the results of these shared tasks, it can be concluded
+that the selected features are of a great importance.
+In our view, they can be categorized in two types,
+i.e. contextual and orthographic 2. The first type
+includes words surrounding a given word while the
+other contains such features as capitalized letters,
+digits contained within the word, etc. Both types
+of features contribute to the information extraction
+task. Nevertheless, orthographic features can al-
+ready be language-specific. For instance, capitaliza-
+tion is certainly very important for such languages
+as English or Dutch but it might be less useful for
+German.
+2
+Sometimes, these types of features are referred to as word-
+external and word-internal (Klein et al., 2003)
+The feature set of some NER methods (Wu, 2002)
+also includes part-of-speech information and/or
+word prefixes and suffixes. Although this informa-
+tion (and especially lemmas) is very useful for the
+languages with rich morphology, it presupposes the
+existence of POS taggers for a given language.
+Another conclusion which can be drawn relates to
+the machine learning approaches. The best results
+have been received by applying ensemble methods
+(Wu, 2002; Florian, 2002; Carreras et al., 2002).
+A very interesting work on named entity recogni-
+tion task was reported by Collins et al. (1999) who
+used only few named entities to bootstrap more. The
+other approach proposed recently makes use of the
+data extracted from the Web (Talukdar et al., 2006).
+By restricting themselves to the fixed context of the
+extracted named entities and by employing grammar
+inference techniques, the authors filter out the most
+useful patterns. As they show, by applying such ap-
+proach precision can already be largely boosted.
+Pastra et al. (2002) focused on the applicability
+of already existing resources in one language to an-
+other. Their case study was based on English and
+Romanian, where a system, originally developed for
+NER in English was adapted to Romanian. Their
+results suggest that such adaptation is easier than
+developing a named entity recognition system for
+Romanian from scratch. However, the authors also
+mention that not all phenomena in Romanian have
+been taken into account which resulted in low recall.
+3 Methodology
+Ukrainian belongs to the languages where the named
+entities are usually capitalized, which makes their
+detection relatively easy. In this paper we focus
+on using minimal information about the language in
+combination with the patterns learnt from the Web
+data, features extracted from the corpus and Leven-
+shtein similarity measure.
+Our hypothesis behind all three components is the
+following. We expect orthographic features be use-
+ful for a named entity detection but not sufficient
+for its classification. Contextual information may
+already help but as we do not intend to use lemmas
+but words instead, it will likely not boost recall of the
+named entity recongnition. To be able to detect more
+named enities in the text, we propose to use pat-
+89
+\x0cterns collected from the Web and Levenshtein sim-
+ilarity measure. Patterns from the Web should pro-
+vide more contextual information than can be found
+in a corpus. In addition, a similarity measure gives
+us an opportunity to detect the named entities which
+have the same stem. The latter is especially useful
+when the same entity was mentioned in the training
+set as well as in the test data but its flections differ.
+The intention of our study is, therefore, to start
+with a standard set of features (contextual and ortho-
+graphic) as used for the many languages in the past
+and to add some means which would account for the
+fact that Ukrainian is a highly-inflected language.
+3.1 Classification
+First, we consider the features which can be easily
+extracted given the data, such as contextual and or-
+thographic ones as described below in Table 1. For
+each word in a corpus its context (2 tokens to left
+and to the right) and its orthographic features are
+extracted. Orthographic features are binary features
+which, for instance, indicate whether a word is cap-
+italized (1 or 0), etc. We have selected the following
+machine learning methods: k-nearest neighbor (knn)
+and voting and stacking as the ensemble methods
+which have been successfully applied to the named
+entity recognition task in the past.
+contextual -2/+2 words
+orthographic
+CAP capitalized
+ALLCAP all elements of a token capitalized
+BSENT first token in a sentence
+NUM contains digits
+QUOTE contains quotes
+Table 1: Features
+To overcome data sparseness and to increase re-
+call, we make use of two techniques. First, we apply
+the patterns extracted from the Web.
+3.2 Patterns
+If we wish to collect patterns for a certain category C
+of the named entities (e.g.), we first collect all named
+entities that fall into it. Then, for each X  C,
+we use X as a query term for Google (for this pur-
+pose we used the Google API). The queries we con-
+structed were mainly based on the locations, such as
+,.- \x1c0/1\x0b ,324, 576 \x0b%$3\x0b ,328, 9 \x17 \t
+#
+$3\x0b ,32),.: \x07
+\t\x0c\x0f\x0c$3\x0b%;\x0c$ ,
+etc. For
+each of these words we created queries by declin-
+ing them (as there are 7 cases in Ukrainian language
+which causes the high variability). Consequently,
+we get many snippets where X occurs. To extract
+patterns from snippets, we fix a context and use 2
+words to the left and to the right of X as in the
+classification approach above. The patterns which
+only consist of a named entity, closed-class words
+(e.g., prepositions, conjunctions, etc.) and punctua-
+tion are removed as such that do not provide enough
+evidence to classify an instance.
+Intuitively, if there are many patterns acquired
+from the large collection of data on the Web, they
+must be sufficient (in some sense even redundant)
+to recognize named entities in a text. For instance,
+such pattern as was located in X in English can cor-
+respond to three patterns in Ukrainian was located
+(fem., sing.) in X, was located (masc., sing.) in X,
+was located (neut., sing.) in X. Even though these
+patterns could be embraced in one, we are rather in-
+terested in collecting all possible patterns avoiding
+this way stemming and morphological analysis.
+As in Talukdars approach (Talukdar et al., 2006),
+we expect patterns to provide high precision. We
+are, however, concerned about the size of Ukrainian
+Web which is much smaller than English part of the
+Web. As a consequence, it is not clear whether recall
+can be improved much by using the Web data.
+3.3 Levenshtein distance
+Yet another approach to address rich morphology of
+Ukrainian, is to carry out a matching of probable
+named entities in a test set against a list of named
+entities in a training set. It can be done by using
+string edit distances, such as Levenshtein.
+Levenshtein (or edit) distance of two strings, x
+and y is measured as the minimal number of in-
+sertions, deletions, or substitutions to transform one
+string into the other. Levenshtein distance has be-
+come popular in the natural language processing
+field and was used for the variety of tasks (e.g., se-
+mantic role labeling ).
+Definition 1 (Levenshtein distance) Given two sequences
+x = x1x2 . . . xn and y = y1y2 . . . ym of a length n and m
+respectively, Levenshtein distance is defined as follows
+lev(i, j) = min
+8
+<
+:
+lev(i  1, j  1) + d(xi, yj )
+lev(i  1, j) + 1
+lev(i, j  1) + 1
+90
+\x0cIn the definition above, d(xi, yj) is a cost of sub-
+stituting one symbol in x by a symbol from y. The
+insertion and deletion costs are equal to 1.
+Let A be a candidate named entity and L a list
+of all named entities found in the training set. By
+computing the Levenshtein distance between A and
+each element from L, the nearest neighbor to A will
+be a NE with the lowest Levenshtein score. It might,
+however, happen that there are no named entities in
+a training set that correspond to the candidate in a
+test set. Consider, for instance the Levenshtein dis-
+tance of two words
+,.< \t\x0c$3= ,
+(George) and
+,.- \t\x0c$>\x1d ,
+(besides) which is equal to 2. Even though the dis-
+tance is low, we do not wish to classify
+,.- \t\x0c$>\x1d ,
+as
+a named entity whose type is PERSON because it is
+simply a preposition. The problem we described can
+be solved in several ways. On the one hand, it is pos-
+sible to use a list of stop words with most frequent
+prepositions, conjunctions and pronouns listed. On
+the other hand, we can also set a threshold for the
+Levenshtein distance. In the experiments we present
+below, we avoid setting threshold by using a simple
+heuristics. We align the first letters of A with its
+nearest neighbor. If they do not match (as in exam-
+ple above), we conclude that no variants of A belong
+to the training set.
+4 Experiments and Evaluation
+We have conducted three types of experiments us-
+ing different feature sets, patterns extracted from the
+Web and Levenshtein distance. We expect that both
+types of experiments can shed a light on usefulness
+of the features that we defined for NER on Ukrainian
+data.
+4.1 Data
+Initially, several articles of the newspaper Mir-
+ror Weekly (year 2005)3 were annotated. During
+the annotating process we considered the following
+named instances: PERSON (person names), LOC
+(location), ORG (organization).In total, there were
+10,000 tokens annotated, 514 of which are named
+entities. All named entities have been annotated ac-
+cording to the IOB annotation scheme (Ramshaw
+and Marcus, 1995). The annotated corpus can
+3
+can be found at http://www.zn.kiev.ua
+be downloaded from http://www.science.
+uva.nl/ katrenko/Corpus
+The corpus was split into training and test sets of
+6,606 and 3,397 tokens, respectively. The corpus is
+relatively small but we hope to study whether such
+features as orthographic are sufficient for the NER
+task alone or it is needed to add more sources to ap-
+proach this task.
+4.2 Classification
+The results of our experiments on classification of
+named entities are provided in Table 2. Baseline
+B1 was defined by the most frequent tag in the data
+(ORG). Similarly to Conll shared task (Tjong Kim
+Sang, 2002), we also calculated a baseline by tag-
+ging all named entities which occurred in the train-
+ing set (B2). Although there are many names of or-
+ganizations detected, there are only 1,92% of person
+names recognized.
+precision recall F-score
+B1 0.32 0.32 0.32
+B2 0.29 0.18 0.22
+M2knn
+ortho 0.31 0.44 0.36
+M2knn
+ortho+cont 0.38 0.46 0.42
+MV oting
+ortho+cont 0.47 0.38 0.42
+MStacking
+ortho+cont 0.40 0.43 0.41
+MV oting
+ortho+cont+pat 0.46 0.39 0.42
+MV oting
+ortho+cont+pat+lev 0.50 0.46 0.48
+Table 2: Experiments: precision and recall
+Since we are interested in how much each type
+of the feature sets contributes to the classification
+accuracy, we have conducted experiments on con-
+textual features only, on orthographic features only
+(model M2knn
+ortho in Table 2) and on the combina-
+tions of both (model M2knn
+ortho+cont in Table 2). When
+used alone, contextual features do not provide a
+high performance. However, their combination with
+the orthographic features already results in a higher
+precision (at expense of recall) and in a higher F-
+score. It is worth noting that all results given in
+Table 2 were obtained either by using memory-
+based learning (in particular, k-nearest neighbor as
+in M2knn
+ortho and in M2knn
+ortho+cont) or by ensemble
+methods (as in MV oting
+ortho+cont and MStacking
+ortho+cont). The
+latter option was particularly interesting to explore
+because it proved to provide accurate results for the
+91
+\x0cnamed entity recognition task in the past. The re-
+sults in Table 2 also seem to support a claim that
+the ensemble methods perform better. It can be
+seen when comparing M2knn
+ortho+cont, MV oting
+ortho+cont and
+MStacking
+ortho+cont. Despite of using the same feature sets,
+Voting (based on Naive Bayes, decision trees and 2-
+knn) and Stacking (2-knn as a meta-learner applied
+to Naive Bayes and decision tree learner) both pro-
+vide higher precision but lower recall.
+By using 2 test on the training set, we deter-
+mined which attributes are the most informative for
+the classification task. The most informative turned
+out to be a word itself followed by the surround-
+ing context (one token to the right and to the left).
+The least informative feature is NUM, apparently
+because there have been not many named entities
+containing digits.
+4.3 Patterns
+As a next step, we employed the patterns extracted
+from the Web data. Some of the patterns accom-
+panied with the translation and information on case
+are given in Table 3. It can be noticed that not all
+of the patterns are accurate. For instance, a pattern
+together with a city mayor LOC can also be used to
+extract a name of a mayor (hence, PERSON) and
+not a location (LOC). Patterns containing preposi-
+tions (so, mostly patterns containing a named entity
+in locative case) in, with, nearby are usually
+more accurate but they still require additional con-
+text (as a word town in in a little town LOC).
+The results we obtained by employing such pat-
+terns did not significantly change the overall perfor-
+mance (Table 2, model MV oting
+ortho+cont+pat). However,
+the performance on some categories such as ORG
+or LOC (Table 5 and Table 6, model ALL+P) was
+positively affected in terms of F-score.
+4.4 Levenshtein distance
+Finally, we compare all capitalized words in a test
+set against the named entities found in the train-
+ing data. The first 6 examples in Table 4 show the
+same nouns but in different cases. The distance in
+each case is equal 1. Since we did not carry out
+the morphological analysis of the corpus, many such
+occurrences of the named entities in the test data
+were found given the information from the training
+set using orthographic and contextual features only
+(as they do not match exactly). However, Leven-
+shtein distance helps to identify the variants of the
+same named entity. The results of applying Leven-
+shtein distance (together with the patterns and Vot-
+ing model on all features) for each category are
+given in Table 5 and Table 6 (model ALL+P+L).
+LOC and ORG are two categories whose perfor-
+mance is greatly improved by using Levenshtein dis-
+tance. In case of PERSON category, recall gets
+slightly higher, whereas precision does not change
+much.
+PATTERN case
+?8@\x08ACBED
+FEG\x10H\x04?8IKJML locative
+in a little town LOC
+N @\x08AOB\x02D
+PQ@RISJML instrumental
+with a city LOC
+H\x04TQUVDWTXIKJML genitive
+a map of LOC
+BEY AOZV[W\\ P N @\x08F\x02U PQ@RISJML instrumental
+together with a city mayor LOC
+@\x08A.]^U A _ \\ ` ]^IKJML vocative
+my dear/native LOC
+a ISJMLcbW` d\x04bQZ\x10FE\\ P locative
+in LOC was found
+@\x18Te\\\x04_%UV?\x04fgG `)IKJML instrumental
+travelling in LOC
+hi`Vb
+Fj_\x10F\x02BE[kY A._7IKJML instrumental
+lives somewhere nearby LOC
+Table 3: Patterns for LOC category
+The last three examples in Table 4 are very in-
+teresting. They show that sometimes the nearest
+neighbor of the candidates for NEs in the test data
+is a named entity of the same category but it can-
+not be found by aligning. Having noticed this, we
+decided to exclude aligning step and to consider a
+nearest neighbor of every capitalized token in the
+test set. Although we extracted few novel person
+names and locations, performance in terms of preci-
+sion dropped significantly. The very last example in
+Table 4 demonstrates a case when applying Leven-
+shtein measure fails. In this case
+,.lk<nm7,
+is of type
+ORG (a political party) and
+,.lk<nm $3\x0b%;\x0c$ ,
+are people
+who belong to the party. Given the nearest neighbor
+and the successful alignment, it is predicted that
+,.lk<nm $3\x0b%;\x0c$ ,
+belongs to the category ORG but it is
+not true. In the other example involving the same
+entity
+,.lk<om7,32j,.lk<om \x11 ,
+is correctly classified as
+ORG (it is the same named entity as in the training
+data but in dative case).
+92
+\x0cIt can be concluded that, in general, Leven-
+shtein distance helps to identify many named enti-
+ties which were either misclassified or not detected
+at all. However, it is sometimes unable to distinguish
+between the variant of the same named entity and
+a true negative. Additional constraints such as the
+upper threshold of the Levenshtein distance might
+solve this problem.
+Category Test set Training set L-score
+PERSON p Z\x10AOf p Z\x10A q 1
+PERSON r ` B\x02FE\\\x10HsPQ@ r ` B\x02FE\\\x10HsP 1
+ORG tupwv ? tupwv 1
+LOC r [Qb
+PQbWA r [Qb
+PQb
+T 1
+LOC x ` yEb\x16T x ` yEb
+A 1
+PERSON z AOHVD
+PWUVPW@ z AOHVD
+PWU 2
+PERSON { PQ@|T\x14\\ }~b\x16Te\\ 3
+PERSON \x7f PQ@\x18QU Peb
+BE[WHV` ] sPW\x1ePQbWBE[
+H\x04` ] 4
+WRONG tupwv A.bW A tupwv 4
+Table 4: The nearest neighbors
+As can be seen from Table 2, the best overall per-
+formance is achieved by combining contextual and
+orthographic features together with the patterns ex-
+tracted from the Web and entities classified by em-
+ploying the Levenshtein distance.
+Model PERSON LOC ORG
+ORTHO 0.25 0.34 0.52
+ALL 0.47 0.37 0.49
+ALL+P 0.48 0.31 0.47
+ALL+P+L 0.49 0.55 0.51
+Table 5: Performance on each category: precision
+Model PERSON LOC ORG
+ORTHO 0.49 0.26 0.42
+ALL 0.36 0.15 0.51
+ALL+P 0.36 0.27 0.49
+ALL+P+L 0.42 0.49 0.56
+Table 6: Performance on each category: recall
+5 Conclusions and Future work
+In this paper, we focused on standard features used
+for the named entity recognition on the newswire
+data which have been used on many languages. To
+improve the results that we get by employing ortho-
+graphic and contextual features, we add patterns ex-
+tracted from the Web and use a similarity measure
+to find the named entities similar to the NEs in the
+training set. The results we received are, in general,
+lower than the performance of NER systems in other
+languages but higher than both baselines. The for-
+mer might be explained by the size of the corpus we
+use and by the characteristics of the language. As
+Ukrainian language is a language with a rich mor-
+phology, there are several directions we would like
+to explore in the future.
+From the language-oriented perspective, it would
+be useful to determine to which extent stemming and
+morphological analysis would boost performance.
+The other problem which we have not considered up
+to now is the ambiguity of some named entities. For
+example, a word Ukraine can belong to the cate-
+gory LOC as well as to the category ORG (as it is a
+part of a complex named entity).
+In addition, we would also like to explore the
+semi-supervised techniques such as co-training and
+self-training (Collins and Singer, 1999).
+References
+Carreras et al. 2002. Named Entity Extraction using AdaBoost.
+In the Proceedings of CoNLL-2002, Taipei, Taiwan.
+Michael Collins and Yoram Singer 1999. Unsupervised Mod-
+els for Named Entity Classification. In Proccedings of
+EMNLP/VLC-99.
+Radu Florian. Named Entity Recognition as a House of Cards:
+Classifier Stacking. In the Proceedings of CoNLL-2002,
+Taipei, Taiwan, 2002.
+Dan Klein et al. Named Entity Recognition with Character-
+Level Models. In the Proceedings of CoNLL-2002, Taipei,
+Taiwan, 2003.
+Zornitsa Kozareva, Boyan Bonev, and Andres Montoyo. 2005.
+Self-training and Co-training Applied to Spanish Named En-
+tity Recognition. In MICAI 2005: 770-779.
+Katerina Pastra, Diana Maynard, Oana Hamza, Hamish Cun-
+ningham and Yorick Wilks. 2002. How feasible is the reuse
+of grammars for Named Entity Recognition? In LREC02.
+Lance Ramshaw and Mitch Marcus. 1995. Text Chunking Us-
+ing Transformation-Based Learning In ACL95.
+Ellen Riloff. 1995. Information Extraction as a Basis for
+Portable Text Classification Systems. PhD Thesis. Dept.
+of Computer Science Technical Report, University of Mas-
+sachusetts Amherst.
+P. P. Talukdar, T. Brants, M. Liberman and F. Pereira. 2006. A
+Context Pattern Induction Method for Named Entity Extrac-
+tion. In the Proceedings of the Tenth Conference on Compu-
+tational Natural Language Learning (CoNLL-2006).
+Erik Tjong Kim Sang. 2002. Introduction to the CoNLL-2002
+Shared Task: Language-Independent Named Entity Recog-
+nition. In the Proceedings of CoNLL-2002, Taipei, Taiwan,
+155158.
+Dekai Wu et al. 2002. Boosting for Named Entity Recognition.
+In the Proceedings of CoNLL-2002, Taipei, Taiwan.
+93
+\x0c'

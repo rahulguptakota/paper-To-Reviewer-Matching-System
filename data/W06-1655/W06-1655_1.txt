@@ -1,0 +1,822 @@
+b'Proceedings of the 2006 Conference on Empirical Methods in Natural Language Processing (EMNLP 2006), pages 465472,
+Sydney, July 2006. c
+
+2006 Association for Computational Linguistics
+A Hybrid Markov/Semi-Markov Conditional Random Field
+for Sequence Segmentation
+Galen Andrew
+Microsoft Research
+One Microsoft Way
+Redmond, WA 98052
+galena@microsoft.com
+Abstract
+Markov order-1 conditional random fields
+(CRFs) and semi-Markov CRFs are two
+popular models for sequence segmenta-
+tion and labeling. Both models have ad-
+vantages in terms of the type of features
+they most naturally represent. We pro-
+pose a hybrid model that is capable of rep-
+resenting both types of features, and de-
+scribe efficient algorithms for its training
+and inference. We demonstrate that our
+hybrid model achieves error reductions of
+18% and 25% over a standard order-1 CRF
+and a semi-Markov CRF (resp.) on the
+task of Chinese word segmentation. We
+also propose the use of a powerful fea-
+ture for the semi-Markov CRF: the log
+conditional odds that a given token se-
+quence constitutes a chunk according to
+a generative model, which reduces error
+by an additional 13%. Our best system
+achieves 96.8% F-measure, the highest re-
+ported score on this test set.
+1 Introduction
+The problem of segmenting sequence data into
+chunks arises in many natural language applica-
+tions, such as named-entity recognition, shallow
+parsing, and word segmentation in East Asian lan-
+guages. Two popular discriminative models that
+have been proposed for these tasks are the condi-
+tional random field (CRFs) (Lafferty et al., 2001)
+and the semi-Markov conditional random field
+(semi-CRF) (Sarawagi and Cohen, 2004).
+A CRF in its basic form is a model for label-
+ing tokens in a sequence; however it can easily
+be adapted to perform segmentation via labeling
+each token as BEGIN or CONTINUATION, or accord-
+ing to some similar scheme. CRFs using this tech-
+nique have been shown to be very successful at the
+task of Chinese word segmentation (CWS), start-
+ing with the model of Peng et al. (2004). In the
+Second International Chinese Word Segmentation
+Bakeoff (Emerson, 2005), two of the highest scor-
+ing systems in the closed track competition were
+based on a CRF model. (Tseng et al., 2005; Asa-
+hara et al., 2005)
+While the CRF is quite effective compared with
+other models designed for CWS, one wonders
+whether it may be limited by its restrictive inde-
+pendence assumptions on non-adjacent labels: an
+order-M CRF satisfies the order-M Markov as-
+sumption that, globally conditioned on the input
+sequence, each label is independent of all other
+labels given the M labels to its left and right.
+Consequently, the model only sees word bound-
+aries within a moving window of M + 1 charac-
+ters, which prohibits it from explicitly modeling
+the tendency of strings longer than that window
+to form words, or from modeling the lengths of
+the words. Although the window can in principle
+be widened by increasing M, this is not a practi-
+cal solution as the complexity of training and de-
+coding a linear sequence CRF grows exponentially
+with the Markov order.
+The semi-CRF is a sequence model that is de-
+signed to address this difficulty via careful relax-
+ation of the Markov assumption. Rather than re-
+casting the segmentation problem as a labeling
+problem, the semi-CRF directly models the dis-
+tribution of chunk boundaries.1 In terms of inde-
+1
+As it was originally described, the semi-CRF also as-
+signs labels to each chunk, effectively performing joint seg-
+mentation and labeling, but in a pure segmentation problem
+such as CWS, the use of labels is unnecessary.
+465
+\x0cpendence, using an order-M semi-CRF entails the
+assumption that, globally conditioned on the input
+sequence, the position of each chunk boundary is
+independent of all other boundaries given the po-
+sitions of the M boundaries to its left and right
+regardless of how far away they are. Even with an
+order-1 model, this enables several classes of fea-
+tures that one would expect to be of great utility
+to the word segmentation task, in particular word
+length and word identity.
+Despite this, the only work of which we are
+aware exploring the use of a semi-Markov CRF
+for Chinese word segmentation did not find signif-
+icant gains over the standard CRF (Liang, 2005).
+This is surprising, not only because the additional
+features a semi-CRF enables are intuitively very
+useful, but because as we will show, an order-M
+semi-CRF is strictly more powerful than an or-
+der-M CRF, in the sense that any feature that can
+be used in the latter can also be used in the for-
+mer, or equivalently, the semi-CRF makes strictly
+weaker independence assumptions. Given a judi-
+cious choice of features (or simply enough training
+data) the semi-CRF should be superior.
+We propose that the reason for this discrepancy
+may be that despite the greater representational
+power of the semi-CRF, there are some valuable
+features that are more naturally expressed in a
+CRF segmentation model, and so they are not typ-
+ically included in semi-CRFs (indeed, they have
+not to date been used in any semi-CRF model for
+any task, to our knowledge). In this paper, we
+show that semi-CRFs are strictly more expressive,
+and also demonstrate how CRF-type features can
+be used in a semi-CRF model for Chinese word
+segmentation. Our experiments show that a model
+incorporating both types of features can outper-
+form models using only one or the other type.
+Orthogonally, we explore in this paper the use
+of a very powerful feature for the semi-CRF de-
+rived from a generative model.
+It is common in statistical NLP to use as fea-
+tures in a discriminative model the (logarithm of
+the) estimated probability of some event accord-
+ing to a generative model. For example, Collins
+(2000) uses a discriminative classifier for choosing
+among the top N parse trees output by a generative
+baseline model, and uses the log-probability of a
+parse according to the baseline model as a feature
+in the reranker. Similarly, the machine translation
+system of Och and Ney uses log-probabilities of
+phrasal translations and other events as features in
+a log-linear model (Och and Ney, 2002; Och and
+Ney, 2004). There are many reasons for incorpo-
+rating these types of features, including the desire
+to combine the higher accuracy of a discriminative
+model with the simple parameter estimation and
+inference of a generative one, and also the fact that
+generative models are more robust in data sparse
+scenarios (Ng and Jordan, 2001).
+For word segmentation, one might want to use
+as a local feature the log-probability that a segment
+is a word, given the character sequence it spans. A
+curious property of this feature is that it induces
+a counterintuitive asymmetry between the is-word
+and is-not-word cases: the component generative
+model can effectively dictate that a certain chunk
+is not a word, by assigning it a very low probability
+(driving the feature value to negative infinity), but
+it cannot dictate that a chunk is a word, because
+the log-probability is bounded above.2 If instead
+the log conditional odds log Pi(y|x)
+Pi(y|x) is used, the
+asymmetry disappears. We show that such a log-
+odds feature provides much greater benefit than
+the log-probability, and that it is useful to include
+such a feature even when the model also includes
+indicator function features for every word in the
+training corpus.
+2 Hybrid Markov/Semi-Markov CRF
+The model we describe is formally a type of semi-
+Markov CRF, distinguished only in that it also in-
+volves CRF-style features. So we first describe the
+semi-Markov model in its general form.
+2.1 Semi-Markov CRF
+An (unlabeled) semi-Markov conditional random
+field is a log-linear model defining the conditional
+probability of a segmentation given an observation
+sequence. The general form of a log-linear model
+is as follows: given an input x  X, an output
+y  Y , a feature mapping  : X  Y 7 Rn, and
+a weight vector w, the conditional probability of
+y given x is estimated as:
+P(y | x) =
+exp (w  (x, y))
+Z(x)
+where Z : x 7 R is a normalizing factor. w
+is typically chosen to maximize the conditional
+likelihood of a labeled training set. In the word
+2
+We assume the weight assigned to the log-probability
+feature is positive.
+466
+\x0csegmentation task, x is an ordered sequence of
+characters (x1, x2, . . . , xn), and y is a set of in-
+dices corresponding to the start of each word:
+{y1, y2, . . . , ym} such that y1 = 1, ym  n, and
+for all j, yj < yj+1. A log-linear model in this
+space is an order-1 semi-CRF if its feature map 
+decomposes according to
+(x, y) =
+m
+X
+j=1
+S
+(yj, yj+1, x) (1)
+where S is a local feature map that only considers
+one chunk at a time (defining ym+1 = n+1). This
+decomposition is responsible for the characteristic
+independence assumptions of the semi-CRF.
+Hand-in-hand with the feature decomposition
+and independence assumptions comes the capac-
+ity for exact decoding using the Viterbi algorithm,
+and exact computation of the objective gradient
+using the forward-backward algorithm, both in
+time quadratic in the lengths of the sentences.
+Furthermore, if the model is constrained to pro-
+pose only chunkings with maximum word length
+k, then the time for inference and training be-
+comes linear in the sentence length (and in k). For
+Chinese word segmentation, choosing a moderate
+value of k does not pose any significant risk, since
+the vast majority of Chinese words are only a few
+characters long: in our training set, 91% of word
+tokens were one or two characters, and 99% were
+five characters or less.
+Using a semi-CRF as opposed to a traditional
+Markov CRF allows us to model some aspects
+of word segmentation that one would expect to
+be very informative. In particular, it makes pos-
+sible the use of local indicator function features
+of the type the chunk consists of character se-
+quence 1, . . . , `, or the chunk is of length `.
+It also enables pseudo-bigram language model
+features, firing when a given word occurs in the
+context of a given character unigram or bigram.3
+And crucially, although it is slightly less natural
+to do so, any feature used in an order-1 Markov
+CRF can also be represented in a semi-CRF. As
+Markov CRFs are used in the most competitive
+Chinese word segmentation models to date, one
+might expect that incorporating both types of fea-
+tures could yield a superior model.
+3
+We did not experiment with this type of feature.
+2.2 CRF vs. Semi-CRF
+In order to compare the two types of linear CRFs,
+it is convenient to define a representation of the
+segmentation problem in terms of character labels
+as opposed to sets of whole words. Denote by
+L(y)  {B, C}n (for BEGIN vs. CONTINUATION)
+the sequence {L1, L2, . . . Ln} of labels such that
+Li = B if and only if yi  y. It is clear that if we
+constrain L1 = B, the two representations y and
+L(y) are equivalent. An order-1 Markov CRF is a
+log-linear model in which the global feature vector
+ decomposes into a sum over local feature vec-
+tors that consider bigrams of the label sequence:
+(x, y) =
+n
+X
+i=1
+M
+(Li, Li+1, i, x) (2)
+(where Ln+1 is defined as B). The local features
+that are most naturally expressed in this context
+are indicators of some joint event of the label bi-
+gram (Li, Li+1) and nearby characters in x. For
+example, one might use the feature the current
+character xi is  and Li = C, or the current and
+next characters are identical and Li = Li+1 = B.
+Although we have heretofore disparaged the
+CRF as being incapable of representing such pow-
+erful features as word identity, the type of features
+that it most naturally represents should be help-
+ful in CWS for generalizing to unseen words. For
+example, the first feature mentioned above could
+be valuable to rule out certain word boundaries if
+ were a character that typically occurs only as a
+suffix but that combines freely with a variety of
+root forms to create new words. This type of fea-
+ture (specifically, a feature indicating the absence
+as opposed to the presence of a chunk boundary)
+is a bit less natural in a semi-CRF, since in that
+case local features S(yj, yj+1, x) are defined on
+pairs of adjacent boundaries. Information about
+which tokens are not on boundaries is only im-
+plicit, making it a bit more difficult to incorporate
+that information into the features. Indeed, neither
+Liang (2005) nor Sarawagi and Cohen (2004) nor
+any other system using a semi-Markov CRF on
+any task has included this type of feature to our
+knowledge. We hypothesize (and our experiments
+confirm) that the lack of this feature explains the
+failure of the semi-CRF to outperform the CRF for
+word segmentation in the past.
+Before showing how CRF-type features can be
+used in a semi-CRF, we first demonstrate that the
+semi-CRF is indeed strictly more expressive than
+467
+\x0cthe CRF, meaning that any global feature map 
+that decomposes according to (2) also decomposes
+according to (1). It is sufficient to show that for
+any feature map M of a Markov CRF, there exists
+a semi-Markov-type feature map S such that for
+any x, y,
+M
+(x, y) =
+n
+X
+i=1
+M
+(Li, Li+1, i, x) (3)
+=
+m
+X
+j=1
+S
+(yj, yj+1, x) = S
+(x, y)
+To this end, note that there are only four possible
+label bigrams: BB, BC, CB, and CC. As a di-
+rect result of the definition of L(y), we have that
+(Li, Li+1) = (B, B) if and only if some word of
+length one begins at i, or equivalently, there exists
+a word j such that yj = i and yj+1 yj = 1. Sim-
+ilarly, (Li, Li+1) = (B, C) if and only if some
+word of length > 1 begins at i, etc. Using these
+conditions, we can define S to satisfy equation 3
+as follows:
+S
+(yj, yj+1, x) = M
+(B, B, yj, x)
+if yj+1  yj = 1, and
+S
+(yj, yj+1, x) = M
+(B, C, yj, x)
++
+yj+12
+X
+k=yj+1
+M
+(C, C, k, x) (4)
++ M
+(C, B, yj+1  1, x)
+otherwise. Defined thus,
+Pm
+j=1 S will contain ex-
+actly n M terms, corresponding to the n label bi-
+grams.4
+2.3 Order-1 Markov Features in a Semi-CRF
+While it is fairly intuitive that any feature used in a
+1-CRF can also be used in a semi-CRF, the above
+argument reveals an algorithmic difficulty that is
+likely another reason that such features are not typ-
+ically used. The problem is essentially an effect of
+the sum for CC label bigrams in (4): quadratic
+time training and decoding assumes that the fea-
+tures of each chunk S(yj, yj+1, x) can be multi-
+plied with the weight vector w in a number of op-
+erations that is roughly constant over all chunks,
+4
+We have discussed the case of Markov order-1, but the
+argument can be generalized to show that an order-M CRF
+has an equivalent representation as an order-M semi-CRF,
+for any M.
+procedure ComputeScores(x, w)
+for i = 2 . . . (n  1) do
+CC
+i  M (C, C, i, x)  w
+end for
+for a = 1 . . . n do
+CCsum  0
+for b = (a + 1) . . . (n + 1) do
+if b  a = 1 then
+ab  M (B, B, a, x)  w
+else
+ab  M (B, C, a, x)  w + CCsum
++M (C, B, b  1, x)  w
+CCsum  CCsum + CC
+b1
+end if
+end for
+end for
+Figure 1: Dynamic program for computing chunk
+scores ab with 1-CRF-type features.
+but if one navely distributes the product over the
+sum, longer chunks will take proportionally longer
+to score, resulting in cubic time algorithms.5
+In fact, it is possible to use these features
+without any asymptotic decrease in efficiency by
+means of a dynamic program. Both Viterbi and
+forward-backward involve the scores ab = w 
+S(a, b, x). Suppose that before starting those al-
+gorithms, we compute and cache the score ab of
+each chunk, so that remainder the algorithm runs
+in quadratic time, as usual. This pre-computation
+can be done quickly if we first compute the values
+CC
+i = w  M (C, C, i, x), and use them to fill in
+the values of ab as shown in Figure 1.
+In addition, computing the gradient of the semi-
+CRF objective requires that we compute the ex-
+pected value of each feature. For CRF-type fea-
+tures, this is tantamount to being able to compute
+the probability that each label bigram (Li, Li+1)
+takes any value. Assume that we have already run
+standard forward-backward inference so that we
+have for any (a, b) the probability that the subse-
+quence (xa, xa+1, . . . , xb1) segments as a chunk,
+P(chunk(a, b)). Computing the probability that
+(Li, Li+1) takes the values BB, BC or CB is
+simple to compute:
+P(Li, Li+1 = BB) = P(chunk(i, i + 1))
+5
+Note that the problem would arise even if only zero-order
+Markov (label unigram) features were used, only in that case
+the troublesome features would be those that involved the la-
+bel unigram C.
+468
+\x0cand, e.g.,
+P(Li, Li+1 = BC) =
+X
+j>i+1
+P(chunk(i, j)),
+but the same method of summing over chunks can-
+not be used for the value CC since for each label
+bigram there are quadratically many chunks cor-
+responding to that value. In this case, the solution
+is deceptively simple: using the fact that for any
+given label bigram, the sum of the probabilities of
+the four labels must be one, we can deduce that
+P(Li, Li+1 = CC) = 1.0  P(Li, Li+1 = BB)
+ P(Li, Li+1 = BC)  P(Li, Li+1 = CB).
+One might object that features of the C and CC
+labels (the ones presenting algorithmic difficulty)
+are unnecessary, since under certain conditions,
+their removal would not in fact change the expres-
+sivity of the model or the distribution that maxi-
+mizes training likelihood. This will indeed be the
+case when the following conditions are fulfilled:
+1. All label bigram features are of the form
+M
+(Li,Li+1, i, x) =
+1{(Li, Li+1) =  & pred(i, x)}
+for some label bigram  and predicate pred,
+and any such feature with a given predicate
+has variants for all four label bigrams .
+2. No regularization is used during training.
+A proof of this claim would require too much
+space for this paper, but the key is that, given a
+model satisfying the above conditions, one can
+obtain an equivalent model via adding, for each
+feature type over pred, some constant to the four
+weights corresponding to the four label bigrams,
+such that the CC bigram features all have weight
+zero.
+In practice, however, one or both of these con-
+ditions is always broken. It is common knowl-
+edge that regularization of log-linear models with
+a large number of features is necessary to achieve
+high performance, and typically in NLP one de-
+fines feature templates and chooses only those fea-
+tures that occur in some positive example in the
+training set. In fact, if both of these conditions are
+fulfilled, it is very likely that the optimal model
+will have some weights with infinite values. We
+conclude that it is not a practical alternative to omit
+the C and CC label features.
+2.4 Generative Features in a Discriminative
+Model
+When using the output of a generative model as
+a feature in a discriminative model, Raina et al.
+(2004) provide a justification for the use of log
+conditional odds as opposed to log-probability:
+they show that using log conditional odds as fea-
+tures in a logistic regression model is equivalent
+to discriminatively training weights for the fea-
+tures of a Nave Bayes classifier to maximize
+conditional likelihood.6 They demonstrate that
+the resulting classifier, termed a hybrid genera-
+tive/discriminative classifier, achieves lower test
+error than either pure Nave Bayes or pure logistic
+regression on a text classification task, regardless
+of training set size.
+The hybrid generative/discriminative classifier
+also uses a unique method for using the same data
+used to estimate the parameters of the compo-
+nent generative models for training the discrimina-
+tive model parameters w without introducing bias.
+A leave-one-out strategy is used to choose w,
+whereby the feature values of the i-th training ex-
+ample are computed using probabilities estimated
+with the i-th example held out. The beauty of this
+approach is that since the probabilities are esti-
+mated according to (smoothed) relative frequency,
+it is only necessary during feature computation to
+maintain sufficient statistics and adjust them as
+necessary for each example.
+In this paper, we experiment with the use of
+a single hybrid local semi-CRF feature, the
+smoothed log conditional odds that a given sub-
+sequence xab = (xa, . . . , xb1) forms a word:
+log
+wordcount(xab) + 1
+nonwordcount(xab) + 1
+,
+where wordcount(xab) is the number of times
+xab forms a word in the training set, and
+nonwordcount(xab) is the number of times xab
+occurs, not segmented into a single word. The
+models we test are not strictly speaking hybrid
+generative/discriminative models, since we also
+use indicator features not derived from a genera-
+tive model. We did however use the leave-one-out
+approach for computing the log conditional odds
+feature during training.
+6
+In fact, one more step beyond what is shown in that paper
+is required to reach the stated conclusion, since their features
+are not actually log conditional odds, but log P (x|y)
+P (x|y)
+. It is
+simple to show that in the given context this feature is equiv-
+alent to log conditional odds.
+469
+\x0c3 Experiments
+To test the ideas discussed in this paper, we com-
+pared the performance of semi-CRFs using vari-
+ous feature sets on a Chinese word segmentation
+task. The data used was the Microsoft Research
+Beijing corpus from the Second International
+Chinese Word Segmentation Bakeoff (Emerson,
+2005), and we used the same train/test split used in
+the competition. The training set consists of 87K
+sentences of Beijing dialect Chinese, hand seg-
+mented into 2.37M words. The test set contains
+107K words comprising roughly 4K sentences.
+We used a maximum word length k of 15 in our
+experiments, which accounted for 99.99% of the
+word tokens in our training set. The 249 train-
+ing sentences that contained words longer than 15
+characters were discarded. We did not discard any
+test sentences.
+In order to be directly comparable to the Bake-
+off results, we also worked under the very strict
+closed test conditions of the Bakeoff, which re-
+quire that no information or data outside of the
+training set be used, not even prior knowledge of
+which characters represent Arabic numerals, Latin
+characters or punctuation marks.
+3.1 Features Used
+We divide our main features into two types accord-
+ing to whether they are most naturally used in a
+CRF or a semi-CRF.
+The CRF-type features are indicator functions
+that fire when the character label (or label bigram)
+takes some value and some predicate of the input
+at a certain position relative to the label is satis-
+fied. For each character label unigram L at posi-
+tion i, we use the same set of predicate templates
+checking:
+ The identity of xi1 and xi
+ The identity of the character bigram starting
+at positions i  2, i  1 and i
+ Whether xj and xj+1 are identical, for j =
+(i  2) . . . i
+ Whether xj and xj+2 are identical, for j =
+(i  3) . . . i
+ Whether the sequence xj . . . xj+3 forms an
+AABB sequence for j = (i  4) . . . i
+ Whether the sequence xj . . . xj+3 forms an
+ABAB sequence for j = (i  4) . . . i
+The latter four feature templates are designed to
+detect character or word reduplication, a morpho-
+logical phenomenon that can influence word seg-
+mentation in Chinese. The first two of these were
+also used by Tseng et al. (2005).
+For label bigrams (Li, Li+1), we use the same
+templates, but extending the range of positions
+by one to the right.7 Each label uni- or bigram
+also has a prior feature that always fires for
+that label configuration. All configurations con-
+tain the above features for the label unigram B,
+since these are easily used in either a CRF or semi-
+CRF model. To determine the influence of CRF-
+type features on performance, we also test config-
+urations in which both B and C label features are
+used, and configurations using all label uni- and
+bigrams.
+In the semi-Markov conditions, we also use as
+feature templates indicators of the length of a word
+`, for ` = 1 . . . k, and indicators of the identity of
+the corresponding character sequence.
+All feature templates were instantiated with val-
+ues that occur in positive training examples. We
+found that excluding CRF-type features that occur
+only once in the training set consistently improved
+performance on the development set, so we use a
+count threshold of two for the experiments. We do
+not do any thresholding of the semi-CRF features,
+however.
+Finally, we use the single generative feature,
+log conditional odds that the given string forms
+a word. We also present results using the more
+typical log conditional probability instead of the
+odds, for comparison. In fact, these are both semi-
+Markov-type features, but we single them out to
+determine what they contribute over and above the
+other semi-Markov features.
+3.2 Results
+The results of test set runs are summarized in ta-
+ble 3.2. The columns indicate which CRF-type
+features were used: features of only the label B,
+features of label unigrams B and C, or features
+of all label unigrams and bigrams. The rows indi-
+cate which semi-Markov-type features were used:
+7
+For both label unigram and label bigram features, the in-
+dices are chosen so that the feature set exhibits no asymmetry
+with respect to direction: for each feature considering some
+boundary and some property of the character(s) at a given
+offset to the left, there is a corresponding feature considering
+that boundary and the same property of the character(s) at the
+same offset to the right, and vice-versa.
+470
+\x0cFeatures B only uni uni+bi
+none 92.33 94.71 95.69
+semi 95.28 96.05 96.46
+prob 93.86 95.40 96.04
+semi+prob 95.51 96.24 96.55
+odds 95.10 96.06 96.40
+semi+odds 96.27 96.77 96.84
+Table 1: Test F-measure for different model con-
+figurations.
+semi means length and word identity features
+were used, prob means the log-probability fea-
+ture was used, and odds means the log-odds fea-
+ture was used.
+To establish the impact of each type of feature
+(C label unigrams, label bigrams, semi-CRF-type
+features, and the log-odds feature), we look at the
+reduction in error brought about by adding each
+type of feature. First consider the effect of the
+CRF-type features. Adding the C label features
+reduces error by 31% if no semi-CRF features are
+used, by 16% when semi-CRF indicator features
+are turned on, and by 13% when all semi-CRF fea-
+tures (including log-odds) are used. Using all label
+bigrams reduces error by 44%, 25%, and 15% in
+these three conditions, respectively.
+Contrary to previous conclusions, our results
+show a significant impact due to the use of semi-
+CRF-type features, when CRF-type features are
+held constant. Adding semi-CRF indicator fea-
+tures results in a 38% error reduction without
+CRF-type features, and 18% with them. Adding
+semi-CRF indicator features plus the log-odds fea-
+ture gives 52% and 27% in these two conditions,
+respectively.
+Finally, across configurations, the log condi-
+tional odds does much better than log condi-
+tional probability. When the log-odds feature is
+added to the complete CRF model (uni+bi) as
+the only semi-CRF-type feature, errors are re-
+duced by 24%, compared to only 7.6% for the log-
+probability. Even when the other semi-CRF-type
+features are present as well, log-odds reduces error
+by 13% compared to 2.5% for log-probability.
+Our best model, combining all features, resulted
+in an error reduction of 12% over the highest score
+on this dataset from the 2005 Sighan closed test
+competition (96.4%), achieved by the pure CRF
+system of Tseng et al. (2005).
+3.3 Discussion
+Our results indicate that both Markov-type and
+semi-Markov-type features are useful for generali-
+zation to unseen data. This may be because the
+two types of features are in a sense complemen-
+tary: semi-Markov-type features such as word-
+identity are valuable for modeling the tendency
+of known strings to segment as words, while la-
+bel based features are valuable for modeling prop-
+erties of sub-lexical components such as affixes,
+helping to generalize to words that have not previ-
+ously been encountered. We did not explicitly test
+the utility of CRF-type features for improving re-
+call on out-of-vocabulary items, but we note that
+in the Bakeoff, the model of Tseng et al. (2005),
+which was very similar to our CRF-only system
+(only containing a few more feature templates),
+was consistently among the best performing sys-
+tems in terms of test OOV recall (Emerson, 2005).
+We also found that for this sequence segmenta-
+tion task, the use of log conditional odds as a fea-
+ture results in much better performance than the
+use of the more typical log conditional probabil-
+ity. It would be interesting to see the log-odds
+applied in more contexts where log-probabilities
+are typically used as features. We have presented
+the intuitive argument that the log-odds may be
+advantageous because it does not exhibit the 0-1
+asymmetry of the log-probability, but it would be
+satisfying to justify the choice on more theoretical
+grounds.
+4 Relation to Previous Work
+There is a significant volume of work explor-
+ing the use of CRFs for a variety of chunking
+tasks, including named-entity recognition, gene
+prediction, shallow parsing and others (Finkel et
+al., 2005; Culotta et al., 2005; Sha and Pereira,
+2003). The current work indicates that these sys-
+tems might be improved by moving to a semi-CRF
+model.
+There have not been a large number of studies
+using the semi-CRF, but the few that have been
+done found only marginal improvements over pure
+CRF systems (Sarawagi and Cohen, 2004; Liang,
+2005; Daume III and Marcu, 2005). Notably,
+none of those studies experimented with features
+of chunk non-boundaries, as is achieved by the use
+of CRF-type features involving the label C, and
+we take this to be the reason for their not obtain-
+ing higher results.
+471
+\x0cAlthough it has become fairly common in NLP
+to use the log conditional probabilities of events
+as features in a discriminative model, we are not
+aware of any work using the log conditional odds.
+5 Conclusion
+We have shown that order-1 semi-Markov condi-
+tional random fields are strictly more expressive
+than order-1 Markov CRFs, and that the added
+expressivity enables the use of features that lead
+to improvements on a segmentation task. On the
+other hand, Markov CRFs can more naturally in-
+corporate certain features that may be useful for
+modeling sub-chunk phenomena and generaliza-
+tion to unseen chunks. To achieve the best per-
+formance for segmentation, we propose that both
+types of features be used, and we show how this
+can be done efficiently.
+Additionally, we have shown that a log condi-
+tional odds feature estimated from a generative
+model can be superior to the more common log
+conditional probability.
+6 Acknowledgements
+Many thanks to Kristina Toutanova for her
+thoughtful discussion and feedback, and also to
+the anonymous reviewers for their suggestions.
+References
+Masayuki Asahara, Kenta Fukuoka, Ai Azuma, Chooi-
+Ling Goh, Yotaro Watanabe, Yuji Matsumoto, and
+Takahashi Tsuzuki. 2005. Combination of machine
+learning methods for optimum chinese word seg-
+mentation. In Proc. Fourth SIGHAN Workshop on
+Chinese Language Processing, pages 134137.
+Michael Collins. 2000. Discriminative reranking for
+natural language parsing. In Proc. 14th Interna-
+tional Conf. on Machine Learning.
+Aron Culotta, David Kulp, and Andrew McCallum.
+2005. Gene prediction with conditional random
+fields. Technical report, University of Massa-
+chusetts Dept. of Computer Science, April.
+Hal Daume III and Daniel Marcu. 2005. Learning
+as search optimization: Approximate large margin
+methods for structured prediction. In Proc. 19th In-
+ternational Conf. on Machine Learning.
+Thomas Emerson. 2005. The second international chi-
+nese word segmentation bakeoff. In Proc. Fourth
+SIGHAN Workshop on Chinese Language Process-
+ing, pages 123133.
+Jenny Finkel, Trond Grenager, and Christopher D.
+Manning. 2005. Incorporating non-local informa-
+tion into information extraction systems by gibbs
+sampling. Proc. 41th Annual Meeting of the Assi-
+ciation of Computation Linguistics.
+John Lafferty, Andrew McCallum, and Fernando
+Pereira. 2001. Conditional random fields: Prob-
+abilistic models for segmenting and labeling se-
+quence data. In Proc. 18th International Conf. on
+Machine Learning, pages 282289. Morgan Kauf-
+mann, San Francisco, CA.
+Percy Liang. 2005. Semi-supervised learning for nat-
+ural language. Masters thesis, Massachusetts Insti-
+tute of Technology.
+Andrew Y. Ng and Michael I. Jordan. 2001. On dis-
+criminative vs. generative classifiers: A comparison
+of logistic regression and Nave Bayes. In Proc. Ad-
+vances in Neural Information Processing 14.
+Franz Josef Och and Hermann Ney. 2002. Discrim-
+inative training and maximum entropy models for
+statistical machine translation. Proc. 38th Annual
+Meeting of the Assiciation of Computation Linguis-
+tics.
+Franz Josef Och and Hermann Ney. 2004. The align-
+ment template approach to statistical machine trans-
+lation. Computational Linguistics, 30(4):417449,
+December.
+Fuchun Peng, Fangfang Feng, and Andrew McCallum.
+2004. Chinese segmentation and new word detec-
+tion using conditional random fields. In Proc. 20th
+International Conf. on Computational Linguistics.
+Rajat Raina, Yirong Shen, Andrew Y. Ng, and Andrew
+McCallum. 2004. Classification with hybrid gen-
+erative/discriminative models. In Proc. Advances in
+Neural Information Processing 17.
+Brian Roark and Seeger Fisher. 2005. OGI/OHSU
+baseline multilingual multi-document sumarization
+system. In Proc. Multilingual Summarization Eval-
+uation in ACL Workshop: Intrinsic and Extrinsic
+Evaluation Measures for MT and/or Summarization.
+Sunita Sarawagi and William Cohen. 2004. Semi-
+markov conditional random fields for information
+extraction. In Proc. 18th International Conf. on Ma-
+chine Learning.
+Fei Sha and Fernando Pereira. 2003. Shallow parsing
+with conditional random fields. Proc. HLT-NAACL.
+Huihsin Tseng, Pichuan Chang, Galen Andrew, Daniel
+Jurafsky, and Christopher Manning. 2005. A condi-
+tional random field word segmenter for sighan bake-
+off 2005. In Proc. Fourth SIGHAN Workshop on
+Chinese Language Processing, pages 168171.
+472
+\x0c'
