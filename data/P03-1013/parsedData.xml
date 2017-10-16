@@ -1,0 +1,1364 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000002">
+<title confidence="0.905443">
+b&amp;apos;Probabilistic Parsing for German using Sister-Head Dependencies
+</title>
+<author confidence="0.951542">
+Amit Dubey
+</author>
+<affiliation confidence="0.9852365">
+Department of Computational Linguistics
+Saarland University
+</affiliation>
+<address confidence="0.9669165">
+PO Box 15 11 50
+66041 Saarbrucken, Germany
+</address>
+<email confidence="0.98546">
+adubey@coli.uni-sb.de
+</email>
+<author confidence="0.980114">
+Frank Keller
+</author>
+<affiliation confidence="0.9937255">
+School of Informatics
+University of Edinburgh
+</affiliation>
+<address confidence="0.776307">
+2 Buccleuch Place
+Edinburgh EH8 9LW, UK
+</address>
+<email confidence="0.991191">
+keller@inf.ed.ac.uk
+</email>
+<sectionHeader confidence="0.9905" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999805875">
+We present a probabilistic parsing model
+for German trained on the Negra tree-
+bank. We observe that existing lexicalized
+parsing models using head-head depen-
+dencies, while successful for English, fail
+to outperform an unlexicalized baseline
+model for German. Learning curves show
+that this effect is not due to lack of training
+data. We propose an alternative model that
+uses sister-head dependencies instead of
+head-head dependencies. This model out-
+performs the baseline, achieving a labeled
+precision and recall of up to 74%. This in-
+dicates that sister-head dependencies are
+more appropriate for treebanks with very
+flat structures such as Negra.
+</bodyText>
+<sectionHeader confidence="0.998227" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.998930901639344">
+Treebank-based probabilistic parsing has been the
+subject of intensive research over the past few years,
+resulting in parsing models that achieve both broad
+coverage and high parsing accuracy (e.g., Collins
+1997; Charniak 2000). However, most of the ex-
+isting models have been developed for English and
+trained on the Penn Treebank (Marcus et al., 1993),
+which raises the question whether these models
+generalize to other languages, and to annotation
+schemes that differ from the Penn Treebank markup.
+The present paper addresses this question by
+proposing a probabilistic parsing model trained on
+Negra (Skut et al., 1997), a syntactically annotated
+corpus for German. German has a number of syn-
+tactic properties that set it apart from English, and
+the Negra annotation scheme differs in important re-
+spects from the Penn Treebank markup. While Ne-
+gra has been used to build probabilistic chunkers
+(Becker and Frank, 2002; Skut and Brants, 1998),
+the research reported in this paper is the first attempt
+to develop a probabilistic full parsing model for Ger-
+man trained on a treebank (to our knowledge).
+Lexicalization can increase parsing performance
+dramatically for English (Carroll and Rooth, 1998;
+Charniak, 1997, 2000; Collins, 1997), and the lexi-
+calized model proposed by Collins (1997) has been
+successfully applied to Czech (Collins et al., 1999)
+and Chinese (Bikel and Chiang, 2000). However, the
+resulting performance is significantly lower than the
+performance of the same model for English (see Ta-
+ble 1). Neither Collins et al. (1999) nor Bikel and
+Chiang (2000) compare the lexicalized model to an
+unlexicalized baseline model, leaving open the pos-
+sibility that lexicalization is useful for English, but
+not for other languages.
+This paper is structured as follows. Section 2 re-
+views the syntactic properties of German, focusing
+on its semi-flexible wordorder. Section 3 describes
+two standard lexicalized models (Carroll and Rooth,
+1998; Collins, 1997), as well as an unlexicalized
+baseline model. Section 4 presents a series of experi-
+ments that compare the parsing performance of these
+three models (and several variants) on Negra. The
+results show that both lexicalized models fail to out-
+perform the unlexicalized baseline. This is at odds
+with what has been reported for English. Learning
+curves show that the poor performance of the lexi-
+calized models is not due to lack of training data.
+Section 5 presents an error analysis for Collinss
+(1997) lexicalized model, which shows that the
+head-head dependencies used in this model fail to
+cope well with the flat structures in Negra. We pro-
+pose an alternative model that uses sister-head de-
+pendencies instead. This model outperforms the two
+original lexicalized models, as well as the unlexical-
+ized baseline. Based on this result and on the review
+of the previous literature (Section 6), we argue (Sec-
+tion 7) that sister-head models are more appropriate
+for treebanks with very flat structures (such as Ne-
+gra), typically used to annotate languages with semi-
+free wordorder (such as German).
+</bodyText>
+<sectionHeader confidence="0.932573" genericHeader="method">
+2 Parsing German
+</sectionHeader>
+<subsectionHeader confidence="0.60943">
+2.1 Syntactic Properties
+</subsectionHeader>
+<bodyText confidence="0.9339625">
+German exhibits a number of syntactic properties
+that distinguish it from English, the language that
+has been the focus of most research in parsing.
+Prominent among these properties is the semi-free
+</bodyText>
+<table confidence="0.93333175">
+\x0cLanguage Size LR LP Source
+English 40,000 87.4% 88.1% (Collins, 1997)
+Chinese 3,484 69.0% 74.8% (Bikel and Chiang, 2000)
+Czech 19,000 - 80.0% - (Collins et al., 1999)
+</table>
+<tableCaption confidence="0.989903">
+Table 1: Results for the Collins (1997) model for
+</tableCaption>
+<bodyText confidence="0.989127833333333">
+various languages (dependency precision for Czech)
+wordorder, i.e., German wordorder is fixed in some
+respects, but variable in others. Verb order is largely
+fixed: in subordinate clauses such as (1a), both the
+finite verb hat has and the non-finite verb kom-
+poniert composed are in sentence final position.
+</bodyText>
+<figure confidence="0.852487416666667">
+(1) a. Weil
+because
+er
+er
+gestern
+yesterday
+Musik
+music
+komponiert
+composed
+hat.
+has
+</figure>
+<bodyText confidence="0.949575">
+Because he has composed music yesterday.
+b. Hat er gestern Musik komponiert?
+c. Er hat gestern Musik komponiert.
+In yes/no questions such as (1b), the finite verb is
+sentence initial, while the non-finite verb is sen-
+tence final. In declarative main clauses (see (1c)), on
+the other hand, the finite verb is in second position
+(i.e., preceded by exactly one constituent), while the
+non-finite verb is final.
+While verb order is fixed in German, the order
+of complements and adjuncts is variable, and influ-
+enced by a variety of syntactic and non-syntactic
+factors, including pronominalization, information
+structure, definiteness, and animacy (e.g., Uszkor-
+eit 1987). The first position in a declarative sen-
+tence, for example, can be occupied by various con-
+stituents, including the subject (er he in (1c)), the
+object (Musik music in (2a)), an adjunct (gestern
+yesterday in (2b)), or the non-finite verb (kom-
+poniert composed in (2c)).
+(2) a. Musik hat er gestern komponiert.
+b. Gestern hat er Musik komponiert .
+c. Komponiert hat er gestern Musik.
+The semi-free wordorder in German means that a
+context-free grammar model has to contain more
+rules than for a fixed wordorder language. For tran-
+sitive verbs, for instance, we need the rules S
+V NP NP, S NP V NP, and S NP NP V to
+account for verb initial, verb second, and verb final
+order (assuming a flat S, see Section 2.2).
+</bodyText>
+<subsectionHeader confidence="0.997406">
+2.2 Negra Annotation Scheme
+</subsectionHeader>
+<bodyText confidence="0.940036878787879">
+The Negra corpus consists of around 350,000 words
+of German newspaper text (20,602 sentences). The
+annotation scheme (Skut et al., 1997) is modeled to a
+certain extent on that of the Penn Treebank (Marcus
+et al., 1993), with crucial differences. Most impor-
+tantly, Negra follows the dependency grammar tra-
+dition in assuming flat syntactic representations:
+(a) There is no S NP VP rule. Rather, the sub-
+ject, the verb, and its objects are all sisters of each
+other, dominated by an S node. This is a way of
+accounting for the semi-free wordorder of German
+(see Section 2.1): the first NP within an S need not
+be the subject.
+(b) There is no SBAR Comp S rule. Main
+clauses, subordinate clauses, and relative clauses all
+share the category S in Negra; complementizers and
+relative pronouns are simply sisters of the verb.
+(c) There is no PP P NP rule, i.e., the prepo-
+sition and the noun it selects (and determiners and
+adjectives, if present) are sisters, dominated by a
+PP node. An argument for this representation is that
+prepositions behave like case markers in German; a
+preposition and a determiner can merge into a single
+word (e.g., in dem in the becomes im).
+Another idiosyncrasy of Negra is that it assumes
+special coordinate categories. A coordinated sen-
+tence has the category CS, a coordinate NP has the
+category CNP, etc. While this does not make the
+annotation more flat, it substantially increases the
+number of non-terminal labels. Negra also contains
+grammatical function labels that augment phrasal
+and lexical categories. Example are MO (modifier),
+HD (head), SB (subject), and OC (clausal object).
+</bodyText>
+<sectionHeader confidence="0.910828" genericHeader="method">
+3 Probabilistic Parsing Models
+</sectionHeader>
+<subsectionHeader confidence="0.996893">
+3.1 Probabilistic Context-Free Grammars
+</subsectionHeader>
+<bodyText confidence="0.999486066666667">
+Lexicalization has been shown to improve pars-
+ing performance for the Penn Treebank (e.g., Car-
+roll and Rooth 1998; Charniak 1997, 2000; Collins
+1997). The aim of the present paper is to test if this
+finding carries over to German and to the Negra cor-
+pus. We therefore use an unlexicalized model as our
+baseline against which to test the lexicalized models.
+More specifically, we used a standard proba-
+bilistic context-free grammar (PCFG; see Charniak
+1993). Each context-free rule RHS LHS is anno-
+tated with an expansion probability P(RHS|LHS).
+The probabilities for all rules with the same lefthand
+side have to sum to one, and the probability of a
+parse tree T is defined as the product of the prob-
+abilities of all rules applied in generating T.
+</bodyText>
+<subsectionHeader confidence="0.9333745">
+3.2 Carroll and Rooths Head-Lexicalized
+Model
+</subsectionHeader>
+<bodyText confidence="0.893156583333333">
+The head-lexicalized PCFG model of Carroll and
+Rooth (1998) is a minimal departure from the stan-
+dard unlexicalized PCFG model, which makes it
+ideal for a direct comparison.1
+A grammar rule LHS RHS can be written as
+P C1 ...Cn, where P is the mother category, and
+C1 ...Cn are daughters. Let l(C) be the lexical head
+1Charniak (1997) proposes essentially the same model; we
+will nevertheless use the label Carroll and Rooth model as we
+are using their implementation (see Section 4.1).
+\x0cof the constituent C. The rule probability is then de-
+fined as (see also Beil et al. 2002):
+</bodyText>
+<equation confidence="0.9991988">
+P(RHS|LHS) = Prule(C1 ...Cn|P,l(P))
+(3)
+n
+i=1
+Pchoice(l(Ci)|Ci,P,l(P))
+</equation>
+<bodyText confidence="0.924107666666667">
+Here Prule(C1 ...Cn|P,l(P)) is the probability that
+category P with lexical head l(P) is expanded by the
+rule P C1 ...Cn, and Pchoice(l(C)|C,P,l(P)) is the
+probability that the (non-head) category C has the
+lexical head l(C) given that its mother is P with lex-
+ical head l(P).
+</bodyText>
+<subsectionHeader confidence="0.998977">
+3.3 Collinss Head-Lexicalized Model
+</subsectionHeader>
+<bodyText confidence="0.9957065">
+In contrast to Carroll and Rooths (1998) approach,
+the model proposed by Collins (1997) does not com-
+pute rule probabilities directly. Rather, they are gen-
+erated using a Markov process that makes certain in-
+dependence assumptions. A grammar rule LHS
+RHS can be written as P Lm ...L1 H R1 ...Rn
+where P is the mother and H is the head daughter.
+Let l(C) be the head word of C and t(C) the tag of
+the head word of C. Then the probability of a rule is
+defined as:
+</bodyText>
+<equation confidence="0.9995206">
+P(RHS|LHS) = P(Lm ...L1 H R1 ...Rn|P)
+(4)
+= Ph(H|P)Pl(Lm ...L1|P,H)Pr(R1 ...Rn|P,H)
+= Ph(H|P)
+m
+i=0
+Pl(Li|P,H,d(i))
+n
+i=0
+Pr(Ri|P,H,d(i))
+</equation>
+<bodyText confidence="0.9976175">
+Here, Ph is the probability of generating the head,
+and Pl and Pr are the probabilities of generating the
+nonterminals to the left and right of the head, re-
+spectively; d(i) is a distance measure. (L0 and R0 are
+stop categories.) At this point, the model is still un-
+lexicalized. To add lexical sensitivity, the Ph, Pr and
+Pl probability functions also take into account head
+words and their POS tags:
+</bodyText>
+<equation confidence="0.9988405">
+P(RHS|LHS) = Ph(H|P,t(P),l(P))
+(5)
+m
+i=0
+Pl(Li,t(Li),l(Li)|P,H,t(H),l(H),d(i))
+n
+i=0
+Pr(Ri,t(Ri),l(Ri)|P,H,t(H),l(H),d(i))
+</equation>
+<sectionHeader confidence="0.932941" genericHeader="method">
+4 Experiment 1
+</sectionHeader>
+<bodyText confidence="0.999149142857143">
+This experiment was designed to compare the per-
+formance of the three models introduced in the
+last section. Our main hypothesis was that the lex-
+icalized models will outperform the unlexicalized
+baseline model. Another prediction was that adding
+Negra-specific information to the models will in-
+crease parsing performance. We therefore tested a
+model variant that included grammatical function la-
+bels, i.e., the set of categories was augmented by the
+function tags specified in Negra (see Section 2.2).
+Adding grammatical functions is a way of deal-
+ing with the wordorder facts of German (see Sec-
+tion 2.1) in the face of Negras very flat annota-
+tion scheme. For instance, subject and object NPs
+have different wordorder preferences (subjects tend
+to be preverbal, while objects tend to be postver-
+bal), a fact that is captured if subjects have the la-
+bel NP-SB, while objects are labeled NP-OA (ac-
+cusative object), NP-DA (dative object), etc. Also
+the fact that verb order differs between subordinate
+and main clauses is captured by the function labels:
+the former are labeled S, while the latter are labeled
+S-OC (object clause), S-RC (relative clause), etc.
+Another idiosyncrasy of the Negra annotation is
+that conjoined categories have separate labels (S and
+CS, NP and CNP, etc.), and that PPs do not contain
+an NP node. We tested a variant of the Carroll and
+Rooth (1998) model that takes this into account.
+</bodyText>
+<subsectionHeader confidence="0.7214815">
+4.1 Method
+Data Sets All experiments reported in this paper
+</subsectionHeader>
+<bodyText confidence="0.996117123711341">
+used the treebank format of Negra. This format,
+which is included in the Negra distribution, was de-
+rived from the native format by replacing crossing
+branches with traces. We split the corpus into three
+subsets. The first 18,602 sentences constituted the
+training set. Of the remaining 2,000 sentences, the
+first 1,000 served as the test set, and the last 1000 as
+the development set. To increase parsing efficiency,
+we removed all sentences with more than 40 words.
+This resulted in a test set of 968 sentences and a
+development set of 975 sentences. Early versions
+of the models were tested on the development set,
+and the test set remained unseen until all parameters
+were fixed. The final results reported this paper were
+obtained on the test set, unless stated otherwise.
+Grammar Induction For the unlexicalized PCFG
+model (henceforth baseline model), we used the
+probabilistic left-corner parser Lopar (Schmid,
+2000). When run in unlexicalized mode, Lopar im-
+plements the model described in Section 3.1. A
+grammar and a lexicon for Lopar were read off the
+Negra training set, after removing all grammatical
+function labels. As Lopar cannot handle traces, these
+were also removed from the training data.
+The head-lexicalized model of Carroll and Rooth
+(1998) (henceforth C&amp;R model) was again realized
+using Lopar, which in lexicalized mode implements
+the model in Section 3.2. Lexicalization requires that
+each rule in a grammar has one of the categories on
+its righthand side annotated as the head. For the cate-
+gories S, VP, AP, and AVP, the head is marked in Ne-
+gra. For the other categories, we used rules to heuris-
+tically determine the head, as is standard practice for
+the Penn Treebank.
+The lexicalized model proposed by Collins (1997)
+(henceforth Collins model) was re-implemented by
+\x0cone of the authors. For training, empty categories
+were removed from the training data, as the model
+cannot handle them. The same head finding strategy
+was applied as for the C&amp;R model.
+In this experiment, only head-head statistics were
+used (see (5)). The original Collins model uses
+sister-head statistics for non-recursive NPs. This will
+be discussed in detail in Section 5.
+Training and Testing For all three models, the
+model parameters were estimated using maximum
+likelihood estimation. Both Lopar and the Collins
+model use various backoff distributions to smooth
+the estimates. The reader is referred to Schmid
+(2000) and Collins (1997) for details. For the C&amp;R
+model, we used a cutoff of one for rule frequencies
+Prule and lexical choice frequencies Pchoice (the cutoff
+value was optimized on the development set).
+We also tested variants of the baseline model and
+the C&amp;R model that include grammatical function
+information, as we hypothesized that this informa-
+tion might help the model to handle wordorder vari-
+ation more adequately, as explained above.
+Finally, we tested variant of the C&amp;R model that
+uses Lopars parameter pooling feature. This fea-
+ture makes it possible to collapse the lexical choice
+distribution Pchoice for either the daughter or the
+mother categories of a rule (see Section 3.2). We
+pooled the estimates for pairs of conjoined and non-
+conjoined daughter categories (S and CS, NP and
+CNP, etc.): these categories should be treated as the
+same daughters; e.g., there should be no difference
+between S NP V and S CNP V. We also pooled
+the estimates for the mother categories NPs and PPs.
+This is a way of dealing with the fact that there is no
+separate NP node within PPs in Negra.
+Lopar and the Collins model differ in their han-
+dling of unknown words. In Lopar, a POS tag distri-
+bution for unknown words has to be specified, which
+is then used to tag unknown words in the test data.
+The Collins model treats any word seen fewer than
+five times in the training data as unseen and uses an
+external POS tagger to tag unknown words. In order
+to make the models comparable, we used a uniform
+approach to unknown words. All models were run
+on POS-tagged input; this input was created by tag-
+ging the test set with a separate POS tagger, for both
+known and unknown words. We used TnT (Brants,
+2000), trained on the Negra training set. The tagging
+accuracy was 97.12% on the development set.
+In order to obtain an upper bound for the perfor-
+mance of the parsing models, we also ran the parsers
+on the test set with the correct tags (as specified in
+Negra), again for both known and unknown words.
+We will refer to this mode as perfect tagging.
+All models were evaluated using standard PAR-
+SEVAL measures. We report labeled recall (LR)
+labeled precision (LP), average crossing brackets
+(CBs), zero crossing brackets (0CB), and two or less
+crossing brackets (2CB). We also give the cover-
+age (Cov), i.e., the percentage of sentences that the
+parser was able to parse.
+</bodyText>
+<sectionHeader confidence="0.80137" genericHeader="method">
+4.2 Results
+</sectionHeader>
+<bodyText confidence="0.996955571428571">
+The results for all three models and their variants
+are given in Table 2, for both TnT tags and per-
+fect tags. The baseline model achieves 70.56% LR
+and 66.69% LP with TnT tags. Adding grammatical
+functions reduces both figures slightly, and cover-
+age drops by about 15%. The C&amp;R model performs
+worse than the baseline, at 68.04% LR and 60.07%
+LP (for TnT tags). Adding grammatical function
+again reduces performance slightly. Parameter pool-
+ing increases both LR and LP by about 1%. The
+Collins models also performs worse than the base-
+line, at 67.91% LR and 66.07% LP.
+Performance using perfect tags (an upper bound
+of model performance) is 23% higher for the base-
+line and for the C&amp;R model. The Collins model
+gains only about 1%. Perfect tagging results in a per-
+formance increase of over 10% for the models with
+grammatical functions. This is not surprising, as the
+perfect tags (but not the TnT tags) include grammat-
+ical function labels. However, we also observe a dra-
+matic reduction in coverage (to about 65%).
+</bodyText>
+<subsectionHeader confidence="0.997893">
+4.3 Discussion
+</subsectionHeader>
+<bodyText confidence="0.9977986">
+We added grammatical functions to both the base-
+line model and the C&amp;R model, as we predicted
+that this would allow the model to better capture the
+wordorder facts of German. However, this predic-
+tion was not borne out: performance with grammat-
+ical functions (on TnT tags) was slightly worse than
+without, and coverage dropped substantially. A pos-
+sible reason for this is sparse data: a grammar aug-
+mented with grammatical functions contains many
+additional categories, which means that many more
+parameters have to be estimated using the same
+training set. On the other hand, a performance in-
+crease occurs if the tagger also provides grammati-
+cal function labels (simulated in the perfect tags con-
+dition). However, this comes at the price of an unac-
+ceptable reduction in coverage.
+When training the C&amp;R model, we included a
+variant that makes use of Lopars parameter pool-
+ing feature. We pooled the estimates for conjoined
+daughter categories, and for NP and PP mother cat-
+egories. This is a way of taking the idiosyncrasies of
+the Negra annotation into account, and resulted in a
+small improvement in performance.
+The most surprising finding is that the best per-
+formance was achieved by the unlexicalized PCFG
+</bodyText>
+<table confidence="0.99528675">
+\x0cTnT tagging Perfect tagging
+LR LP CBs 0CB 2CB Cov LR LP CBs 0CB 2CB Cov
+Baseline 70.56 66.69 1.03 58.21 84.46 94.42 72.99 70.00 0.88 60.30 87.42 95.25
+Baseline + GF 70.45 65.49 1.07 58.02 85.01 79.24 81.14 78.37 0.46 74.25 95.26 65.39
+C&amp;R 68.04 60.07 1.31 52.08 79.54 94.42 70.79 63.38 1.17 54.99 82.21 95.25
+C&amp;R + pool 69.07 61.41 1.28 53.06 80.09 94.42 71.74 64.73 1.11 56.40 83.08 95.25
+C&amp;R + GF 67.66 60.33 1.31 55.67 80.18 79.24 81.17 76.83 0.48 73.46 94.15 65.39
+Collins 67.91 66.07 0.73 65.67 89.52 95.21 68.63 66.94 0.71 64.97 89.73 96.23
+</table>
+<tableCaption confidence="0.983886">
+Table 2: Results for Experiment 1: comparison of lexicalized and unlexicalized models (GF: grammatical
+</tableCaption>
+<bodyText confidence="0.579378">
+functions; pool: parameter pooling for NPs/PPs and conjoined categories)
+</bodyText>
+<figure confidence="0.989850461538461">
+0 20 40 60 80 100
+percent of training corpus
+45
+50
+55
+60
+65
+70
+75
+f-score
+unlexicalized PCFG
+lexicalized PCFG (Collins)
+lexicalized PCFG (C&amp;R)
+</figure>
+<figureCaption confidence="0.999878">
+Figure 1: Learning curves for all three models
+</figureCaption>
+<bodyText confidence="0.978594416666666">
+baseline model. Both lexicalized models (C&amp;R and
+Collins) performed worse than the baseline. This re-
+sults is at odds with what has been found for En-
+glish, where lexicalization is standardly reported to
+increase performance by about 10%. The poor per-
+formance of the lexicalized models could be due to
+a lack of sufficient training data: our Negra training
+set contains approximately 18,000 sentences, and is
+therefore significantly smaller than the Penn Tree-
+bank training set (about 40,000 sentences). Negra
+sentences are also shorter: they contain, on average,
+15 words compared to 22 in the Penn Treebank.
+We computed learning curves for the unmodified
+variants (without grammatical functions or parame-
+ter pooling) of all three models (on the development
+set). The result (see Figure 1) shows that there is no
+evidence for an effect of sparse data. For both the
+baseline and the C&amp;R model, a fairly high f-score
+is achieved with only 10% of the training data. A
+slow increase occurs as more training data is added.
+The performance of the Collins model is even less
+affected by training set size. This is probably due to
+the fact that it does not use rule probabilities directly,
+but generates rules using a Markov chain.
+</bodyText>
+<sectionHeader confidence="0.995712" genericHeader="method">
+5 Experiment 2
+</sectionHeader>
+<bodyText confidence="0.9987704">
+As we saw in the last section, lack of training data is
+not a plausible explanation for the sub-baseline per-
+formance of the lexicalized models. In this experi-
+ment, we therefore investigate an alternative hypoth-
+esis, viz., that the lexicalized models do not cope
+</bodyText>
+<table confidence="0.958694">
+Penn Negra
+NP 2.20 3.08
+PP 2.03 2.66
+Penn Negra
+VP 2.32 2.59
+S 2.22 4.22
+</table>
+<tableCaption confidence="0.997797">
+Table 3: Average number of daughters for the gram-
+</tableCaption>
+<bodyText confidence="0.955718555555556">
+matical categories in the Penn Treebank and Negra
+well with the fact that Negra rules are so flat (see
+Section 2.2). We will focus on the Collins model, as
+it outperformed the C&amp;R model in Experiment 1.
+An error analysis revealed that many of the errors
+of the Collins model in Experiment 1 are chunking
+errors. For example, the PP neben den Mitteln des
+Theaters should be analyzed as (6a). But instead the
+parser produces two constituents as in (6b)):
+</bodyText>
+<figure confidence="0.965812">
+(6) a. [PP neben
+apart
+den
+the
+Mitteln
+means
+[NP des
+the
+Theaters]]
+theaters
+</figure>
+<bodyText confidence="0.987501814814815">
+apart from the means of the theater.
+b. [PP neben den Mitteln] [NP des Theaters]
+The reason for this problem is that neben is the head
+of the constituent in (6), and the Collins model uses
+a crude distance measure together with head-head
+dependencies to decide if additional constituents
+should be added to the PP. The distance measure is
+inadequate for finding PPs with high precision.
+The chunking problem is more widespread than
+PPs. The error analysis shows that other con-
+stituents, including Ss and VPs, also have the wrong
+boundary. This problem is compounded by the fact
+that the rules in Negra are substantially flatter than
+the rules in the Penn Treebank, for which the Collins
+model was developed. Table 3 compares the average
+number of daughters in both corpora.
+The flatness of PPs is easy to reduce. As detailed
+in Section 2.2, PPs lack an intermediate NP projec-
+tion, which can be inserted straightforwardly using
+the following rule:
+(7) [PP P . . . ] [PP P [NP . . . ]]
+In the present experiment, we investigated if parsing
+performance improves if we test and train on a ver-
+sion of Negra on which the transformation in (7) has
+been applied.
+In a second series of experiments, we investigated
+a more general way of dealing with the flatness of
+</bodyText>
+<subsectionHeader confidence="0.365459">
+\x0cC&amp;R Collins Charniak Current
+</subsectionHeader>
+<bodyText confidence="0.941109928571429">
+Head sister category X X X
+Head sister head word X X X
+Head sister head tag X X
+Prev. sister category X X X
+Prev. sister head word X
+Prev. sister head tag X
+Table 4: Linguistic features in the current model
+compared to the models of Carroll and Rooth
+(1998), Collins (1997), and Charniak (2000)
+Negra, based on Collinss (1997) model for non-
+recursive NPs in the Penn Treebank (which are also
+flat). For non-recursive NPs, Collins (1997) does not
+use the probability function in (5), but instead sub-
+stitutes Pr (and, by analogy, Pl) by:
+</bodyText>
+<equation confidence="0.8615605">
+Pr(Ri,t(Ri),l(Ri)|P,Ri1,t(Ri1),l(Ri1),d(i))
+(8)
+</equation>
+<bodyText confidence="0.999545714285714">
+Here the head H is substituted by the sister Ri1
+(and Li1). In the literature, the version of Pr in (5)
+is said to capture head-head relationships. We will
+refer to the alternative model in (8) as capturing
+sister-head relationships.
+Using sister-head relationships is a way of coun-
+teracting the flatness of the grammar productions;
+it implicitly adds binary branching to the grammar.
+Our proposal is to extend the use of sister-head re-
+lationship from non-recursive NPs (as proposed by
+Collins) to all categories.
+Table 4 shows the linguistic features of the result-
+ing model compared to the models of Carroll and
+Rooth (1998), Collins (1997), and Charniak (2000).
+The C&amp;R model effectively includes category infor-
+mation about all previous sisters, as it uses context-
+free rules. The Collins (1997) model does not use
+context-free rules, but generates the next category
+using zeroth order Markov chains (see Section 3.3),
+hence no information about the previous sisters is
+included. Charniaks (2000) model extends this to
+higher order Markov chains (first to third order), and
+therefore includes category information about previ-
+ous sisters.The current model differs from all these
+proposals: it does not use any information about the
+head sister, but instead includes the category, head
+word, and head tag of the previous sister, effectively
+treating it as the head.
+</bodyText>
+<subsectionHeader confidence="0.994322">
+5.1 Method
+</subsectionHeader>
+<bodyText confidence="0.99966505882353">
+We first trained the original Collins model on a mod-
+ified versions of the training test from Experiment 1
+in which the PPs were split by applying rule (7).
+In a second series of experiments, we tested a
+range of models that use sister-head dependencies
+instead of head-head dependencies for different cat-
+egories. We first added sister-head dependencies for
+NPs (following Collinss (1997) original proposal)
+and then for PPs, which are flat in Negra, and thus
+similar in structure to NPs (see Section 2.2). Then
+we tested a model in which sister-head relationships
+are applied to all categories.
+In a third series of experiments, we trained mod-
+els that use sister-head relationships everywhere ex-
+cept for one category. This makes it possible to de-
+termine which sister-head dependencies are crucial
+for improving performance of the model.
+</bodyText>
+<subsectionHeader confidence="0.759108">
+5.2 Results
+</subsectionHeader>
+<bodyText confidence="0.997149413043479">
+The results of the PP experiment are listed in Ta-
+ble 5. Again, we give results obtained using TnT tags
+and using perfect tags. The row Split PP contains
+the performance figures obtained by including split
+PPs in both the training and in the testing set. This
+leads to a substantial increase in LR (67%) and LP
+(around 8%) for both tagging schemes. Note, how-
+ever, that these figures are not directly comparable to
+the performance of the unmodified Collins model: it
+is possible that the additional brackets artificially in-
+flate LR and LP. Presumably, the brackets for split
+PPs are easy to detect, as they are always adjacent to
+a preposition. An honest evaluation should therefore
+train on the modified training set (with split PPs),
+but collapse the split categories for testing, i.e., test
+on the unmodified test set. The results for this evalu-
+ation are listed in rows Collapsed PP. Now there is
+no increase in performance compared to the unmod-
+ified Collins model; rather, a slight drop in LR and
+LP is observed.
+Table 5 also displays the results of our exper-
+iments with the sister-head model. For TnT tags,
+we observe that using sister-head dependencies for
+NPs leads to a small decrease in performance com-
+pared to the unmodified Collins model, resulting in
+67.84% LR and 65.96% LP. Sister-head dependen-
+cies for PPs, however, increase performance sub-
+stantially to 70.27% LR and 68.45% LP. The high-
+est improvement is observed if head-sister depen-
+dencies are used for all categories; this results in
+71.32% LR and 70.93% LP, which corresponds to an
+improvement of 3% in LP and 5% in LR compared
+to the unmodified Collins model. Performance with
+perfect tags is around 24% higher than with TnT
+tags. For perfect tags, sister-head dependencies lead
+to an improvement for NPs, PPs, and all categories.
+The third series of experiments was designed to
+determine which categories are crucial for achiev-
+ing this performance gain. This was done by train-
+ing models that use sister-head dependencies for all
+categories but one. Table 6 shows the change in LR
+and LP that was found for each individual category
+(again for TnT tags and perfect tags). The highest
+drop in performance (around 3%) is observed when
+the PP category is reverted to head-head dependen-
+cies. For S and for the coordinated categories (CS,
+</bodyText>
+<table confidence="0.991836">
+\x0cTnT tagging Perfect tagging
+LR LP CBs 0CB 2CB Cov LR LP CBs 0CB 2CB Cov
+Unmod. Collins 67.91 66.07 0.73 65.67 89.52 95.21 68.63 66.94 0.71 64.97 89.73 96.23
+Split PP 73.84 73.77 0.82 62.89 88.98 95.11 75.93 75.27 0.77 65.36 89.03 93.79
+Collapsed PP 66.45 66.07 0.89 66.60 87.04 95.11 68.22 67.32 0.94 66.67 85.88 93.79
+Sister-head NP 67.84 65.96 0.75 65.85 88.97 95.11 71.54 70.31 0.60 68.03 93.33 94.60
+Sister-head PP 70.27 68.45 0.69 66.27 90.33 94.81 73.20 72.44 0.60 68.53 93.21 94.50
+Sister-head all 71.32 70.93 0.61 69.53 91.72 95.92 73.93 74.24 0.54 72.30 93.47 95.21
+</table>
+<tableCaption confidence="0.975898">
+Table 5: Results for Experiment 2: performance for models using split phrases and sister-head dependencies
+</tableCaption>
+<bodyText confidence="0.920777142857143">
+CNP, etc.), a drop in performance of around 1% each
+is observed. A slight drop is observed also for VP
+(around 0.5%). Only minimal fluctuations in perfor-
+mance are observed when the other categories are
+removed (AP, AVP, and NP): there is a small effect
+(around 0.5%) if TnT tags are used, and almost no
+effect for perfect tags.
+</bodyText>
+<subsectionHeader confidence="0.97853">
+5.3 Discussion
+</subsectionHeader>
+<bodyText confidence="0.998763684210527">
+We showed that splitting PPs to make Negra less
+flat does not improve parsing performance if test-
+ing is carried out on the collapsed categories. How-
+ever, we observed that LR and LP are artificially in-
+flated if split PPs are used for testing. This finding
+goes some way towards explaining why the parsing
+performance reported for the Penn Treebank is sub-
+stantially higher than the results for Negra: the Penn
+Treebank contains split PPs, which means that there
+are lot of brackets that are easy to get right. The re-
+sulting performance figures are not directly compa-
+rable to figures obtained on Negra, or other corpora
+with flat PPs.2
+We also obtained a positive result: we demon-
+strated that a sister-head model outperforms the un-
+lexicalized baseline model (unlike the C&amp;R model
+and the Collins model in Experiment 1). LR was
+about 1% higher and LP about 4% higher than the
+baseline if lexical sister-head dependencies are used
+for all categories. This holds both for TnT tags and
+for perfect tags (compare Tables 2 and 5). We also
+found that using lexical sister-head dependencies for
+all categories leads to a larger improvement than us-
+ing them only for NPs or PPs (see Table 5). This
+result was confirmed by a second series of experi-
+ments, where we reverted individual categories back
+to head-head dependencies, which triggered a de-
+crease in performance for all categories, with the ex-
+ception of NP, AP, and AVP (see Table 6).
+On the whole, the results of Experiment 2 are at
+odds with what is known about parsing for English.
+The progression in the probabilistic parsing litera-
+ture has been to start with lexical head-head depen-
+dencies (Collins, 1997) and then add non-lexical sis-
+2This result generalizes to Ss, which are also flat in Negra
+(see Section 2.2). We conducted an experiment in which we
+added an SBAR above the S. No increase in performance was
+obtained if the evaluation was carried using collapsed Ss.
+</bodyText>
+<table confidence="0.991811111111111">
+TnT tagging Perfect tagging
+LR LP LR LP
+PP 3.45 1.60 4.21 3.35
+S 1.28 0.11 2.23 1.22
+Coord 1.87 0.39 1.54 0.80
+VP 0.72 0.18 0.58 0.30
+AP 0.57 0.10 0.08 0.07
+AVP 0.32 0.44 0.10 0.11
+NP 0.06 0.78 0.15 0.02
+</table>
+<tableCaption confidence="0.98527975">
+Table 6: Change in performance when reverting to
+head-head statistics for individual categories
+ter information (Charniak, 2000), as illustrated in
+Table 4. Lexical sister-head dependencies have only
+</tableCaption>
+<bodyText confidence="0.997912916666667">
+been found useful in a limited way: in the original
+Collins model, they are used for non-recursive NPs.
+Our results show, however, that for parsing Ger-
+man, lexical sister-head information is more im-
+portant than lexical head-head information. Only a
+model that replaced lexical head-head with lexical
+sister-head dependencies was able to outperform a
+baseline model that uses no lexicalization.3 Based
+on the error analysis for Experiment 1, we claim that
+the reason for the success of the sister-head model is
+the fact that the rules in Negra are so flat; using a
+sister-head model is a way of binarizing the rules.
+</bodyText>
+<sectionHeader confidence="0.885664" genericHeader="method">
+6 Comparison with Previous Work
+</sectionHeader>
+<bodyText confidence="0.99284225">
+There are currently no probabilistic, treebank-
+trained parsers available for German (to our knowl-
+edge). A number of chunking models have been pro-
+posed, however. Skut and Brants (1998) used Ne-
+gra to train a maximum entropy-based chunker, and
+report LR and LP of 84.4% for NP and PP chunk-
+ing. Using cascaded Markov models, Brants (2000)
+reports an improved performance on the same task
+(LR 84.4%, LP 88.3%). Becker and Frank (2002)
+train an unlexicalized PCFG on Negra to perform
+a different chunking task, viz., the identification of
+topological fields (sentence-based chunks). They re-
+port an LR and LP of 93%.
+The head-lexicalized model of Carroll and Rooth
+(1998) has been applied to German by Beil et al.
+3It is unclear what effect bi-lexical statistics have on the
+sister-head model; while Gildea (2001) shows bi-lexical statis-
+tics are sparse for some grammars, Hockenmaier and Steedman
+(2002) found they play a greater role in binarized grammars.
+\x0c(1999, 2002). However, this approach differs in the
+number of ways from the results reported here: (a) a
+hand-written grammar (instead of a treebank gram-
+mar) is used; (b) training is carried out on unan-
+notated data; (c) the grammar and the training set
+cover only subordinate and relative clauses, not un-
+restricted text. Beil et al. (2002) report an evaluation
+using an NP chunking task, achieving 92% LR and
+LP. They also report the results of a task-based eval-
+uation (extraction of sucategorization frames).
+There is some research on treebank-based pars-
+ing of languages other than English. The work by
+Collins et al. (1999) and Bikel and Chiang (2000)
+has demonstrated the applicability of the Collins
+(1997) model for Czech and Chinese. The perfor-
+mance reported by these authors is substantially
+lower than the one reported for English, which might
+be due to the fact that less training data is avail-
+able for Czech and Chinese (see Table 1). This hy-
+pothesis cannot be tested, as the authors do not
+present learning curves for their models. However,
+the learning curve for Negra (see Figure 1) indicates
+that the performance of the Collins (1997) model
+is stable, even for small training sets. Collins et al.
+(1999) and Bikel and Chiang (2000) do not compare
+their models with an unlexicalized baseline; hence
+it is unclear if lexicalization really improves parsing
+performance for these languages. As Experiment 1
+showed, this cannot be taken for granted.
+</bodyText>
+<sectionHeader confidence="0.999118" genericHeader="conclusions">
+7 Conclusions
+</sectionHeader>
+<bodyText confidence="0.999848804347826">
+We presented the first probabilistic full parsing
+model for German trained on Negra, a syntactically
+annotated corpus. This model uses lexical sister-
+head dependencies, which makes it particularly suit-
+able for parsing Negras flat structures. The flatness
+of the Negra annotation reflects the syntactic proper-
+ties of German, in particular its semi-free wordorder.
+In Experiment 1, we applied three standard pars-
+ing models from the literature to Negra: an un-
+lexicalized PCFG model (the baseline), Carroll
+and Rooths (1998) head-lexicalized model, and
+Collinss (1997) model based on head-head depen-
+dencies. The results show that the baseline model
+achieves a performance of up to 73% recall and 70%
+precision. Both lexicalized models perform substan-
+tially worse. This finding is at odds with what has
+been reported for parsing models trained on the Penn
+Treebank. As a possible explanation we considered
+lack of training data: Negra is about half the size of
+the Penn Treebank. However, the learning curves for
+the three models failed to produce any evidence that
+they suffer from sparse data.
+In Experiment 2, we therefore investigated an al-
+ternative hypothesis: the poor performance of the
+lexicalized models is due to the fact that the rules in
+Negra are flatter than in the Penn Treebank, which
+makes lexical head-head dependencies less useful
+for correctly determining constituent boundaries.
+Based on this assumption, we proposed an alterna-
+tive model hat replaces lexical head-head dependen-
+cies with lexical sister-head dependencies. This can
+the thought of as a way of binarizing the flat rules in
+Negra. The results show that sister-head dependen-
+cies improve parsing performance not only for NPs
+(which is well-known for English), but also for PPs,
+VPs, Ss, and coordinate categories. The best perfor-
+mance was obtained for a model that uses sister-head
+dependencies for all categories. This model achieves
+up to 74% recall and precision, thus outperforming
+the unlexicalized baseline model.
+It can be hypothesized that this finding carries
+over to other treebanks that are annotated with flat
+structures. Such annotation schemes are often used
+for languages that (unlike English) have a free or
+semi-free wordorder. Testing our sister-head model
+on these languages is a topic for future research.
+</bodyText>
+<sectionHeader confidence="0.992116" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.998330666666666">
+Becker, Markus and Anette Frank. 2002. A stochastic topological parser of Ger-
+man. In Proceedings of the 19th International Conference on Computational
+Linguistics. Taipei.
+Beil, Franz, Glenn Carroll, Detlef Prescher, Stefan Riezler, and Mats Rooth. 1999.
+Inside-outside estimation of a lexicalized PCFG for German. In Proceedings
+of the 37th Annual Meeting of the Association for Computational Linguistics.
+College Park, MA.
+Beil, Franz, Detlef Prescher, Helmut Schmid, and Sabine Schulte im Walde. 2002.
+Evaluation of the Gramotron parser for German. In Proceedings of the LREC
+Workshop Beyond Parseval: Towards Improved Evaluation Measures for Pars-
+ing Systems. Las Palmas, Gran Canaria.
+Bikel, Daniel M. and David Chiang. 2000. Two statistical parsing models applied
+to the Chinese treebank. In Proceedings of the 2nd ACL Workshop on Chinese
+Language Processing. Hong Kong.
+Brants, Thorsten. 2000. TnT: A statistical part-of-speech tagger. In Proceedings
+of the 6th Conference on Applied Natural Language Processing. Seattle.
+Carroll, Glenn and Mats Rooth. 1998. Valence induction with a head-lexicalized
+PCFG. In Proceedings of the Conference on Empirical Methods in Natural
+Language Processing. Granada.
+Charniak, Eugene. 1993. Statistical Language Learning. MIT Press, Cambridge,
+MA.
+Charniak, Eugene. 1997. Statistical parsing with a context-free grammar and word
+statistics. In Proceedings of the 14th National Conference on Artificial Intel-
+ligence. AAAI Press, Cambridge, MA.
+Charniak, Eugene. 2000. A maximum-entropy-inspired parser. In Proceedings
+of the 1st Conference of the North American Chapter of the Association for
+Computational Linguistics. Seattle.
+Collins, Michael. 1997. Three generative, lexicalised models for statistical pars-
+ing. In Proceedings of the 35th Annual Meeting of the Association for Com-
+putational Linguistics and the 8th Conference of the European Chapter of the
+Association for Computational Linguistics. Madrid.
+Collins, Michael, Jan Hajic, Lance Ramshaw, and Christoph Tillmann. 1999. A
+statistical parser for Czech. In Proceedings of the 37th Annual Meeting of the
+Association for Computational Linguistics. College Park, MA.
+Gildea, Daniel. 2001. Corpus variation and parser performance. In Proceedings
+of the Conference on Empirical Methods in Natural Language Processing.
+Pittsburgh.
+Hockenmaier, Julia and Mark Steedman. 2002. Generative models for statistical
+parsing with combinatory categorial grammar. In Proceedings of 40th Annual
+Meeting of the Association for Computational Linguistics. Philadelphia.
+Marcus, Mitchell P., Beatrice Santorini, and Mary Ann Marcinkiewicz. 1993.
+Building a large annotated corpus of English: The Penn Treebank. Compu-
+tational Linguistics 19(2).
+Schmid, Helmut. 2000. LoPar: Design and implementation. Ms., Institute for
+Computational Linguistics, University of Stuttgart.
+Skut, Wojciech and Thorsten Brants. 1998. A maximum-entropy partial parser for
+unrestricted text. In Proceedings of the 6th Workshop on Very Large Corpora.
+Montreal.
+Skut, Wojciech, Brigitte Krenn, Thorsten Brants, and Hans Uszkoreit. 1997. An
+annotation scheme for free word order languages. In Proceedings of the 5th
+Conference on Applied Natural Language Processing. Washington, DC.
+Uszkoreit, Hans. 1987. Word Order and Constituent Structure in German. CSLI
+Publications, Stanford, CA.
+\x0c&amp;apos;
+</reference>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.728574">
+<title confidence="0.999612">b&amp;apos;Probabilistic Parsing for German using Sister-Head Dependencies</title>
+<author confidence="0.997671">Amit Dubey</author>
+<affiliation confidence="0.9999755">Department of Computational Linguistics Saarland University</affiliation>
+<address confidence="0.9657295">PO Box 15 11 50 66041 Saarbrucken, Germany</address>
+<email confidence="0.996868">adubey@coli.uni-sb.de</email>
+<author confidence="0.99922">Frank Keller</author>
+<affiliation confidence="0.939096333333333">School of Informatics University of Edinburgh 2 Buccleuch Place</affiliation>
+<address confidence="0.997916">Edinburgh EH8 9LW, UK</address>
+<email confidence="0.998106">keller@inf.ed.ac.uk</email>
+<abstract confidence="0.997790529411765">We present a probabilistic parsing model for German trained on the Negra treebank. We observe that existing lexicalized parsing models using head-head dependencies, while successful for English, fail to outperform an unlexicalized baseline model for German. Learning curves show that this effect is not due to lack of training data. We propose an alternative model that uses sister-head dependencies instead of head-head dependencies. This model outperforms the baseline, achieving a labeled precision and recall of up to 74%. This indicates that sister-head dependencies are more appropriate for treebanks with very flat structures such as Negra.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Markus Becker</author>
+<author>Anette Frank</author>
+</authors>
+<title>A stochastic topological parser of German.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the 19th International Conference on Computational Linguistics.</booktitle>
+<location>Taipei.</location>
+<contexts>
+<context position="1912" citStr="Becker and Frank, 2002" startWordPosition="283" endWordPosition="286"> and trained on the Penn Treebank (Marcus et al., 1993), which raises the question whether these models generalize to other languages, and to annotation schemes that differ from the Penn Treebank markup. The present paper addresses this question by proposing a probabilistic parsing model trained on Negra (Skut et al., 1997), a syntactically annotated corpus for German. German has a number of syntactic properties that set it apart from English, and the Negra annotation scheme differs in important respects from the Penn Treebank markup. While Negra has been used to build probabilistic chunkers (Becker and Frank, 2002; Skut and Brants, 1998), the research reported in this paper is the first attempt to develop a probabilistic full parsing model for German trained on a treebank (to our knowledge). Lexicalization can increase parsing performance dramatically for English (Carroll and Rooth, 1998; Charniak, 1997, 2000; Collins, 1997), and the lexicalized model proposed by Collins (1997) has been successfully applied to Czech (Collins et al., 1999) and Chinese (Bikel and Chiang, 2000). However, the resulting performance is significantly lower than the performance of the same model for English (see Table 1). Neit</context>
+<context position="33261" citStr="Becker and Frank (2002)" startWordPosition="5550" endWordPosition="5553">t the reason for the success of the sister-head model is the fact that the rules in Negra are so flat; using a sister-head model is a way of binarizing the rules. 6 Comparison with Previous Work There are currently no probabilistic, treebanktrained parsers available for German (to our knowledge). A number of chunking models have been proposed, however. Skut and Brants (1998) used Negra to train a maximum entropy-based chunker, and report LR and LP of 84.4% for NP and PP chunking. Using cascaded Markov models, Brants (2000) reports an improved performance on the same task (LR 84.4%, LP 88.3%). Becker and Frank (2002) train an unlexicalized PCFG on Negra to perform a different chunking task, viz., the identification of topological fields (sentence-based chunks). They report an LR and LP of 93%. The head-lexicalized model of Carroll and Rooth (1998) has been applied to German by Beil et al. 3It is unclear what effect bi-lexical statistics have on the sister-head model; while Gildea (2001) shows bi-lexical statistics are sparse for some grammars, Hockenmaier and Steedman (2002) found they play a greater role in binarized grammars. \x0c(1999, 2002). However, this approach differs in the number of ways from th</context>
+</contexts>
+<marker>Becker, Frank, 2002</marker>
+<rawString>Becker, Markus and Anette Frank. 2002. A stochastic topological parser of German. In Proceedings of the 19th International Conference on Computational Linguistics. Taipei.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Franz Beil</author>
+<author>Glenn Carroll</author>
+<author>Detlef Prescher</author>
+<author>Stefan Riezler</author>
+<author>Mats Rooth</author>
+</authors>
+<title>Inside-outside estimation of a lexicalized PCFG for German.</title>
+<date>1999</date>
+<booktitle>In Proceedings of the 37th Annual Meeting of the Association for Computational Linguistics.</booktitle>
+<location>College Park, MA.</location>
+<marker>Beil, Carroll, Prescher, Riezler, Rooth, 1999</marker>
+<rawString>Beil, Franz, Glenn Carroll, Detlef Prescher, Stefan Riezler, and Mats Rooth. 1999. Inside-outside estimation of a lexicalized PCFG for German. In Proceedings of the 37th Annual Meeting of the Association for Computational Linguistics. College Park, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Franz Beil</author>
+<author>Detlef Prescher</author>
+<author>Helmut Schmid</author>
+<author>Sabine Schulte im Walde</author>
+</authors>
+<title>Evaluation of the Gramotron parser for German.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the LREC Workshop</booktitle>
+<contexts>
+<context position="9353" citStr="Beil et al. 2002" startWordPosition="1509" endWordPosition="1512">roll and Rooths Head-Lexicalized Model The head-lexicalized PCFG model of Carroll and Rooth (1998) is a minimal departure from the standard unlexicalized PCFG model, which makes it ideal for a direct comparison.1 A grammar rule LHS RHS can be written as P C1 ...Cn, where P is the mother category, and C1 ...Cn are daughters. Let l(C) be the lexical head 1Charniak (1997) proposes essentially the same model; we will nevertheless use the label Carroll and Rooth model as we are using their implementation (see Section 4.1). \x0cof the constituent C. The rule probability is then defined as (see also Beil et al. 2002): P(RHS|LHS) = Prule(C1 ...Cn|P,l(P)) (3) n i=1 Pchoice(l(Ci)|Ci,P,l(P)) Here Prule(C1 ...Cn|P,l(P)) is the probability that category P with lexical head l(P) is expanded by the rule P C1 ...Cn, and Pchoice(l(C)|C,P,l(P)) is the probability that the (non-head) category C has the lexical head l(C) given that its mother is P with lexical head l(P). 3.3 Collinss Head-Lexicalized Model In contrast to Carroll and Rooths (1998) approach, the model proposed by Collins (1997) does not compute rule probabilities directly. Rather, they are generated using a Markov process that makes certain independence</context>
+<context position="34126" citStr="Beil et al. (2002)" startWordPosition="5691" endWordPosition="5694">plied to German by Beil et al. 3It is unclear what effect bi-lexical statistics have on the sister-head model; while Gildea (2001) shows bi-lexical statistics are sparse for some grammars, Hockenmaier and Steedman (2002) found they play a greater role in binarized grammars. \x0c(1999, 2002). However, this approach differs in the number of ways from the results reported here: (a) a hand-written grammar (instead of a treebank grammar) is used; (b) training is carried out on unannotated data; (c) the grammar and the training set cover only subordinate and relative clauses, not unrestricted text. Beil et al. (2002) report an evaluation using an NP chunking task, achieving 92% LR and LP. They also report the results of a task-based evaluation (extraction of sucategorization frames). There is some research on treebank-based parsing of languages other than English. The work by Collins et al. (1999) and Bikel and Chiang (2000) has demonstrated the applicability of the Collins (1997) model for Czech and Chinese. The performance reported by these authors is substantially lower than the one reported for English, which might be due to the fact that less training data is available for Czech and Chinese (see Tabl</context>
+</contexts>
+<marker>Beil, Prescher, Schmid, Walde, 2002</marker>
+<rawString>Beil, Franz, Detlef Prescher, Helmut Schmid, and Sabine Schulte im Walde. 2002. Evaluation of the Gramotron parser for German. In Proceedings of the LREC Workshop Beyond Parseval: Towards Improved Evaluation Measures for Parsing Systems. Las Palmas, Gran Canaria.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Daniel M Bikel</author>
+<author>David Chiang</author>
+</authors>
+<title>Two statistical parsing models applied to the Chinese treebank.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the 2nd ACL Workshop on Chinese Language Processing. Hong Kong.</booktitle>
+<contexts>
+<context position="2382" citStr="Bikel and Chiang, 2000" startWordPosition="356" endWordPosition="359">ion scheme differs in important respects from the Penn Treebank markup. While Negra has been used to build probabilistic chunkers (Becker and Frank, 2002; Skut and Brants, 1998), the research reported in this paper is the first attempt to develop a probabilistic full parsing model for German trained on a treebank (to our knowledge). Lexicalization can increase parsing performance dramatically for English (Carroll and Rooth, 1998; Charniak, 1997, 2000; Collins, 1997), and the lexicalized model proposed by Collins (1997) has been successfully applied to Czech (Collins et al., 1999) and Chinese (Bikel and Chiang, 2000). However, the resulting performance is significantly lower than the performance of the same model for English (see Table 1). Neither Collins et al. (1999) nor Bikel and Chiang (2000) compare the lexicalized model to an unlexicalized baseline model, leaving open the possibility that lexicalization is useful for English, but not for other languages. This paper is structured as follows. Section 2 reviews the syntactic properties of German, focusing on its semi-flexible wordorder. Section 3 describes two standard lexicalized models (Carroll and Rooth, 1998; Collins, 1997), as well as an unlexical</context>
+<context position="4411" citStr="Bikel and Chiang, 2000" startWordPosition="679" endWordPosition="682">d on the review of the previous literature (Section 6), we argue (Section 7) that sister-head models are more appropriate for treebanks with very flat structures (such as Negra), typically used to annotate languages with semifree wordorder (such as German). 2 Parsing German 2.1 Syntactic Properties German exhibits a number of syntactic properties that distinguish it from English, the language that has been the focus of most research in parsing. Prominent among these properties is the semi-free \x0cLanguage Size LR LP Source English 40,000 87.4% 88.1% (Collins, 1997) Chinese 3,484 69.0% 74.8% (Bikel and Chiang, 2000) Czech 19,000 - 80.0% - (Collins et al., 1999) Table 1: Results for the Collins (1997) model for various languages (dependency precision for Czech) wordorder, i.e., German wordorder is fixed in some respects, but variable in others. Verb order is largely fixed: in subordinate clauses such as (1a), both the finite verb hat has and the non-finite verb komponiert composed are in sentence final position. (1) a. Weil because er er gestern yesterday Musik music komponiert composed hat. has Because he has composed music yesterday. b. Hat er gestern Musik komponiert? c. Er hat gestern Musik komponiert</context>
+<context position="34440" citStr="Bikel and Chiang (2000)" startWordPosition="5743" endWordPosition="5746">proach differs in the number of ways from the results reported here: (a) a hand-written grammar (instead of a treebank grammar) is used; (b) training is carried out on unannotated data; (c) the grammar and the training set cover only subordinate and relative clauses, not unrestricted text. Beil et al. (2002) report an evaluation using an NP chunking task, achieving 92% LR and LP. They also report the results of a task-based evaluation (extraction of sucategorization frames). There is some research on treebank-based parsing of languages other than English. The work by Collins et al. (1999) and Bikel and Chiang (2000) has demonstrated the applicability of the Collins (1997) model for Czech and Chinese. The performance reported by these authors is substantially lower than the one reported for English, which might be due to the fact that less training data is available for Czech and Chinese (see Table 1). This hypothesis cannot be tested, as the authors do not present learning curves for their models. However, the learning curve for Negra (see Figure 1) indicates that the performance of the Collins (1997) model is stable, even for small training sets. Collins et al. (1999) and Bikel and Chiang (2000) do not </context>
+</contexts>
+<marker>Bikel, Chiang, 2000</marker>
+<rawString>Bikel, Daniel M. and David Chiang. 2000. Two statistical parsing models applied to the Chinese treebank. In Proceedings of the 2nd ACL Workshop on Chinese Language Processing. Hong Kong.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Thorsten Brants</author>
+</authors>
+<title>TnT: A statistical part-of-speech tagger.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the 6th Conference on Applied Natural Language Processing.</booktitle>
+<location>Seattle.</location>
+<contexts>
+<context position="16457" citStr="Brants, 2000" startWordPosition="2697" endWordPosition="2698">gra. Lopar and the Collins model differ in their handling of unknown words. In Lopar, a POS tag distribution for unknown words has to be specified, which is then used to tag unknown words in the test data. The Collins model treats any word seen fewer than five times in the training data as unseen and uses an external POS tagger to tag unknown words. In order to make the models comparable, we used a uniform approach to unknown words. All models were run on POS-tagged input; this input was created by tagging the test set with a separate POS tagger, for both known and unknown words. We used TnT (Brants, 2000), trained on the Negra training set. The tagging accuracy was 97.12% on the development set. In order to obtain an upper bound for the performance of the parsing models, we also ran the parsers on the test set with the correct tags (as specified in Negra), again for both known and unknown words. We will refer to this mode as perfect tagging. All models were evaluated using standard PARSEVAL measures. We report labeled recall (LR) labeled precision (LP), average crossing brackets (CBs), zero crossing brackets (0CB), and two or less crossing brackets (2CB). We also give the coverage (Cov), i.e.,</context>
+<context position="33166" citStr="Brants (2000)" startWordPosition="5536" endWordPosition="5537">t uses no lexicalization.3 Based on the error analysis for Experiment 1, we claim that the reason for the success of the sister-head model is the fact that the rules in Negra are so flat; using a sister-head model is a way of binarizing the rules. 6 Comparison with Previous Work There are currently no probabilistic, treebanktrained parsers available for German (to our knowledge). A number of chunking models have been proposed, however. Skut and Brants (1998) used Negra to train a maximum entropy-based chunker, and report LR and LP of 84.4% for NP and PP chunking. Using cascaded Markov models, Brants (2000) reports an improved performance on the same task (LR 84.4%, LP 88.3%). Becker and Frank (2002) train an unlexicalized PCFG on Negra to perform a different chunking task, viz., the identification of topological fields (sentence-based chunks). They report an LR and LP of 93%. The head-lexicalized model of Carroll and Rooth (1998) has been applied to German by Beil et al. 3It is unclear what effect bi-lexical statistics have on the sister-head model; while Gildea (2001) shows bi-lexical statistics are sparse for some grammars, Hockenmaier and Steedman (2002) found they play a greater role in bin</context>
+</contexts>
+<marker>Brants, 2000</marker>
+<rawString>Brants, Thorsten. 2000. TnT: A statistical part-of-speech tagger. In Proceedings of the 6th Conference on Applied Natural Language Processing. Seattle.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Glenn Carroll</author>
+<author>Mats Rooth</author>
+</authors>
+<title>Valence induction with a head-lexicalized PCFG.</title>
+<date>1998</date>
+<booktitle>In Proceedings of the Conference on Empirical Methods in Natural Language Processing.</booktitle>
+<location>Granada.</location>
+<contexts>
+<context position="2191" citStr="Carroll and Rooth, 1998" startWordPosition="326" endWordPosition="329">sing model trained on Negra (Skut et al., 1997), a syntactically annotated corpus for German. German has a number of syntactic properties that set it apart from English, and the Negra annotation scheme differs in important respects from the Penn Treebank markup. While Negra has been used to build probabilistic chunkers (Becker and Frank, 2002; Skut and Brants, 1998), the research reported in this paper is the first attempt to develop a probabilistic full parsing model for German trained on a treebank (to our knowledge). Lexicalization can increase parsing performance dramatically for English (Carroll and Rooth, 1998; Charniak, 1997, 2000; Collins, 1997), and the lexicalized model proposed by Collins (1997) has been successfully applied to Czech (Collins et al., 1999) and Chinese (Bikel and Chiang, 2000). However, the resulting performance is significantly lower than the performance of the same model for English (see Table 1). Neither Collins et al. (1999) nor Bikel and Chiang (2000) compare the lexicalized model to an unlexicalized baseline model, leaving open the possibility that lexicalization is useful for English, but not for other languages. This paper is structured as follows. Section 2 reviews the</context>
+<context position="8096" citStr="Carroll and Rooth 1998" startWordPosition="1292" endWordPosition="1296">osyncrasy of Negra is that it assumes special coordinate categories. A coordinated sentence has the category CS, a coordinate NP has the category CNP, etc. While this does not make the annotation more flat, it substantially increases the number of non-terminal labels. Negra also contains grammatical function labels that augment phrasal and lexical categories. Example are MO (modifier), HD (head), SB (subject), and OC (clausal object). 3 Probabilistic Parsing Models 3.1 Probabilistic Context-Free Grammars Lexicalization has been shown to improve parsing performance for the Penn Treebank (e.g., Carroll and Rooth 1998; Charniak 1997, 2000; Collins 1997). The aim of the present paper is to test if this finding carries over to German and to the Negra corpus. We therefore use an unlexicalized model as our baseline against which to test the lexicalized models. More specifically, we used a standard probabilistic context-free grammar (PCFG; see Charniak 1993). Each context-free rule RHS LHS is annotated with an expansion probability P(RHS|LHS). The probabilities for all rules with the same lefthand side have to sum to one, and the probability of a parse tree T is defined as the product of the probabilities of al</context>
+<context position="12243" citStr="Carroll and Rooth (1998)" startWordPosition="1987" endWordPosition="1990">be preverbal, while objects tend to be postverbal), a fact that is captured if subjects have the label NP-SB, while objects are labeled NP-OA (accusative object), NP-DA (dative object), etc. Also the fact that verb order differs between subordinate and main clauses is captured by the function labels: the former are labeled S, while the latter are labeled S-OC (object clause), S-RC (relative clause), etc. Another idiosyncrasy of the Negra annotation is that conjoined categories have separate labels (S and CS, NP and CNP, etc.), and that PPs do not contain an NP node. We tested a variant of the Carroll and Rooth (1998) model that takes this into account. 4.1 Method Data Sets All experiments reported in this paper used the treebank format of Negra. This format, which is included in the Negra distribution, was derived from the native format by replacing crossing branches with traces. We split the corpus into three subsets. The first 18,602 sentences constituted the training set. Of the remaining 2,000 sentences, the first 1,000 served as the test set, and the last 1000 as the development set. To increase parsing efficiency, we removed all sentences with more than 40 words. This resulted in a test set of 968 s</context>
+<context position="13602" citStr="Carroll and Rooth (1998)" startWordPosition="2207" endWordPosition="2210">ined unseen until all parameters were fixed. The final results reported this paper were obtained on the test set, unless stated otherwise. Grammar Induction For the unlexicalized PCFG model (henceforth baseline model), we used the probabilistic left-corner parser Lopar (Schmid, 2000). When run in unlexicalized mode, Lopar implements the model described in Section 3.1. A grammar and a lexicon for Lopar were read off the Negra training set, after removing all grammatical function labels. As Lopar cannot handle traces, these were also removed from the training data. The head-lexicalized model of Carroll and Rooth (1998) (henceforth C&amp;R model) was again realized using Lopar, which in lexicalized mode implements the model in Section 3.2. Lexicalization requires that each rule in a grammar has one of the categories on its righthand side annotated as the head. For the categories S, VP, AP, and AVP, the head is marked in Negra. For the other categories, we used rules to heuristically determine the head, as is standard practice for the Penn Treebank. The lexicalized model proposed by Collins (1997) (henceforth Collins model) was re-implemented by \x0cone of the authors. For training, empty categories were removed </context>
+<context position="23981" citStr="Carroll and Rooth (1998)" startWordPosition="3995" endWordPosition="3998">ing the following rule: (7) [PP P . . . ] [PP P [NP . . . ]] In the present experiment, we investigated if parsing performance improves if we test and train on a version of Negra on which the transformation in (7) has been applied. In a second series of experiments, we investigated a more general way of dealing with the flatness of \x0cC&amp;R Collins Charniak Current Head sister category X X X Head sister head word X X X Head sister head tag X X Prev. sister category X X X Prev. sister head word X Prev. sister head tag X Table 4: Linguistic features in the current model compared to the models of Carroll and Rooth (1998), Collins (1997), and Charniak (2000) Negra, based on Collinss (1997) model for nonrecursive NPs in the Penn Treebank (which are also flat). For non-recursive NPs, Collins (1997) does not use the probability function in (5), but instead substitutes Pr (and, by analogy, Pl) by: Pr(Ri,t(Ri),l(Ri)|P,Ri1,t(Ri1),l(Ri1),d(i)) (8) Here the head H is substituted by the sister Ri1 (and Li1). In the literature, the version of Pr in (5) is said to capture head-head relationships. We will refer to the alternative model in (8) as capturing sister-head relationships. Using sister-head relationships is a way</context>
+<context position="33496" citStr="Carroll and Rooth (1998)" startWordPosition="5587" endWordPosition="5590">reebanktrained parsers available for German (to our knowledge). A number of chunking models have been proposed, however. Skut and Brants (1998) used Negra to train a maximum entropy-based chunker, and report LR and LP of 84.4% for NP and PP chunking. Using cascaded Markov models, Brants (2000) reports an improved performance on the same task (LR 84.4%, LP 88.3%). Becker and Frank (2002) train an unlexicalized PCFG on Negra to perform a different chunking task, viz., the identification of topological fields (sentence-based chunks). They report an LR and LP of 93%. The head-lexicalized model of Carroll and Rooth (1998) has been applied to German by Beil et al. 3It is unclear what effect bi-lexical statistics have on the sister-head model; while Gildea (2001) shows bi-lexical statistics are sparse for some grammars, Hockenmaier and Steedman (2002) found they play a greater role in binarized grammars. \x0c(1999, 2002). However, this approach differs in the number of ways from the results reported here: (a) a hand-written grammar (instead of a treebank grammar) is used; (b) training is carried out on unannotated data; (c) the grammar and the training set cover only subordinate and relative clauses, not unrestr</context>
+</contexts>
+<marker>Carroll, Rooth, 1998</marker>
+<rawString>Carroll, Glenn and Mats Rooth. 1998. Valence induction with a head-lexicalized PCFG. In Proceedings of the Conference on Empirical Methods in Natural Language Processing. Granada.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eugene Charniak</author>
+</authors>
+<title>Statistical Language Learning.</title>
+<date>1993</date>
+<publisher>MIT Press,</publisher>
+<location>Cambridge, MA.</location>
+<contexts>
+<context position="8438" citStr="Charniak 1993" startWordPosition="1352" endWordPosition="1353">categories. Example are MO (modifier), HD (head), SB (subject), and OC (clausal object). 3 Probabilistic Parsing Models 3.1 Probabilistic Context-Free Grammars Lexicalization has been shown to improve parsing performance for the Penn Treebank (e.g., Carroll and Rooth 1998; Charniak 1997, 2000; Collins 1997). The aim of the present paper is to test if this finding carries over to German and to the Negra corpus. We therefore use an unlexicalized model as our baseline against which to test the lexicalized models. More specifically, we used a standard probabilistic context-free grammar (PCFG; see Charniak 1993). Each context-free rule RHS LHS is annotated with an expansion probability P(RHS|LHS). The probabilities for all rules with the same lefthand side have to sum to one, and the probability of a parse tree T is defined as the product of the probabilities of all rules applied in generating T. 3.2 Carroll and Rooths Head-Lexicalized Model The head-lexicalized PCFG model of Carroll and Rooth (1998) is a minimal departure from the standard unlexicalized PCFG model, which makes it ideal for a direct comparison.1 A grammar rule LHS RHS can be written as P C1 ...Cn, where P is the mother category, and </context>
+</contexts>
+<marker>Charniak, 1993</marker>
+<rawString>Charniak, Eugene. 1993. Statistical Language Learning. MIT Press, Cambridge, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eugene Charniak</author>
+</authors>
+<title>Statistical parsing with a context-free grammar and word statistics.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the 14th National Conference on Artificial Intelligence.</booktitle>
+<publisher>AAAI Press,</publisher>
+<location>Cambridge, MA.</location>
+<contexts>
+<context position="2207" citStr="Charniak, 1997" startWordPosition="330" endWordPosition="331">ra (Skut et al., 1997), a syntactically annotated corpus for German. German has a number of syntactic properties that set it apart from English, and the Negra annotation scheme differs in important respects from the Penn Treebank markup. While Negra has been used to build probabilistic chunkers (Becker and Frank, 2002; Skut and Brants, 1998), the research reported in this paper is the first attempt to develop a probabilistic full parsing model for German trained on a treebank (to our knowledge). Lexicalization can increase parsing performance dramatically for English (Carroll and Rooth, 1998; Charniak, 1997, 2000; Collins, 1997), and the lexicalized model proposed by Collins (1997) has been successfully applied to Czech (Collins et al., 1999) and Chinese (Bikel and Chiang, 2000). However, the resulting performance is significantly lower than the performance of the same model for English (see Table 1). Neither Collins et al. (1999) nor Bikel and Chiang (2000) compare the lexicalized model to an unlexicalized baseline model, leaving open the possibility that lexicalization is useful for English, but not for other languages. This paper is structured as follows. Section 2 reviews the syntactic prope</context>
+<context position="8111" citStr="Charniak 1997" startWordPosition="1297" endWordPosition="1298">at it assumes special coordinate categories. A coordinated sentence has the category CS, a coordinate NP has the category CNP, etc. While this does not make the annotation more flat, it substantially increases the number of non-terminal labels. Negra also contains grammatical function labels that augment phrasal and lexical categories. Example are MO (modifier), HD (head), SB (subject), and OC (clausal object). 3 Probabilistic Parsing Models 3.1 Probabilistic Context-Free Grammars Lexicalization has been shown to improve parsing performance for the Penn Treebank (e.g., Carroll and Rooth 1998; Charniak 1997, 2000; Collins 1997). The aim of the present paper is to test if this finding carries over to German and to the Negra corpus. We therefore use an unlexicalized model as our baseline against which to test the lexicalized models. More specifically, we used a standard probabilistic context-free grammar (PCFG; see Charniak 1993). Each context-free rule RHS LHS is annotated with an expansion probability P(RHS|LHS). The probabilities for all rules with the same lefthand side have to sum to one, and the probability of a parse tree T is defined as the product of the probabilities of all rules applied</context>
+</contexts>
+<marker>Charniak, 1997</marker>
+<rawString>Charniak, Eugene. 1997. Statistical parsing with a context-free grammar and word statistics. In Proceedings of the 14th National Conference on Artificial Intelligence. AAAI Press, Cambridge, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eugene Charniak</author>
+</authors>
+<title>A maximum-entropy-inspired parser.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the 1st Conference of the North American Chapter of the Association for Computational Linguistics.</booktitle>
+<location>Seattle.</location>
+<contexts>
+<context position="1220" citStr="Charniak 2000" startWordPosition="173" endWordPosition="174">ow that this effect is not due to lack of training data. We propose an alternative model that uses sister-head dependencies instead of head-head dependencies. This model outperforms the baseline, achieving a labeled precision and recall of up to 74%. This indicates that sister-head dependencies are more appropriate for treebanks with very flat structures such as Negra. 1 Introduction Treebank-based probabilistic parsing has been the subject of intensive research over the past few years, resulting in parsing models that achieve both broad coverage and high parsing accuracy (e.g., Collins 1997; Charniak 2000). However, most of the existing models have been developed for English and trained on the Penn Treebank (Marcus et al., 1993), which raises the question whether these models generalize to other languages, and to annotation schemes that differ from the Penn Treebank markup. The present paper addresses this question by proposing a probabilistic parsing model trained on Negra (Skut et al., 1997), a syntactically annotated corpus for German. German has a number of syntactic properties that set it apart from English, and the Negra annotation scheme differs in important respects from the Penn Treeba</context>
+<context position="24018" citStr="Charniak (2000)" startWordPosition="4002" endWordPosition="4003">P [NP . . . ]] In the present experiment, we investigated if parsing performance improves if we test and train on a version of Negra on which the transformation in (7) has been applied. In a second series of experiments, we investigated a more general way of dealing with the flatness of \x0cC&amp;R Collins Charniak Current Head sister category X X X Head sister head word X X X Head sister head tag X X Prev. sister category X X X Prev. sister head word X Prev. sister head tag X Table 4: Linguistic features in the current model compared to the models of Carroll and Rooth (1998), Collins (1997), and Charniak (2000) Negra, based on Collinss (1997) model for nonrecursive NPs in the Penn Treebank (which are also flat). For non-recursive NPs, Collins (1997) does not use the probability function in (5), but instead substitutes Pr (and, by analogy, Pl) by: Pr(Ri,t(Ri),l(Ri)|P,Ri1,t(Ri1),l(Ri1),d(i)) (8) Here the head H is substituted by the sister Ri1 (and Li1). In the literature, the version of Pr in (5) is said to capture head-head relationships. We will refer to the alternative model in (8) as capturing sister-head relationships. Using sister-head relationships is a way of counteracting the flatness of the</context>
+<context position="32113" citStr="Charniak, 2000" startWordPosition="5362" endWordPosition="5363">es (Collins, 1997) and then add non-lexical sis2This result generalizes to Ss, which are also flat in Negra (see Section 2.2). We conducted an experiment in which we added an SBAR above the S. No increase in performance was obtained if the evaluation was carried using collapsed Ss. TnT tagging Perfect tagging LR LP LR LP PP 3.45 1.60 4.21 3.35 S 1.28 0.11 2.23 1.22 Coord 1.87 0.39 1.54 0.80 VP 0.72 0.18 0.58 0.30 AP 0.57 0.10 0.08 0.07 AVP 0.32 0.44 0.10 0.11 NP 0.06 0.78 0.15 0.02 Table 6: Change in performance when reverting to head-head statistics for individual categories ter information (Charniak, 2000), as illustrated in Table 4. Lexical sister-head dependencies have only been found useful in a limited way: in the original Collins model, they are used for non-recursive NPs. Our results show, however, that for parsing German, lexical sister-head information is more important than lexical head-head information. Only a model that replaced lexical head-head with lexical sister-head dependencies was able to outperform a baseline model that uses no lexicalization.3 Based on the error analysis for Experiment 1, we claim that the reason for the success of the sister-head model is the fact that the </context>
+</contexts>
+<marker>Charniak, 2000</marker>
+<rawString>Charniak, Eugene. 2000. A maximum-entropy-inspired parser. In Proceedings of the 1st Conference of the North American Chapter of the Association for Computational Linguistics. Seattle.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+</authors>
+<title>Three generative, lexicalised models for statistical parsing.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the 35th Annual Meeting of the Association for Computational Linguistics and the 8th Conference of the European Chapter of the Association for Computational Linguistics.</booktitle>
+<location>Madrid.</location>
+<contexts>
+<context position="1204" citStr="Collins 1997" startWordPosition="171" endWordPosition="172">ning curves show that this effect is not due to lack of training data. We propose an alternative model that uses sister-head dependencies instead of head-head dependencies. This model outperforms the baseline, achieving a labeled precision and recall of up to 74%. This indicates that sister-head dependencies are more appropriate for treebanks with very flat structures such as Negra. 1 Introduction Treebank-based probabilistic parsing has been the subject of intensive research over the past few years, resulting in parsing models that achieve both broad coverage and high parsing accuracy (e.g., Collins 1997; Charniak 2000). However, most of the existing models have been developed for English and trained on the Penn Treebank (Marcus et al., 1993), which raises the question whether these models generalize to other languages, and to annotation schemes that differ from the Penn Treebank markup. The present paper addresses this question by proposing a probabilistic parsing model trained on Negra (Skut et al., 1997), a syntactically annotated corpus for German. German has a number of syntactic properties that set it apart from English, and the Negra annotation scheme differs in important respects from</context>
+<context position="2957" citStr="Collins, 1997" startWordPosition="446" endWordPosition="447">9) and Chinese (Bikel and Chiang, 2000). However, the resulting performance is significantly lower than the performance of the same model for English (see Table 1). Neither Collins et al. (1999) nor Bikel and Chiang (2000) compare the lexicalized model to an unlexicalized baseline model, leaving open the possibility that lexicalization is useful for English, but not for other languages. This paper is structured as follows. Section 2 reviews the syntactic properties of German, focusing on its semi-flexible wordorder. Section 3 describes two standard lexicalized models (Carroll and Rooth, 1998; Collins, 1997), as well as an unlexicalized baseline model. Section 4 presents a series of experiments that compare the parsing performance of these three models (and several variants) on Negra. The results show that both lexicalized models fail to outperform the unlexicalized baseline. This is at odds with what has been reported for English. Learning curves show that the poor performance of the lexicalized models is not due to lack of training data. Section 5 presents an error analysis for Collinss (1997) lexicalized model, which shows that the head-head dependencies used in this model fail to cope well wi</context>
+<context position="4360" citStr="Collins, 1997" startWordPosition="673" endWordPosition="674">icalized baseline. Based on this result and on the review of the previous literature (Section 6), we argue (Section 7) that sister-head models are more appropriate for treebanks with very flat structures (such as Negra), typically used to annotate languages with semifree wordorder (such as German). 2 Parsing German 2.1 Syntactic Properties German exhibits a number of syntactic properties that distinguish it from English, the language that has been the focus of most research in parsing. Prominent among these properties is the semi-free \x0cLanguage Size LR LP Source English 40,000 87.4% 88.1% (Collins, 1997) Chinese 3,484 69.0% 74.8% (Bikel and Chiang, 2000) Czech 19,000 - 80.0% - (Collins et al., 1999) Table 1: Results for the Collins (1997) model for various languages (dependency precision for Czech) wordorder, i.e., German wordorder is fixed in some respects, but variable in others. Verb order is largely fixed: in subordinate clauses such as (1a), both the finite verb hat has and the non-finite verb komponiert composed are in sentence final position. (1) a. Weil because er er gestern yesterday Musik music komponiert composed hat. has Because he has composed music yesterday. b. Hat er gestern M</context>
+<context position="8132" citStr="Collins 1997" startWordPosition="1300" endWordPosition="1301"> coordinate categories. A coordinated sentence has the category CS, a coordinate NP has the category CNP, etc. While this does not make the annotation more flat, it substantially increases the number of non-terminal labels. Negra also contains grammatical function labels that augment phrasal and lexical categories. Example are MO (modifier), HD (head), SB (subject), and OC (clausal object). 3 Probabilistic Parsing Models 3.1 Probabilistic Context-Free Grammars Lexicalization has been shown to improve parsing performance for the Penn Treebank (e.g., Carroll and Rooth 1998; Charniak 1997, 2000; Collins 1997). The aim of the present paper is to test if this finding carries over to German and to the Negra corpus. We therefore use an unlexicalized model as our baseline against which to test the lexicalized models. More specifically, we used a standard probabilistic context-free grammar (PCFG; see Charniak 1993). Each context-free rule RHS LHS is annotated with an expansion probability P(RHS|LHS). The probabilities for all rules with the same lefthand side have to sum to one, and the probability of a parse tree T is defined as the product of the probabilities of all rules applied in generating T. 3.2</context>
+<context position="9825" citStr="Collins (1997)" startWordPosition="1584" endWordPosition="1585">re using their implementation (see Section 4.1). \x0cof the constituent C. The rule probability is then defined as (see also Beil et al. 2002): P(RHS|LHS) = Prule(C1 ...Cn|P,l(P)) (3) n i=1 Pchoice(l(Ci)|Ci,P,l(P)) Here Prule(C1 ...Cn|P,l(P)) is the probability that category P with lexical head l(P) is expanded by the rule P C1 ...Cn, and Pchoice(l(C)|C,P,l(P)) is the probability that the (non-head) category C has the lexical head l(C) given that its mother is P with lexical head l(P). 3.3 Collinss Head-Lexicalized Model In contrast to Carroll and Rooths (1998) approach, the model proposed by Collins (1997) does not compute rule probabilities directly. Rather, they are generated using a Markov process that makes certain independence assumptions. A grammar rule LHS RHS can be written as P Lm ...L1 H R1 ...Rn where P is the mother and H is the head daughter. Let l(C) be the head word of C and t(C) the tag of the head word of C. Then the probability of a rule is defined as: P(RHS|LHS) = P(Lm ...L1 H R1 ...Rn|P) (4) = Ph(H|P)Pl(Lm ...L1|P,H)Pr(R1 ...Rn|P,H) = Ph(H|P) m i=0 Pl(Li|P,H,d(i)) n i=0 Pr(Ri|P,H,d(i)) Here, Ph is the probability of generating the head, and Pl and Pr are the probabilities of</context>
+<context position="14084" citStr="Collins (1997)" startWordPosition="2292" endWordPosition="2293">s Lopar cannot handle traces, these were also removed from the training data. The head-lexicalized model of Carroll and Rooth (1998) (henceforth C&amp;R model) was again realized using Lopar, which in lexicalized mode implements the model in Section 3.2. Lexicalization requires that each rule in a grammar has one of the categories on its righthand side annotated as the head. For the categories S, VP, AP, and AVP, the head is marked in Negra. For the other categories, we used rules to heuristically determine the head, as is standard practice for the Penn Treebank. The lexicalized model proposed by Collins (1997) (henceforth Collins model) was re-implemented by \x0cone of the authors. For training, empty categories were removed from the training data, as the model cannot handle them. The same head finding strategy was applied as for the C&amp;R model. In this experiment, only head-head statistics were used (see (5)). The original Collins model uses sister-head statistics for non-recursive NPs. This will be discussed in detail in Section 5. Training and Testing For all three models, the model parameters were estimated using maximum likelihood estimation. Both Lopar and the Collins model use various backoff</context>
+<context position="23997" citStr="Collins (1997)" startWordPosition="3999" endWordPosition="4000">) [PP P . . . ] [PP P [NP . . . ]] In the present experiment, we investigated if parsing performance improves if we test and train on a version of Negra on which the transformation in (7) has been applied. In a second series of experiments, we investigated a more general way of dealing with the flatness of \x0cC&amp;R Collins Charniak Current Head sister category X X X Head sister head word X X X Head sister head tag X X Prev. sister category X X X Prev. sister head word X Prev. sister head tag X Table 4: Linguistic features in the current model compared to the models of Carroll and Rooth (1998), Collins (1997), and Charniak (2000) Negra, based on Collinss (1997) model for nonrecursive NPs in the Penn Treebank (which are also flat). For non-recursive NPs, Collins (1997) does not use the probability function in (5), but instead substitutes Pr (and, by analogy, Pl) by: Pr(Ri,t(Ri),l(Ri)|P,Ri1,t(Ri1),l(Ri1),d(i)) (8) Here the head H is substituted by the sister Ri1 (and Li1). In the literature, the version of Pr in (5) is said to capture head-head relationships. We will refer to the alternative model in (8) as capturing sister-head relationships. Using sister-head relationships is a way of counteractin</context>
+<context position="31516" citStr="Collins, 1997" startWordPosition="5256" endWordPosition="5257">t using lexical sister-head dependencies for all categories leads to a larger improvement than using them only for NPs or PPs (see Table 5). This result was confirmed by a second series of experiments, where we reverted individual categories back to head-head dependencies, which triggered a decrease in performance for all categories, with the exception of NP, AP, and AVP (see Table 6). On the whole, the results of Experiment 2 are at odds with what is known about parsing for English. The progression in the probabilistic parsing literature has been to start with lexical head-head dependencies (Collins, 1997) and then add non-lexical sis2This result generalizes to Ss, which are also flat in Negra (see Section 2.2). We conducted an experiment in which we added an SBAR above the S. No increase in performance was obtained if the evaluation was carried using collapsed Ss. TnT tagging Perfect tagging LR LP LR LP PP 3.45 1.60 4.21 3.35 S 1.28 0.11 2.23 1.22 Coord 1.87 0.39 1.54 0.80 VP 0.72 0.18 0.58 0.30 AP 0.57 0.10 0.08 0.07 AVP 0.32 0.44 0.10 0.11 NP 0.06 0.78 0.15 0.02 Table 6: Change in performance when reverting to head-head statistics for individual categories ter information (Charniak, 2000), a</context>
+<context position="34497" citStr="Collins (1997)" startWordPosition="5753" endWordPosition="5754">e: (a) a hand-written grammar (instead of a treebank grammar) is used; (b) training is carried out on unannotated data; (c) the grammar and the training set cover only subordinate and relative clauses, not unrestricted text. Beil et al. (2002) report an evaluation using an NP chunking task, achieving 92% LR and LP. They also report the results of a task-based evaluation (extraction of sucategorization frames). There is some research on treebank-based parsing of languages other than English. The work by Collins et al. (1999) and Bikel and Chiang (2000) has demonstrated the applicability of the Collins (1997) model for Czech and Chinese. The performance reported by these authors is substantially lower than the one reported for English, which might be due to the fact that less training data is available for Czech and Chinese (see Table 1). This hypothesis cannot be tested, as the authors do not present learning curves for their models. However, the learning curve for Negra (see Figure 1) indicates that the performance of the Collins (1997) model is stable, even for small training sets. Collins et al. (1999) and Bikel and Chiang (2000) do not compare their models with an unlexicalized baseline; henc</context>
+</contexts>
+<marker>Collins, 1997</marker>
+<rawString>Collins, Michael. 1997. Three generative, lexicalised models for statistical parsing. In Proceedings of the 35th Annual Meeting of the Association for Computational Linguistics and the 8th Conference of the European Chapter of the Association for Computational Linguistics. Madrid.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+<author>Jan Hajic</author>
+<author>Lance Ramshaw</author>
+<author>Christoph Tillmann</author>
+</authors>
+<title>A statistical parser for Czech.</title>
+<date>1999</date>
+<booktitle>In Proceedings of the 37th Annual Meeting of the Association for Computational Linguistics.</booktitle>
+<location>College Park, MA.</location>
+<contexts>
+<context position="2345" citStr="Collins et al., 1999" startWordPosition="350" endWordPosition="353">from English, and the Negra annotation scheme differs in important respects from the Penn Treebank markup. While Negra has been used to build probabilistic chunkers (Becker and Frank, 2002; Skut and Brants, 1998), the research reported in this paper is the first attempt to develop a probabilistic full parsing model for German trained on a treebank (to our knowledge). Lexicalization can increase parsing performance dramatically for English (Carroll and Rooth, 1998; Charniak, 1997, 2000; Collins, 1997), and the lexicalized model proposed by Collins (1997) has been successfully applied to Czech (Collins et al., 1999) and Chinese (Bikel and Chiang, 2000). However, the resulting performance is significantly lower than the performance of the same model for English (see Table 1). Neither Collins et al. (1999) nor Bikel and Chiang (2000) compare the lexicalized model to an unlexicalized baseline model, leaving open the possibility that lexicalization is useful for English, but not for other languages. This paper is structured as follows. Section 2 reviews the syntactic properties of German, focusing on its semi-flexible wordorder. Section 3 describes two standard lexicalized models (Carroll and Rooth, 1998; Co</context>
+<context position="4457" citStr="Collins et al., 1999" startWordPosition="688" endWordPosition="691">ion 6), we argue (Section 7) that sister-head models are more appropriate for treebanks with very flat structures (such as Negra), typically used to annotate languages with semifree wordorder (such as German). 2 Parsing German 2.1 Syntactic Properties German exhibits a number of syntactic properties that distinguish it from English, the language that has been the focus of most research in parsing. Prominent among these properties is the semi-free \x0cLanguage Size LR LP Source English 40,000 87.4% 88.1% (Collins, 1997) Chinese 3,484 69.0% 74.8% (Bikel and Chiang, 2000) Czech 19,000 - 80.0% - (Collins et al., 1999) Table 1: Results for the Collins (1997) model for various languages (dependency precision for Czech) wordorder, i.e., German wordorder is fixed in some respects, but variable in others. Verb order is largely fixed: in subordinate clauses such as (1a), both the finite verb hat has and the non-finite verb komponiert composed are in sentence final position. (1) a. Weil because er er gestern yesterday Musik music komponiert composed hat. has Because he has composed music yesterday. b. Hat er gestern Musik komponiert? c. Er hat gestern Musik komponiert. In yes/no questions such as (1b), the finite</context>
+<context position="34412" citStr="Collins et al. (1999)" startWordPosition="5738" endWordPosition="5741">9, 2002). However, this approach differs in the number of ways from the results reported here: (a) a hand-written grammar (instead of a treebank grammar) is used; (b) training is carried out on unannotated data; (c) the grammar and the training set cover only subordinate and relative clauses, not unrestricted text. Beil et al. (2002) report an evaluation using an NP chunking task, achieving 92% LR and LP. They also report the results of a task-based evaluation (extraction of sucategorization frames). There is some research on treebank-based parsing of languages other than English. The work by Collins et al. (1999) and Bikel and Chiang (2000) has demonstrated the applicability of the Collins (1997) model for Czech and Chinese. The performance reported by these authors is substantially lower than the one reported for English, which might be due to the fact that less training data is available for Czech and Chinese (see Table 1). This hypothesis cannot be tested, as the authors do not present learning curves for their models. However, the learning curve for Negra (see Figure 1) indicates that the performance of the Collins (1997) model is stable, even for small training sets. Collins et al. (1999) and Bik</context>
+</contexts>
+<marker>Collins, Hajic, Ramshaw, Tillmann, 1999</marker>
+<rawString>Collins, Michael, Jan Hajic, Lance Ramshaw, and Christoph Tillmann. 1999. A statistical parser for Czech. In Proceedings of the 37th Annual Meeting of the Association for Computational Linguistics. College Park, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Daniel Gildea</author>
+</authors>
+<title>Corpus variation and parser performance.</title>
+<date>2001</date>
+<booktitle>In Proceedings of the Conference on Empirical Methods in Natural Language Processing.</booktitle>
+<location>Pittsburgh.</location>
+<contexts>
+<context position="33638" citStr="Gildea (2001)" startWordPosition="5613" endWordPosition="5614">a to train a maximum entropy-based chunker, and report LR and LP of 84.4% for NP and PP chunking. Using cascaded Markov models, Brants (2000) reports an improved performance on the same task (LR 84.4%, LP 88.3%). Becker and Frank (2002) train an unlexicalized PCFG on Negra to perform a different chunking task, viz., the identification of topological fields (sentence-based chunks). They report an LR and LP of 93%. The head-lexicalized model of Carroll and Rooth (1998) has been applied to German by Beil et al. 3It is unclear what effect bi-lexical statistics have on the sister-head model; while Gildea (2001) shows bi-lexical statistics are sparse for some grammars, Hockenmaier and Steedman (2002) found they play a greater role in binarized grammars. \x0c(1999, 2002). However, this approach differs in the number of ways from the results reported here: (a) a hand-written grammar (instead of a treebank grammar) is used; (b) training is carried out on unannotated data; (c) the grammar and the training set cover only subordinate and relative clauses, not unrestricted text. Beil et al. (2002) report an evaluation using an NP chunking task, achieving 92% LR and LP. They also report the results of a task</context>
+</contexts>
+<marker>Gildea, 2001</marker>
+<rawString>Gildea, Daniel. 2001. Corpus variation and parser performance. In Proceedings of the Conference on Empirical Methods in Natural Language Processing. Pittsburgh.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Julia Hockenmaier</author>
+<author>Mark Steedman</author>
+</authors>
+<title>Generative models for statistical parsing with combinatory categorial grammar.</title>
+<date>2002</date>
+<booktitle>In Proceedings of 40th Annual Meeting of the Association for Computational Linguistics.</booktitle>
+<location>Philadelphia.</location>
+<contexts>
+<context position="33728" citStr="Hockenmaier and Steedman (2002)" startWordPosition="5624" endWordPosition="5627">% for NP and PP chunking. Using cascaded Markov models, Brants (2000) reports an improved performance on the same task (LR 84.4%, LP 88.3%). Becker and Frank (2002) train an unlexicalized PCFG on Negra to perform a different chunking task, viz., the identification of topological fields (sentence-based chunks). They report an LR and LP of 93%. The head-lexicalized model of Carroll and Rooth (1998) has been applied to German by Beil et al. 3It is unclear what effect bi-lexical statistics have on the sister-head model; while Gildea (2001) shows bi-lexical statistics are sparse for some grammars, Hockenmaier and Steedman (2002) found they play a greater role in binarized grammars. \x0c(1999, 2002). However, this approach differs in the number of ways from the results reported here: (a) a hand-written grammar (instead of a treebank grammar) is used; (b) training is carried out on unannotated data; (c) the grammar and the training set cover only subordinate and relative clauses, not unrestricted text. Beil et al. (2002) report an evaluation using an NP chunking task, achieving 92% LR and LP. They also report the results of a task-based evaluation (extraction of sucategorization frames). There is some research on treeb</context>
+</contexts>
+<marker>Hockenmaier, Steedman, 2002</marker>
+<rawString>Hockenmaier, Julia and Mark Steedman. 2002. Generative models for statistical parsing with combinatory categorial grammar. In Proceedings of 40th Annual Meeting of the Association for Computational Linguistics. Philadelphia.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mitchell P Marcus</author>
+<author>Beatrice Santorini</author>
+<author>Mary Ann Marcinkiewicz</author>
+</authors>
+<title>Building a large annotated corpus of English: The Penn Treebank.</title>
+<date>1993</date>
+<journal>Computational Linguistics</journal>
+<volume>19</volume>
+<issue>2</issue>
+<contexts>
+<context position="1345" citStr="Marcus et al., 1993" startWordPosition="193" endWordPosition="196">cies instead of head-head dependencies. This model outperforms the baseline, achieving a labeled precision and recall of up to 74%. This indicates that sister-head dependencies are more appropriate for treebanks with very flat structures such as Negra. 1 Introduction Treebank-based probabilistic parsing has been the subject of intensive research over the past few years, resulting in parsing models that achieve both broad coverage and high parsing accuracy (e.g., Collins 1997; Charniak 2000). However, most of the existing models have been developed for English and trained on the Penn Treebank (Marcus et al., 1993), which raises the question whether these models generalize to other languages, and to annotation schemes that differ from the Penn Treebank markup. The present paper addresses this question by proposing a probabilistic parsing model trained on Negra (Skut et al., 1997), a syntactically annotated corpus for German. German has a number of syntactic properties that set it apart from English, and the Negra annotation scheme differs in important respects from the Penn Treebank markup. While Negra has been used to build probabilistic chunkers (Becker and Frank, 2002; Skut and Brants, 1998), the res</context>
+<context position="6519" citStr="Marcus et al., 1993" startWordPosition="1032" endWordPosition="1035">poniert . c. Komponiert hat er gestern Musik. The semi-free wordorder in German means that a context-free grammar model has to contain more rules than for a fixed wordorder language. For transitive verbs, for instance, we need the rules S V NP NP, S NP V NP, and S NP NP V to account for verb initial, verb second, and verb final order (assuming a flat S, see Section 2.2). 2.2 Negra Annotation Scheme The Negra corpus consists of around 350,000 words of German newspaper text (20,602 sentences). The annotation scheme (Skut et al., 1997) is modeled to a certain extent on that of the Penn Treebank (Marcus et al., 1993), with crucial differences. Most importantly, Negra follows the dependency grammar tradition in assuming flat syntactic representations: (a) There is no S NP VP rule. Rather, the subject, the verb, and its objects are all sisters of each other, dominated by an S node. This is a way of accounting for the semi-free wordorder of German (see Section 2.1): the first NP within an S need not be the subject. (b) There is no SBAR Comp S rule. Main clauses, subordinate clauses, and relative clauses all share the category S in Negra; complementizers and relative pronouns are simply sisters of the verb. (</context>
+</contexts>
+<marker>Marcus, Santorini, Marcinkiewicz, 1993</marker>
+<rawString>Marcus, Mitchell P., Beatrice Santorini, and Mary Ann Marcinkiewicz. 1993. Building a large annotated corpus of English: The Penn Treebank. Computational Linguistics 19(2).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Helmut Schmid</author>
+</authors>
+<title>LoPar: Design and implementation.</title>
+<date>2000</date>
+<institution>Ms., Institute for Computational Linguistics, University of Stuttgart.</institution>
+<contexts>
+<context position="13262" citStr="Schmid, 2000" startWordPosition="2154" endWordPosition="2155">rst 1,000 served as the test set, and the last 1000 as the development set. To increase parsing efficiency, we removed all sentences with more than 40 words. This resulted in a test set of 968 sentences and a development set of 975 sentences. Early versions of the models were tested on the development set, and the test set remained unseen until all parameters were fixed. The final results reported this paper were obtained on the test set, unless stated otherwise. Grammar Induction For the unlexicalized PCFG model (henceforth baseline model), we used the probabilistic left-corner parser Lopar (Schmid, 2000). When run in unlexicalized mode, Lopar implements the model described in Section 3.1. A grammar and a lexicon for Lopar were read off the Negra training set, after removing all grammatical function labels. As Lopar cannot handle traces, these were also removed from the training data. The head-lexicalized model of Carroll and Rooth (1998) (henceforth C&amp;R model) was again realized using Lopar, which in lexicalized mode implements the model in Section 3.2. Lexicalization requires that each rule in a grammar has one of the categories on its righthand side annotated as the head. For the categories</context>
+<context position="14763" citStr="Schmid (2000)" startWordPosition="2396" endWordPosition="2397">uthors. For training, empty categories were removed from the training data, as the model cannot handle them. The same head finding strategy was applied as for the C&amp;R model. In this experiment, only head-head statistics were used (see (5)). The original Collins model uses sister-head statistics for non-recursive NPs. This will be discussed in detail in Section 5. Training and Testing For all three models, the model parameters were estimated using maximum likelihood estimation. Both Lopar and the Collins model use various backoff distributions to smooth the estimates. The reader is referred to Schmid (2000) and Collins (1997) for details. For the C&amp;R model, we used a cutoff of one for rule frequencies Prule and lexical choice frequencies Pchoice (the cutoff value was optimized on the development set). We also tested variants of the baseline model and the C&amp;R model that include grammatical function information, as we hypothesized that this information might help the model to handle wordorder variation more adequately, as explained above. Finally, we tested variant of the C&amp;R model that uses Lopars parameter pooling feature. This feature makes it possible to collapse the lexical choice distributio</context>
+</contexts>
+<marker>Schmid, 2000</marker>
+<rawString>Schmid, Helmut. 2000. LoPar: Design and implementation. Ms., Institute for Computational Linguistics, University of Stuttgart.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Wojciech Skut</author>
+<author>Thorsten Brants</author>
+</authors>
+<title>A maximum-entropy partial parser for unrestricted text.</title>
+<date>1998</date>
+<booktitle>In Proceedings of the 6th Workshop on Very Large Corpora.</booktitle>
+<location>Montreal.</location>
+<contexts>
+<context position="1936" citStr="Skut and Brants, 1998" startWordPosition="287" endWordPosition="290"> Treebank (Marcus et al., 1993), which raises the question whether these models generalize to other languages, and to annotation schemes that differ from the Penn Treebank markup. The present paper addresses this question by proposing a probabilistic parsing model trained on Negra (Skut et al., 1997), a syntactically annotated corpus for German. German has a number of syntactic properties that set it apart from English, and the Negra annotation scheme differs in important respects from the Penn Treebank markup. While Negra has been used to build probabilistic chunkers (Becker and Frank, 2002; Skut and Brants, 1998), the research reported in this paper is the first attempt to develop a probabilistic full parsing model for German trained on a treebank (to our knowledge). Lexicalization can increase parsing performance dramatically for English (Carroll and Rooth, 1998; Charniak, 1997, 2000; Collins, 1997), and the lexicalized model proposed by Collins (1997) has been successfully applied to Czech (Collins et al., 1999) and Chinese (Bikel and Chiang, 2000). However, the resulting performance is significantly lower than the performance of the same model for English (see Table 1). Neither Collins et al. (1999</context>
+<context position="33015" citStr="Skut and Brants (1998)" startWordPosition="5506" endWordPosition="5509">an lexical head-head information. Only a model that replaced lexical head-head with lexical sister-head dependencies was able to outperform a baseline model that uses no lexicalization.3 Based on the error analysis for Experiment 1, we claim that the reason for the success of the sister-head model is the fact that the rules in Negra are so flat; using a sister-head model is a way of binarizing the rules. 6 Comparison with Previous Work There are currently no probabilistic, treebanktrained parsers available for German (to our knowledge). A number of chunking models have been proposed, however. Skut and Brants (1998) used Negra to train a maximum entropy-based chunker, and report LR and LP of 84.4% for NP and PP chunking. Using cascaded Markov models, Brants (2000) reports an improved performance on the same task (LR 84.4%, LP 88.3%). Becker and Frank (2002) train an unlexicalized PCFG on Negra to perform a different chunking task, viz., the identification of topological fields (sentence-based chunks). They report an LR and LP of 93%. The head-lexicalized model of Carroll and Rooth (1998) has been applied to German by Beil et al. 3It is unclear what effect bi-lexical statistics have on the sister-head mod</context>
+</contexts>
+<marker>Skut, Brants, 1998</marker>
+<rawString>Skut, Wojciech and Thorsten Brants. 1998. A maximum-entropy partial parser for unrestricted text. In Proceedings of the 6th Workshop on Very Large Corpora. Montreal.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Wojciech Skut</author>
+<author>Brigitte Krenn</author>
+<author>Thorsten Brants</author>
+<author>Hans Uszkoreit</author>
+</authors>
+<title>An annotation scheme for free word order languages.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the 5th Conference on Applied Natural Language Processing.</booktitle>
+<location>Washington, DC.</location>
+<contexts>
+<context position="1615" citStr="Skut et al., 1997" startWordPosition="234" endWordPosition="237">bank-based probabilistic parsing has been the subject of intensive research over the past few years, resulting in parsing models that achieve both broad coverage and high parsing accuracy (e.g., Collins 1997; Charniak 2000). However, most of the existing models have been developed for English and trained on the Penn Treebank (Marcus et al., 1993), which raises the question whether these models generalize to other languages, and to annotation schemes that differ from the Penn Treebank markup. The present paper addresses this question by proposing a probabilistic parsing model trained on Negra (Skut et al., 1997), a syntactically annotated corpus for German. German has a number of syntactic properties that set it apart from English, and the Negra annotation scheme differs in important respects from the Penn Treebank markup. While Negra has been used to build probabilistic chunkers (Becker and Frank, 2002; Skut and Brants, 1998), the research reported in this paper is the first attempt to develop a probabilistic full parsing model for German trained on a treebank (to our knowledge). Lexicalization can increase parsing performance dramatically for English (Carroll and Rooth, 1998; Charniak, 1997, 2000; </context>
+<context position="6437" citStr="Skut et al., 1997" startWordPosition="1016" endWordPosition="1019">ed in (2c)). (2) a. Musik hat er gestern komponiert. b. Gestern hat er Musik komponiert . c. Komponiert hat er gestern Musik. The semi-free wordorder in German means that a context-free grammar model has to contain more rules than for a fixed wordorder language. For transitive verbs, for instance, we need the rules S V NP NP, S NP V NP, and S NP NP V to account for verb initial, verb second, and verb final order (assuming a flat S, see Section 2.2). 2.2 Negra Annotation Scheme The Negra corpus consists of around 350,000 words of German newspaper text (20,602 sentences). The annotation scheme (Skut et al., 1997) is modeled to a certain extent on that of the Penn Treebank (Marcus et al., 1993), with crucial differences. Most importantly, Negra follows the dependency grammar tradition in assuming flat syntactic representations: (a) There is no S NP VP rule. Rather, the subject, the verb, and its objects are all sisters of each other, dominated by an S node. This is a way of accounting for the semi-free wordorder of German (see Section 2.1): the first NP within an S need not be the subject. (b) There is no SBAR Comp S rule. Main clauses, subordinate clauses, and relative clauses all share the category S</context>
+</contexts>
+<marker>Skut, Krenn, Brants, Uszkoreit, 1997</marker>
+<rawString>Skut, Wojciech, Brigitte Krenn, Thorsten Brants, and Hans Uszkoreit. 1997. An annotation scheme for free word order languages. In Proceedings of the 5th Conference on Applied Natural Language Processing. Washington, DC.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hans Uszkoreit</author>
+</authors>
+<title>Word Order and Constituent Structure in German.</title>
+<date>1987</date>
+<publisher>CSLI Publications,</publisher>
+<location>Stanford, CA. \x0c&amp;apos;</location>
+<contexts>
+<context position="5563" citStr="Uszkoreit 1987" startWordPosition="864" endWordPosition="866">er gestern Musik komponiert? c. Er hat gestern Musik komponiert. In yes/no questions such as (1b), the finite verb is sentence initial, while the non-finite verb is sentence final. In declarative main clauses (see (1c)), on the other hand, the finite verb is in second position (i.e., preceded by exactly one constituent), while the non-finite verb is final. While verb order is fixed in German, the order of complements and adjuncts is variable, and influenced by a variety of syntactic and non-syntactic factors, including pronominalization, information structure, definiteness, and animacy (e.g., Uszkoreit 1987). The first position in a declarative sentence, for example, can be occupied by various constituents, including the subject (er he in (1c)), the object (Musik music in (2a)), an adjunct (gestern yesterday in (2b)), or the non-finite verb (komponiert composed in (2c)). (2) a. Musik hat er gestern komponiert. b. Gestern hat er Musik komponiert . c. Komponiert hat er gestern Musik. The semi-free wordorder in German means that a context-free grammar model has to contain more rules than for a fixed wordorder language. For transitive verbs, for instance, we need the rules S V NP NP, S NP V NP, and S</context>
+</contexts>
+<marker>Uszkoreit, 1987</marker>
+<rawString>Uszkoreit, Hans. 1987. Word Order and Constituent Structure in German. CSLI Publications, Stanford, CA. \x0c&amp;apos;</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

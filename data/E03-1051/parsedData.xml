@@ -1,0 +1,1282 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<title confidence="0.3131625">
+b&apos;Learning PP attachment for filtering prosodic phrasing
+Olga van Herwijnen and Jacques Terken
+</title>
+<author confidence="0.715562">
+Technology Management
+</author>
+<affiliation confidence="0.965977">
+Eindhoven University of Technology
+</affiliation>
+<address confidence="0.772658">
+P.O. Box 513, NL-5600 MB Eindhoven
+</address>
+<figure confidence="0.574986333333333">
+The Netherlands
+10.M.v.Herwiinen,J.M.B.TerkenPtue.n1
+Antal van den Bosch and ErwinNIarsi
+</figure>
+<figureCaption confidence="0.698218">
+ILK/Comp. Ling. and AT
+</figureCaption>
+<affiliation confidence="0.948437">
+Tilburg University
+</affiliation>
+<address confidence="0.42605">
+P.O. Box90153,NL-5000LETilburg
+The Netherlands
+</address>
+<email confidence="0.925165">
+{A.vdnBosch,E.Marsi}@uvt.nl
+</email>
+<sectionHeader confidence="0.982514" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.99961628">
+We explore learning prepositional-
+phrase attachment in Dutch, to use it
+as a filter in prosodic phrasing. From a
+syntactic treebank of spoken Dutch we
+extract instances of the attachment of
+prepositional phrases to either a govern-
+ing verb or noun. Using cross-validated
+parameter and feature selection, we
+train two learning algorithms, TB I and
+RIPPER, 011 making this distinction,
+based on unigram and bigram lexical
+features and a cooccurrence feature de-
+rived from WWW counts. We optimize
+the learning on noun attachment, since
+in a second stage we use the attachment
+decision for blocking the incorrect
+placement of phrase boundaries before
+prepositional phrases attached to the
+preceding noun. On noun attachment,
+IB 1 attains an F-score of 82; RIPPER
+an F-score of 78. When used as a filter
+for prosodic phrasing, using attachment
+decisions from IB 1 yields the best im-
+provement on precision (by six points
+to 71) on phrase boundary placement.
+</bodyText>
+<sectionHeader confidence="0.99831" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.99815258974359">
+One of the factors determining the acceptabil-
+ity of synthetic speech is the appropriate place-
+ment of phrase boundaries, realized typically and
+most audibly by pauses (Sanderman, 1996). In-
+correct prosodic phrasing may impede the listener
+in the correct understanding of the spoken utter-
+ance (Sanderman and Collier, 1997). A major
+factor causing difficulties in appropriate phrase
+boundary placement is the lack of reliable infor-
+mation about syntactic structure. Even if there
+is no one-to-one mapping between syntax and
+prosody, the placement of prosodic phrase bound-
+aries is nevertheless dependent on syntactic in-
+formation (Selkirk, 1984; Bear and Price, 1990;
+van Herwijnen and Terken, 2001b). To cope with
+this lack of syntactic information that a speech
+synthesis developer may face currently, e.g. in the
+absence of a reliable parser, several strategies have
+been applied to allocate phrase boundaries. One
+strategy is to allocate phrase boundaries on the ba-
+sis of punctuation only. In general, however, this
+results in too few phrase boundaries (and some in-
+correct ones, e.g. in enumerations).
+A clear example of information about syntactic
+structure being useful for placing phrase bound-
+aries is the attachment of prepositional phrases
+(PPs). When a PP is attached to the preceding
+NP or PP (henceforth referred to as noun attach-
+ment), such as in the structure ... eats pizza with
+anchovies, a phrase boundary between pizza and
+with is usually considered inappropriate. How-
+ever, when a PP is attached to the verb in the clause
+(verb attachment), as in the structure ... eats pizza
+with a fork, an intervening phrase boundary be-
+tween the PP and its preceding NP or PP (between
+pizza and with) is optional, and when placed, usu-
+ally judged appropriate (Marsi et al., 1997).
+Deciding about noun versus verb attachment of
+PPs is a known hard task in parsing, since it is un-
+</bodyText>
+<page confidence="0.997694">
+139
+</page>
+<bodyText confidence="0.999203677966102">
+\x0cderstood to involve knowing lexical preferences,
+verb subcategorization, fixed phrases, but also se-
+mantic and pragmatic &amp;quot;world&amp;quot; knowledge. A typ-
+ical current parser (e.g., statistical parsers such
+as (Collins, 1996; Ratnaparkhi, 1997; Charniak,
+2000)) interleaves PP attachment with all its other
+disambiguation tasks. However, because of its in-
+teresting complexity, a line of work has concen-
+trated on studying the task in isolation (Hindle and
+Rooth, 1993; Ratnaparkhi et al., 1994; Brill and
+Resnik, 1994; Collins and Brooks, 1995; Franz,
+1996; Zavrel et al., 1997). Our study can be seen
+as following these lines of isolation studies, pursu-
+ing the same process for another language, Dutch.
+At present there are no parsers available for Dutch
+that disambiguate PP attachment, which leaves the
+comparison between PP attachment as an embed-
+ded subtask of a full parser with our approach as
+future work.
+In line with these earlier studies, we assume that
+at least two sources of information should be used
+as features in training data: (i) lexical features
+(e.g. unigrams and bigrams of head words), and
+(ii) word cooccurrence strength values (the proba-
+bility that two words occur together, within some
+defined vicinity). Lexical features may be infor-
+mative when certain individual words or bigrams
+frequently, or exclusively, occur with either noun
+or verb attachment. This may hold for preposi-
+tions, but also heads of the involved phrases, as
+well as for combinations of these words. Cooccur-
+rence strength values may provide additional clues
+to informational ties among words; when we in-
+vestigate the cooccurrences of nouns and preposi-
+tions, and of verbs and prepositions, the cooccur-
+rence strength value could also indicate whether
+the prepositional phrase is attached to the noun or
+to the verb in the syntactic tree.
+In this study, we use two machine learning
+algorithms to perform PP attachment. In line
+with the case study for English introduced in
+Ratnaparkhi et al. (1994), we collect a training set
+of Dutch PP attachment instances from a syntac-
+tic treebank. Collection of this data is described in
+Section 2. We extract lexical head features (uni-
+gram and bigram) from the treebank occurrences,
+and enrich this data with cooccurrence informa-
+tion extracted from the WWW (Section 3). Using
+the same features, we analogously build a held-out
+test corpus for which prosodic labeling is avail-
+able. The setup of the machine learning experi-
+ments, involving automatic parameter and feature
+selection, is described in Section 4. We give the
+results of the cross-validation experiments on the
+original data and on the held-out data in Section 5.
+Employing the learned PP attachment modules for
+filtering phrase break placement is discussed in
+Section 6, where we test on the held-out written
+text corpus. We discuss our findings in Section 7.
+</bodyText>
+<sectionHeader confidence="0.919019" genericHeader="method">
+2 Selection of material
+</sectionHeader>
+<bodyText confidence="0.991287793103448">
+From the Corpus Gesproken Nederlands (CGN,
+Spoken Dutch Corpus)\&apos;, development release 5,
+we manually selected 1004 phrases that contain
+[NP PP] or [PP PP] sequences. Annotated accord-
+ing to protocol (van der Wouden et al., 2002), all
+PPs have been classified into noun or verb attach-
+ment. This classification yields 398 phrases (40%)
+with a verb-attached PP and 606 phrases (60%)
+with a noun-attached PP.
+Additionally, as held-out corpus for testing the
+efficacy of PP attachment information for prosodic
+phrasing, we selected 157 sentences from vari-
+ous newspaper articles and e-mail messages. We
+selected this corpus because part of it had been
+annotated earlier on prosodic phrasing through
+a consensus transcription of ten phonetic ex-
+perts (van Herwijnen and Terken, 2001a). All
+selected 157 sentences contain either [NP PP]
+or [PP PP] sequences. To obtain a &amp;quot;gold stan-
+dard&amp;quot; we manually classified all PPs into NOUN
+and VERB attachment, according to the &amp;quot;single
+constituent test&amp;quot; (Paardekooper, 1977). This test
+states that every string of words that can be placed
+at the start of a finite main clause, forms a sin-
+gle constituent. Thus, if and only if a [NP PP] or
+[PP PP] sequence can be fronted, it forms a single
+NP containing a noun-attached PP. This classifica-
+tion resulted in 66 phrases with a verb-attached PP
+and 91 phrases with a noun-attached PP.
+</bodyText>
+<footnote confidence="0.7200695">
+1 The Spoken Dutch Corpus is a database of contem-
+porary Dutch as spoken by adults in the Netherlands
+and Flanders. The project is funded by the Flem-
+ish and Dutch governments and the Netherlands Orga-
+nization for Scientific Research NWO. Its homepage is
+http://lands.let.kun.nl/cgn/ehome.htm.
+</footnote>
+<page confidence="0.985636">
+140
+</page>
+<sectionHeader confidence="0.28551" genericHeader="method">
+\x0c3 Feature engineering
+</sectionHeader>
+<subsectionHeader confidence="0.995923">
+3.1 Lexical features
+</subsectionHeader>
+<bodyText confidence="0.985970857142857">
+Analogous to Ratnaparkhi et al. (1994), we (man-
+ually) selected the four lexical heads of the phrases
+involved in the attachment as features. We used
+the manually annotated phrasing and function la-
+belling to determine the heads of all involved
+phrases. First, the noun of the preceding NP or PP
+that the focus PP might be attached to (Ni); sec-
+ond, the preposition (P) of the PP to be attached;
+third, the verbal head (V) of the clause that the
+PP is in; and fourth, the noun head of the PP to
+be attached. For example, the Dutch sequence ...
+[PP met Duits] [PP om de oren] [VP slaan] (blow
+someone up over German), Ni is Duits, P is om,
+V is slaan, and N2 is oren. In the fixed expression
+om de oren slaan, om de oren attaches to slaan.
+Subsequently, we added all combinations of two
+heads as features2 . There are six possible combi-
+nations of the four heads: N1-P, N1-V, .... The
+example construction is thus stored in the data set
+as the following comma-separated 10-feature in-
+stance labelled with the VERB attachment class:
+</bodyText>
+<construct confidence="0.763261666666667">
+Dults, om, slaan, oren, Dults-om,
+Duits-slaan, Duits-oren, om-slaan,
+om-oren, slaan-oren, VERB
+</construct>
+<subsectionHeader confidence="0.991461">
+3.2 Cooccurrence strength values
+</subsectionHeader>
+<bodyText confidence="0.99148262745098">
+Several metrics are available that estimate to what
+extent words or phrases belong together informa-
+tionally. Well known examples of such cooc-
+currence strength metrics are mutual informa-
+tion (Church and Hanks, 1991), chi-square and
+log likelihood (Dunning, 1993). Cooccurrence
+strength values are typically estimated from a very
+large corpus. Often, these corpora are static and
+do not contain neologisms and names from later
+periods. In this paper, we explore an alternative
+by estimating cooccurrence strength values from
+the WWW. The WWW can be seen as a dynamic
+corpus: it contains new words that are not yet in-
+corporated in other (static) corpora. Another ad-
+vantage of using the WWW as a corpus is that
+it is the largest freely and electronically accessi-
+ble corpus (for most languages including Dutch).
+Consequently, frequency counts obtained from the
+=Note that Ratnaparkhi et al. (1994) allow all combina-
+tions of one to four heads as features.
+WWW are likely to be much more robust than
+those obtained from smaller corpora. If cooc-
+currences correlate with PP attachment, then the
+WWW could be an interesting robust background
+source of information. Recently, this reasoning
+was introduced in (Volk, 2000), a study in which
+the WWW was used to resolve PP attachment.
+Following this, the second step in engineering our
+feature set was to add cooccurrence strength val-
+ues for Dutch words extracted from the WWW.
+We explored three methods in which the cooc-
+currence strength value was used to decide be-
+tween noun or verb attachment for all 1004
+phrases from the CGN. The first method is a
+replication of the study by Volk (2000). In this
+study cooccurrence strength values were com-
+puted for the verb within close vicinity of the
+preposition Cooc(VnearP) and for the noun within
+close vicinity of the preposition Cooc(NnearP).
+Second, we investigated the method in which only
+Cooc(NnearP) is used. Third, we tested a variant
+on the second method by computing the cooccur-
+rence strength value of a noun immediately suc-
+ceeded by a preposition Cooc(N P), because there
+cannot be a word in between. The general formula
+for computing the cooccurrence strength value3 of
+two terms is given by function (1) as proposed
+by Volk (2000). This method is based on the re-
+spective frequency of X and the joint frequency
+of X with a given preposition; where P stands for
+Preposition and X can be either a Noun or a Verb.
+</bodyText>
+<equation confidence="0.99812">
+req(X P)
+cooc(X P) =
+</equation>
+<bodyText confidence="0.929458357142857">
+We restricted the search to documents which
+were automatically identified as being written
+in Dutch by Altavista. For the Cooc(VnearP)
+and Cooc(NnearP) we used the advanced search
+function NEAR of the WWW search engine Al-
+tavista (Altavista, 2002). This function restricts
+the search to the appearance of two designated
+words at a maximal distance of 10 words, which
+is the default. The search is performed for both
+possible orders of appearance of the two desig-
+3The notion cooccurrence strength value could also be
+referred to as relative frequency estimate of the conditional
+probability that a preposition co-occurs with a certain noun
+or verb.
+</bodyText>
+<equation confidence="0.657275">
+f req(X)
+</equation>
+<page confidence="0.977609">
+141
+</page>
+<tableCaption confidence="0.765331">
+\x0cTable 1: Peiformance on PP attachment based on three variants of cooccurrence values.
+</tableCaption>
+<table confidence="0.960279888888889">
+accuracy
+NOUN attachment
+precision\t recall\t Fo=1
+VERB attachment
+precision\t recall\t Ff3=1
+NnearP or VnearP 62 71 62 66 51 61 56
+NnearP 64 75 61 67 54 71 61
+NP 67 84 54 65 55 87 67
+baseline 60 60 100 75 - 0 -
+</table>
+<bodyText confidence="0.97837272">
+nated words. For the Cooc(N P) we used the
+search function to search for exact multi-word
+phrases: &amp;quot; &amp;lt;noun&amp;gt; &amp;lt;prep&amp;gt; &amp;quot; . This function re-
+stricts the search to the appearance of the two ad-
+jacent words in the indicated order. The number of
+found documents according to these search meth-
+ods was used for freq(X P). The freq(X) was de-
+rived from the WWW by performing a separate
+search for the single word form.
+Method I: cooccurrence NnearP or VnearP
+Volk (2000) assumes that the higher value of
+Cooc(VnearP) and Cooc(NnearP) decides the at-
+tachment. According to this assumption we say
+that if Cooc(VnearP) is the higher value, the PP
+attaches to the verb. If Cooc(NnearP) is the higher
+value, the PP attaches to the noun. When only
+Cooc(NnearP) was available (because the phrase
+did not contain a verb), the decision for noun
+or verb attachment was based on comparison of
+Cooc(NnearP) with a threshold of 0.5 (cooccur-
+rence strength values are between 0.00 and 1.00).
+This is the threshold used by Volk (2000).
+For the 1004 phrases derived from the CGN we
+computed the accuracy (the percentage of correct
+attachment decisions), and precision, recall, and
+</bodyText>
+<equation confidence="0.691365">
+F-score4 with t3 = 1 (van Rijsbergen, 1979),
+</equation>
+<bodyText confidence="0.9957808">
+for both noun and verb attachment. The respec-
+tive values are given in Table 1. A baseline was
+computed, which gives the performance measures
+when noun attachment was predicted for all 1004
+phrases.
+Method II: cooccurrence NnearP Alterna-
+tively, we can base the decision between noun and
+verb attachment on Cooc(NnearP) only, compar-
+ing the cooccurrence strength value to a thresh-
+old. The cooccurrence strength values we found
+</bodyText>
+<equation confidence="0.87551125">
+4Ffi
+_
+(02 +1) Trecision. recall
+02 Trecision+recall
+</equation>
+<bodyText confidence="0.996730054054054">
+according to this method range from very high
+to very low (1.00 - 0.00) and differ significantly
+for noun and verb attachment (t=-11.65, p&amp;lt;0.001,
+df=1002).
+By computing the performance measures for
+several thresholds, using 10-fold cross valida-
+tion, we determined that the optimal cooccurrence
+threshold should be 0.36 for optimization on noun
+attachment. Cooccurrence strength values higher
+than the threshold predict that the PP is attached
+to the noun. The performance measures obtained
+with this method are also given in Table 1.
+Method III: cooccurrence N P To simplify
+Method II further, we use Cooc(N P) instead of
+Cooc(NnearP) to decide between noun and verb
+attachment, comparing the cooccurrence strength
+value to a threshold. The cooccurrence strength
+values we found according to this approach range
+from very high to very low (0.99 - 0.00) and dif-
+fer significantly for noun and verb attachment (t,-
+12.43, p&amp;lt;0.001, df=1002).
+By computing the performance measures for
+several thresholds, using 10-fold cross valida-
+tion, we determined that the optimal cooccurrence
+threshold should be 0.07. The performance mea-
+sures obtained with this method are also given
+in Table 1.
+Preferred method Table 1 shows that
+Method III has the best accuracy on PP at-
+tachment. Although it is not the best in all
+respects, we prefer this method, because it uses
+cooccurrence strength values for adjacent nouns
+and prepositions in the order in which they appear
+in the text (see 3.2), this in analogy with the fact
+that order is meaningful in PP attachment.
+Thus, we added the Cooc(N P) feature as the
+eleventh feature to our data sets for both corpora.
+</bodyText>
+<page confidence="0.976612">
+142
+</page>
+<table confidence="0.497387909090909">
+\x0cTable 2: Peiformance measures on PP attachment in the CGN material by RIPPER and IB 1.
+accuracy
+NOUN attachment
+precision\t recall\t Fo=1
+VERB attachment
+precision\t recall\t Fo=1
+RIPPER (- bigrams) 75 83 75 78 66 78 71
+RIPPER (+ bigrams) 72 78 74 76 64 70 67
+IB 1 (- bigrams) 78 81 83 82 73 69 71
+IB 1 (+ bigrams) 75 79 81 80 69 67 68
+baseline 60 60 100 75 - 0 -
+</table>
+<sectionHeader confidence="0.648887" genericHeader="method">
+4 Machine learning experiments
+</sectionHeader>
+<bodyText confidence="0.999104">
+We choose to use two machine learning algo-
+rithms in our study: rule induction as imple-
+mented in RIPPER (Cohen, 1995) (version 1, re-
+lease 2.4) and memory-based learning IB 1 (Aha et
+al., 1991; Daelemans et al., 1999), as implemented
+in the TiMBL software package (Daelemans et al.,
+2002). Rule induction is an instance of &amp;quot;eager&amp;quot;
+learning, where effort is invested in searching for a
+minimal-description-length rule set that covers the
+classifications in the training data. The rule set can
+then be used for classifying new instances of the
+same task. Memory-based learning, in contrast, is
+&amp;quot;lazy&amp;quot;; learning is merely the storage of learning
+examples in memory, while the effort is deferred
+to the classification of new material, which in IB 1
+essentially follows the k-nearest neighbor classi-
+fication rule (Cover and Hart, 1967) of searching
+for nearest neighbors in memory, and extrapolat-
+ing their (majority) class to the new instance.
+A central issue in the application of machine
+learning is the setting of algorithmic parameters;
+both RIPPER and IBI feature several parameters
+of which the values can seriously affect the bias
+and result of learning. Also, which parameters are
+optimal interacts with which features are selected
+and how much data is available. Few reliable rules
+of thumb are available for setting parameters. To
+estimate appropriate settings, a big search space
+needs to be sought through in some way, after
+which one can only hope that the estimated best
+parameter setting is also good for the test material
+it might be overfitted on the training material.
+Fortunately, we were able to do a semi-
+exhaustive search (testing a selection of sensible
+numeric values where in principle there is an in-
+finite number of settings), since the CGN data set
+is small (1004 instances). For IB 1, we varied the
+following parameters systematically in all combi-
+nations:
+the k in the k-nearest neighbor classification rule: 1, 3,
+5, 7, 9, 11, 13, 15, 25, and 45
+the type of feature weighting: none, gain ratio, infor-
+mation gain, chi-squared, shared variance
+the similarity metric: overlap, or MVDM with back-off
+to overlap at levels 1 (no backoff), 2, and 10
+the type of distance weighting: none, inverse distance,
+inverse linear distance, and exponential decay with
+a = 1.0 and a = 2.0
+For RIPPER we varied the following parameters:
+the minimal number of instances to be covered by rules:
+1, 2, 5, 10, 25, 50
+the class order for which rules are induced: increasing
+and decreasing frequency
+allowing negation in nominal tests or not
+the number of rule set optimization steps: 0, 1, 2
+We performed the full matrix of all combina-
+tions of these parameters for both algorithms in a
+nested 10-fold cross-validation experiment. First,
+the original data set was split in ten partitions of
+90% training material and 10% test material. Sec-
+ond, nested 10-fold cross-validation experiments
+were performed on each 90% data set, splitting it
+again ten times. To each of these 10 x 10 exper-
+iments all parameter variants were applied. Per
+main fold, a nested cross-validation average per-
+formance was computed; the setting with the av-
+erage highest F-score on noun attachment is then
+applied to the full 90% training set, and tested on
+the 10% test set. As a systematic extra variant, we
+performed both the RIPPER and IB 1 experiments
+with and without the six bigram features (men-
+tioned in 3.1).
+</bodyText>
+<page confidence="0.999496">
+143
+</page>
+<tableCaption confidence="0.803636">
+\x0cTable 3: Petformance on PP attachment in newspaper and e-mail material by RIPPER and IB 1.
+</tableCaption>
+<table confidence="0.938435333333333">
+accuracy
+Noun attachment
+precision\t recall\t Ff3=1
+Verb attachment
+precision\t recall\t F8=1
+RIPPER (-1+ bigrams) 74 80 74 77 67 74 71
+IB 1 (- bigrams) 71 72 82 77 70 56 62
+IB 1 (+ bigrams) 70 72 80 76 67 56 61
+baseline 58 58 100 73 0
+</table>
+<sectionHeader confidence="0.998067" genericHeader="evaluation">
+5 Results
+</sectionHeader>
+<bodyText confidence="0.98105">
+Internal results: Spoken Dutch Corpus data
+Table 2 lists the performance measures produced
+by RIPPER and IB1 on the CGN data. For both
+algorithms it proved a disadvantage to have the
+bigram features; both attain higher F-scores on
+noun attachment without them. IB1 produces the
+highest F-score, 82, which is significantly higher
+than the F-score of RIPPER without bigrams, 78
+(t=2.78, p&amp;lt;0.05, df=19).
+For RIPPER, the best overall cross-validated pa-
+rameter setting is to allow a minimum of ten cases
+to be covered by a rule, induce rules on the most
+frequent class first (noun attachment), allow nega-
+tion (which is, however, not used effectively), and
+run one optimization round. The most common
+best rule set (also when including bigram features)
+is the following:
+</bodyText>
+<listItem confidence="0.9475972">
+1. if P = van then NOUN
+2. if cooc(N P) &amp;gt; 0.0812 then NOUN
+3. if P = voor then NOUN
+4. if there is no verb then NOUN
+5. else VERB
+</listItem>
+<bodyText confidence="0.985798641509434">
+This small number of rules test on the presence
+of the two prepositions van (from, of) and voor
+(for, before) which often co-occur with noun at-
+tachment (on the whole data set, 351 out of 406
+occurrences of the two), a high value of Cooc(N P)
+similar to the threshold reported earlier (0.07), and
+the absence of a verb (which occurs in 27 in-
+stances).
+The best overall cross-validated setting for IB 1
+was no feature weighting, k = 11, and exponen-
+tial decay distance weighting with a = 2. It has
+been argued in the literature that high k and dis-
+tance weighting is a sensible combination (Zavrel
+et al., 1997). More surprisingly, no feature weight-
+ing means that every feature is regarded equally
+important.
+External results: newspaper and e-mail data
+We evaluated the results of applying the overall
+best settings on the 157 sentence external newspa-
+per and e-mail material. Performances are given
+in Table 3. These results roughly correspond
+with the previous results; IB 1 has lower preci-
+sion but higher recall than RIPPER on noun at-
+tachment. RIPPER performed the same with and
+without bigram features, since its rules do not test
+on them. Overall, these results suggest that the
+learned models have a reasonably stable perfor-
+mance on different data.
+6 Contribution to phrase boundary
+allocation
+In a third experiment we measured the added value
+of having PP attachment information available in
+a straightforward existing prosodic phrasing al-
+gorithm for Dutch (van Herwijnen and Terken,
+2001b). This phrasing algorithm uses syntactic in-
+formation and sentence length for the allocation
+of prosodic phrase boundaries. For a subset (44
+phrases) of the held-out corpus, we compared the
+allocation of boundaries according to the phras-
+ing algorithm and according to the same algorithm
+complemented with PP attachment information,
+to a consensus transcription of ten phonetic ex-
+perts (van Herwijnen and Terken, 2001a). This
+consensus transcription was not available for all
+157 phrases of the newspaper and e-mail data.
+Table 4 shows the performance measures for
+this comparison, indicating that the improvement
+from PP attachment information is largely in pre-
+cision. Indeed, blocking certain incorrect place-
+ments of phrase boundaries improves the precision
+on boundary placement. IB1 attains the best im-
+provement of six points in precision. Although it
+incorrectly prevents five intended phrase bound-
+</bodyText>
+<page confidence="0.999762">
+144
+</page>
+<tableCaption confidence="0.726025666666667">
+\x0cTable 4: Peiformance on phrasing complemented with PP attachment information from RIPPER and IB 1
+with and without bigram features.
+phrasing algorithm accuracy precision recall Ff3=1
+</tableCaption>
+<table confidence="0.9200186">
+phrasing 91 65 81 72
+phrasing + RIPPER (-1+ bigrams) 92 70 80 74
+phrasing + IB 1 (- bigrams) 92 70 79 74
+phrasing + IB 1 (+ bigrams) 92 71 79 75
+phrasing + gold standard 93 72 81 77
+</table>
+<bodyText confidence="0.991099">
+aries (when compared to the manual classification
+mentioned in 2), it does in fact correctly pre-
+vent unintended boundaries in twelve other cases.
+Some examples of the latter are:
+</bodyText>
+<listItem confidence="0.9977925">
+1. ... afschaffing I van het laatste recht
+2. ... het grootste deel I van Nederland ...
+3. ... de straatlantaarns langs de provinciale weg
+1. ... abolition I of the final right ...
+2. ... the biggest part I of the Netherlands ...
+3. ... the street lights I along the provincial road ...
+</listItem>
+<bodyText confidence="0.966356625">
+Table 4 also shows the performance measures
+for the phrasing algorithm complemented with the
+&amp;quot;gold standard&amp;quot;. These results indicate the max-
+imal attainable improvement of the phrasing al-
+gorithm using correct PP attachment information.
+The results obtained with IB1 come close to this
+maximal attainable improvement, particularly in
+terms of precision.
+</bodyText>
+<sectionHeader confidence="0.997045" genericHeader="conclusions">
+7 Discussion
+</sectionHeader>
+<bodyText confidence="0.999853259259259">
+We have presented experiments on isolated learn-
+ing of PP attachment in Dutch, and on using
+predicted PP attachment information for filtering
+out incorrect placements of prosodic boundaries.
+First, PP attachment was learned by the best op-
+timized machine learner, IB 1 at an accuracy of
+78, an F-score of 82 on noun attachment, and 71
+on verb attachment. The learners were optimized
+(via nested cross-validation experiments and semi-
+exhaustive parameter selection) on noun attach-
+ment, since that type of attachment typically pre-
+vents a prosodic boundary. In general, incorrect
+boundaries are considered more problematic to the
+listener than omitted boundaries. We show that
+small improvements are made in the precision of
+boundary allocation; a high precision means few
+incorrect boundaries.
+Comparing the eager learner RIPPER with the
+lazy learner IB 1, we saw that RIPPER typically in-
+duces a very small number of safe rules, leading to
+reasonable precision but relatively low recall. The
+bias of IB 1 to base classifications on all training
+examples available, no matter how low-frequent or
+exceptional, resulted in a markedly higher recall of
+up to 82 on noun attachment, indicating that there
+is more reliable information in local matching on
+lexical features and the cooccurrence feature than
+RIPPER estimates. However, with a larger training
+corpus, we might not have found these differences
+in performance between IB 1 and RIPPER.
+In engineering our feature set we combined dis-
+joint ideas on using both lexical (unigram and
+bigram) features and cooccurrence strength val-
+ues. The lexical features were sparse, since they
+only came from the 1004-instance training cor-
+pus, while the cooccurrence feature was very ro-
+bust and &amp;quot;unsupervised&amp;quot;, based on the very large
+WWW. Within the set of lexical features, the bi-
+gram features were sparser than the unigram fea-
+tures, and neither of the algorithms benefited from
+the bigram features. Thus, given the current data
+set, all necessary information was available in the
+four unigram features in combination with the
+cooccurrence feature. Only the combination of
+the five yielded the best performance individu-
+ally the features do carry information, but always
+less than the combination. When running nested
+cross-validation experiments with IB1 on the four
+unigram features, F-scores are lower than the op-
+timal 82: 77 (Ni), 75 (P), 72 (V), 74 (N2), and 75
+Cooc(N P). These results suggest that it is essential
+for this experiment to employ features that (1) are
+preferably robust counter to sparse, and (2) each
+add unique information, either on lexical identity
+</bodyText>
+<page confidence="0.989411">
+145
+</page>
+<bodyText confidence="0.997861">
+\x0cor on cooccurrence strength.
+Although the addition of more sparse and re-
+dundant features (bigrams) turned out to be inef-
+fective at the current data size, there is no reason
+to expect that they will not facilitate performance
+on larger data sets to be developed on the near fea-
+ture. Besides, it would be interesting to investigate
+ways of embedding our approach for predicting PP
+attachment within other, more general parsing al-
+gorithms.
+</bodyText>
+<sectionHeader confidence="0.987138" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.999401440860215">
+D. W. Aha, D. Kibler, and M. Albert. 1991. Instance-based
+learning algorithms. Machine Learning, 6:37-66.
+Altavista.\t 2002.\t Advanced search cheat sheet.
+http://www.altavista.com/. Page visited Sept. 2002.
+J. Bear and P. Price. 1990. Prosody, syntax and parsing.
+In Proc. of the Association of Computational Linguistics
+conference, pages 17-22.
+E. Brill and P. Resnik. 1994. A rule-based approach to prepo-
+sitional phrase attachment disambiguat ion. In Proc. of
+15th annual conference on Computational Linguistics.
+E. Charniak. 2000. A maximum-entropy-inspired parser. In
+Proc. of NAACL\&apos;00, pages 132-139.
+K.W. Church and P. Hanks. 1991. Word association norms,
+mutual information, and lexicography. Computational
+Linguistics, 16:22-29.
+W. W. Cohen. 1995. Fast effective rule induction. In Proc. of
+the Twelfth International Conference on Machine Learn-
+ing, Lake Tahoe, California.
+M.J Collins and J. Brooks. 1995. Prepositional phrase at-
+tachment through a backed-off model. In Proc. of Third
+Workshop on Very Large Corpora, Cambridge.
+M.J. Collins. 1996. A new statistical parser based on bigram
+lexical dependencies. In Proc. of the 34th Annual Meeting
+of the Association for C omputational Linguistics.
+T. M. Cover and P. E. Hart. 1967. Nearest neighbor pattern
+classification. Institute of Electrical and Electronics En-
+gineers Transactions on Information Theory, 13:21-27.
+W. Daelemans, A. van den Bosch, and J. Zavrel. 1999.
+Forgetting exceptions is harmful in language learning.
+Machine Learning, Special issue on Natural Language
+Learning, 34:11-41.
+W. Daelemans, J. Zavrel, K. van der Sloot, and
+A. van den Bosch. 2002. TiMBL: Tilburg Memory Based
+Learner, version 4.3, reference manual. Technical Report
+ILK-0210, ILK, Tilburg University.
+T. Dunning. 1993. Accurate methods for the statistics
+of surprise and coincidence. Computational Linguistics,
+19(1):61-74.
+A. Franz. 1996. Learning PP attachment from corpus statis-
+tics. In S. Wermter, E. Riloff, and G. Scheler, editors,
+Connectionist, Statistical, and Symbolic Approaches to
+Learning for Natural Language Processing, volume 1040
+of Lecture Notes in Artificial Intelligence, pages 188-202.
+Springer-Verlag, New York.
+O.M. van Herwijnen and J.M.B. Terken. 2001a. Do speakers
+realize the prosodic structure they say they do? ln Proc. of
+Eurospeech 2001 Scandinavia, volume 2, pages 959-962.
+O.M. van Herwijnen and J.M.B. Terken. 2001b. Evalua-
+tion of PROS-3 for the assignment of prosodic structure,
+compared to assignment by human experts. In Proc. of
+Eurospeech 2001 Scandinavia, volume 1, pages 529-532.
+D. Hindle and M. Rooth. 1993. Structural ambiguity and
+lexical relations. Computational Linguistics, 19(1):103-
+120.
+E. Marsi, P.-A. Coppen, C. Gussenhoven, and T. Rietveld.
+1997. Prosodic and intonational domains in speech
+synthesis. In J. van Santen, R. Sproat, J. Olive, and
+J. Hirschberg, editors, Progress in Speech Synthesis, pages
+477-493. Springer-Verlag, New York.
+P. C. Paardekooper. 1977. ABN, Beknopte ABN-.syntaksis.
+Eindhoven, 5th edition.
+A. Ratnaparkhi, J. Reynar, and S. Roukos. 1994. A maxi-
+mum entropy model for prepositional phrase attachment.
+In Proc. of ARPA Workshop on Human Language Technol-
+ogy, Plainsboro, NJ, March.
+A. Ratnaparkhi. 1997. A linear observed time statistical
+parser based on maximum entropy models. In Proc. of
+the Second Conference on Empirical Methods in Natural
+Language Processing, EMNLP-2, Providence, Rhode Is-
+land, pages 1-10.
+C.J. van Rijsbergen. 1979. Information Retrieval. Butter-
+sworth, London, 2nd edition.
+A.A. Sanderrnan and R. Collier. 1997. Prosodic phrasing and
+comprehension. Language and Speech, 40(4):391-409.
+A.A. Sanderman. 1996. Prosodic phrasing: production, per-
+ception, acceptability and comprehension. Ph.D. thesis,
+Eindhoven University of Technology.
+E.O. Selkirk. 1984. Phonology and Syntax: the Relation be-
+tween Sound and Structure. Cambridge, MA: MIT Press.
+T. van der Wouden, H. Hoekstra, M. Moortgat, B. Ren-
+mans, and I. Schuurmans. 2002. Syntactic analysis in
+the Spoken Dutch Corpus. In Proc. of the Third Inter-
+national Conference on Language Resources and Evalua-
+tion, LREC-2002, pages 768-773.
+M. Volk. 2000. Scaling up. Using the WWW to resolve
+PP attachment ambiguities. In Proc. of KONVENS-2000,
+pages 151-156. Sprachkommunikation, Ilmenau, VDE
+Verlag.
+J. Zavrel, W. Daelemans, and J. Veenstra. 1997. Resolv-
+ing PP attachment ambiguities with memory-based learn-
+ing. In Mark Elison, editor, Proceedings of Conference on
+Computational Natural Language Learning, pages 136-
+144.
+</reference>
+<page confidence="0.99136">
+146
+</page>
+<figure confidence="0.248004">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.060028">
+<title confidence="0.998876">b&apos;Learning PP attachment for filtering prosodic phrasing</title>
+<author confidence="0.999462">Olga van_Herwijnen</author>
+<author confidence="0.999462">Jacques Terken</author>
+<affiliation confidence="0.8930365">Technology Management Eindhoven University of Technology</affiliation>
+<address confidence="0.952577">P.O. Box 513, NL-5600 MB Eindhoven The Netherlands</address>
+<email confidence="0.241935">10.M.v.Herwiinen,J.M.B.TerkenPtue.n1</email>
+<author confidence="0.502531">Antal van_den_Bosch</author>
+<author confidence="0.502531">ErwinNIarsi</author>
+<affiliation confidence="0.7889605">ILK/Comp. Ling. and AT Tilburg University</affiliation>
+<address confidence="0.8803665">P.O. Box90153,NL-5000LETilburg The Netherlands</address>
+<email confidence="0.967108">A.vdnBosch@uvt.nl</email>
+<email confidence="0.967108">E.Marsi@uvt.nl</email>
+<abstract confidence="0.996195076923077">We explore learning prepositionalphrase attachment in Dutch, to use it as a filter in prosodic phrasing. From a syntactic treebank of spoken Dutch we extract instances of the attachment of prepositional phrases to either a governing verb or noun. Using cross-validated parameter and feature selection, we train two learning algorithms, TB I and RIPPER, 011 making this distinction, based on unigram and bigram lexical features and a cooccurrence feature derived from WWW counts. We optimize the learning on noun attachment, since in a second stage we use the attachment decision for blocking the incorrect placement of phrase boundaries before prepositional phrases attached to the preceding noun. On noun attachment, IB 1 attains an F-score of 82; RIPPER an F-score of 78. When used as a filter for prosodic phrasing, using attachment decisions from IB 1 yields the best improvement on precision (by six points to 71) on phrase boundary placement.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>D W Aha</author>
+<author>D Kibler</author>
+<author>M Albert</author>
+</authors>
+<title>Instance-based learning algorithms.</title>
+<date>1991</date>
+<booktitle>Machine Learning,</booktitle>
+<pages>6--37</pages>
+<contexts>
+<context position="16262" citStr="Aha et al., 1991" startWordPosition="2682" endWordPosition="2685">sets for both corpora. 142 \x0cTable 2: Peiformance measures on PP attachment in the CGN material by RIPPER and IB 1. accuracy NOUN attachment precision\t recall\t Fo=1 VERB attachment precision\t recall\t Fo=1 RIPPER (- bigrams) 75 83 75 78 66 78 71 RIPPER (+ bigrams) 72 78 74 76 64 70 67 IB 1 (- bigrams) 78 81 83 82 73 69 71 IB 1 (+ bigrams) 75 79 81 80 69 67 68 baseline 60 60 100 75 - 0 - 4 Machine learning experiments We choose to use two machine learning algorithms in our study: rule induction as implemented in RIPPER (Cohen, 1995) (version 1, release 2.4) and memory-based learning IB 1 (Aha et al., 1991; Daelemans et al., 1999), as implemented in the TiMBL software package (Daelemans et al., 2002). Rule induction is an instance of &amp;quot;eager&amp;quot; learning, where effort is invested in searching for a minimal-description-length rule set that covers the classifications in the training data. The rule set can then be used for classifying new instances of the same task. Memory-based learning, in contrast, is &amp;quot;lazy&amp;quot;; learning is merely the storage of learning examples in memory, while the effort is deferred to the classification of new material, which in IB 1 essentially follows the k-nearest neighbor clas</context>
+</contexts>
+<marker>Aha, Kibler, Albert, 1991</marker>
+<rawString>D. W. Aha, D. Kibler, and M. Albert. 1991. Instance-based learning algorithms. Machine Learning, 6:37-66.</rawString>
+</citation>
+<citation valid="false">
+<title>Altavista.\t 2002.\t Advanced search cheat sheet.</title>
+<marker></marker>
+<rawString>Altavista.\t 2002.\t Advanced search cheat sheet.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>http www altavista com Page visited Sept</author>
+</authors>
+<date>2002</date>
+<marker>Sept, 2002</marker>
+<rawString>http://www.altavista.com/. Page visited Sept. 2002.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Bear</author>
+<author>P Price</author>
+</authors>
+<title>Prosody, syntax and parsing.</title>
+<date>1990</date>
+<booktitle>In Proc. of the Association of Computational Linguistics conference,</booktitle>
+<pages>17--22</pages>
+<contexts>
+<context position="2025" citStr="Bear and Price, 1990" startWordPosition="298" endWordPosition="301">ptability of synthetic speech is the appropriate placement of phrase boundaries, realized typically and most audibly by pauses (Sanderman, 1996). Incorrect prosodic phrasing may impede the listener in the correct understanding of the spoken utterance (Sanderman and Collier, 1997). A major factor causing difficulties in appropriate phrase boundary placement is the lack of reliable information about syntactic structure. Even if there is no one-to-one mapping between syntax and prosody, the placement of prosodic phrase boundaries is nevertheless dependent on syntactic information (Selkirk, 1984; Bear and Price, 1990; van Herwijnen and Terken, 2001b). To cope with this lack of syntactic information that a speech synthesis developer may face currently, e.g. in the absence of a reliable parser, several strategies have been applied to allocate phrase boundaries. One strategy is to allocate phrase boundaries on the basis of punctuation only. In general, however, this results in too few phrase boundaries (and some incorrect ones, e.g. in enumerations). A clear example of information about syntactic structure being useful for placing phrase boundaries is the attachment of prepositional phrases (PPs). When a PP </context>
+</contexts>
+<marker>Bear, Price, 1990</marker>
+<rawString>J. Bear and P. Price. 1990. Prosody, syntax and parsing. In Proc. of the Association of Computational Linguistics conference, pages 17-22.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Brill</author>
+<author>P Resnik</author>
+</authors>
+<title>A rule-based approach to prepositional phrase attachment disambiguat ion.</title>
+<date>1994</date>
+<booktitle>In Proc. of 15th annual conference on Computational Linguistics.</booktitle>
+<contexts>
+<context position="3753" citStr="Brill and Resnik, 1994" startWordPosition="580" endWordPosition="583">al., 1997). Deciding about noun versus verb attachment of PPs is a known hard task in parsing, since it is un139 \x0cderstood to involve knowing lexical preferences, verb subcategorization, fixed phrases, but also semantic and pragmatic &amp;quot;world&amp;quot; knowledge. A typical current parser (e.g., statistical parsers such as (Collins, 1996; Ratnaparkhi, 1997; Charniak, 2000)) interleaves PP attachment with all its other disambiguation tasks. However, because of its interesting complexity, a line of work has concentrated on studying the task in isolation (Hindle and Rooth, 1993; Ratnaparkhi et al., 1994; Brill and Resnik, 1994; Collins and Brooks, 1995; Franz, 1996; Zavrel et al., 1997). Our study can be seen as following these lines of isolation studies, pursuing the same process for another language, Dutch. At present there are no parsers available for Dutch that disambiguate PP attachment, which leaves the comparison between PP attachment as an embedded subtask of a full parser with our approach as future work. In line with these earlier studies, we assume that at least two sources of information should be used as features in training data: (i) lexical features (e.g. unigrams and bigrams of head words), and (ii)</context>
+</contexts>
+<marker>Brill, Resnik, 1994</marker>
+<rawString>E. Brill and P. Resnik. 1994. A rule-based approach to prepositional phrase attachment disambiguat ion. In Proc. of 15th annual conference on Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Charniak</author>
+</authors>
+<title>A maximum-entropy-inspired parser.</title>
+<date>2000</date>
+<booktitle>In Proc. of NAACL\&apos;00,</booktitle>
+<pages>132--139</pages>
+<contexts>
+<context position="3497" citStr="Charniak, 2000" startWordPosition="541" endWordPosition="542">rb in the clause (verb attachment), as in the structure ... eats pizza with a fork, an intervening phrase boundary between the PP and its preceding NP or PP (between pizza and with) is optional, and when placed, usually judged appropriate (Marsi et al., 1997). Deciding about noun versus verb attachment of PPs is a known hard task in parsing, since it is un139 \x0cderstood to involve knowing lexical preferences, verb subcategorization, fixed phrases, but also semantic and pragmatic &amp;quot;world&amp;quot; knowledge. A typical current parser (e.g., statistical parsers such as (Collins, 1996; Ratnaparkhi, 1997; Charniak, 2000)) interleaves PP attachment with all its other disambiguation tasks. However, because of its interesting complexity, a line of work has concentrated on studying the task in isolation (Hindle and Rooth, 1993; Ratnaparkhi et al., 1994; Brill and Resnik, 1994; Collins and Brooks, 1995; Franz, 1996; Zavrel et al., 1997). Our study can be seen as following these lines of isolation studies, pursuing the same process for another language, Dutch. At present there are no parsers available for Dutch that disambiguate PP attachment, which leaves the comparison between PP attachment as an embedded subtask</context>
+</contexts>
+<marker>Charniak, 2000</marker>
+<rawString>E. Charniak. 2000. A maximum-entropy-inspired parser. In Proc. of NAACL\&apos;00, pages 132-139.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K W Church</author>
+<author>P Hanks</author>
+</authors>
+<title>Word association norms, mutual information, and lexicography.</title>
+<date>1991</date>
+<journal>Computational Linguistics,</journal>
+<pages>16--22</pages>
+<contexts>
+<context position="9182" citStr="Church and Hanks, 1991" startWordPosition="1477" endWordPosition="1480">tly, we added all combinations of two heads as features2 . There are six possible combinations of the four heads: N1-P, N1-V, .... The example construction is thus stored in the data set as the following comma-separated 10-feature instance labelled with the VERB attachment class: Dults, om, slaan, oren, Dults-om, Duits-slaan, Duits-oren, om-slaan, om-oren, slaan-oren, VERB 3.2 Cooccurrence strength values Several metrics are available that estimate to what extent words or phrases belong together informationally. Well known examples of such cooccurrence strength metrics are mutual information (Church and Hanks, 1991), chi-square and log likelihood (Dunning, 1993). Cooccurrence strength values are typically estimated from a very large corpus. Often, these corpora are static and do not contain neologisms and names from later periods. In this paper, we explore an alternative by estimating cooccurrence strength values from the WWW. The WWW can be seen as a dynamic corpus: it contains new words that are not yet incorporated in other (static) corpora. Another advantage of using the WWW as a corpus is that it is the largest freely and electronically accessible corpus (for most languages including Dutch). Consequ</context>
+</contexts>
+<marker>Church, Hanks, 1991</marker>
+<rawString>K.W. Church and P. Hanks. 1991. Word association norms, mutual information, and lexicography. Computational Linguistics, 16:22-29.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W W Cohen</author>
+</authors>
+<title>Fast effective rule induction.</title>
+<date>1995</date>
+<booktitle>In Proc. of the Twelfth International Conference on Machine Learning,</booktitle>
+<location>Lake Tahoe, California.</location>
+<contexts>
+<context position="16188" citStr="Cohen, 1995" startWordPosition="2670" endWordPosition="2671">s, we added the Cooc(N P) feature as the eleventh feature to our data sets for both corpora. 142 \x0cTable 2: Peiformance measures on PP attachment in the CGN material by RIPPER and IB 1. accuracy NOUN attachment precision\t recall\t Fo=1 VERB attachment precision\t recall\t Fo=1 RIPPER (- bigrams) 75 83 75 78 66 78 71 RIPPER (+ bigrams) 72 78 74 76 64 70 67 IB 1 (- bigrams) 78 81 83 82 73 69 71 IB 1 (+ bigrams) 75 79 81 80 69 67 68 baseline 60 60 100 75 - 0 - 4 Machine learning experiments We choose to use two machine learning algorithms in our study: rule induction as implemented in RIPPER (Cohen, 1995) (version 1, release 2.4) and memory-based learning IB 1 (Aha et al., 1991; Daelemans et al., 1999), as implemented in the TiMBL software package (Daelemans et al., 2002). Rule induction is an instance of &amp;quot;eager&amp;quot; learning, where effort is invested in searching for a minimal-description-length rule set that covers the classifications in the training data. The rule set can then be used for classifying new instances of the same task. Memory-based learning, in contrast, is &amp;quot;lazy&amp;quot;; learning is merely the storage of learning examples in memory, while the effort is deferred to the classification of n</context>
+</contexts>
+<marker>Cohen, 1995</marker>
+<rawString>W. W. Cohen. 1995. Fast effective rule induction. In Proc. of the Twelfth International Conference on Machine Learning, Lake Tahoe, California.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M J Collins</author>
+<author>J Brooks</author>
+</authors>
+<title>Prepositional phrase attachment through a backed-off model.</title>
+<date>1995</date>
+<booktitle>In Proc. of Third Workshop on Very Large Corpora,</booktitle>
+<location>Cambridge.</location>
+<contexts>
+<context position="3779" citStr="Collins and Brooks, 1995" startWordPosition="584" endWordPosition="587">ut noun versus verb attachment of PPs is a known hard task in parsing, since it is un139 \x0cderstood to involve knowing lexical preferences, verb subcategorization, fixed phrases, but also semantic and pragmatic &amp;quot;world&amp;quot; knowledge. A typical current parser (e.g., statistical parsers such as (Collins, 1996; Ratnaparkhi, 1997; Charniak, 2000)) interleaves PP attachment with all its other disambiguation tasks. However, because of its interesting complexity, a line of work has concentrated on studying the task in isolation (Hindle and Rooth, 1993; Ratnaparkhi et al., 1994; Brill and Resnik, 1994; Collins and Brooks, 1995; Franz, 1996; Zavrel et al., 1997). Our study can be seen as following these lines of isolation studies, pursuing the same process for another language, Dutch. At present there are no parsers available for Dutch that disambiguate PP attachment, which leaves the comparison between PP attachment as an embedded subtask of a full parser with our approach as future work. In line with these earlier studies, we assume that at least two sources of information should be used as features in training data: (i) lexical features (e.g. unigrams and bigrams of head words), and (ii) word cooccurrence strengt</context>
+</contexts>
+<marker>Collins, Brooks, 1995</marker>
+<rawString>M.J Collins and J. Brooks. 1995. Prepositional phrase attachment through a backed-off model. In Proc. of Third Workshop on Very Large Corpora, Cambridge.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M J Collins</author>
+</authors>
+<title>A new statistical parser based on bigram lexical dependencies.</title>
+<date>1996</date>
+<booktitle>In Proc. of the 34th Annual Meeting of the Association for C omputational Linguistics.</booktitle>
+<contexts>
+<context position="3461" citStr="Collins, 1996" startWordPosition="537" endWordPosition="538">r, when a PP is attached to the verb in the clause (verb attachment), as in the structure ... eats pizza with a fork, an intervening phrase boundary between the PP and its preceding NP or PP (between pizza and with) is optional, and when placed, usually judged appropriate (Marsi et al., 1997). Deciding about noun versus verb attachment of PPs is a known hard task in parsing, since it is un139 \x0cderstood to involve knowing lexical preferences, verb subcategorization, fixed phrases, but also semantic and pragmatic &amp;quot;world&amp;quot; knowledge. A typical current parser (e.g., statistical parsers such as (Collins, 1996; Ratnaparkhi, 1997; Charniak, 2000)) interleaves PP attachment with all its other disambiguation tasks. However, because of its interesting complexity, a line of work has concentrated on studying the task in isolation (Hindle and Rooth, 1993; Ratnaparkhi et al., 1994; Brill and Resnik, 1994; Collins and Brooks, 1995; Franz, 1996; Zavrel et al., 1997). Our study can be seen as following these lines of isolation studies, pursuing the same process for another language, Dutch. At present there are no parsers available for Dutch that disambiguate PP attachment, which leaves the comparison between </context>
+</contexts>
+<marker>Collins, 1996</marker>
+<rawString>M.J. Collins. 1996. A new statistical parser based on bigram lexical dependencies. In Proc. of the 34th Annual Meeting of the Association for C omputational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T M Cover</author>
+<author>P E Hart</author>
+</authors>
+<title>Nearest neighbor pattern classification.</title>
+<date>1967</date>
+<booktitle>Institute of Electrical and Electronics Engineers Transactions on Information Theory,</booktitle>
+<pages>13--21</pages>
+<contexts>
+<context position="16900" citStr="Cover and Hart, 1967" startWordPosition="2782" endWordPosition="2785">., 1999), as implemented in the TiMBL software package (Daelemans et al., 2002). Rule induction is an instance of &amp;quot;eager&amp;quot; learning, where effort is invested in searching for a minimal-description-length rule set that covers the classifications in the training data. The rule set can then be used for classifying new instances of the same task. Memory-based learning, in contrast, is &amp;quot;lazy&amp;quot;; learning is merely the storage of learning examples in memory, while the effort is deferred to the classification of new material, which in IB 1 essentially follows the k-nearest neighbor classification rule (Cover and Hart, 1967) of searching for nearest neighbors in memory, and extrapolating their (majority) class to the new instance. A central issue in the application of machine learning is the setting of algorithmic parameters; both RIPPER and IBI feature several parameters of which the values can seriously affect the bias and result of learning. Also, which parameters are optimal interacts with which features are selected and how much data is available. Few reliable rules of thumb are available for setting parameters. To estimate appropriate settings, a big search space needs to be sought through in some way, afte</context>
+</contexts>
+<marker>Cover, Hart, 1967</marker>
+<rawString>T. M. Cover and P. E. Hart. 1967. Nearest neighbor pattern classification. Institute of Electrical and Electronics Engineers Transactions on Information Theory, 13:21-27.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W Daelemans</author>
+<author>A van den Bosch</author>
+<author>J Zavrel</author>
+</authors>
+<title>Forgetting exceptions is harmful in language learning.</title>
+<date>1999</date>
+<booktitle>Machine Learning, Special issue on Natural Language Learning,</booktitle>
+<pages>34--11</pages>
+<marker>Daelemans, van den Bosch, Zavrel, 1999</marker>
+<rawString>W. Daelemans, A. van den Bosch, and J. Zavrel. 1999. Forgetting exceptions is harmful in language learning. Machine Learning, Special issue on Natural Language Learning, 34:11-41.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W Daelemans</author>
+<author>J Zavrel</author>
+<author>K van der Sloot</author>
+<author>A van den Bosch</author>
+</authors>
+<title>TiMBL: Tilburg Memory Based Learner, version 4.3, reference manual.</title>
+<date>2002</date>
+<tech>Technical Report ILK-0210,</tech>
+<institution>ILK, Tilburg University.</institution>
+<marker>Daelemans, Zavrel, van der Sloot, van den Bosch, 2002</marker>
+<rawString>W. Daelemans, J. Zavrel, K. van der Sloot, and A. van den Bosch. 2002. TiMBL: Tilburg Memory Based Learner, version 4.3, reference manual. Technical Report ILK-0210, ILK, Tilburg University.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Dunning</author>
+</authors>
+<title>Accurate methods for the statistics of surprise and coincidence.</title>
+<date>1993</date>
+<journal>Computational Linguistics,</journal>
+<pages>19--1</pages>
+<contexts>
+<context position="9229" citStr="Dunning, 1993" startWordPosition="1485" endWordPosition="1486"> . There are six possible combinations of the four heads: N1-P, N1-V, .... The example construction is thus stored in the data set as the following comma-separated 10-feature instance labelled with the VERB attachment class: Dults, om, slaan, oren, Dults-om, Duits-slaan, Duits-oren, om-slaan, om-oren, slaan-oren, VERB 3.2 Cooccurrence strength values Several metrics are available that estimate to what extent words or phrases belong together informationally. Well known examples of such cooccurrence strength metrics are mutual information (Church and Hanks, 1991), chi-square and log likelihood (Dunning, 1993). Cooccurrence strength values are typically estimated from a very large corpus. Often, these corpora are static and do not contain neologisms and names from later periods. In this paper, we explore an alternative by estimating cooccurrence strength values from the WWW. The WWW can be seen as a dynamic corpus: it contains new words that are not yet incorporated in other (static) corpora. Another advantage of using the WWW as a corpus is that it is the largest freely and electronically accessible corpus (for most languages including Dutch). Consequently, frequency counts obtained from the =Note</context>
+</contexts>
+<marker>Dunning, 1993</marker>
+<rawString>T. Dunning. 1993. Accurate methods for the statistics of surprise and coincidence. Computational Linguistics, 19(1):61-74.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Franz</author>
+</authors>
+<title>Learning PP attachment from corpus statistics. In</title>
+<date>1996</date>
+<booktitle>Connectionist, Statistical, and Symbolic Approaches to Learning for Natural Language Processing,</booktitle>
+<volume>1040</volume>
+<pages>188--202</pages>
+<editor>S. Wermter, E. Riloff, and G. Scheler, editors,</editor>
+<publisher>Springer-Verlag,</publisher>
+<location>New York.</location>
+<contexts>
+<context position="3792" citStr="Franz, 1996" startWordPosition="588" endWordPosition="589">ment of PPs is a known hard task in parsing, since it is un139 \x0cderstood to involve knowing lexical preferences, verb subcategorization, fixed phrases, but also semantic and pragmatic &amp;quot;world&amp;quot; knowledge. A typical current parser (e.g., statistical parsers such as (Collins, 1996; Ratnaparkhi, 1997; Charniak, 2000)) interleaves PP attachment with all its other disambiguation tasks. However, because of its interesting complexity, a line of work has concentrated on studying the task in isolation (Hindle and Rooth, 1993; Ratnaparkhi et al., 1994; Brill and Resnik, 1994; Collins and Brooks, 1995; Franz, 1996; Zavrel et al., 1997). Our study can be seen as following these lines of isolation studies, pursuing the same process for another language, Dutch. At present there are no parsers available for Dutch that disambiguate PP attachment, which leaves the comparison between PP attachment as an embedded subtask of a full parser with our approach as future work. In line with these earlier studies, we assume that at least two sources of information should be used as features in training data: (i) lexical features (e.g. unigrams and bigrams of head words), and (ii) word cooccurrence strength values (the</context>
+</contexts>
+<marker>Franz, 1996</marker>
+<rawString>A. Franz. 1996. Learning PP attachment from corpus statistics. In S. Wermter, E. Riloff, and G. Scheler, editors, Connectionist, Statistical, and Symbolic Approaches to Learning for Natural Language Processing, volume 1040 of Lecture Notes in Artificial Intelligence, pages 188-202. Springer-Verlag, New York.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>O M van Herwijnen</author>
+<author>J M B Terken</author>
+</authors>
+<title>Do speakers realize the prosodic structure they say they do? ln</title>
+<date>2001</date>
+<journal>Scandinavia,</journal>
+<booktitle>Proc. of Eurospeech</booktitle>
+<volume>2</volume>
+<pages>959--962</pages>
+<marker>van Herwijnen, Terken, 2001</marker>
+<rawString>O.M. van Herwijnen and J.M.B. Terken. 2001a. Do speakers realize the prosodic structure they say they do? ln Proc. of Eurospeech 2001 Scandinavia, volume 2, pages 959-962.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>O M van Herwijnen</author>
+<author>J M B Terken</author>
+</authors>
+<title>Evaluation of PROS-3 for the assignment of prosodic structure, compared to assignment by human experts.</title>
+<date>2001</date>
+<journal>Scandinavia,</journal>
+<booktitle>In Proc. of Eurospeech</booktitle>
+<volume>1</volume>
+<pages>529--532</pages>
+<marker>van Herwijnen, Terken, 2001</marker>
+<rawString>O.M. van Herwijnen and J.M.B. Terken. 2001b. Evaluation of PROS-3 for the assignment of prosodic structure, compared to assignment by human experts. In Proc. of Eurospeech 2001 Scandinavia, volume 1, pages 529-532.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Hindle</author>
+<author>M Rooth</author>
+</authors>
+<title>Structural ambiguity and lexical relations.</title>
+<date>1993</date>
+<journal>Computational Linguistics,</journal>
+<pages>19--1</pages>
+<contexts>
+<context position="3703" citStr="Hindle and Rooth, 1993" startWordPosition="572" endWordPosition="575">when placed, usually judged appropriate (Marsi et al., 1997). Deciding about noun versus verb attachment of PPs is a known hard task in parsing, since it is un139 \x0cderstood to involve knowing lexical preferences, verb subcategorization, fixed phrases, but also semantic and pragmatic &amp;quot;world&amp;quot; knowledge. A typical current parser (e.g., statistical parsers such as (Collins, 1996; Ratnaparkhi, 1997; Charniak, 2000)) interleaves PP attachment with all its other disambiguation tasks. However, because of its interesting complexity, a line of work has concentrated on studying the task in isolation (Hindle and Rooth, 1993; Ratnaparkhi et al., 1994; Brill and Resnik, 1994; Collins and Brooks, 1995; Franz, 1996; Zavrel et al., 1997). Our study can be seen as following these lines of isolation studies, pursuing the same process for another language, Dutch. At present there are no parsers available for Dutch that disambiguate PP attachment, which leaves the comparison between PP attachment as an embedded subtask of a full parser with our approach as future work. In line with these earlier studies, we assume that at least two sources of information should be used as features in training data: (i) lexical features (</context>
+</contexts>
+<marker>Hindle, Rooth, 1993</marker>
+<rawString>D. Hindle and M. Rooth. 1993. Structural ambiguity and lexical relations. Computational Linguistics, 19(1):103-120.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Marsi</author>
+<author>P-A Coppen</author>
+<author>C Gussenhoven</author>
+<author>T Rietveld</author>
+</authors>
+<title>Prosodic and intonational domains in speech synthesis.</title>
+<date>1997</date>
+<booktitle>Progress in Speech Synthesis,</booktitle>
+<pages>477--493</pages>
+<editor>In J. van Santen, R. Sproat, J. Olive, and J. Hirschberg, editors,</editor>
+<publisher>Springer-Verlag,</publisher>
+<location>New York.</location>
+<contexts>
+<context position="3141" citStr="Marsi et al., 1997" startWordPosition="485" endWordPosition="488">being useful for placing phrase boundaries is the attachment of prepositional phrases (PPs). When a PP is attached to the preceding NP or PP (henceforth referred to as noun attachment), such as in the structure ... eats pizza with anchovies, a phrase boundary between pizza and with is usually considered inappropriate. However, when a PP is attached to the verb in the clause (verb attachment), as in the structure ... eats pizza with a fork, an intervening phrase boundary between the PP and its preceding NP or PP (between pizza and with) is optional, and when placed, usually judged appropriate (Marsi et al., 1997). Deciding about noun versus verb attachment of PPs is a known hard task in parsing, since it is un139 \x0cderstood to involve knowing lexical preferences, verb subcategorization, fixed phrases, but also semantic and pragmatic &amp;quot;world&amp;quot; knowledge. A typical current parser (e.g., statistical parsers such as (Collins, 1996; Ratnaparkhi, 1997; Charniak, 2000)) interleaves PP attachment with all its other disambiguation tasks. However, because of its interesting complexity, a line of work has concentrated on studying the task in isolation (Hindle and Rooth, 1993; Ratnaparkhi et al., 1994; Brill and </context>
+</contexts>
+<marker>Marsi, Coppen, Gussenhoven, Rietveld, 1997</marker>
+<rawString>E. Marsi, P.-A. Coppen, C. Gussenhoven, and T. Rietveld. 1997. Prosodic and intonational domains in speech synthesis. In J. van Santen, R. Sproat, J. Olive, and J. Hirschberg, editors, Progress in Speech Synthesis, pages 477-493. Springer-Verlag, New York.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P C Paardekooper</author>
+</authors>
+<date>1977</date>
+<booktitle>ABN, Beknopte ABN-.syntaksis. Eindhoven, 5th edition.</booktitle>
+<contexts>
+<context position="7115" citStr="Paardekooper, 1977" startWordPosition="1124" endWordPosition="1125"> a noun-attached PP. Additionally, as held-out corpus for testing the efficacy of PP attachment information for prosodic phrasing, we selected 157 sentences from various newspaper articles and e-mail messages. We selected this corpus because part of it had been annotated earlier on prosodic phrasing through a consensus transcription of ten phonetic experts (van Herwijnen and Terken, 2001a). All selected 157 sentences contain either [NP PP] or [PP PP] sequences. To obtain a &amp;quot;gold standard&amp;quot; we manually classified all PPs into NOUN and VERB attachment, according to the &amp;quot;single constituent test&amp;quot; (Paardekooper, 1977). This test states that every string of words that can be placed at the start of a finite main clause, forms a single constituent. Thus, if and only if a [NP PP] or [PP PP] sequence can be fronted, it forms a single NP containing a noun-attached PP. This classification resulted in 66 phrases with a verb-attached PP and 91 phrases with a noun-attached PP. 1 The Spoken Dutch Corpus is a database of contemporary Dutch as spoken by adults in the Netherlands and Flanders. The project is funded by the Flemish and Dutch governments and the Netherlands Organization for Scientific Research NWO. Its hom</context>
+</contexts>
+<marker>Paardekooper, 1977</marker>
+<rawString>P. C. Paardekooper. 1977. ABN, Beknopte ABN-.syntaksis. Eindhoven, 5th edition.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Ratnaparkhi</author>
+<author>J Reynar</author>
+<author>S Roukos</author>
+</authors>
+<title>A maximum entropy model for prepositional phrase attachment.</title>
+<date>1994</date>
+<booktitle>In Proc. of ARPA Workshop on Human Language Technology,</booktitle>
+<location>Plainsboro, NJ,</location>
+<contexts>
+<context position="3729" citStr="Ratnaparkhi et al., 1994" startWordPosition="576" endWordPosition="579">ged appropriate (Marsi et al., 1997). Deciding about noun versus verb attachment of PPs is a known hard task in parsing, since it is un139 \x0cderstood to involve knowing lexical preferences, verb subcategorization, fixed phrases, but also semantic and pragmatic &amp;quot;world&amp;quot; knowledge. A typical current parser (e.g., statistical parsers such as (Collins, 1996; Ratnaparkhi, 1997; Charniak, 2000)) interleaves PP attachment with all its other disambiguation tasks. However, because of its interesting complexity, a line of work has concentrated on studying the task in isolation (Hindle and Rooth, 1993; Ratnaparkhi et al., 1994; Brill and Resnik, 1994; Collins and Brooks, 1995; Franz, 1996; Zavrel et al., 1997). Our study can be seen as following these lines of isolation studies, pursuing the same process for another language, Dutch. At present there are no parsers available for Dutch that disambiguate PP attachment, which leaves the comparison between PP attachment as an embedded subtask of a full parser with our approach as future work. In line with these earlier studies, we assume that at least two sources of information should be used as features in training data: (i) lexical features (e.g. unigrams and bigrams </context>
+<context position="5226" citStr="Ratnaparkhi et al. (1994)" startWordPosition="821" endWordPosition="824">b attachment. This may hold for prepositions, but also heads of the involved phrases, as well as for combinations of these words. Cooccurrence strength values may provide additional clues to informational ties among words; when we investigate the cooccurrences of nouns and prepositions, and of verbs and prepositions, the cooccurrence strength value could also indicate whether the prepositional phrase is attached to the noun or to the verb in the syntactic tree. In this study, we use two machine learning algorithms to perform PP attachment. In line with the case study for English introduced in Ratnaparkhi et al. (1994), we collect a training set of Dutch PP attachment instances from a syntactic treebank. Collection of this data is described in Section 2. We extract lexical head features (unigram and bigram) from the treebank occurrences, and enrich this data with cooccurrence information extracted from the WWW (Section 3). Using the same features, we analogously build a held-out test corpus for which prosodic labeling is available. The setup of the machine learning experiments, involving automatic parameter and feature selection, is described in Section 4. We give the results of the cross-validation experim</context>
+<context position="7852" citStr="Ratnaparkhi et al. (1994)" startWordPosition="1247" endWordPosition="1250">ingle constituent. Thus, if and only if a [NP PP] or [PP PP] sequence can be fronted, it forms a single NP containing a noun-attached PP. This classification resulted in 66 phrases with a verb-attached PP and 91 phrases with a noun-attached PP. 1 The Spoken Dutch Corpus is a database of contemporary Dutch as spoken by adults in the Netherlands and Flanders. The project is funded by the Flemish and Dutch governments and the Netherlands Organization for Scientific Research NWO. Its homepage is http://lands.let.kun.nl/cgn/ehome.htm. 140 \x0c3 Feature engineering 3.1 Lexical features Analogous to Ratnaparkhi et al. (1994), we (manually) selected the four lexical heads of the phrases involved in the attachment as features. We used the manually annotated phrasing and function labelling to determine the heads of all involved phrases. First, the noun of the preceding NP or PP that the focus PP might be attached to (Ni); second, the preposition (P) of the PP to be attached; third, the verbal head (V) of the clause that the PP is in; and fourth, the noun head of the PP to be attached. For example, the Dutch sequence ... [PP met Duits] [PP om de oren] [VP slaan] (blow someone up over German), Ni is Duits, P is om, V </context>
+<context position="9860" citStr="Ratnaparkhi et al. (1994)" startWordPosition="1586" endWordPosition="1589">currence strength values are typically estimated from a very large corpus. Often, these corpora are static and do not contain neologisms and names from later periods. In this paper, we explore an alternative by estimating cooccurrence strength values from the WWW. The WWW can be seen as a dynamic corpus: it contains new words that are not yet incorporated in other (static) corpora. Another advantage of using the WWW as a corpus is that it is the largest freely and electronically accessible corpus (for most languages including Dutch). Consequently, frequency counts obtained from the =Note that Ratnaparkhi et al. (1994) allow all combinations of one to four heads as features. WWW are likely to be much more robust than those obtained from smaller corpora. If cooccurrences correlate with PP attachment, then the WWW could be an interesting robust background source of information. Recently, this reasoning was introduced in (Volk, 2000), a study in which the WWW was used to resolve PP attachment. Following this, the second step in engineering our feature set was to add cooccurrence strength values for Dutch words extracted from the WWW. We explored three methods in which the cooccurrence strength value was used t</context>
+</contexts>
+<marker>Ratnaparkhi, Reynar, Roukos, 1994</marker>
+<rawString>A. Ratnaparkhi, J. Reynar, and S. Roukos. 1994. A maximum entropy model for prepositional phrase attachment. In Proc. of ARPA Workshop on Human Language Technology, Plainsboro, NJ, March.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Ratnaparkhi</author>
+</authors>
+<title>A linear observed time statistical parser based on maximum entropy models.</title>
+<date>1997</date>
+<booktitle>In Proc. of the Second Conference on Empirical Methods in Natural Language Processing, EMNLP-2,</booktitle>
+<pages>1--10</pages>
+<location>Providence, Rhode Island,</location>
+<contexts>
+<context position="3480" citStr="Ratnaparkhi, 1997" startWordPosition="539" endWordPosition="540"> attached to the verb in the clause (verb attachment), as in the structure ... eats pizza with a fork, an intervening phrase boundary between the PP and its preceding NP or PP (between pizza and with) is optional, and when placed, usually judged appropriate (Marsi et al., 1997). Deciding about noun versus verb attachment of PPs is a known hard task in parsing, since it is un139 \x0cderstood to involve knowing lexical preferences, verb subcategorization, fixed phrases, but also semantic and pragmatic &amp;quot;world&amp;quot; knowledge. A typical current parser (e.g., statistical parsers such as (Collins, 1996; Ratnaparkhi, 1997; Charniak, 2000)) interleaves PP attachment with all its other disambiguation tasks. However, because of its interesting complexity, a line of work has concentrated on studying the task in isolation (Hindle and Rooth, 1993; Ratnaparkhi et al., 1994; Brill and Resnik, 1994; Collins and Brooks, 1995; Franz, 1996; Zavrel et al., 1997). Our study can be seen as following these lines of isolation studies, pursuing the same process for another language, Dutch. At present there are no parsers available for Dutch that disambiguate PP attachment, which leaves the comparison between PP attachment as an</context>
+</contexts>
+<marker>Ratnaparkhi, 1997</marker>
+<rawString>A. Ratnaparkhi. 1997. A linear observed time statistical parser based on maximum entropy models. In Proc. of the Second Conference on Empirical Methods in Natural Language Processing, EMNLP-2, Providence, Rhode Island, pages 1-10.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C J van Rijsbergen</author>
+</authors>
+<title>Information Retrieval.</title>
+<date>1979</date>
+<location>Buttersworth, London,</location>
+<note>2nd edition.</note>
+<marker>van Rijsbergen, 1979</marker>
+<rawString>C.J. van Rijsbergen. 1979. Information Retrieval. Buttersworth, London, 2nd edition.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A A Sanderrnan</author>
+<author>R Collier</author>
+</authors>
+<title>Prosodic phrasing and comprehension. Language and Speech,</title>
+<date>1997</date>
+<pages>40--4</pages>
+<marker>Sanderrnan, Collier, 1997</marker>
+<rawString>A.A. Sanderrnan and R. Collier. 1997. Prosodic phrasing and comprehension. Language and Speech, 40(4):391-409.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A A Sanderman</author>
+</authors>
+<title>Prosodic phrasing: production, perception, acceptability and comprehension.</title>
+<date>1996</date>
+<tech>Ph.D. thesis,</tech>
+<institution>Eindhoven University of Technology.</institution>
+<contexts>
+<context position="1549" citStr="Sanderman, 1996" startWordPosition="228" endWordPosition="229">n a second stage we use the attachment decision for blocking the incorrect placement of phrase boundaries before prepositional phrases attached to the preceding noun. On noun attachment, IB 1 attains an F-score of 82; RIPPER an F-score of 78. When used as a filter for prosodic phrasing, using attachment decisions from IB 1 yields the best improvement on precision (by six points to 71) on phrase boundary placement. 1 Introduction One of the factors determining the acceptability of synthetic speech is the appropriate placement of phrase boundaries, realized typically and most audibly by pauses (Sanderman, 1996). Incorrect prosodic phrasing may impede the listener in the correct understanding of the spoken utterance (Sanderman and Collier, 1997). A major factor causing difficulties in appropriate phrase boundary placement is the lack of reliable information about syntactic structure. Even if there is no one-to-one mapping between syntax and prosody, the placement of prosodic phrase boundaries is nevertheless dependent on syntactic information (Selkirk, 1984; Bear and Price, 1990; van Herwijnen and Terken, 2001b). To cope with this lack of syntactic information that a speech synthesis developer may fa</context>
+</contexts>
+<marker>Sanderman, 1996</marker>
+<rawString>A.A. Sanderman. 1996. Prosodic phrasing: production, perception, acceptability and comprehension. Ph.D. thesis, Eindhoven University of Technology.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E O Selkirk</author>
+</authors>
+<title>Phonology and Syntax: the Relation between Sound and Structure.</title>
+<date>1984</date>
+<publisher>MIT Press.</publisher>
+<location>Cambridge, MA:</location>
+<contexts>
+<context position="2003" citStr="Selkirk, 1984" startWordPosition="296" endWordPosition="297">mining the acceptability of synthetic speech is the appropriate placement of phrase boundaries, realized typically and most audibly by pauses (Sanderman, 1996). Incorrect prosodic phrasing may impede the listener in the correct understanding of the spoken utterance (Sanderman and Collier, 1997). A major factor causing difficulties in appropriate phrase boundary placement is the lack of reliable information about syntactic structure. Even if there is no one-to-one mapping between syntax and prosody, the placement of prosodic phrase boundaries is nevertheless dependent on syntactic information (Selkirk, 1984; Bear and Price, 1990; van Herwijnen and Terken, 2001b). To cope with this lack of syntactic information that a speech synthesis developer may face currently, e.g. in the absence of a reliable parser, several strategies have been applied to allocate phrase boundaries. One strategy is to allocate phrase boundaries on the basis of punctuation only. In general, however, this results in too few phrase boundaries (and some incorrect ones, e.g. in enumerations). A clear example of information about syntactic structure being useful for placing phrase boundaries is the attachment of prepositional phr</context>
+</contexts>
+<marker>Selkirk, 1984</marker>
+<rawString>E.O. Selkirk. 1984. Phonology and Syntax: the Relation between Sound and Structure. Cambridge, MA: MIT Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T van der Wouden</author>
+<author>H Hoekstra</author>
+<author>M Moortgat</author>
+<author>B Renmans</author>
+<author>I Schuurmans</author>
+</authors>
+<title>Syntactic analysis in the Spoken Dutch Corpus.</title>
+<date>2002</date>
+<booktitle>In Proc. of the Third International Conference on Language Resources and Evaluation, LREC-2002,</booktitle>
+<pages>768--773</pages>
+<marker>van der Wouden, Hoekstra, Moortgat, Renmans, Schuurmans, 2002</marker>
+<rawString>T. van der Wouden, H. Hoekstra, M. Moortgat, B. Renmans, and I. Schuurmans. 2002. Syntactic analysis in the Spoken Dutch Corpus. In Proc. of the Third International Conference on Language Resources and Evaluation, LREC-2002, pages 768-773.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Volk</author>
+</authors>
+<title>Scaling up. Using the WWW to resolve PP attachment ambiguities.</title>
+<date>2000</date>
+<booktitle>In Proc. of KONVENS-2000,</booktitle>
+<pages>151--156</pages>
+<publisher>Sprachkommunikation,</publisher>
+<location>Ilmenau, VDE</location>
+<contexts>
+<context position="10178" citStr="Volk, 2000" startWordPosition="1640" endWordPosition="1641"> are not yet incorporated in other (static) corpora. Another advantage of using the WWW as a corpus is that it is the largest freely and electronically accessible corpus (for most languages including Dutch). Consequently, frequency counts obtained from the =Note that Ratnaparkhi et al. (1994) allow all combinations of one to four heads as features. WWW are likely to be much more robust than those obtained from smaller corpora. If cooccurrences correlate with PP attachment, then the WWW could be an interesting robust background source of information. Recently, this reasoning was introduced in (Volk, 2000), a study in which the WWW was used to resolve PP attachment. Following this, the second step in engineering our feature set was to add cooccurrence strength values for Dutch words extracted from the WWW. We explored three methods in which the cooccurrence strength value was used to decide between noun or verb attachment for all 1004 phrases from the CGN. The first method is a replication of the study by Volk (2000). In this study cooccurrence strength values were computed for the verb within close vicinity of the preposition Cooc(VnearP) and for the noun within close vicinity of the prepositi</context>
+<context position="12812" citStr="Volk (2000)" startWordPosition="2102" endWordPosition="2103">ttachment precision\t recall\t Ff3=1 NnearP or VnearP 62 71 62 66 51 61 56 NnearP 64 75 61 67 54 71 61 NP 67 84 54 65 55 87 67 baseline 60 60 100 75 - 0 - nated words. For the Cooc(N P) we used the search function to search for exact multi-word phrases: &amp;quot; &amp;lt;noun&amp;gt; &amp;lt;prep&amp;gt; &amp;quot; . This function restricts the search to the appearance of the two adjacent words in the indicated order. The number of found documents according to these search methods was used for freq(X P). The freq(X) was derived from the WWW by performing a separate search for the single word form. Method I: cooccurrence NnearP or VnearP Volk (2000) assumes that the higher value of Cooc(VnearP) and Cooc(NnearP) decides the attachment. According to this assumption we say that if Cooc(VnearP) is the higher value, the PP attaches to the verb. If Cooc(NnearP) is the higher value, the PP attaches to the noun. When only Cooc(NnearP) was available (because the phrase did not contain a verb), the decision for noun or verb attachment was based on comparison of Cooc(NnearP) with a threshold of 0.5 (cooccurrence strength values are between 0.00 and 1.00). This is the threshold used by Volk (2000). For the 1004 phrases derived from the CGN we comput</context>
+</contexts>
+<marker>Volk, 2000</marker>
+<rawString>M. Volk. 2000. Scaling up. Using the WWW to resolve PP attachment ambiguities. In Proc. of KONVENS-2000, pages 151-156. Sprachkommunikation, Ilmenau, VDE Verlag.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Zavrel</author>
+<author>W Daelemans</author>
+<author>J Veenstra</author>
+</authors>
+<title>Resolving PP attachment ambiguities with memory-based learning.</title>
+<date>1997</date>
+<booktitle>Proceedings of Conference on Computational Natural Language Learning,</booktitle>
+<pages>136--144</pages>
+<editor>In Mark Elison, editor,</editor>
+<contexts>
+<context position="3814" citStr="Zavrel et al., 1997" startWordPosition="590" endWordPosition="593">s a known hard task in parsing, since it is un139 \x0cderstood to involve knowing lexical preferences, verb subcategorization, fixed phrases, but also semantic and pragmatic &amp;quot;world&amp;quot; knowledge. A typical current parser (e.g., statistical parsers such as (Collins, 1996; Ratnaparkhi, 1997; Charniak, 2000)) interleaves PP attachment with all its other disambiguation tasks. However, because of its interesting complexity, a line of work has concentrated on studying the task in isolation (Hindle and Rooth, 1993; Ratnaparkhi et al., 1994; Brill and Resnik, 1994; Collins and Brooks, 1995; Franz, 1996; Zavrel et al., 1997). Our study can be seen as following these lines of isolation studies, pursuing the same process for another language, Dutch. At present there are no parsers available for Dutch that disambiguate PP attachment, which leaves the comparison between PP attachment as an embedded subtask of a full parser with our approach as future work. In line with these earlier studies, we assume that at least two sources of information should be used as features in training data: (i) lexical features (e.g. unigrams and bigrams of head words), and (ii) word cooccurrence strength values (the probability that two </context>
+<context position="21302" citStr="Zavrel et al., 1997" startWordPosition="3550" endWordPosition="3553"> 5. else VERB This small number of rules test on the presence of the two prepositions van (from, of) and voor (for, before) which often co-occur with noun attachment (on the whole data set, 351 out of 406 occurrences of the two), a high value of Cooc(N P) similar to the threshold reported earlier (0.07), and the absence of a verb (which occurs in 27 instances). The best overall cross-validated setting for IB 1 was no feature weighting, k = 11, and exponential decay distance weighting with a = 2. It has been argued in the literature that high k and distance weighting is a sensible combination (Zavrel et al., 1997). More surprisingly, no feature weighting means that every feature is regarded equally important. External results: newspaper and e-mail data We evaluated the results of applying the overall best settings on the 157 sentence external newspaper and e-mail material. Performances are given in Table 3. These results roughly correspond with the previous results; IB 1 has lower precision but higher recall than RIPPER on noun attachment. RIPPER performed the same with and without bigram features, since its rules do not test on them. Overall, these results suggest that the learned models have a reason</context>
+</contexts>
+<marker>Zavrel, Daelemans, Veenstra, 1997</marker>
+<rawString>J. Zavrel, W. Daelemans, and J. Veenstra. 1997. Resolving PP attachment ambiguities with memory-based learning. In Mark Elison, editor, Proceedings of Conference on Computational Natural Language Learning, pages 136-144.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

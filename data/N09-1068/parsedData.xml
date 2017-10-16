@@ -1,0 +1,1286 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000001">
+<reference confidence="0.277043">
+b&amp;apos;Human Language Technologies: The 2009 Annual Conference of the North American Chapter of the ACL, pages 602610,
+Boulder, Colorado, June 2009. c
+2009 Association for Computational Linguistics
+</reference>
+<title confidence="0.775705">
+Hierarchical Bayesian Domain Adaptation
+</title>
+<author confidence="0.937117">
+Jenny Rose Finkel and Christopher D. Manning
+</author>
+<affiliation confidence="0.9810895">
+Computer Science Department
+Stanford University
+</affiliation>
+<address confidence="0.967931">
+Stanford, CA 94305
+</address>
+<email confidence="0.998405">
+{jrfinkel|manning}@cs.stanford.edu
+</email>
+<sectionHeader confidence="0.990635" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.9983265">
+Multi-task learning is the problem of maxi-
+mizing the performance of a system across a
+number of related tasks. When applied to mul-
+tiple domains for the same task, it is similar to
+domain adaptation, but symmetric, rather than
+limited to improving performance on a target
+domain. We present a more principled, better
+performing model for this problem, based on
+the use of a hierarchical Bayesian prior. Each
+domain has its own domain-specific parame-
+ter for each feature but, rather than a constant
+prior over these parameters, the model instead
+links them via a hierarchical Bayesian global
+prior. This prior encourages the features to
+have similar weights across domains, unless
+there is good evidence to the contrary. We
+show that the method of (Daume III, 2007),
+which was presented as a simple prepro-
+cessing step, is actually equivalent, except
+our representation explicitly separates hyper-
+parameters which were tied in his work. We
+demonstrate that allowing different values for
+these hyperparameters significantly improves
+performance over both a strong baseline and
+(Daume III, 2007) within both a conditional
+random field sequence model for named en-
+tity recognition and a discriminatively trained
+dependency parser.
+</bodyText>
+<sectionHeader confidence="0.998009" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999527340909091">
+The goal of multi-task learning is to improve perfor-
+mance on a set of related tasks, when provided with
+(potentially varying quantities of) annotated data for
+each of the tasks. It is very closely related to domain
+adaptation, a far more common task in the natural
+language processing community, but with two pri-
+mary differences. Firstly, in domain adaptation the
+different tasks are actually just different domains.
+Secondly, in multi-task learning the focus is on im-
+proving performance across all tasks, while in do-
+main adaptation there is a distinction between source
+data and target data, and the goal is to improve per-
+formance on the target data. In the present work we
+focus on domain adaptation, but like the multi-task
+setting, we wish to improve performance across all
+domains and not a single target domains. The word
+domain is used here somewhat loosely: it may refer
+to a topical domain or to distinctions that linguists
+might term mode (speech versus writing) or regis-
+ter (formal written prose versus SMS communica-
+tions). For example, one may have a large amount
+of parsed newswire, and want to use it to augment
+a much smaller amount of parsed e-mail, to build a
+higher quality parser for e-mail data. We also con-
+sider the extension to the task where the annotation
+is not the same, but is consistent, across domains
+(that is, some domains may be annotated with more
+information than others).
+This problem is important because it is omni-
+present in real life natural language processing tasks.
+Annotated data is expensive to produce and limited
+in quantity. Typically, one may begin with a con-
+siderable amount of annotated newswire data, some
+annotated speech data, and a little annotated e-mail
+data. It would be most desirable if the aggregated
+training data could be used to improve the perfor-
+mance of a system on each of these domains.
+From the baseline of building separate systems
+for each domain, the obvious first attempt at domain
+adaptation is to build a system from the union of the
+training data, and we will refer to this as a second
+baseline. In this paper we propose a more principled,
+formal model of domain adaptation, which not only
+outperforms previous work, but maintains attractive
+</bodyText>
+<page confidence="0.995611">
+602
+</page>
+<bodyText confidence="0.9976108125">
+\x0cperformance characteristics in terms of training and
+testing speed. We also show that the domain adapta-
+tion work of (Daume III, 2007), which is presented
+as an ad-hoc preprocessing step, is actually equiv-
+alent to our formal model. However, our representa-
+tion of the model conceptually separates some of the
+hyperparameters which are not separated in (Daume
+III, 2007), and we found that setting these hyperpa-
+rameters with different values from one another was
+critical for improving performance.
+We apply our model to two tasks, named entity
+recognition, using a linear chain conditional random
+field (CRF), and dependency parsing, using a dis-
+criminative, chart-based model. In both cases, we
+find that our model improves performance over both
+baselines and prior work.
+</bodyText>
+<sectionHeader confidence="0.7705705" genericHeader="method">
+2 Hierarchical Bayesian Domain
+Adaptation
+</sectionHeader>
+<subsectionHeader confidence="0.828278">
+2.1 Motivation
+</subsectionHeader>
+<bodyText confidence="0.990217829268292">
+We call our model hierarchical Bayesian domain
+adaptation, because it makes use of a hierarchical
+Bayesian prior. As an example, take the case of
+building a logistic classifier to decide if a word is
+part of a persons name. There will be a param-
+eter (weight) for each feature, and usually there is
+a zero-mean Gaussian prior over the parameter val-
+ues so that they dont get too large.1 In the stan-
+dard, single-domain, case the log likelihood of the
+data and prior is calculated, and the optimal pa-
+rameter values are found. Now, lets extend this
+model to the case of two domains, one containing
+American newswire and the other containing British
+newswire. The data distributions will be similar for
+the two domains, but not identical. In our model,
+we have separate parameters for each feature in each
+domain. We also have a top level parameter (also
+to be learned) for each feature. For each domain,
+the Gaussian prior over the parameter values is now
+centered around these top level parameters instead
+of around zero. A zero-mean Gaussian prior is then
+placed over the top level parameters. In this ex-
+ample, if some feature, say word=Nigel, only ap-
+pears in the British newswire, the corresponding
+weight for the American newswire will have a sim-
+ilar value. This happens because the evidence in
+the British domain will push the British parameter
+1This can be regarded as a Bayesian prior or as weight reg-
+ularization; we adopt the former perspective here.
+to have a high value, and this will in turn influence
+the top-level parameter to have a high value, which
+will then influence the American newswire to have
+a high value, because there will be no evidence in
+the American data to override the prior. Conversely,
+if some feature is highly indicative of isName=true
+for the British newswire, and of isName=false for
+the American newswire, then the British parameter
+will have a high (positive) value while the American
+parameter will have a low (negative) value, because
+in both cases the domain-specific evidence will out-
+weigh the effect of the prior.
+</bodyText>
+<subsectionHeader confidence="0.865311">
+2.2 Formal Model
+</subsectionHeader>
+<bodyText confidence="0.99862575">
+Our domain adaptation model is based on a hierar-
+chical Bayesian prior, through which the domain-
+specific parameters are tied. The model is very
+general-purpose, and can be applied to any discrim-
+inative learning task for which one would typically
+put a prior with a mean over the parameters. We will
+build up to it by first describing a general, single-
+domain, discriminative learning task, and then we
+will show how to modify this model to construct
+our hierarchical Bayesian domain adaptation model.
+In a typical discriminative probabilistic model, the
+learning process consists of optimizing the log con-
+ditional likelihood of the data with respect to the pa-
+rameters, Lorig(D;). This likelihood function can
+take on many forms: logistic regression, a condi-
+tional Markov model, a conditional random field, as
+well as others. It is common practice to put a zero-
+mean Gaussian prior over the parameters, leading to
+the following objective, for which we wish to find
+the optimal parameter values:
+</bodyText>
+<equation confidence="0.890199625">
+argmax
+Lorig(D;)
+i
+2
+i
+22
+!
+(1)
+</equation>
+<bodyText confidence="0.998928384615385">
+From a graphical models perspective, this looks like
+Figure 1(a), where is the mean for the prior (in our
+case, zero), 2 is the variance for the prior, are the
+parameters, or feature weights, and D is the data.
+Now we will extend this single-domain model into
+a multi-domain model (illustrated in Figure 1(b)).
+Each feature weight i is replicated once for each
+domain, as well as for a top-level set of parame-
+ters. We will refer to the parameters for domain
+d as d, with individual components d,i, the top-
+level parameters as , and all parameters collec-
+tively as . All of the power of our model stems
+from the relationship between these sets of param-
+</bodyText>
+<page confidence="0.993917">
+603
+</page>
+<figure confidence="0.9925571">
+\x0c
+D
+N
+d d
+Dd
+N M
+txt txt sp sp
+d d d d
+Dd Dd
+(a) (b) (c)
+</figure>
+<figureCaption confidence="0.999734">
+Figure 1: (a) No domain adaptation. The model parameters, , are normally distributed, with mean (typically zero)
+</figureCaption>
+<bodyText confidence="0.992971348837209">
+and variance 2. The likelihood of the data, D, is dependent on the model parameters. The form of the data distribution
+depends on the underlying model (e.g., logistic regression, or a CRF). (b) Our hierarchical domain adaptation model.
+The top-level parameters, , are normally distributed, with mean (typically zero) and variance 2
+. There is a plate
+for each domain. Within each plate, the domain-specific parameters, d are normally distributed, with mean and
+variance 2
+d . (c) Our hierarchical domain adaptation model, with an extra level of structure. In this example, the
+domains are further split into text and speech super-domains, each of which has its own set of parameters (txt and txt
+for text and sp and sp for speech). d is normally distributed with mean txt if domain d is in the text super-domain,
+and sp if it is in the speech super-domain.
+eters. First, we place a zero-mean Gaussian prior
+over the top level parameters . Then, these top
+level parameters are used as the mean for a Gaussian
+prior placed over each of the domain-specific param-
+eters d. These domain-specific parameters are then
+the parameters used in the original conditional log
+likelihood functions for each domain. The domain-
+specific parameter values jointly influence an appro-
+priate value for the higher-level parameters. Con-
+versely, the higher-level parameters will largely de-
+termine the domain-specific parameters when there
+is little or no evidence from within a domain, but can
+be overriden by domain-specific evidence when it
+clearly goes against the general picture (for instance
+Leeds is normally a location, but within the sports
+domain is usually an organization (football team)).
+The beauty of this model is that the degree of in-
+fluence each domain exerts over the others, for each
+parameter, is based on the amount of evidence each
+domain has about that parameter. If a domain has
+a lot of evidence for a feature weight, then that evi-
+dence will outweigh the effect of the prior. However,
+when a domain lacks evidence for a parameter the
+opposite occurs, and the prior (whose value is deter-
+mined by evidence in the other domains) will have a
+greater effect on the parameter value.
+To achieve this, we modify the objective func-
+tion. We now sum over the log likelihood for all do-
+mains, including a Gaussian prior for each domain,
+but which is now centered around , the top-level
+parameters. Outside of this summation, we have a
+Gaussian prior over the top-level parameters which
+is identical to the prior in the original model:
+</bodyText>
+<equation confidence="0.852661">
+Lhier(D;) = (2)
+d
+Lorig(Dd;d)
+i
+(d,i ,i)2
+22
+d
+!
+i
+(,i)2
+</equation>
+<page confidence="0.964633">
+22
+</page>
+<bodyText confidence="0.996456428571429">
+where 2
+d and 2
+are variances on the priors over
+the parameters for all the domains, as well as the
+top-level parameters. The graphical models repre-
+sentation is shown in Figure 1(b).
+One potential source of confusion is with respect
+to the directed or undirected nature of our domain
+adaptation model, and the underlying model of the
+data. Our hierarchical Bayesian domain adaptation
+model is directed, as illustrated in Figure 1. How-
+ever, somewhat counterintuitively, the underlying
+(original) model of the data can be either directed
+or undirected, and for our experiments we use undi-
+</bodyText>
+<page confidence="0.997626">
+604
+</page>
+<bodyText confidence="0.98631515">
+\x0crected, conditional random field-based models. The
+directed domain adaptation model can be viewed
+as a model of the parameters, and those parameter
+weights are used by the underlying data model. In
+Figure 1, the entire data model is represented by a
+single node, D, conditioned on the parameters, or
+d. The form of that model can then be almost any-
+thing, including an undirected model.
+From an implementation perspective, the objec-
+tive function is not much more difficult to implement
+than the original single-domain model. For all of our
+experiments, we optimized the log likelihood using
+L-BFGS, which requires the function value and par-
+tial derivatives of each parameter. The new partial
+derivatives for the domain-specific parameters (but
+not the top-level parameters) utilize the same par-
+tial derivatives as in the original model. The only
+change in the calculations is with respect to the pri-
+ors. The partial derivatives for the domain-specific
+parameters are:
+</bodyText>
+<figure confidence="0.965652136363636">
+Lhier(D;)
+d,i
+=
+Ld(Dd,d)
+d,i
+d,i ,i
+2
+d
+(3)
+and the derivatives for the top level parameters
+are:
+Lhier(D;)
+,i
+=
+d
+,i d,i
+2
+d
+!
+,i
+2
+(4)
+</figure>
+<bodyText confidence="0.998974">
+This function is convex. Once the optimal param-
+eters have been learned, the top level parameters
+can be discarded, since the runtime model for each
+domain is the same as the original (single-domain)
+model, parameterized by the parameters learned for
+that domain in the hierarchical model. However, it
+may be useful to retain the top-level parameters for
+use in adaptation to further domains in the future.
+In our model there are d extra hyper-parameters
+which can be tuned. These are the variances 2
+d for
+each domain. When this value is large then the prior
+has little influence, and when set high enough will be
+equivalent to training each model separately. When
+this value is close to zero the prior has a strong in-
+fluence, and when it is sufficiently close to zero then
+it will be equivalent to completely tying the param-
+eters, such that d1,i = d2,i for all domains. Despite
+having many more parameters, for both of the tasks
+on which we performed experiments, we found that
+our model did not take much more time to train that
+a baseline model trained on all of the data concate-
+nated together.
+</bodyText>
+<subsectionHeader confidence="0.998041">
+2.3 Model Generalization
+</subsectionHeader>
+<bodyText confidence="0.992911411764706">
+The model as presented thus far can be viewed
+as a two level tree, with the top-level parameters
+at the root, and the domain-specific ones at the
+leaves. However, it is straightforward to generalize
+the model to any tree structure. In the generalized
+version, the domain-specific parameters would still
+be at the leaves, the top-level parameters at the root,
+but new mid-level parameters can be added based
+on beliefs about how similar the various domains
+are. For instance, if one had four datasets, two of
+which contained speech data and two of which con-
+tained newswire, then it might be sensible to have
+two sets of mid-level parameters, one for the speech
+data and one for the newswire data, as illustrated in
+Figure 1(c). This would allow the speech domains
+to influence one another more than the newswire do-
+mains, and vice versa.
+</bodyText>
+<subsectionHeader confidence="0.99552">
+2.4 Formalization of (Daume III, 2007)
+</subsectionHeader>
+<bodyText confidence="0.999738307692308">
+As mentioned earlier, our model is equivalent to that
+presented in (Daume III, 2007), and can be viewed
+as a formal version of his model.2 In his presenta-
+tion, the adapation is done through feature augmen-
+tation. Specifically, for each feature in the original
+version, a new version is created for each domain, as
+well as a general, domain-independent version of the
+feature. For each datum, two versions of each orig-
+inal feature are present: the version for that datums
+domain, and the domain independent one.
+The equivalence between the two models can be
+shown with simple arithmetic. Recall that the log
+likelihood of our model is:
+</bodyText>
+<figure confidence="0.410094111111111">
+d
+Lorig(Dd;d)
+i
+(d,i ,i)2
+22
+d
+!
+i
+(,i)2
+</figure>
+<page confidence="0.933615">
+22
+</page>
+<bodyText confidence="0.9762455">
+We now introduce a new variable d = d , and
+plug it into the equation for log likelihood:
+</bodyText>
+<figure confidence="0.716474111111111">
+d
+Lorig(Dd;d +)
+i
+(d,i)2
+22
+d
+!
+i
+(,i)2
+</figure>
+<page confidence="0.969183">
+22
+</page>
+<bodyText confidence="0.9787715">
+The result is the model of (Daume III, 2007), where
+the d are the domain-specific feature weights, and
+d are the domain-independent feature weights. In
+his formulation, the variances 2
+d = 2
+for all do-
+mains d.
+This separation of the domain-specific and inde-
+pendent variances was critical to our improved per-
+formance. When using a Gaussian prior there are
+</bodyText>
+<footnote confidence="0.931007">
+2Many thanks to David Vickrey for pointing this out to us.
+</footnote>
+<page confidence="0.997389">
+605
+</page>
+<bodyText confidence="0.99899715">
+\x0ctwo parameters set by the user: the mean, (usu-
+ally zero), and the variance, 2. Technically, each
+of these parameters is actually a vector, with an en-
+try for each feature, but almost always the vectors
+are uniform and the same parameter is used for each
+feature (there are exceptions, e.g. (Lee et al., 2007)).
+Because Daume III (2007) views the adaptation as
+merely augmenting the feature space, each of his
+features has the same prior mean and variance, re-
+gardless of whether it is domain specific or indepen-
+dent. He could have set these parameters differently,
+but he did not.3 In our presentation of the model,
+we explicitly represent different variances for each
+domain, as well as the top level parameters. We
+found that specifying different values for the domain
+specific versus domain independent variances sig-
+nificantly improved performance, though we found
+no gains from using different values for the differ-
+ent domain specific variances. The values were set
+based on development data.
+</bodyText>
+<sectionHeader confidence="0.987263" genericHeader="method">
+3 Named Entity Recognition
+</sectionHeader>
+<bodyText confidence="0.99904925">
+For our first set of experiments, we used a linear-
+chain, conditional random field (CRF) model,
+trained for named entity recognition (NER). The use
+of CRFs for sequence modeling has become stan-
+dard so we will omit the model details; good expla-
+nations can be found in a number of places (Lafferty
+et al., 2001; Sutton and McCallum, 2007). Our fea-
+tures were based on those in (Finkel et al., 2005).
+</bodyText>
+<subsectionHeader confidence="0.998546">
+3.1 Data
+</subsectionHeader>
+<bodyText confidence="0.922824833333333">
+We used three named entity datasets, from the
+CoNLL 2003, MUC-6 and MUC-7 shared tasks.
+CoNLL is British newswire, while MUC-6 and
+MUC-7 are both American newswire. Arguably
+MUC-6 and MUC-7 should not count as separate
+domains, but because they were annotated sepa-
+rately, for different shared tasks, we chose to treat
+them as such, and feel that our experimental results
+justify the distinction. We used the standard train
+and test sets for each domain, which for CoNLL cor-
+responds to the (more difficult) testb set. For details
+about the number of training and test words in each
+dataset, please see Table 1.
+One interesting challenge in dealing with both
+CoNLL and MUC data is that the label sets differ.
+3Although he alludes to the potential for something similar
+in the last section of his paper, when discussing the kerneliza-
+tion interpretation of his approach.
+</bodyText>
+<table confidence="0.997963">
+# Train # Test
+Words Words
+MUC-6 165,082 15,032
+MUC-7 89,644 64,490
+CoNLL 203,261 46,435
+</table>
+<tableCaption confidence="0.998876">
+Table 1: Number of words in the training and test sets for
+</tableCaption>
+<bodyText confidence="0.998550136363636">
+each of the named entity recognition datasets.
+CoNLL has four classes: person, organization, lo-
+cation, and misc. MUC data has seven classes: per-
+son, organization, location, percent, date, time, and
+money. They overlap in the three core classes (per-
+son, organization, and location), but CoNLL has
+one additional class and MUC has four additional
+classes.
+The differences in the label sets led us to perform
+two sets of experiments for the baseline and hier-
+archical Bayesian models. In the first set of exper-
+iments, at training time, the model allows any la-
+bel from the union of the label sets, regardless of
+whether that label was legal for the domain. At test
+time, we would ignore guesses made by the model
+which were inconsistent with the allowed labels for
+that domain.4 In the second set of experiments, we
+restricted the model at training time to only allow
+legal labels for each domain. At test time, the do-
+main was specified, and the model was once again
+restricted so that words would never be tagged with
+a label outside of that domains label set.
+</bodyText>
+<subsectionHeader confidence="0.999587">
+3.2 Experimental Results and Discussion
+</subsectionHeader>
+<bodyText confidence="0.8764005">
+In our experiments, we compared our model to sev-
+eral strong baselines, and the full set of results is in
+</bodyText>
+<tableCaption confidence="0.908417">
+Table 2. The models we used were:
+TARGET ONLY. Trained and tested on only the data
+</tableCaption>
+<bodyText confidence="0.861101571428571">
+for that domain.
+ALL DATA. Trained and tested on data from all do-
+mains, concatenated into one large dataset.
+ALL DATA*. Same as ALL DATA, but restricted
+possible labels for each word based on domain.
+DAUME07. Trained and tested using the same tech-
+nique as (Daume III, 2007). We note that they
+present results using per-token label accuracy,
+while we used the more standard entity preci-
+sion, recall, and F score (as in the CoNLL 2003
+shared task).
+4We treated them identically to the background symbol. So,
+for instance, labelling a word a date in the CoNLL data had no
+effect on the score.
+</bodyText>
+<page confidence="0.99816">
+606
+</page>
+<table confidence="0.998324692307692">
+\x0cNamed Entity Recognition
+Model Precision Recall F1
+MUC-6
+TARGET ONLY 86.74 80.10 83.29
+ALL DATA* 85.04 83.49 84.26
+ALL DATA 86.00 82.71 84.32
+DAUME07* 87.83 83.41 85.56
+DAUME07 87.81 82.23 85.46
+HIER BAYES* 88.59 84.97 86.74
+HIER BAYES 88.77 85.14 86.92
+MUC-7
+TARGET ONLY 81.17 70.23 75.30
+ALL DATA* 81.66 76.17 78.82
+ALL DATA 82.20 70.91 76.14
+DAUME07* 83.33 75.42 79.18
+DAUME07 83.51 75.63 79.37
+HIER BAYES* 82.90 76.95 79.82
+HIER BAYES 83.17 77.02 79.98
+CoNLL
+TARGET ONLY 85.55 84.72 85.13
+ALL DATA* 86.34 84.45 85.38
+ALL DATA 86.58 83.90 85.22
+DAUME07* 86.09 85.06 85.57
+DAUME07 86.35 85.26 85.80
+HIER BAYES* 86.33 85.06 85.69
+HIER BAYES 86.51 85.13 85.81
+</table>
+<tableCaption confidence="0.996792">
+Table 2: Named entity recognition results for each of the
+</tableCaption>
+<bodyText confidence="0.983229152542373">
+models. With the exception of the TARGET ONLY model,
+all three datasets were combined when training each of
+the models.
+DAUME07*. Same as DAUME07, but restricted
+possible labels for each word based on domain.
+HIER BAYES. Our hierarchical Bayesian domain
+adaptation model.
+HIER BAYES*. Same as HIER BAYES, but re-
+stricted possible labels for each word based on
+the domain.
+For all of the baseline models, and for the top
+level-parameters in the hierarchical Bayesian model,
+we used = 1. For the domain-specific parameters,
+we used d = 0.1 for all domains.
+The HIER BAYES model outperformed all base-
+lines for both of the MUC datasets, and tied with
+the DAUME07 for CoNLL. The largest improvement
+was on MUC-6, where HIER BAYES outperformed
+DAUME07*, the second best model, by 1.36%. This
+improvement is greater than the improvement made
+by that model over the ALL DATA* baseline. To as-
+sess significance we used a document-level paired
+t-test (over all of the data combined), and found that
+HIER BAYES significantly outperformed all of the
+baselines (not including HIER BAYES*) with greater
+than 95% confidence.
+For both the HIER BAYES and DAUME07 mod-
+els, we found that performance was better for the
+variant which did not restrict possible labels based
+on the domain, while the ALL DATA model did ben-
+efit from the label restriction. For HIER BAYES and
+DAUME07, this result may be due to the structure
+of the models. Because both models have domain-
+specific features, the models likely learned that these
+labels were never actually allowed. However, when
+a feature does not occur in the data for a particular
+domain, then the domain-specific parameter for that
+feature will have positive weight due to evidence
+present in the other domains, which at test time can
+lead to assigning an illegal label to a word. This
+information that a word may be of some other (un-
+known to that domain) entity type may help prevent
+the model from mislabeling the word. For example,
+in CoNLL, nationalities, such as Iraqi and Ameri-
+can, are labeled as misc. If a previously unseen na-
+tionality is encountered in the MUC testing data, the
+MUC model may be tempted to label is as a location,
+but this evidence from the CoNLL data may prevent
+that, by causing it to instead be labeled misc, a label
+which will subsequently be ignored.
+In typical domain adaptation work, showing gains
+is made easier by the fact that the amount of train-
+ing data in the target domain is comparatively small.
+Within the multi-task learning setting, it is more
+challenging to show gains over the ALL DATA base-
+line. Nevertheless, our results show that, so long as
+the amount of data in each domain is not widely dis-
+parate, it is possible to achieve gains on all of the
+domains simultaneously.
+</bodyText>
+<sectionHeader confidence="0.91697" genericHeader="method">
+4 Dependency Parsing
+</sectionHeader>
+<subsectionHeader confidence="0.990573">
+4.1 Parsing Model
+</subsectionHeader>
+<bodyText confidence="0.9993438">
+We also tested our model on an untyped dependency
+parsing task, to see how it performs on a more struc-
+turally complex task than sequence modeling. To
+our knowledge, the discriminatively trained depen-
+dency model we used has not been previously pub-
+lished, but it is very similar to recent work on dis-
+criminative constituency parsing (Finkel and Man-
+ning, 2008). Due to space restrictions, we cannot
+give a complete treatment of the model, but will give
+an overview.
+</bodyText>
+<page confidence="0.990265">
+607
+</page>
+<bodyText confidence="0.992426824561404">
+\x0cWe built a CRF-based model, optimizing the like-
+lihood of the parse, conditioned on the words and
+parts of speech of the sentence. At the heart of
+our model is the Eisner dependency grammar chart-
+parsing algorithm (Eisner, 1996), which allows for
+efficient computation of inside and outside scores.
+The Eisner algorithm, originally designed for gen-
+erative parsing, decomposes the probability of a de-
+pendency parse into the probabilities of each attach-
+ment of a dependent to its parent, and the proba-
+bilities of each parent stopping taking dependents.
+These probabilities can be conditioned on the child,
+parent, and direction of the dependency. We used
+a slight modification of the algorithm which allows
+each probability to also be conditioned on whether
+there is a previous dependent. While the unmodified
+version of the algorithm includes stopping probabil-
+ities, conditioned on the parent and direction, they
+have no impact on which parse for a particular sen-
+tence is most likely, because all words must eventu-
+ally stop taking dependents. However, in the modi-
+fied version, the stopping probability is also condi-
+tioned on whether or not there is a previous depen-
+dent, so this probability does make a difference.
+While the Eisner algorithm computes locally nor-
+malized probabilities for each attachment decision,
+our model computes unnormalized scores. From
+a graphical models perspective, our parsing model
+is undirected, while the original model is directed.5
+The score for a particular tree decomposes the same
+way in our model as in the original Eisner model,
+but it is globally normalized instead of locally nor-
+malized. Using the inside and outside scores we can
+compute partial derivatives for the feature weights,
+as well as the value of the normalizing constant
+needed to determine the probability of a particular
+parse. This is done in a manner completely analo-
+gous to (Finkel and Manning, 2008). Partial deriva-
+tives and the function value are all that is needed to
+find the optimal feature weights using L-BFGS.6
+Features are computed over each attachment and
+stopping decision, and can be conditioned on the
+5The dependencies themselves are still directed in both
+cases, it is just the underlying graphical model used to compute
+the likelihood of a parse which changes from a directed model
+to an undirected model.
+6In (Finkel and Manning, 2008) we used stochastic gradient
+descent to optimize our weights because our function evaluation
+was too slow to use L-BFGS. We did not encounter this problem
+in this setting.
+parent, dependent (or none, if it is a stopping deci-
+sion), direction of attachment, whether there is a pre-
+vious dependent in that direction, and the words and
+parts of speech of the sentence. We used the same
+features as (McDonald et al., 2005), augmented with
+information about whether or not a dependent is the
+first dependent (information they did not have).
+</bodyText>
+<subsectionHeader confidence="0.909614">
+4.2 Data
+</subsectionHeader>
+<bodyText confidence="0.9978555">
+For our dependency parsing experiments, we used
+LDC2008T04 OntoNotes Release 2.0 data (Hovy
+et al., 2006). This dataset is still in development,
+and includes data from seven different domains, la-
+beled for a number of tasks, including PCFG trees.
+The domains span both newswire and speech from
+multiple sources. We converted the PCFG trees
+into dependency trees using the Collins head rules
+(Collins, 2003). We also omitted the WSJ portion
+of the data, because it follows a different annotation
+scheme from the other domains.7 For each of the
+remaining six domains, we aimed for an 75/25 data
+split, but because we divided the data using the pro-
+vided sections, this split was fairly rough. The num-
+ber of training and test sentences for each domain
+are specified in the Table 3, along with our results.
+</bodyText>
+<subsectionHeader confidence="0.99846">
+4.3 Experimental Results and Discussion
+</subsectionHeader>
+<bodyText confidence="0.999884869565217">
+We compared the same four domain adaptation
+models for dependency parsing as we did for the
+named entity experiments, once again setting =
+1.0 and d = 0.1. Unlike the named entity experi-
+ments however, there were no label set discrepencies
+between the domains, so only one version of each
+domain adaptation model was necessary, instead of
+the two versions in that section.
+Our full dependency parsing results can be found
+in Table 3. Firstly, we found that DAUME07, which
+had outperformed the ALL DATA baseline for the
+sequence modeling task, performed worse than the
+7Specifically, all the other domains use the new Penn
+Treebank annotation style, whereas the WSJ data is still in the
+traditional annotation style, familiar from the past decades
+work in Penn Treebank parsing. The major changes are in
+hyphenation and NP structure. In the new annotation style,
+many hyphenated words are separated into multiple tokens, with
+a new part-of-speech tag given to the hyphens, and leftward-
+branching structure inside noun phrases is indicated by use of
+a new NML phrasal category. The treatment of hyphenated
+words, in particular, makes the two annotation styles inconsis-
+tent, and so we could not work with all the data together.
+</bodyText>
+<page confidence="0.994472">
+608
+</page>
+<table confidence="0.998720777777778">
+\x0cDependency Parsing
+Training Testing TARGET ALL HIER
+Range # Sent Range # Sent ONLY DATA DAUME07 BAYES
+ABC 055 1195 5669 199 83.32% 88.97% 87.30% 88.68%
+CNN 0375 5092 376437 1521 85.53% 87.09% 86.41% 87.26%
+MNB 017 509 1825 245 77.06% 86.41% 84.70% 86.71%
+NBC 029 552 3039 149 76.21% 85.82% 85.01% 85.32%
+PRI 089 1707 90112 394 87.65% 90.28% 89.52% 90.59%
+VOA 0198 1512 199264 383 89.17% 92.11% 90.67% 92.09%
+</table>
+<tableCaption confidence="0.8808215">
+Table 3: Dependency parsing results for each of the domain adaptation models. Performance is measured as unlabeled
+attachment accuracy.
+</tableCaption>
+<bodyText confidence="0.991737545454545">
+baseline here, indicating that the transfer of infor-
+mation between domains in the more structurally
+complicated task is inherently more difficult. Our
+models gains over the ALL DATA baseline are
+quite small, but we tested their significance using a
+sentence-level paired t-test (over all of the data com-
+bined) and found them to be significant at p &amp;lt; 105.
+We are unsure why some domains improved while
+others did not. It is not simply a consequence of
+training set size, but may be due to qualities of the
+domains themselves.
+</bodyText>
+<sectionHeader confidence="0.999701" genericHeader="method">
+5 Related Work
+</sectionHeader>
+<bodyText confidence="0.980722210526316">
+We already discussed the relation of our work to
+(Daume III, 2007) in Section 2.4. Another piece of
+similar work is (Chelba and Acero, 2004), who also
+modify their prior. Their work is limited to two do-
+mains, a source and a target, and their algorithm has
+a two stage process: First, train a classifier on the
+source data, and then use the learned weights from
+that classifier as the mean for a Gaussian prior when
+training a new model on just the target data.
+Daume III and Marcu (2006) also took a Bayesian
+approach to domain adaptation, but structured their
+model in a very different way. In their model, it is
+assumed that each datum within a domain is either a
+domain-specific datum, or a general datum, and then
+domain-specific and general weights were learned.
+Whether each datum is domain-specific or general
+is not known, so they developed an EM based algo-
+rithm for determining this information while simul-
+taneously learning the feature weights. Their model
+had good performance, but came with a 10 to 15
+times slowdown at training time. Our slowest de-
+pendency parser took four days to train, making this
+model close to infeasible for learning on that data.
+Outside of the NLP community there has been
+much similar work making use of hierarchical
+Bayesian priors to tie parameters across multiple,
+similar tasks. Evgeniou et al. (2005) present a sim-
+ilar model, but based on support vector machines,
+to predict the exam scores of students. Elidan et
+al. (2008) make us of an undirected Bayesian trans-
+fer hierarchy to jointly model the shapes of differ-
+ent mammals. The complete literature on related
+multi-task learning is too large to fully discuss here,
+but we direct the reader to (Baxter, 1997; Caruana,
+1997; Yu et al., 2005; Xue et al., 2007). For a more
+general discussion of hierarchical priors, we recom-
+mend Chapter 5 of (Gelman et al., 2003) and Chap-
+ter 12 of (Gelman and Hill, 2006).
+</bodyText>
+<sectionHeader confidence="0.984072" genericHeader="conclusions">
+6 Conclusion and Future Work
+</sectionHeader>
+<bodyText confidence="0.997560888888889">
+In this paper we presented a new model for domain
+adaptation, based on a hierarchical Bayesian prior,
+which allows information to be shared between do-
+mains when information is sparse, while still allow-
+ing the data from a particular domain to override the
+information from other domains when there is suf-
+ficient evidence. We outperformed previous work
+on a sequence modeling task, and showed improve-
+ments on dependency parsing, a structurally more
+complex problem, where previous work failed. Our
+model is practically useful and does not require sig-
+nificantly more time to train than a baseline model
+using the same data (though it does require more
+memory, proportional to the number of domains). In
+the future we would like to see if the model could be
+adapted to improve performance on data from a new
+domain, potentially by using the top-level weights
+which should be less domain-dependent.
+</bodyText>
+<sectionHeader confidence="0.963168" genericHeader="acknowledgments">
+Acknowledgements
+</sectionHeader>
+<bodyText confidence="0.925705">
+The first author is supported by a Stanford Graduate
+Fellowship. We also thank David Vickrey for his
+helpful comments and observations.
+</bodyText>
+<page confidence="0.993131">
+609
+</page>
+<reference confidence="0.995355985074627">
+\x0cReferences
+J. Baxter. 1997. A bayesian/information theoretic model
+of learning to learn via multiple task sampling. In Ma-
+chine Learning, volume 28.
+R. Caruana. 1997. Multitask learning. In Machine Learn-
+ing, volume 28.
+Ciprian Chelba and Alex Acero. 2004. Adaptation of a
+maximum entropy capitalizer: Little data can help a
+lot. In EMNLP 2004.
+M. Collins. 2003. Head-driven statistical models for
+natural language parsing. Computational Linguistics,
+29(4):589637.
+Hal Daume III and Daniel Marcu. 2006. Domain adap-
+tation for statistical classifiers. Journal of Artificial
+Intelligence Research.
+Hal Daume III. 2007. Frustratingly easy domain adap-
+tation. In Conference of the Association for Computa-
+tional Linguistics (ACL), Prague, Czech Republic.
+Jason Eisner. 1996. Three new probabilistic models
+for dependency parsing: An exploration. In Proceed-
+ings of the 16th International Conference on Compu-
+tational Linguistics (COLING-96), Copenhagen.
+Gal Elidan, Benjamin Packer, Geremy Heitz, and Daphne
+Koller. 2008. Convex point estimation using undi-
+rected bayesian transfer hierarchies. In UAI 2008.
+T. Evgeniou, C. Micchelli, and M. Pontil. 2005. Learn-
+ing multiple tasks with kernel methods. In Journal of
+Machine Learning Research.
+Jenny Rose Finkel and Christopher D. Manning. 2008.
+Efficient, feature-based conditional random field pars-
+ing. In ACL/HLT-2008.
+Jenny Rose Finkel, Trond Grenager, and Christopher
+Manning. 2005. Incorporating non-local information
+into information extraction systems by gibbs sampling.
+In ACL 2005.
+Andrew Gelman and Jennifer Hill. 2006. Data Analysis
+Using Regression and Multilevel/Hierarchical Models.
+Cambridge University Press.
+A. Gelman, J. B. Carlin, H. S. Stern, and Donald
+D. B. Rubin. 2003. Bayesian Data Analysis. Chapman
+&amp; Hall.
+Eduard Hovy, Mitchell Marcus, Martha Palmer, Lance
+Ramshaw, and Ralph Weischedel. 2006. Ontonotes:
+The 90% solution. In HLT-NAACL 2006.
+John D. Lafferty, Andrew McCallum, and Fernando C. N.
+Pereira. 2001. Conditional random fields: Probabilis-
+tic models for segmenting and labeling sequence data.
+In ICML 2001.
+Su-In Lee, Vassil Chatalbashev, David Vickrey, and
+Daphne Koller. 2007. Learning a meta-level prior for
+feature relevance from multiple related tasks. In ICML
+07: Proceedings of the 24th international conference
+on Machine learning.
+Ryan McDonald, Koby Crammer, and Fernando Pereira.
+2005. Online large-margin training of dependency
+parsers. In ACL 2005.
+Charles Sutton and Andrew McCallum. 2007. An in-
+troduction to conditional random fields for relational
+learning. In Lise Getoor and Ben Taskar, editors, Intro-
+duction to Statistical Relational Learning. MIT Press.
+Ya Xue, Xuejun Liao, Lawrence Carin, and Balaji Krish-
+napuram. 2007. Multi-task learning for classification
+with dirichlet process priors. J. Mach. Learn. Res., 8.
+Kai Yu, Volker Tresp, and Anton Schwaighofer. 2005.
+Learning gaussian processes from multiple tasks. In
+ICML 05: Proceedings of the 22nd international con-
+ference on Machine learning.
+</reference>
+<page confidence="0.776674">
+610
+</page>
+<figure confidence="0.383798">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.636402">
+<note confidence="0.818024">b&amp;apos;Human Language Technologies: The 2009 Annual Conference of the North American Chapter of the ACL, pages 602610, Boulder, Colorado, June 2009. c 2009 Association for Computational Linguistics</note>
+<title confidence="0.964091">Hierarchical Bayesian Domain Adaptation</title>
+<author confidence="0.999883">Jenny Rose Finkel</author>
+<author confidence="0.999883">Christopher D Manning</author>
+<affiliation confidence="0.999869">Computer Science Department Stanford University</affiliation>
+<address confidence="0.999744">Stanford, CA 94305</address>
+<email confidence="0.999676">{jrfinkel|manning}@cs.stanford.edu</email>
+<abstract confidence="0.998812310344827">Multi-task learning is the problem of maximizing the performance of a system across a number of related tasks. When applied to multiple domains for the same task, it is similar to domain adaptation, but symmetric, rather than limited to improving performance on a target domain. We present a more principled, better performing model for this problem, based on the use of a hierarchical Bayesian prior. Each domain has its own domain-specific parameter for each feature but, rather than a constant prior over these parameters, the model instead links them via a hierarchical Bayesian global prior. This prior encourages the features to have similar weights across domains, unless there is good evidence to the contrary. We show that the method of (Daume III, 2007), which was presented as a simple preprocessing step, is actually equivalent, except our representation explicitly separates hyperparameters which were tied in his work. We demonstrate that allowing different values for these hyperparameters significantly improves performance over both a strong baseline and (Daume III, 2007) within both a conditional random field sequence model for named entity recognition and a discriminatively trained dependency parser.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>b&amp;apos;Human Language</author>
+</authors>
+<title>Technologies: The</title>
+<date>2009</date>
+<booktitle>c 2009 Association for Computational Linguistics \x0cReferences</booktitle>
+<volume>28</volume>
+<pages>602610</pages>
+<location>Boulder, Colorado,</location>
+<marker>Language, 2009</marker>
+<rawString>b&amp;apos;Human Language Technologies: The 2009 Annual Conference of the North American Chapter of the ACL, pages 602610, Boulder, Colorado, June 2009. c 2009 Association for Computational Linguistics \x0cReferences J. Baxter. 1997. A bayesian/information theoretic model of learning to learn via multiple task sampling. In Machine Learning, volume 28.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Caruana</author>
+</authors>
+<title>Multitask learning.</title>
+<date>1997</date>
+<booktitle>In Machine Learning,</booktitle>
+<volume>28</volume>
+<marker>Caruana, 1997</marker>
+<rawString>R. Caruana. 1997. Multitask learning. In Machine Learning, volume 28.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ciprian Chelba</author>
+<author>Alex Acero</author>
+</authors>
+<title>Adaptation of a maximum entropy capitalizer: Little data can help a lot. In EMNLP</title>
+<date>2004</date>
+<marker>Chelba, Acero, 2004</marker>
+<rawString>Ciprian Chelba and Alex Acero. 2004. Adaptation of a maximum entropy capitalizer: Little data can help a lot. In EMNLP 2004.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+</authors>
+<title>Head-driven statistical models for natural language parsing.</title>
+<date>2003</date>
+<journal>Computational Linguistics,</journal>
+<volume>29</volume>
+<issue>4</issue>
+<marker>Collins, 2003</marker>
+<rawString>M. Collins. 2003. Head-driven statistical models for natural language parsing. Computational Linguistics, 29(4):589637.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hal Daume</author>
+<author>Daniel Marcu</author>
+</authors>
+<title>Domain adaptation for statistical classifiers.</title>
+<date>2006</date>
+<journal>Journal of Artificial Intelligence Research.</journal>
+<marker>Daume, Marcu, 2006</marker>
+<rawString>Hal Daume III and Daniel Marcu. 2006. Domain adaptation for statistical classifiers. Journal of Artificial Intelligence Research.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hal Daume</author>
+</authors>
+<title>Frustratingly easy domain adaptation.</title>
+<date>2007</date>
+<booktitle>In Conference of the Association for Computational Linguistics (ACL),</booktitle>
+<location>Prague, Czech Republic.</location>
+<marker>Daume, 2007</marker>
+<rawString>Hal Daume III. 2007. Frustratingly easy domain adaptation. In Conference of the Association for Computational Linguistics (ACL), Prague, Czech Republic.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jason Eisner</author>
+</authors>
+<title>Three new probabilistic models for dependency parsing: An exploration.</title>
+<date>1996</date>
+<booktitle>In Proceedings of the 16th International Conference on Computational Linguistics (COLING-96),</booktitle>
+<location>Copenhagen.</location>
+<marker>Eisner, 1996</marker>
+<rawString>Jason Eisner. 1996. Three new probabilistic models for dependency parsing: An exploration. In Proceedings of the 16th International Conference on Computational Linguistics (COLING-96), Copenhagen.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Gal Elidan</author>
+<author>Benjamin Packer</author>
+<author>Geremy Heitz</author>
+<author>Daphne Koller</author>
+</authors>
+<title>Convex point estimation using undirected bayesian transfer hierarchies.</title>
+<date>2008</date>
+<booktitle>In UAI</booktitle>
+<marker>Elidan, Packer, Heitz, Koller, 2008</marker>
+<rawString>Gal Elidan, Benjamin Packer, Geremy Heitz, and Daphne Koller. 2008. Convex point estimation using undirected bayesian transfer hierarchies. In UAI 2008.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Evgeniou</author>
+<author>C Micchelli</author>
+<author>M Pontil</author>
+</authors>
+<title>Learning multiple tasks with kernel methods.</title>
+<date>2005</date>
+<journal>In Journal of Machine Learning Research.</journal>
+<marker>Evgeniou, Micchelli, Pontil, 2005</marker>
+<rawString>T. Evgeniou, C. Micchelli, and M. Pontil. 2005. Learning multiple tasks with kernel methods. In Journal of Machine Learning Research.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Rose Finkel</author>
+<author>Christopher D Manning</author>
+</authors>
+<date>2008</date>
+<marker>Finkel, Manning, 2008</marker>
+<rawString>Jenny Rose Finkel and Christopher D. Manning. 2008.</rawString>
+</citation>
+<citation valid="false">
+<authors>
+<author>Efficient</author>
+</authors>
+<title>feature-based conditional random field parsing.</title>
+<booktitle>In ACL/HLT-2008.</booktitle>
+<marker>Efficient, </marker>
+<rawString>Efficient, feature-based conditional random field parsing. In ACL/HLT-2008.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Rose Finkel</author>
+<author>Trond Grenager</author>
+<author>Christopher Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by gibbs sampling.</title>
+<date>2005</date>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>Jenny Rose Finkel, Trond Grenager, and Christopher Manning. 2005. Incorporating non-local information into information extraction systems by gibbs sampling.</rawString>
+</citation>
+<citation valid="true">
+<date>2005</date>
+<booktitle>In ACL</booktitle>
+<marker>2005</marker>
+<rawString>In ACL 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andrew Gelman</author>
+<author>Jennifer Hill</author>
+</authors>
+<title>Data Analysis Using Regression and Multilevel/Hierarchical Models.</title>
+<date>2006</date>
+<publisher>Cambridge University Press.</publisher>
+<marker>Gelman, Hill, 2006</marker>
+<rawString>Andrew Gelman and Jennifer Hill. 2006. Data Analysis Using Regression and Multilevel/Hierarchical Models. Cambridge University Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Gelman</author>
+<author>J B Carlin</author>
+<author>H S Stern</author>
+<author>Donald D B Rubin</author>
+</authors>
+<title>Bayesian Data Analysis.</title>
+<date>2003</date>
+<publisher>Chapman &amp; Hall.</publisher>
+<marker>Gelman, Carlin, Stern, Rubin, 2003</marker>
+<rawString>A. Gelman, J. B. Carlin, H. S. Stern, and Donald D. B. Rubin. 2003. Bayesian Data Analysis. Chapman &amp; Hall.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eduard Hovy</author>
+<author>Mitchell Marcus</author>
+<author>Martha Palmer</author>
+<author>Lance Ramshaw</author>
+<author>Ralph Weischedel</author>
+</authors>
+<title>Ontonotes: The 90% solution.</title>
+<date>2006</date>
+<booktitle>In HLT-NAACL</booktitle>
+<marker>Hovy, Marcus, Palmer, Ramshaw, Weischedel, 2006</marker>
+<rawString>Eduard Hovy, Mitchell Marcus, Martha Palmer, Lance Ramshaw, and Ralph Weischedel. 2006. Ontonotes: The 90% solution. In HLT-NAACL 2006. John D. Lafferty, Andrew McCallum, and Fernando C. N.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Pereira</author>
+</authors>
+<title>Conditional random fields: Probabilistic models for segmenting and labeling sequence data.</title>
+<date>2001</date>
+<marker>Pereira, 2001</marker>
+<rawString>Pereira. 2001. Conditional random fields: Probabilistic models for segmenting and labeling sequence data.</rawString>
+</citation>
+<citation valid="true">
+<date>2001</date>
+<booktitle>In ICML</booktitle>
+<marker>2001</marker>
+<rawString>In ICML 2001.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Su-In Lee</author>
+<author>Vassil Chatalbashev</author>
+<author>David Vickrey</author>
+<author>Daphne Koller</author>
+</authors>
+<title>Learning a meta-level prior for feature relevance from multiple related tasks.</title>
+<date>2007</date>
+<booktitle>In ICML 07: Proceedings of the 24th international conference on Machine learning.</booktitle>
+<marker>Lee, Chatalbashev, Vickrey, Koller, 2007</marker>
+<rawString>Su-In Lee, Vassil Chatalbashev, David Vickrey, and Daphne Koller. 2007. Learning a meta-level prior for feature relevance from multiple related tasks. In ICML 07: Proceedings of the 24th international conference on Machine learning.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ryan McDonald</author>
+<author>Koby Crammer</author>
+<author>Fernando Pereira</author>
+</authors>
+<title>Online large-margin training of dependency parsers.</title>
+<date>2005</date>
+<booktitle>In ACL</booktitle>
+<marker>McDonald, Crammer, Pereira, 2005</marker>
+<rawString>Ryan McDonald, Koby Crammer, and Fernando Pereira. 2005. Online large-margin training of dependency parsers. In ACL 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Charles Sutton</author>
+<author>Andrew McCallum</author>
+</authors>
+<title>An introduction to conditional random fields for relational learning.</title>
+<date>2007</date>
+<booktitle>In Lise Getoor and Ben Taskar, editors, Introduction to Statistical Relational Learning.</booktitle>
+<publisher>MIT Press.</publisher>
+<marker>Sutton, McCallum, 2007</marker>
+<rawString>Charles Sutton and Andrew McCallum. 2007. An introduction to conditional random fields for relational learning. In Lise Getoor and Ben Taskar, editors, Introduction to Statistical Relational Learning. MIT Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ya Xue</author>
+<author>Xuejun Liao</author>
+<author>Lawrence Carin</author>
+<author>Balaji Krishnapuram</author>
+</authors>
+<title>Multi-task learning for classification with dirichlet process priors.</title>
+<date>2007</date>
+<journal>J. Mach. Learn. Res.,</journal>
+<volume>8</volume>
+<marker>Xue, Liao, Carin, Krishnapuram, 2007</marker>
+<rawString>Ya Xue, Xuejun Liao, Lawrence Carin, and Balaji Krishnapuram. 2007. Multi-task learning for classification with dirichlet process priors. J. Mach. Learn. Res., 8.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kai Yu</author>
+<author>Volker Tresp</author>
+<author>Anton Schwaighofer</author>
+</authors>
+<title>Learning gaussian processes from multiple tasks.</title>
+<date>2005</date>
+<booktitle>In ICML 05: Proceedings of the 22nd international conference on Machine learning.</booktitle>
+<marker>Yu, Tresp, Schwaighofer, 2005</marker>
+<rawString>Kai Yu, Volker Tresp, and Anton Schwaighofer. 2005. Learning gaussian processes from multiple tasks. In ICML 05: Proceedings of the 22nd international conference on Machine learning.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

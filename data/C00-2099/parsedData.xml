@@ -1,0 +1,1232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<title confidence="0.563282">
+b&amp;apos;A Statistical Theory of Dependency Syntax
+</title>
+<author confidence="0.577911">
+Christer Samuelsson
+</author>
+<affiliation confidence="0.574815">
+Xerox Research Centre Europe
+</affiliation>
+<address confidence="0.761007">
+6, chemin de Maupertuis
+38240 Meylan, FRANCE
+</address>
+<email confidence="0.931557">
+Christer.Samuelsson@xrce.xerox.com
+</email>
+<sectionHeader confidence="0.98812" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999144">
+A generative statistical model of dependency syntax
+is proposed based on Tesni\x12
+ere\&amp;apos;s classical theory. It
+provides a stochastic formalization of the original
+model of syntactic structure and augments it with
+a model of the string realization process, the latter
+which is lacking in Tesni\x12
+ere\&amp;apos;s original work. The
+resulting theory models crossing dependency links,
+discontinuous nuclei and string merging, and it has
+been given an e\x0ecient computational rendering.
+</bodyText>
+<sectionHeader confidence="0.998344" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.968588756756757">
+The theory of dependency grammar culminated in
+the seminal book by Lucien Tesni\x12
+ere, (Tesni\x12
+ere,
+1959), to which also today\&amp;apos;s leading scholars pay
+homage, see, e.g., (Mel\&amp;apos;\x14
+cuk, 1987). Unfortunately,
+Tesni\x12
+ere\&amp;apos;s book is only available in French, with a
+partial translation into German, and subsequent de-
+scriptions of his work reported in English, (Hays,
+1964), (Gaifman, 1965), (Robinson, 1970), etc.,
+stray increasingly further from the original, see (En-
+gel, 1996) or (J\x7f
+arvinen, 1998) for an account of this.
+The \x0crst step when assigning a dependency de-
+scription to an input string is to segment the input
+string into nuclei. A nucleus can be a word, a part
+of a word, or a sequence of words and subwords,
+and these need not appear contiguously in the input
+string. The best way to visualize this is perhaps the
+following: the string is tokenized into a sequence of
+tokens and each nucleus consists of a subsequence of
+these tokens. Alternative readings may implydi\x0ber-
+ent ways of dividing the token sequence into nuclei,
+and segmenting the input string into nuclei is there-
+fore in general a nondeterministic process.
+The next step is to relate the nuclei to each other
+through dependency links, which are directed and
+typed. If there is a dependency link from one nu-
+cleus to another, the former is called a dependent
+of the latter, and the latter a regent of the former.
+Theories ofdependency syntax typicallyrequire that
+each nucleus, save a single root nucleus, is assigned
+a unique regent, and that there is no chain of de-
+pendency links that constitutes a cycle. This means
+that the dependency links establish a tree structure,
+</bodyText>
+<figure confidence="0.982577133333333">
+subj dobj
+main
+John beans
+ate
+.
+ate
+subj dobj
+main
+John beans
+.
+ate
+main
+.
+dobj subj
+beans John
+</figure>
+<figureCaption confidence="0.999845">
+Figure 1: Dependency trees for John ate beans.
+</figureCaption>
+<bodyText confidence="0.982478684210526">
+where each node is labeled by a nucleus. Thus, the
+label assigned to a node is a dependent of the label
+assigned to its parent node, and conversely, the label
+assigned to a node is the regent of the labels assigned
+to its child nodes. Figure 1 shows two dependency
+trees for the sentence John ate beans.
+In Tesni\x12
+ere\&amp;apos;s dependency syntax, only the depen-
+dency structure, not the order of the dependents, is
+represented by a dependency tree. This means that
+dependency trees are unordered, and thus that the
+two trees of Figure 1 are equivalent. This also means
+that specifying the surface-string realization of a de-
+pendency description becomes a separate issue.
+We will model dependency descriptions as two
+separate stochastic processes: one top-down process
+generating the tree structure T and one bottom-up
+process generating the surface string(s) S given the
+tree structure:
+</bodyText>
+<equation confidence="0.953176">
+P(T ;S) = P(T )\x01 P(S j T )
+</equation>
+<bodyText confidence="0.999210545454546">
+This can be viewed as a variant of Shannon\&amp;apos;s noisy
+channel model, consisting of a language model of
+tree structures and a signal model converting trees
+to surface strings. In Section 2 we describe the top-
+down process generating tree structures and in Sec-
+tion 3 we propose a series of increasingly more so-
+phisticated bottom-up processes generating surface
+strings, which result in grammars with increasingly
+greater expressive power. Section 4 describes how
+the proposed stochastic model of dependency syn-
+tax was realized as a probabilistic chart parser.
+</bodyText>
+<sectionHeader confidence="0.958723" genericHeader="method">
+2 Generating Dependency Trees
+</sectionHeader>
+<bodyText confidence="0.950946">
+To describe a tree structure T , we will use a string
+notation, introduced in (Gorn, 1962), for the nodes
+</bodyText>
+<figure confidence="0.908219142857143">
+\x0cbeans
+ate/1
+/12
+John/11
+subj dobj
+main
+. /
+</figure>
+<figureCaption confidence="0.924446">
+Figure 2: Gorn\&amp;apos;s tree notation for John ate beans.
+</figureCaption>
+<figure confidence="0.6207886">
+N L F S
+\x0f . [main] s(1) .
+1 ate [subj,dobj] s(11) ate s(12)
+11 John ; John
+12 beans ; beans
+</figure>
+<figureCaption confidence="0.998928">
+Figure 3: Dependency encoding of John ate beans.
+</figureCaption>
+<bodyText confidence="0.973192451612903">
+of the tree, where the node name speci\x0ces the path
+from the root node \x0f to the node in question.
+If \x1ej is a node of the tree T ,
+with j 2 N+ and \x1e 2 N\x03
++,
+then \x1e is also a node of the tree T
+and \x1ej is a child of \x1e.
+Here, N+ denotes the set of positive integers
+f1;2;:::g and N\x03
++ is the set of strings over N+. This
+means that the label assigned to node \x1ej is a de-
+pendent of the label assigned to node \x1e. The \x0crst
+dependency tree of Figure 1 is shown in Figure 2
+using this notation.
+We introduce three basic random variables, which
+incrementally generate the tree structure:
+\x0f L(\x1e) = l assigns the label l to node \x1e, where
+l is a nucleus, i.e., it is drawn from the set of
+strings over the set of tokens.
+\x0f D(\x1ej) = dindicates thedependency type dlink-
+ing the label of node \x1ej to its regent, the label
+of node \x1e.
+\x0f V(\x1e) = v indicates that node \x1e has exactly v
+child nodes.
+Note the use of V(\x1e) = 0, rather than a partitioning
+of the labels into terminal and nonterminalsymbols,
+to indicate that \x1e is a leaf node.
+Let D be the (\x0cnite) set of possible dependency
+types. We next introduce the composite variables
+F (\x1e) ranging over the power bag1 ND, indicating
+the bag of dependency types of \x1e\&amp;apos;s children:
+</bodyText>
+<equation confidence="0.94734">
+F (\x1e) = f = [d1;:::;dv] ,
+, V(\x1e) = v ^ 8j2f1;:::;vg D(\x1ej) = dj
+</equation>
+<bodyText confidence="0.977029333333333">
+Figure 3 encodes the dependency tree of Figure 2
+accordingly. We will ignore the last column for now.
+1A bag (multiset) can contain several tokens of the same
+type. We denotesets f: : :g, bags[: : :] and orderedtuplesh: : :i,
+but overload [; \x12, etc.
+We introduce the probabilities
+</bodyText>
+<equation confidence="0.99973225">
+PL(\x0f) =
+= P(L(\x0f) = l)
+PL(\x1ej) =
+= P(L(\x1ej) = lj j L(\x1e) = l;D(\x1ej) = dj)
+PF(\x0f) =
+= P(F (\x0f) = f j L(\x0f) = l)
+PF(\x1e) = f for \x1e 6= \x0f g
+= P(F (\x1e) = f j L(\x1e) = l;D(\x1e) = d)
+</equation>
+<bodyText confidence="0.999218466666667">
+These probabilities are typically model parameters,
+orfurther decomposedintosuch. PL(\x1ej) is the prob-
+ability of the label L(\x1ej) of a node given the label
+L(\x1e) of its regent and the dependency type D(\x1ej)
+linkingthem. Relating L(\x1ej) and L(\x1e) yields lexical
+collocation statistics and including D(\x1ej) makes the
+collocation statistics lexical-functional. PF(\x1e) is the
+probability of the bag of dependency types F (\x1e) of
+a node given its label L(\x1e) and its relation D(\x1e) to
+its regent. This re
+ects the probability of the label\&amp;apos;s
+valency,or lexical-functionalcomplement,and ofop-
+tional adjuncts. Including D(\x1e) makes this proba-
+bilitysituated in taking its current role into account.
+These allow us to de\x0cne the tree probability
+</bodyText>
+<equation confidence="0.999617">
+P(T ) =
+Y
+\x1e2N
+PL(\x1e) \x01 PF(\x1e)
+</equation>
+<bodyText confidence="0.9628286">
+where the product is taken over the set of nodes N
+of the tree.
+We generate the random variables L and F using
+a top-down stochastic process, where L(\x1e) is gener-
+ated before F (\x1e). The probability of the condition-
+ingmaterialofPL(\x1ej) isthen knownfromPL(\x1e)and
+PF(\x1e), and that of PF(\x1ej) is known from PL(\x1ej)
+and PF(\x1e). Figure 3 shows the process generating
+the dependency tree of Figure 2 by reading the L
+and F columns downwards in parallel, L before F :
+</bodyText>
+<equation confidence="0.99996925">
+L(\x0f) = :; F (\x0f) = [main];
+L(1) = ate; F (1) = [subj,dobj];
+L(11) = John; F (11) = ;;
+L(12) = beans; F (12) = ;
+</equation>
+<bodyText confidence="0.838179">
+Consider calculating the probabilities at node 1:
+</bodyText>
+<equation confidence="0.9997796">
+PL(1) =
+= P(L(1) = ate j L(\x0f) = :;D(1) = main)
+PF(1) =
+= P(F (1) = [subj;dobj] j
+j L(1) = ate;D(1) = main)
+</equation>
+<sectionHeader confidence="0.958155" genericHeader="method">
+3 String Realization
+</sectionHeader>
+<bodyText confidence="0.99946575">
+The string realization cannot be uniquely deter-
+mined from the tree structure. To model the string-
+realization process, we introduce another fundamen-
+tal random variable S(\x1e), which denotes the string
+\x0cassociated with node \x1e and which should not be con-
+fused with the node label L(\x1e). We will introduce
+yet another fundamental random variable M(\x1e) in
+Section 3.2, when we accommodate crossing depen-
+dency links. In Section 3.1, we present a projective
+stochastic dependency grammar with an expressive
+power not exceeding that of stochastic context-free
+grammars.
+</bodyText>
+<subsectionHeader confidence="0.998432">
+3.1 Projective Dependency Grammars
+</subsectionHeader>
+<bodyText confidence="0.999591285714286">
+We let the stochastic process generating the L and F
+variables be as described above. We then de\x0cne the
+stochastic string-realization process by letting the
+S(\x1e) variables, given \x1e\&amp;apos;s label l(\x1e) and the bag of
+strings s(\x1ej) of \x1e\&amp;apos;s child nodes, randomly permute
+and concatenate them according to the probability
+distributions of the model:
+</bodyText>
+<equation confidence="0.999645">
+PS(\x0f) =
+= P(S(\x0f) = s(\x0f) j L(\x0f);F (\x0f);C(\x0f))
+PS(\x1e) = f for \x1e 6= \x0f g
+= P(S(\x1e) = s(\x1e) j D(\x1e);L(\x1e);F (\x1e);C(\x1e))
+where
+C(\x1e) =
+v
+[
+j=1
+[s(\x1ej)]
+S(\x1e) = adjoin(C(\x1e);l(\x1e))
+adjoin(A;\x0c) = concat(permute(A[ [\x0c]))
+</equation>
+<bodyText confidence="0.999644">
+The latter equations should be interpreted as de\x0cn-
+ing the randomvariable S, rather than specifying its
+probability distribution or some possible outcome.
+This means that each dependent is realized adjacent
+to its regent, where we allow intervening siblings,
+and that we thus stay within the expressive power
+of stochastic context-free grammars.
+We de\x0cne the string-realization probability
+</bodyText>
+<equation confidence="0.958787333333333">
+P(S j T ) =
+Y
+\x1e2N
+PS(\x1e)
+and the tree-string probability as
+P(T ;S) = P(T )\x01 P(S j T )
+</equation>
+<bodyText confidence="0.997398666666667">
+The stochastic process generating the tree struc-
+ture is as described above. We then generate the
+string variables S using a bottom-up stochastic pro-
+cess. Figure 3 also shows the process realizing the
+surface string John ate beans from the dependency
+tree of Figure 2 by reading the S column upwards:
+</bodyText>
+<equation confidence="0.996532">
+S(12) = beans; S(11) = John;
+S(1) = s(11) ate s(12); S(\x0f) = s(1) .
+</equation>
+<listItem confidence="0.425582333333333">
+Considercalculatingthe string probabilityatnode
+1. PS is the probability of the particular permuta-
+tion observed of the strings of the children and the
+</listItem>
+<figure confidence="0.957614583333333">
+Mary
+did say/1
+/121
+/
+/11
+John
+that ate/12
+What beans/122
+?
+subj sconj
+subj dobj
+whq
+</figure>
+<figureCaption confidence="0.999963">
+Figure 4: Dependency tree for What beans did Mary
+</figureCaption>
+<bodyText confidence="0.948005666666667">
+say that John ate?
+labelofthe node. Toovercome the sparse-data prob-
+lem, we will generalize over the actual strings of the
+children to their dependency types. For example,
+s(subj) denotes the string of the subject child, re-
+gardless of what it actually might be.
+</bodyText>
+<equation confidence="0.999937666666667">
+PS(1) = P(S(1) = s(subj) ate s(dobj) j
+j D(1) = main;L(1) = ate;
+C(1) = [s(subj);s(dobj)])
+</equation>
+<bodyText confidence="0.979628444444444">
+This is the probability of the permutation
+hs(subj);ate;s(dobj)i
+of the bag
+[s(subj);ate;s(dobj)]
+given this bag and the fact that we wish to form a
+main, declarative clause. This example highlights
+the relationship between the node strings and both
+Saussure\&amp;apos;s notion of constituency and the positional
+schemata of, amongst others, Didrichsen.
+</bodyText>
+<subsectionHeader confidence="0.999717">
+3.2 Crossing Dependency Links
+</subsectionHeader>
+<bodyText confidence="0.976498625">
+To accommodate long-distance dependencies, we al-
+low a dependent to be realized adjacent to the la-
+bel of any node that dominates it, immediately or
+not. For example, consider the dependency tree of
+Figure 4 for the sentence What beans did Mary say
+that John ate? as encoded in Figure 5. Here, What
+beans is a dependent of that ate, which in turn is a
+dependent of did say, and What beans is realized be-
+tween did and say. Thisphenomenonis called move-
+ment in conjunction with phrase-structure gram-
+mars. It makes the dependency grammar non-
+projective, since it creates crossing dependency links
+if the dependency trees also depict the word order.
+We introduce variables M(\x1e) that randomly se-
+lect from C(\x1e) a subbag CM(\x1e) of strings passed up
+to \x1e\&amp;apos;s regent:
+</bodyText>
+<equation confidence="0.940713">
+C(\x1e) =
+v
+[
+j=1
+([s(\x1ej)] [ CM(\x1ej))
+CM(\x1e) \x12 C(\x1e)
+PM(\x1e) = P(M(\x1e) = CM(\x1e) j
+j D(\x1e);L(\x1e);F (\x1e);C(\x1e))
+\x0cN L F
+</equation>
+<figure confidence="0.946051833333333">
+\x0f ? [whq]
+1 did say [subj,sconj]
+11 Mary ;
+12 that ate [subj,dobj]
+121 John ;
+122 What beans ;
+</figure>
+<figureCaption confidence="0.6869365">
+Figure 5: Dependency encoding of What beans did
+Mary say that John ate?
+</figureCaption>
+<equation confidence="0.901312428571429">
+N M S
+\x0f ; s(1) ?
+1 ; CM(12)(s(122)) did s(11) say s(12)
+11 ; Mary
+12 [s(122)] that s(121) ate
+121 ; John
+122 ; What beans
+</equation>
+<figureCaption confidence="0.994078">
+Figure 6: Process generating What beans did Mary
+</figureCaption>
+<bodyText confidence="0.822611">
+say that John ate?
+The rest of the strings, CS(\x1e), are realized here:
+</bodyText>
+<equation confidence="0.999953666666667">
+CS(\x1e) = C(\x1e)n CM(\x1e)
+PS(\x1e) = P(S(\x1e) = s(\x1e) j D(\x1e);L(\x1e);F (\x1e);CS(\x1e))
+S(\x1e) = adjoin(CS(\x1e);l(\x1e))
+</equation>
+<subsectionHeader confidence="0.993444">
+3.3 Discontinuous Nuclei
+</subsectionHeader>
+<bodyText confidence="0.995595333333333">
+We generalize the scheme to discontinuous nuclei by
+allowing S(\x1e) to insert the strings of CS(\x1e) any-
+where in l(\x1e): 2
+</bodyText>
+<equation confidence="0.9998775">
+adjoin(A;\x0c) =
+= concat(permutei&lt;j)bi\x1ebj
+(A [
+m
+[
+j=1
+[bj]))
+\x0c = b1 :::bm
+</equation>
+<bodyText confidence="0.999583666666667">
+This means that strings can onlybe inserted into an-
+cestor labels, not into other strings, which enforces
+a type of reverse island constraint. Note how in Fig-
+ure 6 John is inserted between that and ate to form
+the subordinate clause that John ate.
+We de\x0cne the string-realization probability
+</bodyText>
+<equation confidence="0.86564">
+P(S j T ) =
+Y
+\x1e2N
+PM(\x1e) \x01 PS(\x1e)
+and again de\x0cne the tree-string probability
+P(T ;S) = P(T )\x01 P(S j T )
+2x \x1e y indicates that x precedes y in the resulting per-
+mutation. Tesni\x12
+</equation>
+<bodyText confidence="0.980487457142857">
+ere\&amp;apos;s original implicit de\x0cnition of a nucleus
+actually does not require that the order be preserved when
+realizing it; if has eaten is a nucleus, so is eaten has. This is
+obviouslya useful featurefor modelingverb chainsin German
+subordinate clauses.
+To avoid derivational ambiguity when generating a
+tree-string pair, i.e., have more than one derivation
+generate the same tree-string pair, we require that
+no string be realized adjacent to the string of any
+node it was passed up through. This introduces the
+practical problem of ensuring that zero probability
+mass is assigned to all derivations violatingthis con-
+straint. Otherwise, the result will be approximating
+the parse probability with a derivation probability,
+as described in detailin (Samuelsson,2000)based on
+the seminal work of (Sima\&amp;apos;an, 1996). Schemes like
+(Alshawi, 1996) tacitly make this approximation.
+The tree-structure variables L and F are gener-
+ated just as before. Wethen generate the string vari-
+ables S andM usingabottom-upstochastic process,
+where M(\x1e) is generated before S(\x1e). The proba-
+bility of the conditioning material of PM(\x1e) is then
+known either from the top-down process or from
+PM(\x1ej) and PS(\x1ej), and that of PS(\x1e) is known
+either from the top-down process, or from PM(\x1e),
+PM(\x1ej) and PS(\x1ej). The coherence of S(\x1e) and
+M(\x1e) is enforced by explicit conditioning.
+Figure 5 shows a top-down process generating the
+dependency tree of Figure 4; the columns L and
+F should be read downwards in parallel, L before
+F . Figure 6 shows a bottom-up process generating
+the string What beans did Mary say that John ate?
+from the dependency description of Figure 5. The
+columns M and S should be read upwards in paral-
+lel, M before S.
+</bodyText>
+<subsectionHeader confidence="0.998006">
+3.4 String Merging
+</subsectionHeader>
+<bodyText confidence="0.975987518518518">
+We have increased the expressive power of our de-
+pendency grammars by modifying the S variables,
+i.e., by extending the adjoin operation. In the \x0crst
+version, the adjoinoperation randomlypermutes the
+node label and the strings of the child nodes, and
+concatenates the result. In the second version, it
+randomly inserts the strings of the child nodes, and
+any movedstrings to be realized at the current node,
+into the node label.
+The adjoin operation can be further re\x0cned to al-
+low handling an even wider range of phenomena,
+such as negation in French. Here, the dependent
+stringismerged withthe labelofthe regent, asne :::
+pas is wrapped around portions of the verb phrase,
+e.g., Ne me quitte pas!, see (Brel, 1959). Figure 7
+shows a dependency tree forthis. In additionto this,
+the node labels may be linguistic abstractions, e.g.
+\
+egation&amp;quot;, calling on the S variables also for their
+surface-string realization.
+Note that the expressive power of the grammar
+depends on the possible distributions of the string
+probabilitiesPS. Sinceeach node labelcan be moved
+and realized at the root node, any language can be
+recognized to which the string probabilities allowas-
+signingthe entire probablitymass, and the grammar
+will possess at least this expressive power.
+</bodyText>
+<figure confidence="0.896172875">
+\x0cneg dobj
+!
+imp
+/
+me/12
+Ne pas/11
+/1
+quitte
+</figure>
+<figureCaption confidence="0.999895">
+Figure 7: Dependency tree for Ne me quitte pas!
+</figureCaption>
+<sectionHeader confidence="0.92079" genericHeader="method">
+4 A Computational Rendering
+</sectionHeader>
+<bodyText confidence="0.995753">
+A close approximation of the described stochastic
+model of dependency syntax has been realized as a
+type of probabilistic bottom-up chart parser.
+</bodyText>
+<subsectionHeader confidence="0.99968">
+4.1 Model Specialization
+</subsectionHeader>
+<bodyText confidence="0.995675333333333">
+The following modi\x0ccations, which are really just
+specializations, were made to the proposed model
+for e\x0eciency reasons and to cope with sparse data.
+According to Tesni\x12
+ere, a nucleus is a unit that
+contains both the syntactic and semantic head and
+that does not exhibit any internal syntactic struc-
+ture. We take the view that a nucleus consists of a
+content word, i.e., an open-class word, and all func-
+tionwords addinginformationtoitthatcould justas
+well have been realized morphologically. For exam-
+ple, the de\x0cnite article associates de\x0cniteness with a
+word, whichcouldjust haswellhavebeen manifested
+in the word form, as it is done in North-Germanic
+languages; a preposition could be realized as a loca-
+tional or temporal in
+ection, as is done in Finnish.
+The longest nuclei we currently alloware verb chains
+of the form that have been eaten, as in John knows
+that the beans have been eaten.
+The F variables were decomposed into generating
+the set of obligatory arguments, i.e., the valency or
+lexicalcomplement,atonce, asinthe originalmodel.
+Optional modi\x0cers (adjuncts) are attached through
+one memory-less process for each modi\x0cer type, re-
+sulting in geometric distributions for these. This is
+the same separation of arguments and adjuncts as
+that employed by (Collins, 1997). However, the L
+variables remained as described above, thus leaving
+the lexical collocation statistics intact.
+The movement probability was divided into three
+parts: the probability of moving the string of a par-
+ticular argument dependent from its regent, that of
+a moved dependency type passing through a par-
+ticular other dependency type, and that of a de-
+pendency type landing beneath a particular other
+dependency type. The one type of movement that
+is not yet properly handled is assigning arguments
+and adjuncts to dislocated heads, as in What book
+did John read by Chomsky?
+The string-realization probability is a straight-
+forward generalization of that given at the end of
+Section 3.1, and they are de\x0cned through regu-
+lar expressions. Basically, each unmoved depen-
+dent string, each moved string landed at the cur-
+</bodyText>
+<figure confidence="0.992869285714286">
+beans /12
+John/11
+subj dobj
+/
+?
+ynq
+John/11
+subj dobj
+/
+?
+Did eat/1
+ynq
+Did xxx/1
+xxx/12
+</figure>
+<figureCaption confidence="0.99988">
+Figure 8: Dependency trees for Did John xxx beans?
+</figureCaption>
+<bodyText confidence="0.965838666666667">
+and Did John eat xxx?
+rent node, and each token of the nucleus labelingthe
+current node are treated as units that are randomly
+permuted. Whenever possible, strings are general-
+ized to their dependency types, but accurately mod-
+elling dependent order in French requires inspecting
+the actual strings of dependent clitics. Open-class
+words are typically generalized to their word class.
+String mergingonly applies to a smallclass of nuclei,
+where we treat the individual tokens of the depen-
+dent string, which is typically its label, as separate
+units when performing the permutation.
+</bodyText>
+<subsectionHeader confidence="0.992379">
+4.2 The Chart Parser
+</subsectionHeader>
+<bodyText confidence="0.996992473118279">
+The parsing algorithm, which draws on the Cocke-
+Kasami-Younger (CKY) algorithm, see (Younger,
+1967), is formulated as a probabilistic deduction
+scheme, whichin turn is realized as anagenda-driven
+chart-parser. The top-level control is similar to that
+of (Pereira and Shieber, 1987), pp. 196{210. The
+parser is implemented in Prolog, and it relies heav-
+ily on using set and bag operations as primitives,
+utilizing and extending existing SICStus libraries.
+The parser \x0crst nondeterministicallysegments the
+input string into nuclei, using a lexicon, and each
+possible nucleus spawns edges for the initial chart.
+Due to discontinuous nuclei, each edge spans not a
+single pair of string positions, indicating its start
+and end position, but a set of such string-position
+pairs, and we call this set an index. If the index
+is a singleton set, then it is continuous. We extend
+the notion of adjacent indices to be any two non-
+overlapping indices where one has a start position
+that equals an end position of the other.
+The lexicon contains information about the roles
+(dependency types linking it to its regent) and va-
+lencies (sets3 of types of argument dependents) that
+are possible for each nucleus. These are hard con-
+straints. Unknown words are included in nuclei in a
+judicious way and the resulting nuclei are assigned
+all reasonable role/valency pairs in the lexicon. For
+example, the parser \\correctly&amp;quot; analyzes the sen-
+tences Did John xxx beans? and Did John eat xxx?
+as shown in Figure 8, where xxx is not in the lexicon.
+For each edge added to the initial chart, the lexi-
+con predicts a single valency, but a set of alternative
+roles. Edges are added to cover all possible valen-
+3Due to the uniqueness principle of arguments, these are
+sets, rather than bags.
+\x0ccies for each nucleus. The roles correspond to the
+\\goal&amp;quot;of dotted itemsused in traditionalchart pars-
+ing, and the un\x0clled valency slots play the part of
+the \\body&amp;quot;, i.e., the portion of the RHS following
+the dot that remains to be found. If an argument is
+attached to the edge, the corresponding valency slot
+is \x0clled in the resulting new edge; no argument can
+be attached to an edge unless there is a correspond-
+ing un\x0clled valency slot for it, or it is licensed by a
+moved argument. For obvious reasons, the lexicon
+cannot predict all possible combinations of adjuncts
+for each nucleus, and in fact predicts none at all.
+There will in general be multiple derivations of any
+edge with more than one dependent, but the parser
+avoids adding duplicate edges to the chart in the
+same way as a traditional chart parser does.
+The parser employs a packed parse forest (PPF)
+to represent the set of all possible analyses and the
+probability of each analysis is recoverable from the
+PPF entries. Since optional modi\x0cers are not pre-
+dicted by the lexicon, the chart does not contain
+any edges that correspond directly to passive edges
+in traditionalchart parsing; at any point, an adjunct
+can always be added to an existing edge to form a
+new edge. In some sense, though, the PPF nodes
+play the role of passive edges, since the parser never
+attempts to combine two edges, only one edge and
+one PPF node, and the latter will always be a de-
+pendent ofthe former, directly, or indirectly through
+the lists of moved dependents. The edge and PPF
+node to be combined are required to have adjacent
+indices, and their union is the index of the new edge.
+The mainpoint in using a packed parse forest is to
+perform local ambiguity packing, which means ab-
+stracting over di\x0berences in internal structure that
+do not matter for further parsing. When attching a
+PPF node to some edge as a direct or indirect de-
+pendent, the only relevant features are its index, its
+nucleus, its role and its moved dependents. Other
+features necessary for recovering the complete anal-
+ysis are recorded in the PPF entries of the node, but
+are not used for parsing.
+To indicate the alternative that no more depen-
+dents are added to an edge, it is converted into a
+set of PPF updates, where each alternative role of
+the edge adds or updates one PPF entry. When
+doing this, any un\x0clled valency slots are added to
+the edge\&amp;apos;s set of moved arguments, which in turn is
+inherited by the resulting PPF update. The edges
+are actually not assigned probabilities, since they
+contain enough information to derive the appropri-
+ate probabilities once they are converted into PPF
+entries. To avoid the combinatorial explosion of un-
+restricted string merging, we only allow edges with
+continuous indices to be converted into PPF entries,
+with the exception of a very limited class of lexically
+signaled nuclei, such as the ne pas, ne jamais, etc.,
+scheme of French negation.
+</bodyText>
+<subsectionHeader confidence="0.99863">
+4.3 Pruning
+</subsectionHeader>
+<bodyText confidence="0.999699533333333">
+As opposed to traditional chart parsing, meaningful
+upper and lower bounds of the supply and demand
+for the dependency types of the \\goal&amp;quot; (roles) and
+\\body&amp;quot; (valency) of each edge can be determined
+from the initial chart, which allows performing so-
+phisticated pruning. The basic idea is that if some
+edge is proposed with a role that is not sought out-
+side its index, this role can safely be removed. For
+example, the word me could potentially be an in-
+direct object, but if there is no other word in the
+input string that can have an indirect object as an
+argument, this alternative can be discarded.
+This idea is generalized to a variant of pigeonhole
+reasoning, in the vein of
+If we select this role or edge, then there are
+by necessity too few or too many of some
+dependency type sought or o\x0bered in the
+chart.
+or alternatively
+If we select this nucleus or edge, then we
+cannot span the entire input string.
+Pruning is currently only applied to the initial chart
+to remove logically impossible alternatives and used
+to \x0clter out impossibleedges produced in the predic-
+tion step. Nonetheless, it reduces parsing times by
+an order of magnitude or more for many of the test
+examples. It would however be possible to apply
+similar ideas to intermittently remove alternatives
+that are known to be suboptimal, or to heuristically
+prune unlikely search branches.
+</bodyText>
+<sectionHeader confidence="0.998467" genericHeader="conclusions">
+5 Discussion
+</sectionHeader>
+<bodyText confidence="0.988590014925373">
+We have proposed a generative, statistical theory
+of dependency syntax, based on Tesni\x12
+ere\&amp;apos;s classical
+theory, that models crossing dependency links, dis-
+continuous nuclei and string merging. The key in-
+sight was to separate the tree-generation and string-
+realization processes. The model has been real-
+ized as a type of probabilistic chart parser. The
+only other high-\x0cdelity computational rendering of
+Tesni\x12
+ere\&amp;apos;s dependency syntax that we are aware of
+is that of (Tapanainen and J\x7f
+arvinen, 1997), which is
+neither generative nor statistical.
+The stochastic modelgenerating dependency trees
+is very similar to other statistical dependency mod-
+els, e.g., to that of (Alshawi, 1996). Formulating it
+using Gorn\&amp;apos;s notation and the L and F variables,
+though, is concise, elegant and novel. Nothing pre-
+vents conditioningthe randomvariableson arbitrary
+portions of the partial tree generated this far, using,
+e.g., maximum-entropy or decision-tree models to
+extract relevant features of it; there is no di\x0berence
+\x0cin principle between our model and history-based
+parsing, see (Black et al., 1993; Magerman, 1995).
+The proposed treatment of string realization
+throughthe use ofthe S andM variablesis alsoboth
+truly novel and important. While phrase-structure
+grammars overemphasize word order by making the
+processes generating the S variables deterministic,
+Tesni\x12
+ere treats string realization as a secondary is-
+sue. We \x0cnd a middle ground by using stochastic
+processes to generate the S and M variables, thus
+reinstating word order as a parameter of equal im-
+portance as, say, lexical collocation statistics. It is
+however not elevated to the hard-constraint status
+it enjoys in phrase-structure grammars.
+Due to the subordinate role of string realization in
+classical dependency grammar, the technical prob-
+lems related to incorporating movement into the
+string-realization process have not been investigated
+in great detail. Our use of the M variables is moti-
+vated partly by practical considerations, and partly
+by linguistic ones. The former in the sense that
+this allows designing e\x0ecient parsing algorithms for
+handling also crossing dependency links. The lat-
+ter as this gives us a quantitative handle on the
+empirically observed resistance against crossing de-
+pendency links. As Tesni\x12
+ere points out, there is
+locality in string realization in the sense that de-
+pendents tend to be realized adjacent to their re-
+gents. This fact is re
+ected by the model parame-
+ters, which also model, probabilistically,barrier con-
+straints, constraints on landing sites, etc. It is note-
+worthy that treating movement as in GPSG, with
+the use of the \\slash&amp;quot; feature, see (Gazdar et al.,
+1985), pp. 137{168, or as is done in (Collins, 1997),
+is the converse of that proposed here for dependency
+grammars: the former pass constituents down the
+tree, the M variables pass strings up the tree.
+The relationship between the proposed stochastic
+model of dependency syntax and a number of other
+prominent stochastic grammars is explored in detail
+in (Samuelsson, 2000).
+</bodyText>
+<sectionHeader confidence="0.990888" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.9975887875">
+Hiyan Alshawi. 1996. Head automata and bilingual
+tiling: Translation with minimal representations.
+Procs. 34th Annual Meeting of the Association for
+Computational Linguistics, pages 167{176.
+Ezra Black, Fred Jelinek, John La\x0berty, David
+Magerman, Robert Mercer, and Salim Roukos.
+1993. Towards history-based grammars: Using
+richer models for probabilistic parsing. Procs.
+28th Annual Meeting of the Association for Com-
+putational Linguistics, pages 31{37.
+Jacques Brel. 1959. Ne me quitte pas. La Valse \x12
+a
+Mille Temps (PHI 6325.205).
+Michael Collins. 1997. Three generative, lexical-
+ized models for statistical parsing. Procs. 35th
+Annual Meeting of the Association for Computa-
+tional Linguistics, pages 16{23.
+Ulrich Engel, 1996. Tesni\x12
+ere Mi\x19verstanden: Lu-
+cien Tesni\x12
+ere { Syntaxe Structurale et Opera-
+tion Mentales. Akten des deutsch-franz\x7f
+osischen
+Kolloquiums anl\x7f
+a\x19lich der 100 Wiederkehr seines
+Gebursttages, Strasbourg 1993, volume348 of Lin-
+guistische Arbeiten, pages 53{61. Niedermeyer,
+T\x7f
+ubingen.
+Haim Gaifman. 1965. Dependency systems and
+phrase-structure systems. Information and Con-
+trol, 8:304{337.
+Gerald Gazdar, Ewan Klein, Geo\x0brey K. Pullum,
+and Ivan A. Sag. 1985. Generalized Phrase Struc-
+ture Grammar. Basil Blackwell Publishing, Ox-
+ford, England. Also published by Harvard Uni-
+versity Press, Cambridge, MA.
+Saul Gorn. 1962. Processors for in\x0cnite codes of
+shannon-fano type. Symp. Math. Theory of Au-
+tomata.
+David Hays. 1964. Dependency theory: A formal-
+ism and some observations. Language, 40(4):511{
+525.
+Timo J\x7f
+arvinen. 1998. Tesni\x13
+ere\&amp;apos;s Structural Syntax
+Reworked. University of Helsinki, Helsinki.
+David Magerman. 1995. Statistical decision-tree
+models for parsing. Procs. 33rd Annual Meeting
+of the Association for Computational Linguistics,
+pages 276{283.
+Igor Mel\&amp;apos;\x14
+cuk. 1987. Dependency Syntax. State Uni-
+versity of New York Press, Albany.
+Fernando Pereira and Stuart Shieber. 1987. Pro-
+log and Natural-Language Analysis. CSLI Lecture
+Note 10.
+Jane Robinson. 1970. Dependency structures and
+transformational rules. Language, 46:259{285.
+Christer Samuelsson. 2000. A theory of stochastic
+grammars. InProceedings of NLP-2000, pages 92{
+105. Springer Verlag.
+Khalil Sima\&amp;apos;an. 1996. Computationalcomplexity of
+probabilistic disambiguations by means of tree-
+grammars. Procs. 16th International Conference
+on Computational Linguistics, at the very end.
+Pasi Tapanainen and Timo J\x7f
+arvinen. 1997. A non-
+projective dependency parser. Procs. 5th Con-
+ference on Applied Natural Language Processing,
+pages 64{71.
+Lucien Tesni\x12
+ere. 1959. \x13
+El\x13
+ements de Syntaxe Struc-
+turale. Libraire C. Klincksieck, Paris.
+David H. Younger. 1967. Recognition and parsing
+of context-free languages in time n3. Information
+and Control, 10(2):189{208.
+\x0c&amp;apos;
+</reference>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.554885">
+<title confidence="0.97423">b&amp;apos;A Statistical Theory of Dependency Syntax</title>
+<author confidence="0.748668">Christer Samuelsson</author>
+<affiliation confidence="0.786499">Xerox Research Centre Europe</affiliation>
+<address confidence="0.856859">6, chemin de Maupertuis 38240 Meylan, FRANCE</address>
+<email confidence="0.998532">Christer.Samuelsson@xrce.xerox.com</email>
+<abstract confidence="0.9982215">A generative statistical model of dependency syntax is proposed based on Tesni\x12 ere\&amp;apos;s classical theory. It provides a stochastic formalization of the original model of syntactic structure and augments it with a model of the string realization process, the latter which is lacking in Tesni\x12 ere\&amp;apos;s original work. The resulting theory models crossing dependency links, discontinuous nuclei and string merging, and it has been given an e\x0ecient computational rendering.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Hiyan Alshawi</author>
+</authors>
+<title>Head automata and bilingual tiling: Translation with minimal representations.</title>
+<date>1996</date>
+<booktitle>Procs. 34th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<pages>167--176</pages>
+<contexts>
+<context position="13874" citStr="Alshawi, 1996" startWordPosition="2323" endWordPosition="2324">erman subordinate clauses. To avoid derivational ambiguity when generating a tree-string pair, i.e., have more than one derivation generate the same tree-string pair, we require that no string be realized adjacent to the string of any node it was passed up through. This introduces the practical problem of ensuring that zero probability mass is assigned to all derivations violatingthis constraint. Otherwise, the result will be approximating the parse probability with a derivation probability, as described in detailin (Samuelsson,2000)based on the seminal work of (Sima\&amp;apos;an, 1996). Schemes like (Alshawi, 1996) tacitly make this approximation. The tree-structure variables L and F are generated just as before. Wethen generate the string variables S andM usingabottom-upstochastic process, where M(\x1e) is generated before S(\x1e). The probability of the conditioning material of PM(\x1e) is then known either from the top-down process or from PM(\x1ej) and PS(\x1ej), and that of PS(\x1e) is known either from the top-down process, or from PM(\x1e), PM(\x1ej) and PS(\x1ej). The coherence of S(\x1e) and M(\x1e) is enforced by explicit conditioning. Figure 5 shows a top-down process generating the dependenc</context>
+<context position="25995" citStr="Alshawi, 1996" startWordPosition="4316" endWordPosition="4317"> Tesni\x12 ere\&amp;apos;s classical theory, that models crossing dependency links, discontinuous nuclei and string merging. The key insight was to separate the tree-generation and stringrealization processes. The model has been realized as a type of probabilistic chart parser. The only other high-\x0cdelity computational rendering of Tesni\x12 ere\&amp;apos;s dependency syntax that we are aware of is that of (Tapanainen and J\x7f arvinen, 1997), which is neither generative nor statistical. The stochastic modelgenerating dependency trees is very similar to other statistical dependency models, e.g., to that of (Alshawi, 1996). Formulating it using Gorn\&amp;apos;s notation and the L and F variables, though, is concise, elegant and novel. Nothing prevents conditioningthe randomvariableson arbitrary portions of the partial tree generated this far, using, e.g., maximum-entropy or decision-tree models to extract relevant features of it; there is no di\x0berence \x0cin principle between our model and history-based parsing, see (Black et al., 1993; Magerman, 1995). The proposed treatment of string realization throughthe use ofthe S andM variablesis alsoboth truly novel and important. While phrase-structure grammars overemphasize</context>
+</contexts>
+<marker>Alshawi, 1996</marker>
+<rawString>Hiyan Alshawi. 1996. Head automata and bilingual tiling: Translation with minimal representations. Procs. 34th Annual Meeting of the Association for Computational Linguistics, pages 167{176.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ezra Black</author>
+<author>Fred Jelinek</author>
+<author>John La\x0berty</author>
+<author>David Magerman</author>
+<author>Robert Mercer</author>
+<author>Salim Roukos</author>
+</authors>
+<title>Towards history-based grammars: Using richer models for probabilistic parsing.</title>
+<date>1993</date>
+<booktitle>Procs. 28th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<pages>31--37</pages>
+<marker>Black, Jelinek, La\x0berty, Magerman, Mercer, Roukos, 1993</marker>
+<rawString>Ezra Black, Fred Jelinek, John La\x0berty, David Magerman, Robert Mercer, and Salim Roukos. 1993. Towards history-based grammars: Using richer models for probabilistic parsing. Procs. 28th Annual Meeting of the Association for Computational Linguistics, pages 31{37.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jacques Brel</author>
+</authors>
+<title>Ne me quitte pas.</title>
+<date>1959</date>
+<booktitle>La Valse \x12 a Mille Temps (PHI</booktitle>
+<pages>6325--205</pages>
+<contexts>
+<context position="15513" citStr="Brel, 1959" startWordPosition="2593" endWordPosition="2594">nding the adjoin operation. In the \x0crst version, the adjoinoperation randomlypermutes the node label and the strings of the child nodes, and concatenates the result. In the second version, it randomly inserts the strings of the child nodes, and any movedstrings to be realized at the current node, into the node label. The adjoin operation can be further re\x0cned to allow handling an even wider range of phenomena, such as negation in French. Here, the dependent stringismerged withthe labelofthe regent, asne ::: pas is wrapped around portions of the verb phrase, e.g., Ne me quitte pas!, see (Brel, 1959). Figure 7 shows a dependency tree forthis. In additionto this, the node labels may be linguistic abstractions, e.g. \ egation&amp;quot;, calling on the S variables also for their surface-string realization. Note that the expressive power of the grammar depends on the possible distributions of the string probabilitiesPS. Sinceeach node labelcan be moved and realized at the root node, any language can be recognized to which the string probabilities allowassigningthe entire probablitymass, and the grammar will possess at least this expressive power. \x0cneg dobj ! imp / me/12 Ne pas/11 /1 quitte Figure 7</context>
+</contexts>
+<marker>Brel, 1959</marker>
+<rawString>Jacques Brel. 1959. Ne me quitte pas. La Valse \x12 a Mille Temps (PHI 6325.205).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+</authors>
+<title>Three generative, lexicalized models for statistical parsing.</title>
+<date>1997</date>
+<booktitle>Procs. 35th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<pages>16--23</pages>
+<contexts>
+<context position="17653" citStr="Collins, 1997" startWordPosition="2922" endWordPosition="2923">sition could be realized as a locational or temporal in ection, as is done in Finnish. The longest nuclei we currently alloware verb chains of the form that have been eaten, as in John knows that the beans have been eaten. The F variables were decomposed into generating the set of obligatory arguments, i.e., the valency or lexicalcomplement,atonce, asinthe originalmodel. Optional modi\x0cers (adjuncts) are attached through one memory-less process for each modi\x0cer type, resulting in geometric distributions for these. This is the same separation of arguments and adjuncts as that employed by (Collins, 1997). However, the L variables remained as described above, thus leaving the lexical collocation statistics intact. The movement probability was divided into three parts: the probability of moving the string of a particular argument dependent from its regent, that of a moved dependency type passing through a particular other dependency type, and that of a dependency type landing beneath a particular other dependency type. The one type of movement that is not yet properly handled is assigning arguments and adjuncts to dislocated heads, as in What book did John read by Chomsky? The string-realizatio</context>
+</contexts>
+<marker>Collins, 1997</marker>
+<rawString>Michael Collins. 1997. Three generative, lexicalized models for statistical parsing. Procs. 35th Annual Meeting of the Association for Computational Linguistics, pages 16{23.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ulrich Engel</author>
+</authors>
+<date>1996</date>
+<booktitle>Tesni\x12 ere Mi\x19verstanden: Lucien Tesni\x12 ere { Syntaxe Structurale et Operation Mentales. Akten des deutsch-franz\x7f osischen Kolloquiums anl\x7f a\x19lich der 100 Wiederkehr seines Gebursttages, Strasbourg 1993, volume348 of Linguistische Arbeiten,</booktitle>
+<pages>53--61</pages>
+<note>Niedermeyer, T\x7f ubingen.</note>
+<contexts>
+<context position="1156" citStr="Engel, 1996" startWordPosition="161" endWordPosition="163">ency links, discontinuous nuclei and string merging, and it has been given an e\x0ecient computational rendering. 1 Introduction The theory of dependency grammar culminated in the seminal book by Lucien Tesni\x12 ere, (Tesni\x12 ere, 1959), to which also today\&amp;apos;s leading scholars pay homage, see, e.g., (Mel\&amp;apos;\x14 cuk, 1987). Unfortunately, Tesni\x12 ere\&amp;apos;s book is only available in French, with a partial translation into German, and subsequent descriptions of his work reported in English, (Hays, 1964), (Gaifman, 1965), (Robinson, 1970), etc., stray increasingly further from the original, see (Engel, 1996) or (J\x7f arvinen, 1998) for an account of this. The \x0crst step when assigning a dependency description to an input string is to segment the input string into nuclei. A nucleus can be a word, a part of a word, or a sequence of words and subwords, and these need not appear contiguously in the input string. The best way to visualize this is perhaps the following: the string is tokenized into a sequence of tokens and each nucleus consists of a subsequence of these tokens. Alternative readings may implydi\x0berent ways of dividing the token sequence into nuclei, and segmenting the input string </context>
+</contexts>
+<marker>Engel, 1996</marker>
+<rawString>Ulrich Engel, 1996. Tesni\x12 ere Mi\x19verstanden: Lucien Tesni\x12 ere { Syntaxe Structurale et Operation Mentales. Akten des deutsch-franz\x7f osischen Kolloquiums anl\x7f a\x19lich der 100 Wiederkehr seines Gebursttages, Strasbourg 1993, volume348 of Linguistische Arbeiten, pages 53{61. Niedermeyer, T\x7f ubingen.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Haim Gaifman</author>
+</authors>
+<title>Dependency systems and phrase-structure systems.</title>
+<date>1965</date>
+<journal>Information and Control,</journal>
+<pages>8--304</pages>
+<contexts>
+<context position="1067" citStr="Gaifman, 1965" startWordPosition="149" endWordPosition="150">h is lacking in Tesni\x12 ere\&amp;apos;s original work. The resulting theory models crossing dependency links, discontinuous nuclei and string merging, and it has been given an e\x0ecient computational rendering. 1 Introduction The theory of dependency grammar culminated in the seminal book by Lucien Tesni\x12 ere, (Tesni\x12 ere, 1959), to which also today\&amp;apos;s leading scholars pay homage, see, e.g., (Mel\&amp;apos;\x14 cuk, 1987). Unfortunately, Tesni\x12 ere\&amp;apos;s book is only available in French, with a partial translation into German, and subsequent descriptions of his work reported in English, (Hays, 1964), (Gaifman, 1965), (Robinson, 1970), etc., stray increasingly further from the original, see (Engel, 1996) or (J\x7f arvinen, 1998) for an account of this. The \x0crst step when assigning a dependency description to an input string is to segment the input string into nuclei. A nucleus can be a word, a part of a word, or a sequence of words and subwords, and these need not appear contiguously in the input string. The best way to visualize this is perhaps the following: the string is tokenized into a sequence of tokens and each nucleus consists of a subsequence of these tokens. Alternative readings may implydi\x</context>
+</contexts>
+<marker>Gaifman, 1965</marker>
+<rawString>Haim Gaifman. 1965. Dependency systems and phrase-structure systems. Information and Control, 8:304{337.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Gerald Gazdar</author>
+<author>Ewan Klein</author>
+<author>Geo\x0brey K Pullum</author>
+<author>Ivan A Sag</author>
+</authors>
+<title>Generalized Phrase Structure Grammar.</title>
+<date>1985</date>
+<publisher>Basil Blackwell Publishing,</publisher>
+<location>Oxford, England.</location>
+<note>Also published by</note>
+<marker>Gazdar, Klein, Pullum, Sag, 1985</marker>
+<rawString>Gerald Gazdar, Ewan Klein, Geo\x0brey K. Pullum, and Ivan A. Sag. 1985. Generalized Phrase Structure Grammar. Basil Blackwell Publishing, Oxford, England. Also published by Harvard University Press, Cambridge, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Saul Gorn</author>
+</authors>
+<title>Processors for in\x0cnite codes of shannon-fano type.</title>
+<date>1962</date>
+<journal>Symp. Math. Theory of Automata.</journal>
+<contexts>
+<context position="4063" citStr="Gorn, 1962" startWordPosition="658" endWordPosition="659">l, consisting of a language model of tree structures and a signal model converting trees to surface strings. In Section 2 we describe the topdown process generating tree structures and in Section 3 we propose a series of increasingly more sophisticated bottom-up processes generating surface strings, which result in grammars with increasingly greater expressive power. Section 4 describes how the proposed stochastic model of dependency syntax was realized as a probabilistic chart parser. 2 Generating Dependency Trees To describe a tree structure T , we will use a string notation, introduced in (Gorn, 1962), for the nodes \x0cbeans ate/1 /12 John/11 subj dobj main . / Figure 2: Gorn\&amp;apos;s tree notation for John ate beans. N L F S \x0f . [main] s(1) . 1 ate [subj,dobj] s(11) ate s(12) 11 John ; John 12 beans ; beans Figure 3: Dependency encoding of John ate beans. of the tree, where the node name speci\x0ces the path from the root node \x0f to the node in question. If \x1ej is a node of the tree T , with j 2 N+ and \x1e 2 N\x03 +, then \x1e is also a node of the tree T and \x1ej is a child of \x1e. Here, N+ denotes the set of positive integers f1;2;:::g and N\x03 + is the set of strings over N+. Thi</context>
+</contexts>
+<marker>Gorn, 1962</marker>
+<rawString>Saul Gorn. 1962. Processors for in\x0cnite codes of shannon-fano type. Symp. Math. Theory of Automata.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Hays</author>
+</authors>
+<title>Dependency theory: A formalism and some observations.</title>
+<date>1964</date>
+<journal>Language,</journal>
+<volume>40</volume>
+<issue>4</issue>
+<pages>525</pages>
+<contexts>
+<context position="1050" citStr="Hays, 1964" startWordPosition="147" endWordPosition="148">he latter which is lacking in Tesni\x12 ere\&amp;apos;s original work. The resulting theory models crossing dependency links, discontinuous nuclei and string merging, and it has been given an e\x0ecient computational rendering. 1 Introduction The theory of dependency grammar culminated in the seminal book by Lucien Tesni\x12 ere, (Tesni\x12 ere, 1959), to which also today\&amp;apos;s leading scholars pay homage, see, e.g., (Mel\&amp;apos;\x14 cuk, 1987). Unfortunately, Tesni\x12 ere\&amp;apos;s book is only available in French, with a partial translation into German, and subsequent descriptions of his work reported in English, (Hays, 1964), (Gaifman, 1965), (Robinson, 1970), etc., stray increasingly further from the original, see (Engel, 1996) or (J\x7f arvinen, 1998) for an account of this. The \x0crst step when assigning a dependency description to an input string is to segment the input string into nuclei. A nucleus can be a word, a part of a word, or a sequence of words and subwords, and these need not appear contiguously in the input string. The best way to visualize this is perhaps the following: the string is tokenized into a sequence of tokens and each nucleus consists of a subsequence of these tokens. Alternative readi</context>
+</contexts>
+<marker>Hays, 1964</marker>
+<rawString>David Hays. 1964. Dependency theory: A formalism and some observations. Language, 40(4):511{ 525.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Timo J\x7f arvinen</author>
+</authors>
+<date>1998</date>
+<tech>Tesni\x13 ere\&amp;apos;s</tech>
+<institution>Structural Syntax Reworked. University of Helsinki,</institution>
+<location>Helsinki.</location>
+<contexts>
+<context position="1181" citStr="arvinen, 1998" startWordPosition="166" endWordPosition="167">us nuclei and string merging, and it has been given an e\x0ecient computational rendering. 1 Introduction The theory of dependency grammar culminated in the seminal book by Lucien Tesni\x12 ere, (Tesni\x12 ere, 1959), to which also today\&amp;apos;s leading scholars pay homage, see, e.g., (Mel\&amp;apos;\x14 cuk, 1987). Unfortunately, Tesni\x12 ere\&amp;apos;s book is only available in French, with a partial translation into German, and subsequent descriptions of his work reported in English, (Hays, 1964), (Gaifman, 1965), (Robinson, 1970), etc., stray increasingly further from the original, see (Engel, 1996) or (J\x7f arvinen, 1998) for an account of this. The \x0crst step when assigning a dependency description to an input string is to segment the input string into nuclei. A nucleus can be a word, a part of a word, or a sequence of words and subwords, and these need not appear contiguously in the input string. The best way to visualize this is perhaps the following: the string is tokenized into a sequence of tokens and each nucleus consists of a subsequence of these tokens. Alternative readings may implydi\x0berent ways of dividing the token sequence into nuclei, and segmenting the input string into nuclei is therefore </context>
+</contexts>
+<marker>arvinen, 1998</marker>
+<rawString>Timo J\x7f arvinen. 1998. Tesni\x13 ere\&amp;apos;s Structural Syntax Reworked. University of Helsinki, Helsinki.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Magerman</author>
+</authors>
+<title>Statistical decision-tree models for parsing.</title>
+<date>1995</date>
+<booktitle>Procs. 33rd Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<pages>276--283</pages>
+<contexts>
+<context position="26427" citStr="Magerman, 1995" startWordPosition="4378" endWordPosition="4379">, which is neither generative nor statistical. The stochastic modelgenerating dependency trees is very similar to other statistical dependency models, e.g., to that of (Alshawi, 1996). Formulating it using Gorn\&amp;apos;s notation and the L and F variables, though, is concise, elegant and novel. Nothing prevents conditioningthe randomvariableson arbitrary portions of the partial tree generated this far, using, e.g., maximum-entropy or decision-tree models to extract relevant features of it; there is no di\x0berence \x0cin principle between our model and history-based parsing, see (Black et al., 1993; Magerman, 1995). The proposed treatment of string realization throughthe use ofthe S andM variablesis alsoboth truly novel and important. While phrase-structure grammars overemphasize word order by making the processes generating the S variables deterministic, Tesni\x12 ere treats string realization as a secondary issue. We \x0cnd a middle ground by using stochastic processes to generate the S and M variables, thus reinstating word order as a parameter of equal importance as, say, lexical collocation statistics. It is however not elevated to the hard-constraint status it enjoys in phrase-structure grammars. </context>
+</contexts>
+<marker>Magerman, 1995</marker>
+<rawString>David Magerman. 1995. Statistical decision-tree models for parsing. Procs. 33rd Annual Meeting of the Association for Computational Linguistics, pages 276{283.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Igor Mel\&amp;apos;\x14 cuk</author>
+</authors>
+<date>1987</date>
+<publisher>York Press,</publisher>
+<institution>Dependency Syntax. State University of New</institution>
+<location>Albany.</location>
+<contexts>
+<context position="869" citStr="cuk, 1987" startWordPosition="120" endWordPosition="121">i\x12 ere\&amp;apos;s classical theory. It provides a stochastic formalization of the original model of syntactic structure and augments it with a model of the string realization process, the latter which is lacking in Tesni\x12 ere\&amp;apos;s original work. The resulting theory models crossing dependency links, discontinuous nuclei and string merging, and it has been given an e\x0ecient computational rendering. 1 Introduction The theory of dependency grammar culminated in the seminal book by Lucien Tesni\x12 ere, (Tesni\x12 ere, 1959), to which also today\&amp;apos;s leading scholars pay homage, see, e.g., (Mel\&amp;apos;\x14 cuk, 1987). Unfortunately, Tesni\x12 ere\&amp;apos;s book is only available in French, with a partial translation into German, and subsequent descriptions of his work reported in English, (Hays, 1964), (Gaifman, 1965), (Robinson, 1970), etc., stray increasingly further from the original, see (Engel, 1996) or (J\x7f arvinen, 1998) for an account of this. The \x0crst step when assigning a dependency description to an input string is to segment the input string into nuclei. A nucleus can be a word, a part of a word, or a sequence of words and subwords, and these need not appear contiguously in the input string. The</context>
+</contexts>
+<marker>cuk, 1987</marker>
+<rawString>Igor Mel\&amp;apos;\x14 cuk. 1987. Dependency Syntax. State University of New York Press, Albany.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Fernando Pereira</author>
+<author>Stuart Shieber</author>
+</authors>
+<title>Prolog and Natural-Language Analysis.</title>
+<date>1987</date>
+<journal>CSLI Lecture Note</journal>
+<volume>10</volume>
+<contexts>
+<context position="19494" citStr="Pereira and Shieber, 1987" startWordPosition="3214" endWordPosition="3217">ch requires inspecting the actual strings of dependent clitics. Open-class words are typically generalized to their word class. String mergingonly applies to a smallclass of nuclei, where we treat the individual tokens of the dependent string, which is typically its label, as separate units when performing the permutation. 4.2 The Chart Parser The parsing algorithm, which draws on the CockeKasami-Younger (CKY) algorithm, see (Younger, 1967), is formulated as a probabilistic deduction scheme, whichin turn is realized as anagenda-driven chart-parser. The top-level control is similar to that of (Pereira and Shieber, 1987), pp. 196{210. The parser is implemented in Prolog, and it relies heavily on using set and bag operations as primitives, utilizing and extending existing SICStus libraries. The parser \x0crst nondeterministicallysegments the input string into nuclei, using a lexicon, and each possible nucleus spawns edges for the initial chart. Due to discontinuous nuclei, each edge spans not a single pair of string positions, indicating its start and end position, but a set of such string-position pairs, and we call this set an index. If the index is a singleton set, then it is continuous. We extend the notio</context>
+</contexts>
+<marker>Pereira, Shieber, 1987</marker>
+<rawString>Fernando Pereira and Stuart Shieber. 1987. Prolog and Natural-Language Analysis. CSLI Lecture Note 10.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jane Robinson</author>
+</authors>
+<title>Dependency structures and transformational rules.</title>
+<date>1970</date>
+<journal>Language,</journal>
+<pages>46--259</pages>
+<contexts>
+<context position="1085" citStr="Robinson, 1970" startWordPosition="151" endWordPosition="152">esni\x12 ere\&amp;apos;s original work. The resulting theory models crossing dependency links, discontinuous nuclei and string merging, and it has been given an e\x0ecient computational rendering. 1 Introduction The theory of dependency grammar culminated in the seminal book by Lucien Tesni\x12 ere, (Tesni\x12 ere, 1959), to which also today\&amp;apos;s leading scholars pay homage, see, e.g., (Mel\&amp;apos;\x14 cuk, 1987). Unfortunately, Tesni\x12 ere\&amp;apos;s book is only available in French, with a partial translation into German, and subsequent descriptions of his work reported in English, (Hays, 1964), (Gaifman, 1965), (Robinson, 1970), etc., stray increasingly further from the original, see (Engel, 1996) or (J\x7f arvinen, 1998) for an account of this. The \x0crst step when assigning a dependency description to an input string is to segment the input string into nuclei. A nucleus can be a word, a part of a word, or a sequence of words and subwords, and these need not appear contiguously in the input string. The best way to visualize this is perhaps the following: the string is tokenized into a sequence of tokens and each nucleus consists of a subsequence of these tokens. Alternative readings may implydi\x0berent ways of di</context>
+</contexts>
+<marker>Robinson, 1970</marker>
+<rawString>Jane Robinson. 1970. Dependency structures and transformational rules. Language, 46:259{285.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Christer Samuelsson</author>
+</authors>
+<title>A theory of stochastic grammars.</title>
+<date>2000</date>
+<booktitle>InProceedings of NLP-2000,</booktitle>
+<pages>92--105</pages>
+<publisher>Springer Verlag.</publisher>
+<marker>Samuelsson, 2000</marker>
+<rawString>Christer Samuelsson. 2000. A theory of stochastic grammars. InProceedings of NLP-2000, pages 92{ 105. Springer Verlag.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Khalil Sima\&amp;apos;an</author>
+</authors>
+<title>Computationalcomplexity of probabilistic disambiguations by means of treegrammars.</title>
+<date>1996</date>
+<booktitle>Procs. 16th International Conference on Computational Linguistics, at the</booktitle>
+<note>very end.</note>
+<marker>Sima\&amp;apos;an, 1996</marker>
+<rawString>Khalil Sima\&amp;apos;an. 1996. Computationalcomplexity of probabilistic disambiguations by means of treegrammars. Procs. 16th International Conference on Computational Linguistics, at the very end.</rawString>
+</citation>
+<citation valid="true">
+<title>Pasi Tapanainen and Timo J\x7f arvinen.</title>
+<date>1997</date>
+<booktitle>Procs. 5th Conference on Applied Natural Language Processing,</booktitle>
+<pages>64--71</pages>
+<marker>1997</marker>
+<rawString>Pasi Tapanainen and Timo J\x7f arvinen. 1997. A nonprojective dependency parser. Procs. 5th Conference on Applied Natural Language Processing, pages 64{71.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Lucien Tesni\x12 ere</author>
+</authors>
+<date>1959</date>
+<booktitle>x13 El\x13 ements de Syntaxe Structurale. Libraire C. Klincksieck,</booktitle>
+<location>Paris.</location>
+<contexts>
+<context position="783" citStr="ere, 1959" startWordPosition="107" endWordPosition="108">Abstract A generative statistical model of dependency syntax is proposed based on Tesni\x12 ere\&amp;apos;s classical theory. It provides a stochastic formalization of the original model of syntactic structure and augments it with a model of the string realization process, the latter which is lacking in Tesni\x12 ere\&amp;apos;s original work. The resulting theory models crossing dependency links, discontinuous nuclei and string merging, and it has been given an e\x0ecient computational rendering. 1 Introduction The theory of dependency grammar culminated in the seminal book by Lucien Tesni\x12 ere, (Tesni\x12 ere, 1959), to which also today\&amp;apos;s leading scholars pay homage, see, e.g., (Mel\&amp;apos;\x14 cuk, 1987). Unfortunately, Tesni\x12 ere\&amp;apos;s book is only available in French, with a partial translation into German, and subsequent descriptions of his work reported in English, (Hays, 1964), (Gaifman, 1965), (Robinson, 1970), etc., stray increasingly further from the original, see (Engel, 1996) or (J\x7f arvinen, 1998) for an account of this. The \x0crst step when assigning a dependency description to an input string is to segment the input string into nuclei. A nucleus can be a word, a part of a word, or a sequence </context>
+</contexts>
+<marker>ere, 1959</marker>
+<rawString>Lucien Tesni\x12 ere. 1959. \x13 El\x13 ements de Syntaxe Structurale. Libraire C. Klincksieck, Paris.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David H Younger</author>
+</authors>
+<title>Recognition and parsing of context-free languages in time n3.</title>
+<date>1967</date>
+<journal>Information and Control,</journal>
+<volume>10</volume>
+<issue>2</issue>
+<pages>0</pages>
+<contexts>
+<context position="19312" citStr="Younger, 1967" startWordPosition="3190" endWordPosition="3191">de are treated as units that are randomly permuted. Whenever possible, strings are generalized to their dependency types, but accurately modelling dependent order in French requires inspecting the actual strings of dependent clitics. Open-class words are typically generalized to their word class. String mergingonly applies to a smallclass of nuclei, where we treat the individual tokens of the dependent string, which is typically its label, as separate units when performing the permutation. 4.2 The Chart Parser The parsing algorithm, which draws on the CockeKasami-Younger (CKY) algorithm, see (Younger, 1967), is formulated as a probabilistic deduction scheme, whichin turn is realized as anagenda-driven chart-parser. The top-level control is similar to that of (Pereira and Shieber, 1987), pp. 196{210. The parser is implemented in Prolog, and it relies heavily on using set and bag operations as primitives, utilizing and extending existing SICStus libraries. The parser \x0crst nondeterministicallysegments the input string into nuclei, using a lexicon, and each possible nucleus spawns edges for the initial chart. Due to discontinuous nuclei, each edge spans not a single pair of string positions, indi</context>
+</contexts>
+<marker>Younger, 1967</marker>
+<rawString>David H. Younger. 1967. Recognition and parsing of context-free languages in time n3. Information and Control, 10(2):189{208. \x0c&amp;apos;</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

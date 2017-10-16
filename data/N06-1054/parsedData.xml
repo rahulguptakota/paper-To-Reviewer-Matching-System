@@ -1,0 +1,1441 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.772451">
+b&apos;Proceedings of the Human Language Technology Conference of the North American Chapter of the ACL, pages 423430,
+New York, June 2006. c
+</bodyText>
+<sectionHeader confidence="0.811154" genericHeader="abstract">
+2006 Association for Computational Linguistics
+</sectionHeader>
+<bodyText confidence="0.99092">
+A fast finite-state relaxation method for enforcing
+global constraints on sequence decoding
+</bodyText>
+<author confidence="0.657407">
+Roy W. Tromble and Jason Eisner
+</author>
+<affiliation confidence="0.9662325">
+Department of Computer Science and Center for Language and Speech Processing
+Johns Hopkins University
+</affiliation>
+<address confidence="0.988056">
+Baltimore, MD 21218
+</address>
+<email confidence="0.998738">
+{royt,jason}@cs.jhu.edu
+</email>
+<sectionHeader confidence="0.990867" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.998451666666667">
+We describe finite-state constraint relaxation, a method for ap-
+plying global constraints, expressed as automata, to sequence
+model decoding. We present algorithms for both hard con-
+straints and binary soft constraints. On the CoNLL-2004 se-
+mantic role labeling task, we report a speedup of at least 16x
+over a previous method that used integer linear programming.
+</bodyText>
+<sectionHeader confidence="0.997357" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.998980787878788">
+Many tasks in natural language processing involve
+sequence labeling. If one models long-distance or
+global properties of labeled sequences, it can be-
+come intractable to find (decode) the best labeling
+of an unlabeled sequence.
+Nonetheless, such global properties can improve
+the accuracy of a model, so recent NLP papers
+have considered practical techniques for decod-
+ing with them. Such techniques include Gibbs
+sampling (Finkel et al., 2005), a general-purpose
+Monte Carlo method, and integer linear program-
+ming (ILP), (Roth and Yih, 2005), a general-purpose
+exact framework for NP-complete problems.
+Under generative models such as hidden Markov
+models, the probability of a labeled sequence de-
+pends only on its local properties. The situation
+improves with discriminatively trained models, such
+as conditional random fields (Lafferty et al., 2001),
+which do efficiently allow features that are functions
+of the entire observation sequence. However, these
+features can still only look locally at the label se-
+quence. That is a significant shortcoming, because
+in many domains, hard or soft global constraints on
+the label sequence are motivated by common sense:
+For named entity recognition, a phrase that
+appears multiple times should tend to get the
+same label each time (Finkel et al., 2005).
+In bibliography entries (Peng and McCallum,
+2004), a given field (author, title, etc.) should
+be filled by at most one substring of the in-
+put, and there are strong preferences on the co-
+occurrence and order of certain fields.
+In seminar announcements, a given field
+(speaker, start time, etc.) should appear with
+at most one value in each announcement, al-
+though the field and value may be repeated
+(Finkel et al., 2005).
+For semantic role labeling, each argument
+should be instantiated only once for a given
+verb. There are several other constraints that
+we will describe later (Roth and Yih, 2005).
+A popular approximate technique is to hypothe-
+size a list of possible answers by decoding without
+any global constraints, and then rerank (or prune)
+this n-best list using the full model with all con-
+straints. Reranking relies on the local model being
+good enough that the globally best answer appears
+in its n-best list. Otherwise, reranking cant find it.
+In this paper, we propose constraint relaxation,
+a simple exact alternative to reranking. As in rerank-
+ing, we start with a weighted lattice of hypotheses
+proposed by the local model. But rather than restrict
+to the n best of these according to the local model,
+we aim to directly extract the one best according to
+the global model. As in reranking, we hope that the
+local constraints alone will work well, but if they do
+not, the penalty is not incorrect decoding, but longer
+runtime as we gradually fold the global constraints
+into the lattice. Constraint relaxation can be used
+whenever the global constraints can be expressed as
+regular languages over the label sequence.
+In the worst case, our runtime may be exponential
+in the number of constraints, since we are consider-
+ing an intractable class of problems. However, we
+show that in practice, the method is quite effective
+at rapid decoding under global hard constraints.
+</bodyText>
+<page confidence="0.998026">
+423
+</page>
+<figure confidence="0.986098">
+\x0c0
+O
+1
+?
+O
+?
+</figure>
+<figureCaption confidence="0.999866">
+Figure 1: An automaton expressing the constraint that the label
+</figureCaption>
+<bodyText confidence="0.949361777777778">
+sequence cannot be O
+. Here ? matches any symbol except O.
+The remainder of the paper is organized as fol-
+lows: In 2 we describe how finite-state automata
+can be used to apply global constraints. We then
+give a brute-force decoding algorithm (3). In 4,
+we present a more efficient algorithm for the case of
+hard constraints. We report results for the semantic
+role labeling task in 5. 6 treats soft constraints.
+</bodyText>
+<sectionHeader confidence="0.997556" genericHeader="method">
+2 Finite-state constraints
+</sectionHeader>
+<bodyText confidence="0.999593256410257">
+Previous approaches to global sequence labeling
+Gibbs sampling, ILP, and rerankingseem moti-
+vated by the idea that standard sequence methods are
+incapable of considering global constraints at all.
+In fact, finite-state automata (FSAs) are powerful
+enough to express many long-distance constraints.
+Since all finite languages are regular, any constraint
+over label sequences of bounded length is finite-
+state. FSAs are more powerful than n-gram mod-
+els. For example, the regular expression XY
+matches only sequences of labels that contain an X
+before a Y. Similarly, the regular expression (O)
+requires at least one non-O label; it compiles into the
+FSA of Figure 1.
+Note that this FSA is in one or the other of its two
+states according to whether it has encountered a non-
+O label yet. In general, the current state of an FSA
+records properties of the label sequence prefix read
+so far. The FSA needs enough states to keep track of
+whether the label sequence as a whole satisfies the
+global constraint in question.
+FSAs are a flexible approach to constraints be-
+cause they are closed under logical operations such
+as disjunction (union) and conjunction (intersec-
+tion). They may be specified by regular expressions
+(Karttunen et al., 1996), in a logical language (Vail-
+lette, 2004), or directly as FSAs. They may also be
+weighted to express soft constraints.
+Formally, we pose the decoding problem in terms
+of an observation sequence x X and possible la-
+bel sequences y Y. In many NLP tasks, X is the
+set of words, and Y the tags. A lattice L: Y 7 R
+maps label sequences to weights, and is encoded as a
+weighted FSA. Constraints are formally the same
+any function C: Y 7 R is a constraint, includ-
+ing weighted features from a classifier or probabilis-
+tic model. In this paper we will consider only con-
+straints that are weighted in particular ways.
+Given a lattice L and constraints C, we seek
+</bodyText>
+<equation confidence="0.970313222222222">
+y def
+= argmax
+y
+L(y) +
+X
+CC
+C(y)
+!
+. (1)
+</equation>
+<bodyText confidence="0.996964714285714">
+We assume the lattice L is generated by a model
+M: X 7 (Y 7 R). For a given observation se-
+quence x, we put L = M(x). One possible model
+is a finite-state transducer, where M(x) is an FSA
+found by composing the transducer with x. Another
+is a CRF, where M(x) is a lattice with sums of log-
+potentials for arc weights.1
+</bodyText>
+<sectionHeader confidence="0.955581" genericHeader="method">
+3 A brute-force finite-state decoder
+</sectionHeader>
+<bodyText confidence="0.9984521">
+To find the best constrained labeling in a lattice, y,
+according to (1), we could simply intersect the lat-
+tice with all the constraints, then extract the best
+path.
+Weighted FSA intersection is a generalization of
+ordinary unweighted FSA intersection (Mohri et al.,
+1996). It is customary in NLP to use the so-called
+tropical semiring, where weights are represented by
+their natural logarithms and summed rather than
+multiplied. Then the intersected automaton L C
+</bodyText>
+<equation confidence="0.89772325">
+computes
+(L C)(y)
+def
+= L(y) + C(y) (2)
+</equation>
+<bodyText confidence="0.909146875">
+To find y, one would extract the best path in
+L C1 C2 using the Viterbi algorithm, or
+Dijkstras algorithm if the lattice is cyclic. This step
+is fast if the intersected automaton is small.
+The problem is that the multiple intersections in
+L C1 C2 can quickly lead to an FSA with
+an intractable number of states. The intersection
+of two finite-state automata produces an automaton
+</bodyText>
+<page confidence="0.809401">
+1
+</page>
+<bodyText confidence="0.819553">
+For example, if M is a simple linear-chain CRF, L(y) =
+</bodyText>
+<equation confidence="0.9490265">
+Pn
+i=1 f(yi1, yi) + g(xi, yi). We build L = M(x) as an
+acyclic FSA whose state set is Y {1, 2, . . . n}, with transi-
+tions (y0
+, i 1) (y, i) of weight f(y0
+, y) + g(xi, y).
+</equation>
+<page confidence="0.998084">
+424
+</page>
+<bodyText confidence="0.9987613">
+\x0cwith the cross product state set. That is, if F has m
+states and G has n states, then F G has up to mn
+states (fewer if some of the mn possible states do
+not lie on any accepting path).
+Intersection of many such constraints, even if they
+have only a few states each, quickly leads to a com-
+binatorial explosion. In the worst case, the size, in
+states, of the resulting lattice is exponential in the
+number of constraints. To deal with this, we present
+a constraint relaxation algorithm.
+</bodyText>
+<sectionHeader confidence="0.985369" genericHeader="method">
+4 Hard constraints
+</sectionHeader>
+<bodyText confidence="0.999772733333333">
+The simplest kind of constraint is the hard con-
+straint. Hard constraints are necessarily binary
+either the labeling satisfies the constraint, or it vi-
+olates it. Violation is fatalthe labeling produced
+by decoding must satisfy each hard constraint.
+Formally, a hard constraint is a mapping C: Y 7
+{0, }, encoded as an unweighted FSA. If a string
+satisfies the constraint, recognition of the string will
+lead to an accepting state. If it violates the con-
+straint, recognition will end in a non-accepting state.
+Here we give an algorithm for decoding with a set
+of such constraints. Later (6), we discuss the case
+of binary soft constraints. In what follows, we will
+assume that there is always at least one path in the
+lattice that satisfies all of the constraints.
+</bodyText>
+<subsectionHeader confidence="0.999547">
+4.1 Decoding by constraint relaxation
+</subsectionHeader>
+<bodyText confidence="0.999263">
+Our decoding algorithm first relaxes the global con-
+straints and solves a simpler problem. In particular,
+we find the best labeling according to the model,
+</bodyText>
+<equation confidence="0.985532333333333">
+y
+0
+def
+= argmax
+y
+L(y) (3)
+</equation>
+<bodyText confidence="0.956598777777778">
+ignoring all the constraints in C.
+Next, we check whether y
+0 satisifies the con-
+straints. If so, then we are doney
+0 is also y. If
+not, then we reintroduce the constraints. However,
+rather than include all at once, we introduce them
+only as they are violated by successive solutions to
+the relaxed problems: y
+</bodyText>
+<equation confidence="0.92543975">
+0, y
+1, etc. We define
+y
+1
+def
+= argmax
+y
+(L(y) + C(y)) (4)
+</equation>
+<bodyText confidence="0.537579">
+for some constraint C that y
+</bodyText>
+<listItem confidence="0.928557909090909">
+0 violates. Similarly,
+y
+2 satisfies an additional constraint that y
+1 violates,
+HARD-CONSTRAIN-LATTICE(L, C):
+1. y := Best-Path(L)
+2. while C C such that C(y) = :
+3. L := L C
+4. C := C {C}
+5. y := Best-Path(L)
+6. return y
+</listItem>
+<figureCaption confidence="0.633627">
+Figure 2: Hard constraints decoding algorithm.
+and so on. Eventually, we find some k for which y
+</figureCaption>
+<equation confidence="0.290639">
+k
+</equation>
+<bodyText confidence="0.992165714285714">
+satisfies all constraints, and this path is returned.
+To determine whether a labeling y satisfies a con-
+straint C, we represent y as a straight-line automa-
+ton and intersect with C, checking the result for non-
+emptiness. This is equivalent to string recognition.
+Our hope is that, although intractable in the worst
+case, the constraint relaxation algorithm will operate
+efficiently in practice. The success of traditional se-
+quence models on NLP tasks suggests that, for nat-
+ural language, much of the correct analysis can be
+recovered from local features and constraints alone.
+We suspect that, as a result, global constraints will
+often be easy to satisfy.
+Pseudocode for the algorithm appears in Figure 2.
+Note that line 2 does not specify how to choose
+C from among multiple violated constraints. This
+is discussed in 7. Our algorithm resembles the
+method of Koskenniemi (1990) and later work. The
+difference is that there lattices are unweighted and
+may not contain a path that satisfies all constraints,
+so that the order of constraint intersection matters.
+</bodyText>
+<sectionHeader confidence="0.887586" genericHeader="method">
+5 Semantic role labeling
+</sectionHeader>
+<bodyText confidence="0.999115533333333">
+The semantic role labeling task (Carreras and
+Marques, 2004) involves choosing instantiations of
+verb arguments from a sentence for a given verb.
+The verb and its arguments form a proposition. We
+use data from the CoNLL-2004 shared taskthe
+PropBank (Palmer et al., 2005) annotations of the
+Penn Treebank (Marcus et al., 1993), with sections
+1518 as the training set and section 20 as the de-
+velopment set. Unless otherwise specified, all mea-
+surements are made on the development set.
+We follow Roth and Yih (2005) exactly, in order
+to compare system runtimes. They, in turn, follow
+Hacioglu et al. (2004) and others in labeling only
+the heads of syntactic chunks rather than all words.
+We label only the core arguments (A0A5), treating
+</bodyText>
+<page confidence="0.993819">
+425
+</page>
+<figure confidence="0.996077764705882">
+\x0c(a)
+0
+?
+1
+A0
+A0
+2
+?
+?
+(b)
+0 1
+O
+A0
+A1
+A2
+A3
+A4
+A5
+2
+O
+(verb position)
+A1
+A2
+A3
+A4
+A5
+O
+A0
+(c)
+0
+O
+A0
+A1
+A2
+</figure>
+<page confidence="0.530848">
+A3
+</page>
+<figureCaption confidence="0.998211">
+Figure 4: Automata expressing NO DUPLICATE A0 (? matches
+</figureCaption>
+<bodyText confidence="0.872013909090909">
+anything but A0), KNOWN VERB POSITION[2], and DISALLOW
+ARGUMENTS[A4,A5].
+adjuncts and references as O.
+Figure 3 shows an example sentence from the
+shared task. It is marked with an IOB phrase chunk-
+ing, the heads of the phrases, and the correct seman-
+tic role labeling. Heads are taken to be the rightmost
+words of chunks. On average, there are 18.8 phrases
+per proposition, vs. 23.5 words per sentence. Sen-
+tences may contain multiple propositions. There are
+4305 propositions in section 20.
+</bodyText>
+<subsectionHeader confidence="0.982751">
+5.1 Constraints
+</subsectionHeader>
+<bodyText confidence="0.9882266">
+Roth and Yih use five global constraints on label se-
+quences for the semantic role labeling task. We ex-
+press these constraints as FSAs. The first two are
+general, and the seven automata encoding them can
+be constructed offline:
+</bodyText>
+<sectionHeader confidence="0.951705" genericHeader="method">
+NO DUPLICATE ARGUMENT LABELS
+</sectionHeader>
+<bodyText confidence="0.969913">
+(Fig. 4(a)) requires that each verb have at
+most one argument of each type in a given
+sentence. We separate this into six individual
+constraints, one for each core argument type.
+Thus, we have constraints called NO DUPLI-
+CATE A0, NO DUPLICATE A1, etc. Each of
+these is represented as a three-state FSA.
+</bodyText>
+<sectionHeader confidence="0.882034" genericHeader="method">
+AT LEAST ONE ARGUMENT (Fig. 1) simply re-
+</sectionHeader>
+<bodyText confidence="0.9923526">
+quires that the label sequence is not O. This is
+a two-state automaton as described in 2.
+The last three constraints require information
+about the example, and the automata must be con-
+structed on a per-example basis:
+ARGUMENT CANDIDATES (Fig. 5) encodes a
+set of position spans each of which must re-
+ceive only a single label type. These spans were
+proposed using a high-recall heuristic (Xue and
+Palmer, 2004).
+</bodyText>
+<sectionHeader confidence="0.772836" genericHeader="method">
+KNOWN VERB POSITION (Fig. 4(b)) simply
+</sectionHeader>
+<bodyText confidence="0.8954748">
+encodes the position of the verb in question,
+which must be labeled O.
+DISALLOW ARGUMENTS (Fig. 4(c)) specifies
+argument types that are compatible with the
+verb in question, according to PropBank.
+</bodyText>
+<subsectionHeader confidence="0.969885">
+5.2 Experiments
+</subsectionHeader>
+<bodyText confidence="0.9996037">
+We implemented our hard constraint relaxation al-
+gorithm, using the FSA toolkit (Kanthak and Ney,
+2004) for finite-state operations. FSA is an open-
+source C++ library providing a useful set of algo-
+rithms on weighted finite-state acceptors and trans-
+ducers. For each example we decoded, we chose a
+random order in which to apply the constraints.
+Lattices are generated from what amounts to a
+unigram modelthe voted perceptron classifier of
+Roth and Yih. The features used are a subset of those
+commonly applied to the task.
+Our system produces output identical to that of
+Roth and Yih. Table 1 shows F-measure on the core
+arguments. Table 2 shows a runtime comparison.
+The ILP runtime was provided by the authors (per-
+sonal communication). Because the systems were
+run under different conditions, the times are not di-
+rectly comparable. However, constraint relaxation is
+more than sixteen times faster than ILP despite run-
+ning on a slower platform.
+</bodyText>
+<subsubsectionHeader confidence="0.967086">
+5.2.1 Comparison to an ILP solver
+</subsubsectionHeader>
+<bodyText confidence="0.990773166666667">
+Roth and Yihs linear program has two kinds of
+numeric constraints. Some encode the shortest path
+problem structure; the others encode the global con-
+straints of 5.1. The ILP solver works by relaxing
+to a (real-valued) linear program, which may obtain
+a fractional solution that represents a path mixture
+instead of a path. It then uses branch-and-bound to
+seek the optimal rounding of this fractional solution
+to an integer solution (Gueret et al., 2002) that repre-
+sents a single path satisfying the global constraints.
+Our method avoids fractional solutions: a relaxed
+solution is always a true single path, which either
+</bodyText>
+<page confidence="0.996141">
+426
+</page>
+<table confidence="0.503176">
+\x0cMr. Turner said the test will be shipped in 45 days to hospitals and clinical laboratories .
+B-NP I-NP B-VP B-NP I-NP B-VP I-VP I-VP B-PP B-NP I-NP B-PP B-NP O B-NP I-NP O
+Turner said test shipped in days to hospitals and laboratories .
+A0 O A1 A1 A1 A1 A1 A1 A1 A1 O
+</table>
+<figureCaption confidence="0.995119">
+Figure 3: Example sentence, with phrase tags and heads, and core argument labels. The A1 argument of said is a long clause.
+</figureCaption>
+<figure confidence="0.968084956521739">
+0 1
+O
+A0
+A1
+A2
+A3
+A4
+A5
+2
+A2
+A3
+A4
+A5
+O
+A0
+A1
+4
+O
+10
+A0
+16
+A1
+22
+A2
+28
+A3
+34
+A4
+40
+A5
+5
+O
+11
+A0
+17
+A1
+23
+A2
+29
+A3
+35
+A4
+41
+A5
+42
+A5
+</figure>
+<page confidence="0.887264">
+43
+</page>
+<figure confidence="0.970794090909091">
+A5
+44
+A5
+45
+A5
+3
+A5
+46
+O
+A0
+A1
+A2
+A3
+A4
+A5
+O
+A0
+A1
+A2
+A3
+A4
+A5
+36
+A4
+37
+A4
+38
+A4
+39
+A4
+A4
+30
+A3
+</figure>
+<page confidence="0.931218">
+31
+</page>
+<figure confidence="0.91204035">
+A3
+32
+A3
+33
+A3
+A3
+24
+A2
+25
+A2
+26
+A2
+27
+A2 A2
+18
+A1
+19
+A1
+20
+A1
+21
+A1
+A1
+12
+A0
+13
+A0 14
+A0
+15
+A0
+A0
+6
+O
+7
+O
+8
+O
+9
+O
+O
+</figure>
+<figureCaption confidence="0.998491">
+Figure 5: An automaton expressing ARGUMENT CANDIDATES.
+</figureCaption>
+<table confidence="0.986355875">
+Argument Count F-measure
+A0 2849 79.27
+A1 4029 75.59
+A2 943 55.68
+A3 149 46.41
+A4 147 81.82
+A5 4 25.00
+All 8121 74.51
+</table>
+<tableCaption confidence="0.996149">
+Table 1: F-measure on core arguments.
+</tableCaption>
+<bodyText confidence="0.996425416666667">
+satisfies or violates each global constraint. In effect,
+we are using two kinds of domain knowledge. First,
+we recognize that this is a graph problem, and insist
+on true paths so we can use Viterbi decoding. Sec-
+ond, we choose to relax only domain-specific con-
+straints that are likely to be satisfied anyway (in our
+domain), in contrast to the meta-constraint of inte-
+grality relaxed by ILP. Thus it is cheaper on aver-
+age for us to repair a relaxed solution. (Our repair
+strategyfinite-state intersection in place of branch-
+and-bound searchremains expensive in the worst
+case, as the problem is NP-hard.)
+</bodyText>
+<subsubsectionHeader confidence="0.684246">
+5.2.2 Constraint violations
+</subsubsectionHeader>
+<bodyText confidence="0.91691125">
+The y
+0s, generated with only local information,
+satisfy most of the global constraints most of the
+time. Table 3 shows the violations by type.
+The majority of best labelings according to the
+local model dont violate any global constraints
+a fact especially remarkable because there are no
+label sequence features in Roth and Yihs unigram
+</bodyText>
+<table confidence="0.969171272727273">
+Constraint Violations Fraction
+ARGUMENT CANDIDATES 1619 0.376
+NO DUPLICATE A1 899 0.209
+NO DUPLICATE A0 348 0.081
+NO DUPLICATE A2 151 0.035
+AT LEAST ONE ARGUMENT 108 0.025
+DISALLOW ARGUMENTS 48 0.011
+NO DUPLICATE A3 13 0.003
+NO DUPLICATE A4 3 0.001
+NO DUPLICATE A5 1 0.000
+KNOWN VERB POSITION 0 0.000
+</table>
+<tableCaption confidence="0.998318">
+Table 3: Violations of constraints by y
+</tableCaption>
+<page confidence="0.299869">
+0.
+</page>
+<bodyText confidence="0.9968164">
+model. This confirms our intuition that natural lan-
+guage structure is largely apparent locally. Table 4
+shows the breakdown. The majority of examples are
+very efficient to decode, because they dont require
+intersection of the lattice with any constraintsy
+</bodyText>
+<page confidence="0.883731">
+0
+</page>
+<bodyText confidence="0.999442375">
+is extracted and is good enough. Those examples
+where constraints are violated are still relatively effi-
+cient because they only require a small number of in-
+tersections. In total, the average number of intersec-
+tions needed, even with the naive randomized con-
+straint ordering, was only 0.65. The order doesnt
+matter very much, since 75% of examples have one
+violation or fewer.
+</bodyText>
+<subsubsectionHeader confidence="0.903003">
+5.2.3 Effects on lattice size
+</subsubsectionHeader>
+<bodyText confidence="0.9722885">
+Figure 6 shows the effect of intersection with vi-
+olated constraints on the average size of lattices,
+measured in arcs. The vertical bars at k = 0,
+k = 1, ...show the number of examples where con-
+</bodyText>
+<page confidence="0.998192">
+427
+</page>
+<table confidence="0.98853875">
+\x0cMethod Total Time Per Example Platform
+Brute Force Finite-State 37m25.290s 0.522s Pentium III, 1.0 GHz
+ILP 11m39.220s 0.162s Xeon, 3.x GHz
+Constraint Relaxation 39.700s 0.009s Pentium III, 1.0 GHz
+</table>
+<tableCaption confidence="0.589586">
+Table 2: A comparison of runtimes for constrained decoding with ILP and FSA.
+</tableCaption>
+<table confidence="0.99793125">
+Violations Labelings Fraction Cumulative
+0 2368 0.550 0.550
+1 863 0.200 0.750
+2 907 0.211 0.961
+3 156 0.036 0.997
+4 10 0.002 0.999
+5 1 0.000 1.000
+610 0 0.000 1.000
+</table>
+<tableCaption confidence="0.994565">
+Table 4: Number of y
+</tableCaption>
+<figure confidence="0.968161636363636">
+0 with each violation count.
+0
+500
+1000
+1500
+2000
+2500
+0 1 2 3 4 5
+Verbs
+Mean Arcs with Relaxation
+Mean Arcs with Brute Force
+</figure>
+<figureCaption confidence="0.999204">
+Figure 6: Mean lattice size (measured in arcs) throughout de-
+</figureCaption>
+<bodyText confidence="0.960916111111111">
+coding. Vertical bars show the number of examples over which
+each mean is computed.
+straint relaxation had to intersect k contraints (i.e.,
+y y
+k). The trajectory ending at (for example)
+k = 3 shows how the average lattice size for that
+subset of examples evolved over the 3 intersections.
+The X at k = 3 shows the final size of the brute-force
+lattice on the same subset of examples.
+For the most part, our lattices do stay much
+smaller than those produced by the brute-force algo-
+rithm. (The uppermost curve, k = 5, is an obvious
+exception; however, that curve describes only the
+seven hardest examples.) Note that plotting only the
+final size of the brute-force lattice obscures the long
+trajectory of its construction, which involves 10 in-
+tersections and, like the trajectories shown, includes
+larger intermediate automata.2 This explains the far
+</bodyText>
+<page confidence="0.962482">
+2
+</page>
+<table confidence="0.952338888888889">
+The final brute-force lattice is especially shrunk by its in-
+Constraint Violations Fraction
+ARGUMENT CANDIDATES 90 0.0209
+AT LEAST ONE ARGUMENT 27 0.0063
+NO DUPLICATE A2 3 0.0007
+NO DUPLICATE A0 2 0.0005
+NO DUPLICATE A1 2 0.0005
+NO DUPLICATE A3 1 0.0002
+NO DUPLICATE A4 1 0.0002
+</table>
+<tableCaption confidence="0.7534235">
+Table 5: Violations of constraints by y, measured over the de-
+velopment set.
+</tableCaption>
+<bodyText confidence="0.9982334">
+longer runtime of the brute-force method (Table 2).
+Harder examples (corresponding to longer trajec-
+tories) have larger lattices, on average. This is partly
+just because it is disproportionately the longer sen-
+tences that are hard: they have more opportunities
+for a relaxed decoding to violate global constraints.
+Hard examples are rare. The left three columns,
+requiring only 02 intersections, constitute 96% of
+examples. The vast majority can be decoded without
+much more than doubling the local-lattice size.
+</bodyText>
+<sectionHeader confidence="0.94681" genericHeader="method">
+6 Soft constraints
+</sectionHeader>
+<bodyText confidence="0.999708578947368">
+The gold standard labels y occasionally violate the
+hard global constraints that we are using. Counts
+for the development set appear in Table 5. Counts
+for violations of NO DUPLICATE A do not include
+discontinous arguments, of which there are 104 in-
+stances, since we ignore them.
+Because of the infrequency, the hard constraints
+still help most of the time. However, on a small sub-
+set of the examples, they preclude us from inferring
+the correct labeling.
+We can apply these constraints with weights,
+rather than making them inviolable. This constitutes
+a transition from hard to soft constraints. Formally,
+a soft constraint C: Y 7 R is a mapping from a
+label sequence to a non-positive penalty.
+Soft constraints present new difficulty for decod-
+clusion of, for example, DISALLOW ARGUMENTS, which can
+only remove arcs. That constraint is rarely included in the re-
+laxation lattices because it is rarely violated (see Table 3).
+</bodyText>
+<page confidence="0.994022">
+428
+</page>
+<listItem confidence="0.891774">
+\x0cSOFT-CONSTRAIN-LATTICE(L, C):
+1. (y
+, Score(y
+)) := (empty, )
+2. branches := [(L, C, 0)]
+3. while (L, C, penalty) := Dequeue(branches):
+4. L := Prune(L, Score(y
+) penalty)
+5. unless Empty(L):
+6. y := Best-Path(L)
+7. for C C:
+8. if C(y) &lt; 0: (* so C(y) = wC *)
+9. C := C {C}
+</listItem>
+<figure confidence="0.9059615">
+10. Enqueue(branches, (L C, C, penalty))
+11. penalty := penalty + C(y)
+12. if Score(y
+) &lt; L(y) + penalty:
+13. (y
+, Score(y
+)) := (y, L(y) + penalty)
+14. return y
+</figure>
+<figureCaption confidence="0.999895">
+Figure 7: Soft constraints decoding algorithm
+</figureCaption>
+<bodyText confidence="0.963342428571429">
+ing, because instead of eliminating paths of L from
+contention, they just reweight them.
+In what follows, we consider only binary soft
+constraintsthey are either satisfied or violated, and
+the same penalty is assessed whenever a violation
+occurs. That is, C C, wC &lt; 0 such that
+y, C(y) {0, wC}.
+</bodyText>
+<subsectionHeader confidence="0.99579">
+6.1 Soft constraint relaxation
+</subsectionHeader>
+<bodyText confidence="0.984355714285714">
+The decoding algorithm for soft constraints is a gen-
+eralization of that for hard constraints. The differ-
+ence is that, whereas with hard constraints a vio-
+lation meant disqualification, here violation simply
+means a penalty. We therefore must find and com-
+pare two labelings: the best that satisfies the con-
+straint, and the best that violates it.
+We present a branch-and-bound algorithm
+(Lawler and Wood, 1966), with pseudocode in
+Figure 7. At line 9, we process and eliminate a
+currently violated constraint C C by considering
+two cases. On the first branch, we insist that C be
+satisfied, enqueuing L C for later exploration. On
+the second branch, we assume C is violated by all
+paths, and so continue considering L unmodified,
+but accept a penalty for doing so; we immediately
+explore the second branch by returning to the start
+of the for loop.3
+Not every branch needs to be completely ex-
+plored. Bounding is handled by the PRUNE func-
+tion at line 4, which shrinks L by removing some
+</bodyText>
+<page confidence="0.947814">
+3
+</page>
+<bodyText confidence="0.999815">
+It is possible that a future best path on the second branch
+will not actually violate C, in which case we have overpenalized
+it, but in that case we will also find it with correct penalty on the
+first branch.
+or all paths that cannot score better than Score(y),
+the score of the best path found on any branch so
+far. Our experiments used almost the simplest possi-
+ble PRUNE: replace L by the empty lattice if the best
+path falls below the bound, else leave L unchanged.4
+A similar bounding would be possible in the im-
+plicit branches. If, during the for loop, we find that
+the test at line 12 would fail, we can quit the for
+loop and immediately move to the next branch in
+the queue at line 3.
+There are two factors in this algorithm that con-
+tribute to avoiding consideration of all of the expo-
+nential number of leaves corresponding to the power
+set of constraints. First, bounding stops evaluation
+of subtrees. Second, only violated constraints re-
+quire branching. If a lattices best path satisifies a
+constraint, then the best path that violates it can be
+no better since, by assumption, y, C(y) 0.
+</bodyText>
+<subsectionHeader confidence="0.986019">
+6.2 Runtime experiments
+</subsectionHeader>
+<bodyText confidence="0.999194705882353">
+Using the ten constraints from 5.1, weighted
+naively by their log odds of violation, the soft con-
+straint relaxation algorithm runs in a time of 58.40
+seconds. It is, as expected, slower than hard con-
+straint relaxation, but only by a factor of about two.
+As a side note, softening these particular con-
+straints in this particular way did not improve de-
+coding quality in this case. It might help to jointly
+train the relative weights of these constraints and
+the local modele.g., using a perceptron algorithm
+(Freund and Schapire, 1998), which repeatedly ex-
+tracts the best global path (using our algorithm),
+compares it to the gold standard, and adjusts the con-
+straint weights. An obvious alternative is maximum-
+entropy training, but the partition function would
+have to be computed using the large brute-force lat-
+tices, or else approximated by a sampling method.
+</bodyText>
+<sectionHeader confidence="0.991986" genericHeader="method">
+7 Future work
+</sectionHeader>
+<bodyText confidence="0.9995965">
+For a given task, we may be able to obtain further
+speedups by carefully choosing the order in which
+to test and apply the constraints. We might treat this
+as a reinforcement learning problem (Sutton, 1988),
+</bodyText>
+<page confidence="0.940717">
+4
+</page>
+<bodyText confidence="0.9962804">
+Partial pruning is also possible: by running the Viterbi ver-
+sion of the forward-backward algorithm, one can discover for
+each edge the weight of the best path on which it appears. One
+can then remove all edges that do not appear on any sufficiently
+good path.
+</bodyText>
+<page confidence="0.992791">
+429
+</page>
+<bodyText confidence="0.999706869565217">
+\x0cwhere an agent will obtain rewards by finding y
+quickly. In the hard-constraint algorithm, for ex-
+ample, the agents possible moves are to test some
+constraint for violation by the current best path, or
+to intersect some constraint with the current lattice.
+Several features can help the agent choose the next
+move. How large is the current lattice, which con-
+straints does it already incorporate, and which re-
+maining constraints are already known to be satis-
+fied or violated by its best path? And what were the
+answers to those questions at previous stages?
+Our constraint relaxation method should be tested
+on problems other than semantic role labeling. For
+example, information extraction from bibliography
+entries, as discussed in 1, has about 13 fields to ex-
+tract, and interesting hard and soft global constraints
+on co-occurrence, order, and adjacency. The method
+should also be evaluated on a task with longer se-
+quences: though the finite-state operations we use
+do scale up linearly with the sequence length, longer
+sequences have more chance of violating a global
+constraint somewhere in the sequence, requiring us
+to apply that constraint explicitly.
+</bodyText>
+<sectionHeader confidence="0.99765" genericHeader="conclusions">
+8 Conclusion
+</sectionHeader>
+<bodyText confidence="0.996581">
+Roth and Yih (2005) showed that global constraints
+can improve the output of sequence labeling models
+for semantic role labeling. In general, decoding un-
+der such constraints is NP-complete. We exhibited
+a practical approach, finite-state constraint relax-
+ation, that greatly sped up decoding on this NLP task
+by using familiar finite-state operationsweighted
+FSA intersection and best-path extractionrather
+than integer linear programming.
+We have also given a constraint relaxation algo-
+rithm for binary soft constraints. This allows incor-
+poration of constraints akin to reranking features, in
+addition to inviolable constraints.
+</bodyText>
+<sectionHeader confidence="0.978462" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.998601">
+This material is based upon work supported by
+the National Science Foundation under Grant No.
+0347822. We thank Scott Yih for kindly providing
+both the voted-perceptron classifier and runtime re-
+sults for decoding with ILP, and the reviewers for
+helpful comments.
+</bodyText>
+<sectionHeader confidence="0.991651" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.999297836363636">
+Xavier Carreras and Llus Marques. 2004. Introduction to the
+CoNLL-2004 shared task: Semantic role labeling. In Proc.
+of CoNLL, pp. 8997.
+Jenny Rose Finkel, Trond Grenager, and Christopher Manning.
+2005. Incorporating non-local information into information
+extraction systems by Gibbs sampling. In Proc. of ACL, pp.
+363370.
+Yoav Freund and Robert E. Schapire. 1998. Large margin clas-
+sification using the perceptron algorithm. In Proc. of COLT,
+pp. 209217, New York. ACM Press.
+Christelle Gueret, Christian Prins, and Marc Sevaux. 2002. Ap-
+plications of optimization with Xpress-MP. Dash Optimiza-
+tion. Translated and revised by Susanne Heipcke.
+Kadri Hacioglu, Sameer Pradhan, Wayne Ward, James H. Mar-
+tin, and Daniel Jurafsky. 2004. Semantic role labeling by
+tagging syntactic chunks. In Proc. of CoNLL, pp. 110113.
+Stephan Kanthak and Hermann Ney. 2004. FSA: An efficient
+and flexible C++ toolkit for finite state automata using on-
+demand computation. In Proc. of ACL, pp. 510517.
+Lauri Karttunen, Jean-Pierre Chanod, Gregory Grefenstette,
+and Anne Schiller. 1996. Regular expressions for lan-
+guage engineering. Journal of Natural Language Engineer-
+ing, 2(4):305328.
+Kimmo Koskenniemi. 1990. Finite-state parsing and disam-
+biguation. In Proc. of COLING, pp. 229232.
+John Lafferty, Andrew McCallum, and Fernando Pereira. 2001.
+Conditional random fields: Probabilistic models for seg-
+menting and labeling sequence data. In Proc. of ICML, pp.
+282289.
+Eugene L. Lawler and David E. Wood. 1966. Branch-and-
+bound methods: A survey. Operations Research, 14(4):699
+719.
+Mitchell P. Marcus, Beatrice Santorini, and Mary Ann
+Marcinkiewicz. 1993. Building a large annotated corpus
+of English: the Penn Treebank. Computational Linguistics,
+19:313330.
+Mehryar Mohri, Fernando Pereira, and Michael Riley. 1996.
+Weighted automata in text and speech processing. In A. Ko-
+rnai, editor, Proc. of the ECAI 96 Workshop, pp. 4650.
+Martha Palmer, Daniel Gildea, and Paul Kingsbury. 2005. The
+Proposition Bank: An annotated corpus of semantic roles.
+Computational Linguistics, 31(1):71106.
+Fuchun Peng and Andrew McCallum. 2004. Accurate informa-
+tion extraction from research papers using conditional ran-
+dom fields. In Proc. of HLT-NAACL, pp. 329336.
+Dan Roth and Wen-tau Yih. 2005. Integer linear programming
+inference for conditional random fields. In Proc. of ICML,
+pp. 737744.
+Richard S. Sutton. 1988. Learning to predict by the methods of
+temporal differences. Machine Learning, 3(1):944.
+Nathan Vaillette. 2004. Logical Specification of Finite-State
+Transductions for Natural Language Processing. Ph.D. the-
+sis, Ohio State University.
+Nianwen Xue and Martha Palmer. 2004. Calibrating features
+for semantic role labeling. In Proc. of EMNLP, pp. 8894.
+</reference>
+<page confidence="0.903088">
+430
+</page>
+<figure confidence="0.289669">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.623265">
+<note confidence="0.920405666666667">b&apos;Proceedings of the Human Language Technology Conference of the North American Chapter of the ACL, pages 423430, New York, June 2006. c 2006 Association for Computational Linguistics</note>
+<title confidence="0.883306">A fast finite-state relaxation method for enforcing global constraints on sequence decoding</title>
+<author confidence="0.99996">Roy W Tromble</author>
+<author confidence="0.99996">Jason Eisner</author>
+<affiliation confidence="0.9979585">Department of Computer Science and Center for Language and Speech Processing Johns Hopkins University</affiliation>
+<address confidence="0.99988">Baltimore, MD 21218</address>
+<email confidence="0.999759">royt@cs.jhu.edu</email>
+<email confidence="0.999759">jason@cs.jhu.edu</email>
+<abstract confidence="0.999188285714286">We describe finite-state constraint relaxation, a method for applying global constraints, expressed as automata, to sequence model decoding. We present algorithms for both hard constraints and binary soft constraints. On the CoNLL-2004 semantic role labeling task, we report a speedup of at least 16x over a previous method that used integer linear programming.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Xavier Carreras</author>
+<author>Llus Marques</author>
+</authors>
+<title>Introduction to the CoNLL-2004 shared task: Semantic role labeling.</title>
+<date>2004</date>
+<booktitle>In Proc. of CoNLL,</booktitle>
+<pages>8997</pages>
+<contexts>
+<context position="11293" citStr="Carreras and Marques, 2004" startWordPosition="1926" endWordPosition="1929"> be recovered from local features and constraints alone. We suspect that, as a result, global constraints will often be easy to satisfy. Pseudocode for the algorithm appears in Figure 2. Note that line 2 does not specify how to choose C from among multiple violated constraints. This is discussed in 7. Our algorithm resembles the method of Koskenniemi (1990) and later work. The difference is that there lattices are unweighted and may not contain a path that satisfies all constraints, so that the order of constraint intersection matters. 5 Semantic role labeling The semantic role labeling task (Carreras and Marques, 2004) involves choosing instantiations of verb arguments from a sentence for a given verb. The verb and its arguments form a proposition. We use data from the CoNLL-2004 shared taskthe PropBank (Palmer et al., 2005) annotations of the Penn Treebank (Marcus et al., 1993), with sections 1518 as the training set and section 20 as the development set. Unless otherwise specified, all measurements are made on the development set. We follow Roth and Yih (2005) exactly, in order to compare system runtimes. They, in turn, follow Hacioglu et al. (2004) and others in labeling only the heads of syntactic chunk</context>
+</contexts>
+<marker>Carreras, Marques, 2004</marker>
+<rawString>Xavier Carreras and Llus Marques. 2004. Introduction to the CoNLL-2004 shared task: Semantic role labeling. In Proc. of CoNLL, pp. 8997.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Rose Finkel</author>
+<author>Trond Grenager</author>
+<author>Christopher Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by Gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In Proc. of ACL,</booktitle>
+<pages>363370</pages>
+<contexts>
+<context position="1282" citStr="Finkel et al., 2005" startWordPosition="185" endWordPosition="188"> soft constraints. On the CoNLL-2004 semantic role labeling task, we report a speedup of at least 16x over a previous method that used integer linear programming. 1 Introduction Many tasks in natural language processing involve sequence labeling. If one models long-distance or global properties of labeled sequences, it can become intractable to find (decode) the best labeling of an unlabeled sequence. Nonetheless, such global properties can improve the accuracy of a model, so recent NLP papers have considered practical techniques for decoding with them. Such techniques include Gibbs sampling (Finkel et al., 2005), a general-purpose Monte Carlo method, and integer linear programming (ILP), (Roth and Yih, 2005), a general-purpose exact framework for NP-complete problems. Under generative models such as hidden Markov models, the probability of a labeled sequence depends only on its local properties. The situation improves with discriminatively trained models, such as conditional random fields (Lafferty et al., 2001), which do efficiently allow features that are functions of the entire observation sequence. However, these features can still only look locally at the label sequence. That is a significant sh</context>
+<context position="2555" citStr="Finkel et al., 2005" startWordPosition="388" endWordPosition="391">al constraints on the label sequence are motivated by common sense: For named entity recognition, a phrase that appears multiple times should tend to get the same label each time (Finkel et al., 2005). In bibliography entries (Peng and McCallum, 2004), a given field (author, title, etc.) should be filled by at most one substring of the input, and there are strong preferences on the cooccurrence and order of certain fields. In seminar announcements, a given field (speaker, start time, etc.) should appear with at most one value in each announcement, although the field and value may be repeated (Finkel et al., 2005). For semantic role labeling, each argument should be instantiated only once for a given verb. There are several other constraints that we will describe later (Roth and Yih, 2005). A popular approximate technique is to hypothesize a list of possible answers by decoding without any global constraints, and then rerank (or prune) this n-best list using the full model with all constraints. Reranking relies on the local model being good enough that the globally best answer appears in its n-best list. Otherwise, reranking cant find it. In this paper, we propose constraint relaxation, a simple exact </context>
+</contexts>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>Jenny Rose Finkel, Trond Grenager, and Christopher Manning. 2005. Incorporating non-local information into information extraction systems by Gibbs sampling. In Proc. of ACL, pp. 363370.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yoav Freund</author>
+<author>Robert E Schapire</author>
+</authors>
+<title>Large margin classification using the perceptron algorithm.</title>
+<date>1998</date>
+<booktitle>In Proc. of COLT,</booktitle>
+<pages>209217</pages>
+<publisher>ACM Press.</publisher>
+<location>New York.</location>
+<contexts>
+<context position="25413" citStr="Freund and Schapire, 1998" startWordPosition="4419" endWordPosition="4422">h that violates it can be no better since, by assumption, y, C(y) 0. 6.2 Runtime experiments Using the ten constraints from 5.1, weighted naively by their log odds of violation, the soft constraint relaxation algorithm runs in a time of 58.40 seconds. It is, as expected, slower than hard constraint relaxation, but only by a factor of about two. As a side note, softening these particular constraints in this particular way did not improve decoding quality in this case. It might help to jointly train the relative weights of these constraints and the local modele.g., using a perceptron algorithm (Freund and Schapire, 1998), which repeatedly extracts the best global path (using our algorithm), compares it to the gold standard, and adjusts the constraint weights. An obvious alternative is maximumentropy training, but the partition function would have to be computed using the large brute-force lattices, or else approximated by a sampling method. 7 Future work For a given task, we may be able to obtain further speedups by carefully choosing the order in which to test and apply the constraints. We might treat this as a reinforcement learning problem (Sutton, 1988), 4 Partial pruning is also possible: by running the </context>
+</contexts>
+<marker>Freund, Schapire, 1998</marker>
+<rawString>Yoav Freund and Robert E. Schapire. 1998. Large margin classification using the perceptron algorithm. In Proc. of COLT, pp. 209217, New York. ACM Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Christelle Gueret</author>
+<author>Christian Prins</author>
+<author>Marc Sevaux</author>
+</authors>
+<title>Applications of optimization with Xpress-MP. Dash Optimization. Translated and revised by Susanne Heipcke.</title>
+<date>2002</date>
+<contexts>
+<context position="15340" citStr="Gueret et al., 2002" startWordPosition="2617" endWordPosition="2620">directly comparable. However, constraint relaxation is more than sixteen times faster than ILP despite running on a slower platform. 5.2.1 Comparison to an ILP solver Roth and Yihs linear program has two kinds of numeric constraints. Some encode the shortest path problem structure; the others encode the global constraints of 5.1. The ILP solver works by relaxing to a (real-valued) linear program, which may obtain a fractional solution that represents a path mixture instead of a path. It then uses branch-and-bound to seek the optimal rounding of this fractional solution to an integer solution (Gueret et al., 2002) that represents a single path satisfying the global constraints. Our method avoids fractional solutions: a relaxed solution is always a true single path, which either 426 \x0cMr. Turner said the test will be shipped in 45 days to hospitals and clinical laboratories . B-NP I-NP B-VP B-NP I-NP B-VP I-VP I-VP B-PP B-NP I-NP B-PP B-NP O B-NP I-NP O Turner said test shipped in days to hospitals and laboratories . A0 O A1 A1 A1 A1 A1 A1 A1 A1 O Figure 3: Example sentence, with phrase tags and heads, and core argument labels. The A1 argument of said is a long clause. 0 1 O A0 A1 A2 A3 A4 A5 2 A2 A3 </context>
+</contexts>
+<marker>Gueret, Prins, Sevaux, 2002</marker>
+<rawString>Christelle Gueret, Christian Prins, and Marc Sevaux. 2002. Applications of optimization with Xpress-MP. Dash Optimization. Translated and revised by Susanne Heipcke.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kadri Hacioglu</author>
+<author>Sameer Pradhan</author>
+<author>Wayne Ward</author>
+<author>James H Martin</author>
+<author>Daniel Jurafsky</author>
+</authors>
+<title>Semantic role labeling by tagging syntactic chunks.</title>
+<date>2004</date>
+<booktitle>In Proc. of CoNLL,</booktitle>
+<pages>110113</pages>
+<contexts>
+<context position="11836" citStr="Hacioglu et al. (2004)" startWordPosition="2017" endWordPosition="2020">ntic role labeling The semantic role labeling task (Carreras and Marques, 2004) involves choosing instantiations of verb arguments from a sentence for a given verb. The verb and its arguments form a proposition. We use data from the CoNLL-2004 shared taskthe PropBank (Palmer et al., 2005) annotations of the Penn Treebank (Marcus et al., 1993), with sections 1518 as the training set and section 20 as the development set. Unless otherwise specified, all measurements are made on the development set. We follow Roth and Yih (2005) exactly, in order to compare system runtimes. They, in turn, follow Hacioglu et al. (2004) and others in labeling only the heads of syntactic chunks rather than all words. We label only the core arguments (A0A5), treating 425 \x0c(a) 0 ? 1 A0 A0 2 ? ? (b) 0 1 O A0 A1 A2 A3 A4 A5 2 O (verb position) A1 A2 A3 A4 A5 O A0 (c) 0 O A0 A1 A2 A3 Figure 4: Automata expressing NO DUPLICATE A0 (? matches anything but A0), KNOWN VERB POSITION[2], and DISALLOW ARGUMENTS[A4,A5]. adjuncts and references as O. Figure 3 shows an example sentence from the shared task. It is marked with an IOB phrase chunking, the heads of the phrases, and the correct semantic role labeling. Heads are taken to be the</context>
+</contexts>
+<marker>Hacioglu, Pradhan, Ward, Martin, Jurafsky, 2004</marker>
+<rawString>Kadri Hacioglu, Sameer Pradhan, Wayne Ward, James H. Martin, and Daniel Jurafsky. 2004. Semantic role labeling by tagging syntactic chunks. In Proc. of CoNLL, pp. 110113.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Stephan Kanthak</author>
+<author>Hermann Ney</author>
+</authors>
+<title>FSA: An efficient and flexible C++ toolkit for finite state automata using ondemand computation.</title>
+<date>2004</date>
+<booktitle>In Proc. of ACL,</booktitle>
+<pages>510517</pages>
+<contexts>
+<context position="14012" citStr="Kanthak and Ney, 2004" startWordPosition="2398" endWordPosition="2401">the example, and the automata must be constructed on a per-example basis: ARGUMENT CANDIDATES (Fig. 5) encodes a set of position spans each of which must receive only a single label type. These spans were proposed using a high-recall heuristic (Xue and Palmer, 2004). KNOWN VERB POSITION (Fig. 4(b)) simply encodes the position of the verb in question, which must be labeled O. DISALLOW ARGUMENTS (Fig. 4(c)) specifies argument types that are compatible with the verb in question, according to PropBank. 5.2 Experiments We implemented our hard constraint relaxation algorithm, using the FSA toolkit (Kanthak and Ney, 2004) for finite-state operations. FSA is an opensource C++ library providing a useful set of algorithms on weighted finite-state acceptors and transducers. For each example we decoded, we chose a random order in which to apply the constraints. Lattices are generated from what amounts to a unigram modelthe voted perceptron classifier of Roth and Yih. The features used are a subset of those commonly applied to the task. Our system produces output identical to that of Roth and Yih. Table 1 shows F-measure on the core arguments. Table 2 shows a runtime comparison. The ILP runtime was provided by the a</context>
+</contexts>
+<marker>Kanthak, Ney, 2004</marker>
+<rawString>Stephan Kanthak and Hermann Ney. 2004. FSA: An efficient and flexible C++ toolkit for finite state automata using ondemand computation. In Proc. of ACL, pp. 510517.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Lauri Karttunen</author>
+<author>Jean-Pierre Chanod</author>
+<author>Gregory Grefenstette</author>
+<author>Anne Schiller</author>
+</authors>
+<title>Regular expressions for language engineering.</title>
+<date>1996</date>
+<journal>Journal of Natural Language Engineering,</journal>
+<volume>2</volume>
+<issue>4</issue>
+<contexts>
+<context position="5773" citStr="Karttunen et al., 1996" startWordPosition="927" endWordPosition="930">ne non-O label; it compiles into the FSA of Figure 1. Note that this FSA is in one or the other of its two states according to whether it has encountered a nonO label yet. In general, the current state of an FSA records properties of the label sequence prefix read so far. The FSA needs enough states to keep track of whether the label sequence as a whole satisfies the global constraint in question. FSAs are a flexible approach to constraints because they are closed under logical operations such as disjunction (union) and conjunction (intersection). They may be specified by regular expressions (Karttunen et al., 1996), in a logical language (Vaillette, 2004), or directly as FSAs. They may also be weighted to express soft constraints. Formally, we pose the decoding problem in terms of an observation sequence x X and possible label sequences y Y. In many NLP tasks, X is the set of words, and Y the tags. A lattice L: Y 7 R maps label sequences to weights, and is encoded as a weighted FSA. Constraints are formally the same any function C: Y 7 R is a constraint, including weighted features from a classifier or probabilistic model. In this paper we will consider only constraints that are weighted in particular w</context>
+</contexts>
+<marker>Karttunen, Chanod, Grefenstette, Schiller, 1996</marker>
+<rawString>Lauri Karttunen, Jean-Pierre Chanod, Gregory Grefenstette, and Anne Schiller. 1996. Regular expressions for language engineering. Journal of Natural Language Engineering, 2(4):305328.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kimmo Koskenniemi</author>
+</authors>
+<title>Finite-state parsing and disambiguation.</title>
+<date>1990</date>
+<booktitle>In Proc. of COLING,</booktitle>
+<pages>229232</pages>
+<contexts>
+<context position="11025" citStr="Koskenniemi (1990)" startWordPosition="1886" endWordPosition="1887">. Our hope is that, although intractable in the worst case, the constraint relaxation algorithm will operate efficiently in practice. The success of traditional sequence models on NLP tasks suggests that, for natural language, much of the correct analysis can be recovered from local features and constraints alone. We suspect that, as a result, global constraints will often be easy to satisfy. Pseudocode for the algorithm appears in Figure 2. Note that line 2 does not specify how to choose C from among multiple violated constraints. This is discussed in 7. Our algorithm resembles the method of Koskenniemi (1990) and later work. The difference is that there lattices are unweighted and may not contain a path that satisfies all constraints, so that the order of constraint intersection matters. 5 Semantic role labeling The semantic role labeling task (Carreras and Marques, 2004) involves choosing instantiations of verb arguments from a sentence for a given verb. The verb and its arguments form a proposition. We use data from the CoNLL-2004 shared taskthe PropBank (Palmer et al., 2005) annotations of the Penn Treebank (Marcus et al., 1993), with sections 1518 as the training set and section 20 as the deve</context>
+</contexts>
+<marker>Koskenniemi, 1990</marker>
+<rawString>Kimmo Koskenniemi. 1990. Finite-state parsing and disambiguation. In Proc. of COLING, pp. 229232.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>John Lafferty</author>
+<author>Andrew McCallum</author>
+<author>Fernando Pereira</author>
+</authors>
+<title>Conditional random fields: Probabilistic models for segmenting and labeling sequence data.</title>
+<date>2001</date>
+<booktitle>In Proc. of ICML,</booktitle>
+<pages>282289</pages>
+<contexts>
+<context position="1690" citStr="Lafferty et al., 2001" startWordPosition="244" endWordPosition="247">onetheless, such global properties can improve the accuracy of a model, so recent NLP papers have considered practical techniques for decoding with them. Such techniques include Gibbs sampling (Finkel et al., 2005), a general-purpose Monte Carlo method, and integer linear programming (ILP), (Roth and Yih, 2005), a general-purpose exact framework for NP-complete problems. Under generative models such as hidden Markov models, the probability of a labeled sequence depends only on its local properties. The situation improves with discriminatively trained models, such as conditional random fields (Lafferty et al., 2001), which do efficiently allow features that are functions of the entire observation sequence. However, these features can still only look locally at the label sequence. That is a significant shortcoming, because in many domains, hard or soft global constraints on the label sequence are motivated by common sense: For named entity recognition, a phrase that appears multiple times should tend to get the same label each time (Finkel et al., 2005). In bibliography entries (Peng and McCallum, 2004), a given field (author, title, etc.) should be filled by at most one substring of the input, and there </context>
+</contexts>
+<marker>Lafferty, McCallum, Pereira, 2001</marker>
+<rawString>John Lafferty, Andrew McCallum, and Fernando Pereira. 2001. Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In Proc. of ICML, pp. 282289.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eugene L Lawler</author>
+<author>David E Wood</author>
+</authors>
+<title>Branch-andbound methods: A survey.</title>
+<date>1966</date>
+<journal>Operations Research,</journal>
+<volume>14</volume>
+<issue>4</issue>
+<pages>719</pages>
+<contexts>
+<context position="23180" citStr="Lawler and Wood, 1966" startWordPosition="4020" endWordPosition="4023">nsider only binary soft constraintsthey are either satisfied or violated, and the same penalty is assessed whenever a violation occurs. That is, C C, wC &lt; 0 such that y, C(y) {0, wC}. 6.1 Soft constraint relaxation The decoding algorithm for soft constraints is a generalization of that for hard constraints. The difference is that, whereas with hard constraints a violation meant disqualification, here violation simply means a penalty. We therefore must find and compare two labelings: the best that satisfies the constraint, and the best that violates it. We present a branch-and-bound algorithm (Lawler and Wood, 1966), with pseudocode in Figure 7. At line 9, we process and eliminate a currently violated constraint C C by considering two cases. On the first branch, we insist that C be satisfied, enqueuing L C for later exploration. On the second branch, we assume C is violated by all paths, and so continue considering L unmodified, but accept a penalty for doing so; we immediately explore the second branch by returning to the start of the for loop.3 Not every branch needs to be completely explored. Bounding is handled by the PRUNE function at line 4, which shrinks L by removing some 3 It is possible that a </context>
+</contexts>
+<marker>Lawler, Wood, 1966</marker>
+<rawString>Eugene L. Lawler and David E. Wood. 1966. Branch-andbound methods: A survey. Operations Research, 14(4):699 719.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mitchell P Marcus</author>
+<author>Beatrice Santorini</author>
+<author>Mary Ann Marcinkiewicz</author>
+</authors>
+<title>Building a large annotated corpus of English: the Penn Treebank. Computational Linguistics,</title>
+<date>1993</date>
+<contexts>
+<context position="11558" citStr="Marcus et al., 1993" startWordPosition="1969" endWordPosition="1972">aints. This is discussed in 7. Our algorithm resembles the method of Koskenniemi (1990) and later work. The difference is that there lattices are unweighted and may not contain a path that satisfies all constraints, so that the order of constraint intersection matters. 5 Semantic role labeling The semantic role labeling task (Carreras and Marques, 2004) involves choosing instantiations of verb arguments from a sentence for a given verb. The verb and its arguments form a proposition. We use data from the CoNLL-2004 shared taskthe PropBank (Palmer et al., 2005) annotations of the Penn Treebank (Marcus et al., 1993), with sections 1518 as the training set and section 20 as the development set. Unless otherwise specified, all measurements are made on the development set. We follow Roth and Yih (2005) exactly, in order to compare system runtimes. They, in turn, follow Hacioglu et al. (2004) and others in labeling only the heads of syntactic chunks rather than all words. We label only the core arguments (A0A5), treating 425 \x0c(a) 0 ? 1 A0 A0 2 ? ? (b) 0 1 O A0 A1 A2 A3 A4 A5 2 O (verb position) A1 A2 A3 A4 A5 O A0 (c) 0 O A0 A1 A2 A3 Figure 4: Automata expressing NO DUPLICATE A0 (? matches anything but A0</context>
+</contexts>
+<marker>Marcus, Santorini, Marcinkiewicz, 1993</marker>
+<rawString>Mitchell P. Marcus, Beatrice Santorini, and Mary Ann Marcinkiewicz. 1993. Building a large annotated corpus of English: the Penn Treebank. Computational Linguistics, 19:313330.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mehryar Mohri</author>
+<author>Fernando Pereira</author>
+<author>Michael Riley</author>
+</authors>
+<title>Weighted automata in text and speech processing.</title>
+<date>1996</date>
+<booktitle>Proc. of the ECAI 96 Workshop,</booktitle>
+<pages>4650</pages>
+<editor>In A. Kornai, editor,</editor>
+<contexts>
+<context position="7089" citStr="Mohri et al., 1996" startWordPosition="1175" endWordPosition="1178">sume the lattice L is generated by a model M: X 7 (Y 7 R). For a given observation sequence x, we put L = M(x). One possible model is a finite-state transducer, where M(x) is an FSA found by composing the transducer with x. Another is a CRF, where M(x) is a lattice with sums of logpotentials for arc weights.1 3 A brute-force finite-state decoder To find the best constrained labeling in a lattice, y, according to (1), we could simply intersect the lattice with all the constraints, then extract the best path. Weighted FSA intersection is a generalization of ordinary unweighted FSA intersection (Mohri et al., 1996). It is customary in NLP to use the so-called tropical semiring, where weights are represented by their natural logarithms and summed rather than multiplied. Then the intersected automaton L C computes (L C)(y) def = L(y) + C(y) (2) To find y, one would extract the best path in L C1 C2 using the Viterbi algorithm, or Dijkstras algorithm if the lattice is cyclic. This step is fast if the intersected automaton is small. The problem is that the multiple intersections in L C1 C2 can quickly lead to an FSA with an intractable number of states. The intersection of two finite-state automata produces </context>
+</contexts>
+<marker>Mohri, Pereira, Riley, 1996</marker>
+<rawString>Mehryar Mohri, Fernando Pereira, and Michael Riley. 1996. Weighted automata in text and speech processing. In A. Kornai, editor, Proc. of the ECAI 96 Workshop, pp. 4650.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Martha Palmer</author>
+<author>Daniel Gildea</author>
+<author>Paul Kingsbury</author>
+</authors>
+<title>The Proposition Bank: An annotated corpus of semantic roles.</title>
+<date>2005</date>
+<journal>Computational Linguistics,</journal>
+<volume>31</volume>
+<issue>1</issue>
+<contexts>
+<context position="11503" citStr="Palmer et al., 2005" startWordPosition="1960" endWordPosition="1963">ify how to choose C from among multiple violated constraints. This is discussed in 7. Our algorithm resembles the method of Koskenniemi (1990) and later work. The difference is that there lattices are unweighted and may not contain a path that satisfies all constraints, so that the order of constraint intersection matters. 5 Semantic role labeling The semantic role labeling task (Carreras and Marques, 2004) involves choosing instantiations of verb arguments from a sentence for a given verb. The verb and its arguments form a proposition. We use data from the CoNLL-2004 shared taskthe PropBank (Palmer et al., 2005) annotations of the Penn Treebank (Marcus et al., 1993), with sections 1518 as the training set and section 20 as the development set. Unless otherwise specified, all measurements are made on the development set. We follow Roth and Yih (2005) exactly, in order to compare system runtimes. They, in turn, follow Hacioglu et al. (2004) and others in labeling only the heads of syntactic chunks rather than all words. We label only the core arguments (A0A5), treating 425 \x0c(a) 0 ? 1 A0 A0 2 ? ? (b) 0 1 O A0 A1 A2 A3 A4 A5 2 O (verb position) A1 A2 A3 A4 A5 O A0 (c) 0 O A0 A1 A2 A3 Figure 4: Automat</context>
+</contexts>
+<marker>Palmer, Gildea, Kingsbury, 2005</marker>
+<rawString>Martha Palmer, Daniel Gildea, and Paul Kingsbury. 2005. The Proposition Bank: An annotated corpus of semantic roles. Computational Linguistics, 31(1):71106.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Fuchun Peng</author>
+<author>Andrew McCallum</author>
+</authors>
+<title>Accurate information extraction from research papers using conditional random fields.</title>
+<date>2004</date>
+<booktitle>In Proc. of HLT-NAACL,</booktitle>
+<pages>329336</pages>
+<contexts>
+<context position="2186" citStr="Peng and McCallum, 2004" startWordPosition="323" endWordPosition="326">operties. The situation improves with discriminatively trained models, such as conditional random fields (Lafferty et al., 2001), which do efficiently allow features that are functions of the entire observation sequence. However, these features can still only look locally at the label sequence. That is a significant shortcoming, because in many domains, hard or soft global constraints on the label sequence are motivated by common sense: For named entity recognition, a phrase that appears multiple times should tend to get the same label each time (Finkel et al., 2005). In bibliography entries (Peng and McCallum, 2004), a given field (author, title, etc.) should be filled by at most one substring of the input, and there are strong preferences on the cooccurrence and order of certain fields. In seminar announcements, a given field (speaker, start time, etc.) should appear with at most one value in each announcement, although the field and value may be repeated (Finkel et al., 2005). For semantic role labeling, each argument should be instantiated only once for a given verb. There are several other constraints that we will describe later (Roth and Yih, 2005). A popular approximate technique is to hypothesize </context>
+</contexts>
+<marker>Peng, McCallum, 2004</marker>
+<rawString>Fuchun Peng and Andrew McCallum. 2004. Accurate information extraction from research papers using conditional random fields. In Proc. of HLT-NAACL, pp. 329336.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Dan Roth</author>
+<author>Wen-tau Yih</author>
+</authors>
+<title>Integer linear programming inference for conditional random fields.</title>
+<date>2005</date>
+<booktitle>In Proc. of ICML,</booktitle>
+<pages>737744</pages>
+<contexts>
+<context position="1380" citStr="Roth and Yih, 2005" startWordPosition="200" endWordPosition="203">6x over a previous method that used integer linear programming. 1 Introduction Many tasks in natural language processing involve sequence labeling. If one models long-distance or global properties of labeled sequences, it can become intractable to find (decode) the best labeling of an unlabeled sequence. Nonetheless, such global properties can improve the accuracy of a model, so recent NLP papers have considered practical techniques for decoding with them. Such techniques include Gibbs sampling (Finkel et al., 2005), a general-purpose Monte Carlo method, and integer linear programming (ILP), (Roth and Yih, 2005), a general-purpose exact framework for NP-complete problems. Under generative models such as hidden Markov models, the probability of a labeled sequence depends only on its local properties. The situation improves with discriminatively trained models, such as conditional random fields (Lafferty et al., 2001), which do efficiently allow features that are functions of the entire observation sequence. However, these features can still only look locally at the label sequence. That is a significant shortcoming, because in many domains, hard or soft global constraints on the label sequence are moti</context>
+<context position="2734" citStr="Roth and Yih, 2005" startWordPosition="417" endWordPosition="420">Finkel et al., 2005). In bibliography entries (Peng and McCallum, 2004), a given field (author, title, etc.) should be filled by at most one substring of the input, and there are strong preferences on the cooccurrence and order of certain fields. In seminar announcements, a given field (speaker, start time, etc.) should appear with at most one value in each announcement, although the field and value may be repeated (Finkel et al., 2005). For semantic role labeling, each argument should be instantiated only once for a given verb. There are several other constraints that we will describe later (Roth and Yih, 2005). A popular approximate technique is to hypothesize a list of possible answers by decoding without any global constraints, and then rerank (or prune) this n-best list using the full model with all constraints. Reranking relies on the local model being good enough that the globally best answer appears in its n-best list. Otherwise, reranking cant find it. In this paper, we propose constraint relaxation, a simple exact alternative to reranking. As in reranking, we start with a weighted lattice of hypotheses proposed by the local model. But rather than restrict to the n best of these according to</context>
+<context position="11745" citStr="Roth and Yih (2005)" startWordPosition="2002" endWordPosition="2005"> satisfies all constraints, so that the order of constraint intersection matters. 5 Semantic role labeling The semantic role labeling task (Carreras and Marques, 2004) involves choosing instantiations of verb arguments from a sentence for a given verb. The verb and its arguments form a proposition. We use data from the CoNLL-2004 shared taskthe PropBank (Palmer et al., 2005) annotations of the Penn Treebank (Marcus et al., 1993), with sections 1518 as the training set and section 20 as the development set. Unless otherwise specified, all measurements are made on the development set. We follow Roth and Yih (2005) exactly, in order to compare system runtimes. They, in turn, follow Hacioglu et al. (2004) and others in labeling only the heads of syntactic chunks rather than all words. We label only the core arguments (A0A5), treating 425 \x0c(a) 0 ? 1 A0 A0 2 ? ? (b) 0 1 O A0 A1 A2 A3 A4 A5 2 O (verb position) A1 A2 A3 A4 A5 O A0 (c) 0 O A0 A1 A2 A3 Figure 4: Automata expressing NO DUPLICATE A0 (? matches anything but A0), KNOWN VERB POSITION[2], and DISALLOW ARGUMENTS[A4,A5]. adjuncts and references as O. Figure 3 shows an example sentence from the shared task. It is marked with an IOB phrase chunking, </context>
+<context position="27422" citStr="Roth and Yih (2005)" startWordPosition="4750" endWordPosition="4753">relaxation method should be tested on problems other than semantic role labeling. For example, information extraction from bibliography entries, as discussed in 1, has about 13 fields to extract, and interesting hard and soft global constraints on co-occurrence, order, and adjacency. The method should also be evaluated on a task with longer sequences: though the finite-state operations we use do scale up linearly with the sequence length, longer sequences have more chance of violating a global constraint somewhere in the sequence, requiring us to apply that constraint explicitly. 8 Conclusion Roth and Yih (2005) showed that global constraints can improve the output of sequence labeling models for semantic role labeling. In general, decoding under such constraints is NP-complete. We exhibited a practical approach, finite-state constraint relaxation, that greatly sped up decoding on this NLP task by using familiar finite-state operationsweighted FSA intersection and best-path extractionrather than integer linear programming. We have also given a constraint relaxation algorithm for binary soft constraints. This allows incorporation of constraints akin to reranking features, in addition to inviolable con</context>
+</contexts>
+<marker>Roth, Yih, 2005</marker>
+<rawString>Dan Roth and Wen-tau Yih. 2005. Integer linear programming inference for conditional random fields. In Proc. of ICML, pp. 737744.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Richard S Sutton</author>
+</authors>
+<title>Learning to predict by the methods of temporal differences.</title>
+<date>1988</date>
+<booktitle>Machine Learning,</booktitle>
+<volume>3</volume>
+<issue>1</issue>
+<contexts>
+<context position="25960" citStr="Sutton, 1988" startWordPosition="4512" endWordPosition="4513">odele.g., using a perceptron algorithm (Freund and Schapire, 1998), which repeatedly extracts the best global path (using our algorithm), compares it to the gold standard, and adjusts the constraint weights. An obvious alternative is maximumentropy training, but the partition function would have to be computed using the large brute-force lattices, or else approximated by a sampling method. 7 Future work For a given task, we may be able to obtain further speedups by carefully choosing the order in which to test and apply the constraints. We might treat this as a reinforcement learning problem (Sutton, 1988), 4 Partial pruning is also possible: by running the Viterbi version of the forward-backward algorithm, one can discover for each edge the weight of the best path on which it appears. One can then remove all edges that do not appear on any sufficiently good path. 429 \x0cwhere an agent will obtain rewards by finding y quickly. In the hard-constraint algorithm, for example, the agents possible moves are to test some constraint for violation by the current best path, or to intersect some constraint with the current lattice. Several features can help the agent choose the next move. How large is t</context>
+</contexts>
+<marker>Sutton, 1988</marker>
+<rawString>Richard S. Sutton. 1988. Learning to predict by the methods of temporal differences. Machine Learning, 3(1):944.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Nathan Vaillette</author>
+</authors>
+<title>Logical Specification of Finite-State Transductions for Natural Language Processing.</title>
+<date>2004</date>
+<tech>Ph.D. thesis,</tech>
+<institution>Ohio State University.</institution>
+<contexts>
+<context position="5814" citStr="Vaillette, 2004" startWordPosition="935" endWordPosition="937">re 1. Note that this FSA is in one or the other of its two states according to whether it has encountered a nonO label yet. In general, the current state of an FSA records properties of the label sequence prefix read so far. The FSA needs enough states to keep track of whether the label sequence as a whole satisfies the global constraint in question. FSAs are a flexible approach to constraints because they are closed under logical operations such as disjunction (union) and conjunction (intersection). They may be specified by regular expressions (Karttunen et al., 1996), in a logical language (Vaillette, 2004), or directly as FSAs. They may also be weighted to express soft constraints. Formally, we pose the decoding problem in terms of an observation sequence x X and possible label sequences y Y. In many NLP tasks, X is the set of words, and Y the tags. A lattice L: Y 7 R maps label sequences to weights, and is encoded as a weighted FSA. Constraints are formally the same any function C: Y 7 R is a constraint, including weighted features from a classifier or probabilistic model. In this paper we will consider only constraints that are weighted in particular ways. Given a lattice L and constraints C,</context>
+</contexts>
+<marker>Vaillette, 2004</marker>
+<rawString>Nathan Vaillette. 2004. Logical Specification of Finite-State Transductions for Natural Language Processing. Ph.D. thesis, Ohio State University.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Nianwen Xue</author>
+<author>Martha Palmer</author>
+</authors>
+<title>Calibrating features for semantic role labeling.</title>
+<date>2004</date>
+<booktitle>In Proc. of EMNLP,</booktitle>
+<pages>8894</pages>
+<contexts>
+<context position="13656" citStr="Xue and Palmer, 2004" startWordPosition="2343" endWordPosition="2346">al constraints, one for each core argument type. Thus, we have constraints called NO DUPLICATE A0, NO DUPLICATE A1, etc. Each of these is represented as a three-state FSA. AT LEAST ONE ARGUMENT (Fig. 1) simply requires that the label sequence is not O. This is a two-state automaton as described in 2. The last three constraints require information about the example, and the automata must be constructed on a per-example basis: ARGUMENT CANDIDATES (Fig. 5) encodes a set of position spans each of which must receive only a single label type. These spans were proposed using a high-recall heuristic (Xue and Palmer, 2004). KNOWN VERB POSITION (Fig. 4(b)) simply encodes the position of the verb in question, which must be labeled O. DISALLOW ARGUMENTS (Fig. 4(c)) specifies argument types that are compatible with the verb in question, according to PropBank. 5.2 Experiments We implemented our hard constraint relaxation algorithm, using the FSA toolkit (Kanthak and Ney, 2004) for finite-state operations. FSA is an opensource C++ library providing a useful set of algorithms on weighted finite-state acceptors and transducers. For each example we decoded, we chose a random order in which to apply the constraints. Latt</context>
+</contexts>
+<marker>Xue, Palmer, 2004</marker>
+<rawString>Nianwen Xue and Martha Palmer. 2004. Calibrating features for semantic role labeling. In Proc. of EMNLP, pp. 8894.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

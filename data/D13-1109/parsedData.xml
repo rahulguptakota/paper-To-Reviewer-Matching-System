@@ -1,0 +1,1987 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.8583445">
+b&amp;apos;Proceedings of the 2013 Conference on Empirical Methods in Natural Language Processing, pages 10771088,
+Seattle, Washington, USA, 18-21 October 2013. c
+</bodyText>
+<sectionHeader confidence="0.548087" genericHeader="abstract">
+2013 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.936436">
+Monolingual Marginal Matching for Translation Model Adaptation
+</title>
+<author confidence="0.962722">
+Ann Irvine
+</author>
+<affiliation confidence="0.986351">
+Johns Hopkins University
+</affiliation>
+<email confidence="0.993771">
+anni@jhu.edu
+</email>
+<author confidence="0.959128">
+Chris Quirk
+</author>
+<affiliation confidence="0.927967">
+Microsoft Research
+</affiliation>
+<email confidence="0.974255">
+chrisq@microsoft.com
+</email>
+<author confidence="0.961944">
+Hal Daume III
+</author>
+<affiliation confidence="0.99854">
+University of Maryland
+</affiliation>
+<email confidence="0.964803">
+me@hal3.name
+</email>
+<sectionHeader confidence="0.989622" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.992906833333333">
+When using a machine translation (MT)
+model trained on OLD-domain parallel data to
+translate NEW-domain text, one major chal-
+lenge is the large number of out-of-vocabulary
+(OOV) and new-translation-sense words. We
+present a method to identify new translations
+of both known and unknown source language
+words that uses NEW-domain comparable doc-
+ument pairs. Starting with a joint distribution
+of source-target word pairs derived from the
+OLD-domain parallel corpus, our method re-
+covers a new joint distribution that matches
+the marginal distributions of the NEW-domain
+comparable document pairs, while minimiz-
+ing the divergence from the OLD-domain dis-
+tribution. Adding learned translations to our
+French-English MT model results in gains of
+about 2 BLEU points over strong baselines.
+</bodyText>
+<sectionHeader confidence="0.99801" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.996487428571428">
+When a statistical machine translation (SMT) model
+trained on OLD-domain (e.g. parliamentary proceed-
+ings) parallel text is used to translate text in a NEW-
+domain (e.g. medical or scientific), performance de-
+grades drastically. One of the major causes is the
+large number of NEW-domain words that are out-of-
+vocabulary (OOV) with respect to the OLD-domain
+text. Figure 1 shows the OOV rate for text in several
+NEW-domains, with respect to OLD-domain parlia-
+mentary proceedings. Even more challenging are
+the difficult-to-detect new-translation-sense (NTS)
+words: French words that are present in both the
+OLD and NEW domains but that are translated dif-
+ferently in each domain. For example, the French
+</bodyText>
+<subsectionHeader confidence="0.500104">
+Parliament Subtitles Medical Science
+</subsectionHeader>
+<figure confidence="0.856088666666667">
+Percent
+of
+Word
+Types
+that
+are
+OOV
+0
+10
+20
+30
+40
+50
+60
+3.95
+27.03
+41.42
+50.93
+</figure>
+<figureCaption confidence="0.998907">
+Figure 1: Percent of test set word types by domain that
+</figureCaption>
+<bodyText confidence="0.998691684210526">
+are OOV with respect to five million tokens of OLD-
+domain French parliamentary proceedings data.
+word enceinte is mostly translated in parliamentary
+proceedings as place, house, or chamber; in medical
+text, the translation is mostly pregnant; in scientific
+text, enclosures.
+One potential remedy is to collect parallel data in
+the NEW-domain, from which we can train a new
+SMT model. Smith et al. (2010), for example, mine
+parallel text from comparable corpora. Parallel sen-
+tences are informative but also rare: in the data re-
+leased by Smith et al. (2010), only 21% of the for-
+eign sentences have a near-parallel counterpart in the
+English article.1 Furthermore, these sentences do
+not capture all terms. In that same dataset, we find
+that on average only 20% of foreign and 28% of En-
+glish word types in a given article are represented in
+the parallel sentence pairs.
+In this work, we seek to learn a joint distribu-
+</bodyText>
+<page confidence="0.903757">
+1
+</page>
+<bodyText confidence="0.9724895">
+Only 12% of sentences from generally longer English arti-
+cles have a near-parallel counterpart in the foreign language.
+</bodyText>
+<page confidence="0.984259">
+1077
+</page>
+<bodyText confidence="0.999324571428571">
+\x0ction of translation probabilities over all source and
+target word pairs in the NEW-domain. We begin
+with a maximum likelihood estimate of the joint
+based on a word aligned OLD-domain corpus and
+update this distribution using NEW-domain compa-
+rable data. We define a model based on a single com-
+parable corpus and then extend it to learn from doc-
+ument aligned comparable corpora with any number
+of comparable document pairs. This approach al-
+lows us to identify translations for OOV words in the
+OLD-domain (e.g. French cisaillement and percage,
+which translate as shear and drilling, in the scien-
+tific domain) as well as new translations for previ-
+ously observed NTS words (e.g. enceinte translates
+as enclosures, not place, in the scientific domain).
+In our MT experiments, we use the learned NEW-
+domain joint distribution to update our SMT model
+with translations of OOV and low frequency words;
+we leave the integration of new translations for NTS
+words to future work.
+Our approach crucially depends on finding com-
+parable document pairs relevant to the NEW-domain.
+Such pairs could be derived from a number of
+sources, with document pairings inferred from
+timestamps (e.g. news articles) or topics (inferred or
+manually labeled). We use Wikipedia2 as a source
+of comparable pairs. So-called interwiki links
+(which link Wikipedia articles written on the same
+topic but in different languages) act as rough guid-
+ance that pages may contain similar information.
+Our approach does not exploit any Wikipedia struc-
+ture beyond this signal, and thus is portable to alter-
+nate sources of comparable articles, such as multi-
+lingual news articles covering the same event.
+Our model also relies on the assumption that each
+comparable document pair describes generally the
+same concepts, though the order and structure of
+presentation may differ significantly. The efficacy
+of this method likely depends on the degree of com-
+parability of the data; exploring the correlation be-
+tween comparability and MT performance is an in-
+teresting question for future work.
+</bodyText>
+<sectionHeader confidence="0.995781" genericHeader="method">
+2 Previous Work
+</sectionHeader>
+<bodyText confidence="0.9961595">
+In prior work (Irvine et al., 2013), we presented a
+systematic analysis of errors that occur when shift-
+</bodyText>
+<page confidence="0.969049">
+2
+</page>
+<note confidence="0.473364">
+www.wikipedia.org
+</note>
+<bodyText confidence="0.998283895833334">
+ing domains in machine translation. That work con-
+cludes that errors resulting from unseen (OOV) and
+new translation sense words cause the majority of
+the degradation in translation performance that oc-
+curs when an MT model trained on OLD-domain
+data is used to translate data in a NEW-domain. Here,
+we target OOV errors, though our marginal match-
+ing method is also applicable to learning translations
+for NTS words.
+A plethora of prior work learns bilingual lex-
+icons from monolingual and comparable corpora
+with many signals including distributional, tempo-
+ral, and topic similarity (Rapp, 1995; Fung and Yee,
+1998; Rapp, 1999; Schafer and Yarowsky, 2002;
+Schafer, 2006; Klementiev and Roth, 2006; Koehn
+and Knight, 2002; Haghighi et al., 2008; Mimno
+et al., 2009; Mausam et al., 2010; Prochasson
+and Fung, 2011; Irvine and Callison-Burch, 2013).
+However, this prior work stops short of using these
+lexicons in translation. We augment a baseline MT
+system with learned translations.
+Our approach bears some similarity to Ravi and
+Knight (2011), Dou and Knight (2012), and Nuhn
+et al. (2012); we learn a translation distribution de-
+spite a lack of parallel data. However, we focus on
+the domain adaptation setting. Parallel data in an
+OLD-domain acts as a starting point (prior) for this
+translation distribution. It is reasonable to assume an
+initial bilingual dictionary can be obtained even in
+low resource settings, for example by crowdsourc-
+ing (Callison-Burch and Dredze, 2010) or pivoting
+through related languages (Schafer and Yarowsky,
+2002; Nakov and Ng, 2009).
+Daume III and Jagarlamudi (2011) mine trans-
+lations for high frequency OOV words in NEW-
+domain text in order to do domain adaptation. Al-
+though that work shows significant MT improve-
+ments, it is based primarily on distributional simi-
+larity, thus making it difficult to learn translations for
+low frequency source words with sparse word con-
+text counts. Additionally, that work reports results
+using artificially created monolingual corpora taken
+from separate source and target halves of a NEW-
+domain parallel corpus, which may have more lexi-
+cal overlap with the corresponding test set than we
+could expect from true monolingual corpora. Our
+work mines NEW-domain-like document pairs from
+Wikipedia. In this work, we show that, keeping
+</bodyText>
+<page confidence="0.990816">
+1078
+</page>
+<bodyText confidence="0.999056727272727">
+\x0cdata resources constant, our model drastically out-
+performs this previous approach. Razmara et al.
+(2013) take a fundamentally different approach and
+construct a graph using source language monolin-
+gual text and identify translations for source lan-
+guage OOV words by pivoting through paraphrases.
+Della Pietra et al. (1992) and Federico (1999) ex-
+plore models for combining foreground and back-
+ground distributions for the purpose of language
+modeling, and their approaches are somewhat simi-
+lar to ours. However, our focus is on translation.
+</bodyText>
+<sectionHeader confidence="0.996879" genericHeader="method">
+3 Model
+</sectionHeader>
+<bodyText confidence="0.999761428571428">
+Our goal is to recover a probabilistic translation dic-
+tionary in a NEW-domain, represented as a joint
+probability distribution pnew(s, t) over source/target
+word pairs. At our disposal, we have access to a joint
+distribution pold(s, t) from the OLD-domain (com-
+puted from word alignments), plus comparable doc-
+ument pairs in the NEW-domain. From these com-
+parable documents, we can extract raw word fre-
+quencies on both the source and target side, repre-
+sented as marginal distributions q(s) and q(t). The
+key idea is to estimate this NEW-domain joint dis-
+tribution to be as similar to the OLD-domain distri-
+bution as possible, subject to the constraint that its
+marginals match those of q.
+To illustrate our goal, consider an example. Imag-
+ine in the OLD-domain parallel data we find that ac-
+corder translates as grant 10 times and as tune 1
+time. In the NEW-domain comparable data, we find
+that accorder occurs 5 times, but grant occurs only
+once, and tune occurs 4 times. Clearly accorder no
+longer translates as grant most of the time; perhaps
+we should shift much of its mass onto the translation
+tune instead. Figure 2 shows the intuition.
+First, we present an objective function and set of
+constraints over joint distributions to minimize the
+divergence from the OLD-domain distribution while
+matching both the source and target NEW-domain
+marginal distributions. Next, we augment the objec-
+tive with information about word string similarity,
+which is particularly useful for the French-English
+language pair. Optimizing this objective with a sin-
+gle pair of source and target marginals can be per-
+formed using an off-the-shelf solver. In practice,
+though, we have a large set of document pairs, each
+of which can induce a pair of marginals. Using
+these per-document marginals provides additional
+information to the learning function but would over-
+whelm a common solver. Therefore, we present a se-
+quential learning method for approximately match-
+ing the large set of document pair marginal distribu-
+tions. Finally, we describe how we identify compa-
+rable document pairs relevant to the NEW-domain.
+</bodyText>
+<subsectionHeader confidence="0.999413">
+3.1 Marginal Matching Objective
+</subsectionHeader>
+<bodyText confidence="0.999696666666667">
+Given word-aligned parallel data in the OLD-domain
+and source and target comparable corpora in the
+NEW-domain, we first estimate a joint distribution
+pold(s, t) over word pairs (s, t) in the OLD-domain,
+where s and t range over source and target lan-
+guage words, respectively. For the OLD-domain
+joint distribution, we use a simple maximum like-
+lihood estimate based on non-null automatic word
+alignments (using grow-diag-final GIZA++ align-
+ments (Och and Ney, 2003)). Next, we find source
+and target marginal distributions, q(s) and q(t), by
+relative frequency estimates over the source and tar-
+get comparable corpora. Our goal is to recover a
+joint distribution pnew(s, t) for the new domain that
+matches the marginals, q(s) and q(t), but is mini-
+mally different from the original joint distribution,
+pold(s, t).
+We cast this as a linear programming problem:
+</bodyText>
+<equation confidence="0.977840875">
+pnew
+= arg min
+p
+p pold
+1
+(1)
+subject to:
+X
+s,t
+p(s, t) = 1, p(s, t) 0
+X
+s
+p(s, t) = q(t),
+X
+t
+p(s, t) = q(s)
+</equation>
+<bodyText confidence="0.994196">
+In the objective function, the joint probability matri-
+ces p and pold are interpreted as large vectors over
+all word pairs (s, t). The first two constraints force
+the result to be a well-formed distribution, and the
+final two force the marginals to match.
+Following prior work (Ravi and Knight, 2011),
+we would like the matrix to remain as sparse as pos-
+sible; that is, introduce the smallest number of new
+translation pairs necessary. A regularization term
+captures this goal:
+</bodyText>
+<equation confidence="0.9933254">
+(p) =
+X
+s,t:
+pold(s,t)=0
+r p(s, t) (2)
+</equation>
+<page confidence="0.98434">
+1079
+</page>
+<table confidence="0.96141475">
+\x0chouse place pregnant dress qold(s)
+enceinte 0.30 0.40 0.10 0 0.80
+habiller 0 0 0 0.20 0.20
+qold(t) 0.30 0.40 0.10 0.20
+</table>
+<figure confidence="0.976927714285715">
+(a) OLD-Domain Joint (b) NEW-Domain Marginals
+house place pregnant dress girl q(s)
+enceinte
+?
+?
+?
+?
+?
+0.60
+habiller
+?
+?
+?
+?
+? 0.20
+fille
+?
+?
+?
+?
+? 0.20
+</figure>
+<table confidence="0.736818571428572">
+q(t) 0.12 0.08 0.40 0.20 0.20
+(c) Inferred NEW-Domain Joint
+house place pregnant dress girl qnew(s)
+enceinte 0.12 0.08 0.40 0 0 0.60
+habiller 0 0 0 0.20 0 0.20
+fille 0 0 0 0 0.20 0.20
+qnew(t) 0.12 0.08 0.40 0.20 0.20
+</table>
+<figure confidence="0.515630333333333">
+=
+Matched
+Marginals
+</figure>
+<figureCaption confidence="0.984471">
+Figure 2: Starting with a joint distribution derived from OLD-domain data, we infer a NEW-domain joint distribution
+</figureCaption>
+<bodyText confidence="0.97826848">
+based on the intuition that the new joint should match the marginals that we observe in NEW-domain comparable
+corpora. In this example, a translation is learned for the previously OOV word fille, and pregnant becomes a preferred
+translation for enceinte.
+If the old domain joint probability pold(s, t) was
+nonzero, there is no penalty. Otherwise, the penalty
+is r times the new joint probability p(s, t). To dis-
+courage the addition of translation pairs that are un-
+necessary in the new domain, we use a value of r
+greater than one. Thus, the benefit of a more sparse
+matrix overwhelms the desire for preventing change.
+Any value greater than one seems to suffice; we use
+r = 1.1 in our experiments.
+Inspired by the preference for sparse matrices
+captured by (p), we include another orthogonal
+cue that words are translations of one another: their
+string similarity. In prior work, string similarity was
+a valuable signal for inducing translations, particu-
+larly for closely related languages such as French
+and English (Daume III and Jagarlamudi, 2011). We
+define a penalty function f(p) as follows: if the nor-
+malized Levenshtein edit distance between s without
+accents and t is less than 0.2, no penalty is applied;
+a penalty of 1 is applied otherwise. We chose the
+0.2 threshold manually by inspecting results on our
+development sets.
+</bodyText>
+<equation confidence="0.9474158">
+f(p) =
+X
+s,t
+p(s, t)
+(
+0 if lev(t,strip(s))
+len(s)+len(t) &amp;lt; 0.2
+1 otherwise
+The objective function including this penalty is:
+pnew
+= arg min
+p
+p pold
+1
++ (p) + f(p)
+</equation>
+<bodyText confidence="0.94368475">
+In principle, additional penalties could be encoded
+in a similar way.3 This objective can be optimized
+by any standard LP solver; we use the Gurobi pack-
+age (Gurobi Optimization Inc., 2013).
+</bodyText>
+<subsectionHeader confidence="0.99934">
+3.2 Document Pair Modification
+</subsectionHeader>
+<bodyText confidence="0.999910666666667">
+The above formulation applies whenever we have
+access to comparable corpora. However, often we
+have access to comparable documents, such as those
+given by Wikipedia inter-language links. We modify
+our approach to take advantage of the document cor-
+respondences within our comparable corpus. In par-
+ticular, we would like to match the marginals for all
+document pairs.4 By maintaining separate marginal
+distributions, our algorithm is presented with more
+</bodyText>
+<page confidence="0.98969">
+3
+</page>
+<bodyText confidence="0.999454333333333">
+We experimented with penalties measuring document-pair
+co-occurrence and monolingual frequency differences but did
+not see gains on our development sets.
+</bodyText>
+<page confidence="0.986022">
+4
+</page>
+<bodyText confidence="0.9896005">
+This situation is not unique to our application; multiple
+marginals are likely to exist in many cases.
+</bodyText>
+<page confidence="0.979119">
+1080
+</page>
+<bodyText confidence="0.994978216216216">
+\x0cinformation. For example, imagine that one doc-
+ument pair uses dog and chien, where another
+document pair uses cat and chat, each with sim-
+ilar frequency. If we sum these marginals to produce
+a single marginal distribution, it is now difficult to
+identify that dog should correspond to chien and
+not chat. Document pair alignments add informa-
+tion at the cost of additional constraints.
+An initial formulation of our problem with mul-
+tiple comparable document pairs might require
+the pnew marginals to match all of the document
+marginals. In general, this constraint set is likely
+to result in an infeasible problem. Instead, we take
+an incremental, online solution, considering a sin-
+gle comparable document pair at a time. For docu-
+ment pair k, we solve the optimization problem in
+Eq (1) to find the joint distribution minimally dif-
+ferent from pk-1, while matching the marginals of
+this pair only. This gives a new joint distribution,
+tuned specifically for this pair. We then update our
+current guess of the new domain joint toward this
+document-pair-specific distribution, much like a step
+in stochastic gradient ascent.
+More formally, suppose that before processing the
+kth document we have a guess at the NEW-domain
+joint distribution, pnew
+1:k1 (the subscript indicates that
+it includes all document pairs up to and including
+document k 1). We first solve Eq (1) solely on
+the basis of this document pair, finding a joint dis-
+tribution pnew
+k that matches the marginals of the kth
+document pair only and is minimally different from
+pnew
+1:k1. Finally, we form a new estimate of the joint
+distribution by moving pnew
+1:k1 in the direction of
+</bodyText>
+<equation confidence="0.9505911">
+pnew
+k , via:
+pnew
+1:k = pnew
+1:k1 + u
+h
+pnew
+k pnew
+1:k1
+i
+</equation>
+<bodyText confidence="0.998633714285714">
+The learning rate u is set to 0.001.5
+This incremental update of parameters is simi-
+lar to the margin infused relaxed algorithm (MIRA)
+(Crammer et al., 2006). Like MIRA and the percep-
+tron, there is not an overall objective function that
+we are attempting to optimize (as one would in many
+stochastic gradient steps). Instead, were aiming for
+</bodyText>
+<page confidence="0.93734">
+5
+</page>
+<bodyText confidence="0.999498857142857">
+We tuned u on semi-extrinsic results on the development
+set. Note that although 0.001 seems small, the values we are
+moving are joint probabilities, which are tiny and so small
+learning rates make sense.
+a solution that makes a small amount of progress
+on each example, in such a way if it received that
+example again, it would do better (in this case:
+have a closer match of marginals). Also like MIRA,
+our learning rate is constant. We parallelize learning
+with mini-batches for increased speed. Eight paral-
+lel learners update an initial joint distribution based
+on 100 document pairs (i.e. each learner makes 100
+incremental updates), and then we merge results us-
+ing an average over the 8 learned joint distributions.
+</bodyText>
+<subsectionHeader confidence="0.999866">
+3.3 Comparable Data Selection
+</subsectionHeader>
+<bodyText confidence="0.998729708333333">
+It remains to select comparable document pairs. We
+assume that we have enough monolingual NEW-
+domain data in one language to rank comparable
+document pairs (here, Wikipedia pages) according
+to how NEW-domain-like they are. In particular, we
+estimate the similarity to a source language (here,
+French) corpus in the NEW domain. For our experi-
+ments, we use the French side of a NEW-domain par-
+allel corpus.6 We could have targeted our learning
+even more by using our NEW-domain MT test sets.
+Doing so would increase the chances that our source
+language words of interest appear in the comparable
+corpus. However, to avoid overfitting any particular
+test set, we use the French side of the training data.
+For each Wikipedia document pair, we com-
+pute the percent of French phrases up to length
+four that are observed in the French monolingual
+NEW-domain corpus and rank document pairs by
+the geometric mean of the four overlap measures.
+More sophisticated ways to identify NEW-domain-
+like Wikipedia pages (e.g. Moore and Lewis (2010))
+may yield additional performance gains, but, quali-
+tatively, the ranked Wikipedia pages seemed reason-
+able to the authors.
+</bodyText>
+<sectionHeader confidence="0.990923" genericHeader="method">
+4 Experimental setup
+</sectionHeader>
+<subsectionHeader confidence="0.925009">
+4.1 Data
+</subsectionHeader>
+<bodyText confidence="0.9954635">
+We use French-English Hansard parliamentary pro-
+ceedings7 as our OLD-domain parallel corpus. With
+over 8 million parallel lines of text, it is one of the
+largest freely available parallel corpora for any lan-
+</bodyText>
+<page confidence="0.982132">
+6
+</page>
+<bodyText confidence="0.982413333333333">
+We could have, analogously, used the target language (En-
+glish) side of the parallel corpus and measure overlap with the
+English Wikipedia documents, or even used both.
+</bodyText>
+<page confidence="0.948207">
+7
+</page>
+<footnote confidence="0.26929">
+http://www.parl.gc.ca
+</footnote>
+<page confidence="0.946123">
+1081
+</page>
+<bodyText confidence="0.997084153846154">
+\x0cguage pair. In order to simulate more typical data
+settings, we sample every 32nd line, using the result-
+ing parallel corpus of 253, 387 lines and 5, 051, 016
+tokens to train our baseline model.
+We test our model using three NEW-domain cor-
+pora: (1) the EMEA medical corpus (Tiedemann,
+2009), (2) a corpus of scientific abstracts (Carpuat
+et al., 2013a), and (3) a corpus of translated movie
+subtitles (Tiedemann, 2009). We use development
+and test sets to tune and evaluate our MT mod-
+els. We use the NEW-domain parallel training cor-
+pora only for language modeling and for identifying
+NEW-domain-like comparable documents.
+</bodyText>
+<subsectionHeader confidence="0.898396">
+4.2 Machine translation
+</subsectionHeader>
+<bodyText confidence="0.9996345625">
+We use the Moses MT framework (Koehn et al.,
+2007) to build a standard statistical phrase-based
+MT model using our OLD-domain training data. Us-
+ing Moses, we extract a phrase table with a phrase
+limit of five words and estimate the standard set of
+five feature functions (phrase and lexical translation
+probabilities in each direction and a constant phrase
+penalty feature). We also use a standard lexicalized
+reordering model and two language models based on
+the English side of the Hansard data and the given
+NEW-domain training corpora. Features are com-
+bined using a log-linear model optimized for BLEU,
+using the n-best batch MIRA algorithm (Cherry and
+Foster, 2012). We call this the simple baseline. In
+Section 5.2 we describe several other baseline ap-
+proaches.
+</bodyText>
+<subsectionHeader confidence="0.987799">
+4.3 Experiments
+</subsectionHeader>
+<bodyText confidence="0.856027333333333">
+For each domain, we use the marginal matching
+method described in Section 3 to learn a new,
+domain-adapted joint distribution, pnew
+k (s, t), over
+all French and English words. We use the learned
+joint to compute conditional probabilities, pnew
+k (t|s),
+for each French word s and rank English translations
+t accordingly. First, we evaluate the learned joint
+directly using the distribution based on the word-
+aligned NEW-domain development set as a gold
+standard. Then, we perform end-to-end MT exper-
+iments. We supplement phrase tables with transla-
+tions for OOV and low frequency words (we ex-
+periment with training data frequencies less than
+</bodyText>
+<equation confidence="0.764787666666667">
+101, 11, and 1) and include pnew
+k (t|s) and pnew
+k (s|t)
+</equation>
+<bodyText confidence="0.986096388888889">
+as new translation features for those supplemental
+translations. For these new phrase pairs, we use the
+average lexicalized reordering values from the ex-
+isting reordering tables. For phrase pairs extracted
+bilingually, we use the bilingually estimated trans-
+lation probabilities and uniform scores for the new
+translation features. We experimented with using
+pnew
+k (t|s) and pnew
+k (s|t) to estimate additional lex-
+ical translation probabilities for the bilingually ex-
+tracted phrase pairs but did not observe any gains
+(experimental details omitted due to space con-
+straints). We re-run tuning in all experiments.
+We also perform oracle experiments in which
+we identify translations for French words in word-
+aligned development and test sets and append these
+translations to baseline phrase tables.
+</bodyText>
+<sectionHeader confidence="0.999887" genericHeader="method">
+5 Results
+</sectionHeader>
+<subsectionHeader confidence="0.768027">
+5.1 Semi-extrinsic evaluation
+</subsectionHeader>
+<bodyText confidence="0.994709586206896">
+Before doing end-to-end MT experiments, we eval-
+uate our learned joint distribution, pnew
+k (s, t), by
+comparing it to the joint distribution taken from a
+word aligned NEW-domain parallel development set,
+pgold(s, t). We call this evaluation semi-extrinsic
+because it involves neither end-to-end MT (our ex-
+trinsic task) nor an intrinsic evaluation based on our
+training objective (L1 norm). We find it informa-
+tive to evaluate the models using bilingual lexicon
+induction metrics before integrating our output into
+full MT. That is, we do not compare the full joint dis-
+tributions, but, rather, for a given French word, how
+our learned model ranks the words most probable
+translation under the gold distribution. In particular,
+because we are primarily concerned with learning
+translations for previously unseen words, we eval-
+uate over OOV French word types. In some cases,
+the correct translation for OOV words is the identi-
+cal string (e.g. na+, lycium). Because it is trivial
+to produce these translations,8 we evaluate over the
+subset of OOV development set French words for
+which the correct translation is not the same string.
+Figure 3 shows the mean reciprocal rank for the
+learned distribution, pnew
+k (s, t), for each domains as
+a function of the number of comparable document
+pairs used in learning. In all domains, the compara-
+ble document pairs are sorted according to their sim-
+</bodyText>
+<page confidence="0.991666">
+8
+</page>
+<bodyText confidence="0.9818915">
+And, indeed, by default our decoder copies OOV strings
+into its output directly.
+</bodyText>
+<page confidence="0.872988">
+1082
+</page>
+<figure confidence="0.998954698113208">
+\x0c0 10000 20000 30000 40000 50000
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+Number of Document Pairs
+Mean
+Reciprocal
+Rank
+0 10000 20000 30000 40000 50000
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+Number of Document Pairs
+Mean
+Reciprocal
+Rank
+0 10000 20000 30000 40000 50000
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+Number of Document Pairs
+Mean
+Reciprocal
+Rank
+Full model
+Edit distance baseline
+CCA Baseline
+Model without ED penalty 0.38
+Mean
+Reciprocal
+Rank
+0.22
+0.14
+0.11
+0.08
+0.26
+0.39
+0.07
+0.05
+0.03
+(a) Science (b) EMEA (c) Subtitles
+</figure>
+<figureCaption confidence="0.999663">
+Figure 3: Semi-extrinsic bilingual lexicon induction results. Mean reciprocal rank is computed over all OOV devel-
+</figureCaption>
+<bodyText confidence="0.976729928571429">
+opment set words for which identity is not the correct translation.
+ilarity with the NEW-domain. Figure 3 also shows
+the performance of baseline models and our learner
+without the edit distance penalty. For each source
+word s, the edit distance (ED) baseline ranks all En-
+glish words t in our monolingual data by their edit
+distance with s.9 The Canonical Correlation Analy-
+sis (CCA) baseline uses the approach of Daume III
+and Jagarlamudi (2011) and the top 25, 000 ranked
+document pairs as a comparable corpus. That model
+performs poorly largely because of sparse word con-
+text counts. Interestingly, for Science and EMEA,
+the performance of our full model at 50, 000 doc-
+ument pairs is higher than the sum of the edit dis-
+tance baseline and the model without the edit dis-
+tance penalty, indicating that our approach effec-
+tively combines the marginal matching and edit dis-
+tance signals.
+The learning curves for the three domains vary
+substantially. For Science, learning is gradual and
+it appears that additional gains could be made by
+iterating over even more document pairs. In con-
+trast, the model learns quickly for the EMEA do-
+main; performance is stable after 20, 000 document
+pairs. Given these results and our experience with
+the two domains, we hypothesize that the difference
+is due to the fact that the Science data is much more
+heterogenous than the EMEA data. The Science data
+</bodyText>
+<page confidence="0.97891">
+9
+</page>
+<bodyText confidence="0.998795346153846">
+In particular, for each domain and each OOV French word,
+we ranked the set of all English words that appeared at least five
+times in the set of 50,000 most NEW-domain like Wikipedia
+pages. Using a frequency threshold of five helped eliminate
+French words and improperly tokenized English words from the
+set of candidates.
+includes physics, chemistry, and biology abstracts,
+among others. The drug labels that make up most of
+the EMEA data are more homogeneous. In Section
+6 we comment on the poor Subtitles performance,
+which persists in our MT experiments.
+We experimented with making multiple learning
+passes over the document pairs and observed rela-
+tively small gains from doing so. In all experiments,
+learning from some number of additional new doc-
+ument pairs resulted in higher semi-extrinsic per-
+formance gains than passing over document pairs
+which were already observed.
+In the case of OOV words, its clear that learning
+something about how to translate a previously un-
+observed French word is beneficial. However, our
+learning method also learns domain-specific new-
+translation senses (NTS). Table 1 shows some exam-
+ples of what the marginal matching method learns
+for different types of source words (OOVs, low fre-
+quency, and NTS).
+</bodyText>
+<subsectionHeader confidence="0.998268">
+5.2 MT evaluation
+</subsectionHeader>
+<bodyText confidence="0.998724363636364">
+By default, the Moses decoder copies OOV words
+directly into its translated output. In some cases,
+this is correct (e.g. ensembles, blumeria, google).
+In other cases, French words can be translated into
+English correctly by simply stripping accent marks
+off of the OOV word and then copying it to the out-
+put (e.g. camera, elements, molecules). In the Sci-
+ence and EMEA domains, we found that our base-
+line BLEU scores improved from 21.91 to 22.20
+and 23.67 to 24.45, respectively, when we changed
+the default handling of OOVs to strip accents before
+</bodyText>
+<page confidence="0.932077">
+1083
+</page>
+<table confidence="0.299055125">
+\x0cFrench OLD top pold
+(t|s) NEW top pgold
+(t|s) MM-learned top pnew
+(t|s)
+OOV words
+cisaillement - shear strength shearing shear viscous newtonian
+courbure - curvature bending curvatures curvature curved manifold
+Low frequency words
+</table>
+<bodyText confidence="0.923736">
+lineaires linear linear nonlinear non-linear linear linearly nonlinear
+recepteur receiver receptor receiver y1 receptor receiver receptors
+New translation sense words
+champ field jurisdiction scope field magnetic near-field field magnetic fields
+marche working march work walk step walking march walk walking
+</bodyText>
+<tableCaption confidence="0.907257">
+Table 1: Hand-picked examples of Science-domain French words and their top English translations in the OLD-
+</tableCaption>
+<bodyText confidence="0.997844895522388">
+domain, NEW-domain, and marginal matching distributions. The first two are OOVs. The next two only appeared four
+and one time, respectively, in the training data and only aligned to a single English word. The last two are NTS French
+words: words that appeared frequently in the training data but for which the words sense in the new domain shifts.
+copying into the output. Interestingly, performance
+on the Subtitles domain text did not change at all
+with this baseline modification. This is likely due
+to the fact that there are fewer technical OOVs (the
+terms typically captured by this accent-stripping pat-
+tern) in the subtitles domain.
+Throughout our experiments, we found it criti-
+cal to retain correct freebie OOV translations. In
+the results presented below, including the baselines,
+we supplement phrase tables with a new candidate
+translation but also include accent-stripped identity,
+or freebie, translations in the table for all OOV
+words. We experimented with classifying French
+words as freebies or needing a new translation, but
+oracle experiments showed very little improvement
+(about 0.2 BLEU improvement in the Science do-
+main), so instead we simply include both types of
+translations in the phrase tables.
+In addition to the strip-accents baseline, we com-
+pare results with four other baselines. First, we
+drop OOVs from the output translations. Second,
+like our semi-extrinsic baseline, we rank English
+words by their edit distance away from each French
+OOV word (ED baseline). Third, we rank En-
+glish words by their document-pair co-occurrence
+score with each French OOV word. That is, for
+all words w, we compute D(w), the vector indicat-
+ing the document pairs in which w occurs, over the
+set of 50,000 document-pairs which are most NEW-
+domain-like. For French and English words s and t,
+if D(s) and D(t) are dissimilar, it is less likely (s, t)
+is a valid translation pair. We weight D(w) entries
+with BM25 (Robertson et al., 1994). For all French
+OOVs, we rank all English translations according to
+the cosine similarity between the pair of D(w) vec-
+tors. The fourth baseline uses the CCA model de-
+scribed in Daume III and Jagarlamudi (2011) to rank
+English words according to their distributional sim-
+ilarity with each French word. For the CCA base-
+line comparison, we only learned translations using
+25,000 Science-domain document pairs, rather than
+the full 50,000 and for all domains. However, its
+unlikely that learning over more data would over-
+come the low performance observed so far. For the
+final three baselines, we append French OOV words
+and their highest ranked English translation to the
+phrase table. Along with each new translation pair,
+we include one new phrase table feature with the
+relevant translation score (edit distance, document
+similarity, or CCA distributional similarity). For all
+baselines other than drop-OOVs, we also include
+accent-stripped translation pairs with an additional
+indicator feature.
+Table 3 shows results appending the top ranked
+English translation for each OOV French word using
+each baseline method. None of the alternate base-
+lines outperform the simplest baseline on the subti-
+tles data. Using document pair co-occurrences is the
+strongest baseline for the Science and EMEA do-
+mains. This confirms our intuition that taking ad-
+vantage of document pair alignments is worthwhile.
+For Science and EMEA, supplementing a model
+with OOV translations learned through our marginal
+matching method drastically outperforms all base-
+</bodyText>
+<page confidence="0.961518">
+1084
+</page>
+<bodyText confidence="0.9400643">
+\x0cOOVs translated correctly and incorrectly
+Input les resistances au cisaillement par poinconnement ...
+Ref the punching shear strengths...
+Baseline the resistances in cisaillement by poinconnement ...
+MM the resistances in shear reinforcement...
+OOV translated incorrectly
+Input presentation d un logiciel permettant de gerer les donnees temporelles .
+Ref presentation of software which makes it possible to manage temporal data .
+Baseline introduction of a software to manage temporelles data .
+MM introduction of a software to manage data plugged .
+</bodyText>
+<footnote confidence="0.7553828">
+Low frequency French words
+Input ...limite est liee a la decroissance tres rapide du couplage electron-phonon avec la temperature .
+Ref ...limit is linked to the rapid decrease of the electron-phonon coupling with temperature .
+Baseline ...limit is linked to the decline very rapid electron-phonon linkage with the temperature .
+MM ...limit is linked to the linear very rapid electron-phonon coupling with the temperature .
+</footnote>
+<tableCaption confidence="0.9681">
+Table 2: Example MT outputs for Science domain. The baseline strips accents (Table 3). In the first example, the
+</tableCaption>
+<bodyText confidence="0.9937496">
+previously OOV word cisaillement is translated correctly by an MM-supplemented model. The OOV poinconnement
+is translated as reinforcement instead of strengths, which is incorrect with respect to the reference but arguably not
+bad. In the second example, temporelles is not translated correctly in the MM output. In the third example, the MM-
+hypothesized correct translation of low frequency word couplage, coupling, is chosen instead of incorrect linkage. Also
+in the third example, the low frequency word decroissance is translated as the MM-hypothesized incorrect translation
+linear. In the case of decroissance, the baselines translation, decline, is much better than the MM translation linear.
+lines. Using our model to translate OOV words
+yields scores of 23.62 and 26.97 in the Science and
+EMEA domains, or 1.19 and 1.94 BLEU points, re-
+spectively, above the strongest baseline. We observe
+additional gains by also supplementing the model
+with translations for low frequency French words.
+For example, when we use our approach to translate
+source words in the Science domain which appear
+ten or fewer times in our OLD-domain training data,
+the BLEU score increases to 24.28.
+We tried appending top-k translations, varying k.
+However, we found that for the baselines as well as
+our MM translations, using only the top-1 English
+translations outperformed using more.
+Table 3 also shows the result of supplementing a
+baseline phrase table with oracle OOV translations.
+Using the marginal matching learned OOV transla-
+tions takes us 30% and 40% of the way from the
+baseline to the oracle upper bound for Science and
+EMEA, respectively.
+We have focused on supplementing an SMT
+model trained on a sample of the Hansard parallel
+corpus in order to mimic typical data conditions, but
+we have also performed experiments supplementing
+</bodyText>
+<table confidence="0.994507">
+Science EMEA Subs
+Simple Baseline 21.91 23.67 13.18
+Drop OOVs 20.22 18.95 11.86
+Accent-Stripped 22.20 24.45 13.13
+ED Baseline 22.10 24.35 12.95
+Doc Sim Baseline. 22.43 25.03 13.02
+CCA Baseline 21.41 - -
+MM Freq&amp;lt;1 (OOV) 23.62 26.97 13.07
+MM Freq&amp;lt;11 24.28 27.26 12.97
+MM Freq&amp;lt;101 23.96 26.82 12.92
+Oracle OOV 26.38 29.99 15.06
+</table>
+<tableCaption confidence="0.998458">
+Table 3: BLEU results using: (1) baselines, (2) phrase
+</tableCaption>
+<bodyText confidence="0.9989265">
+tables augmented with top-1 translations for French
+words with indicated OLD training data frequencies, (3)
+phrase tables augmented with OOV oracle translations.
+a model trained on the full dataset.10 Beginning with
+the larger model, we observe performance gains of
+0.8 BLEU points for both the EMEA and the Sci-
+ence domains over the strongest baselines, which are
+based on document similarity, when we add OOV
+</bodyText>
+<page confidence="0.987752">
+10
+</page>
+<bodyText confidence="0.998696">
+We still use the joint that was learned starting with the one
+estimated over the sample; we may observe greater gains over
+the full Hansard baseline with a stronger initial joint.
+</bodyText>
+<page confidence="0.913558">
+1085
+</page>
+<bodyText confidence="0.999772230769231">
+\x0ctranslations. As expected, these gains are less than
+what we observe when our baseline model is esti-
+mated over less data, but they are still substantial.
+In all experiments, we have assumed that we have
+no NEW-domain parallel training data, which is the
+case for the vast majority of language pairs and do-
+mains. However, In the case that we do have some
+NEW-domain parallel data, OOV rates will be some-
+what lower, but our method is still applicable. For
+example, we would need 2.3 million words of Sci-
+ence (NEW-domain) parallel data to cover just 50%
+of the OOVs in our Science test set, and 4.3 million
+words to cover 70%.
+</bodyText>
+<sectionHeader confidence="0.99826" genericHeader="method">
+6 Discussion
+</sectionHeader>
+<bodyText confidence="0.998560793103448">
+BLEU score performance gains are substantial for
+the Science and EMEA domains, but we dont ob-
+serve gains on the subtitles text. We believe this dif-
+ference relates to the difference between a corpus
+domain and a corpus register. As Lee (2002) ex-
+plains, a texts domain is most related to its topic,
+while a texts register is related to its type and pur-
+pose. For example, religious, scientific, and dia-
+logue texts may be classified as separate registers,
+while political and scientific expositions may have a
+single register but different domains. Our science
+and EMEA corpora are certainly different in do-
+main from the OLD-domain parliamentary proceed-
+ings, and our success in boosting MT performance
+with our methods indicates that the Wikipedia com-
+parable corpora that we mined match those domains
+well. In contrast, the subtitles data differs from the
+OLD-domain parliamentary proceedings in both do-
+main and register. Although the Wikipedia data that
+we mined may be closer in domain to the subtitles
+data than the parliamentary proceedings,11 its regis-
+ter is certainly not film dialogues.
+Although the use of marginal matching is, to the
+best of our knowledge, novel in MT, there are related
+threads of research that might inspire future work.
+The intuition that we should match marginal distri-
+butions is similar to work using no example labels
+but only label proportions to estimate labels, for ex-
+ample in Quadrianto et al. (2008). Unlike that work,
+</bodyText>
+<page confidence="0.996362">
+11
+</page>
+<bodyText confidence="0.999655242424242">
+In fact, we believe that it is. Wikipedia pages that ranked
+very high in our subtitles-like list included, for example, the
+movie The Other Side of Heaven and actor Frank Sutton.
+our label set corresponds to entire vocabularies, and
+we have multiple observed label proportions. Also,
+while the marginal matching objective seems effec-
+tive in practice, it is difficult to optimize. A number
+of recently developed approximate inference meth-
+ods use a decomposition that bears a strong resem-
+blance to this objective function. Considering the
+marginal distributions from each document pair to
+be a separate subproblem, we could approach the
+global objective of satisfying all subproblems as an
+instance of dual decomposition (Sontag et al., 2010)
+or ADMM (Gabay and Mercier, 1976; Glowinski
+and Marrocco, 1975).
+We experiment with French-English because tun-
+ing and test sets are available in several domains for
+that language pair. However, our techniques are di-
+rectly applicable to other language pairs, including
+those that are less related. We have observed that
+many domain-specific terms, particularly in medi-
+cal and science domains, are borrowed across lan-
+guages, whether or not the languages are related.
+Even for languages with different character sets,
+one could do transliteration before measuring ortho-
+graphical similarity.
+Although we were able to identify translations for
+some NTS words (Table 1), we did not make use of
+them in our MT experiments. Recent work has iden-
+tified NTS words in NEW-domain corpora (Carpuat
+et al., 2013b), and in future work we plan to incorpo-
+rate discovered translations for such words into MT.
+</bodyText>
+<sectionHeader confidence="0.998597" genericHeader="conclusions">
+7 Conclusions
+</sectionHeader>
+<bodyText confidence="0.998030142857143">
+We proposed a model for learning a joint distribu-
+tion of source-target word pairs based on the idea
+that its marginals should match those observed in
+NEW-domain comparable corpora. Supplementing
+a baseline phrase-based SMT model with learned
+translations results in BLEU score gains of about
+two points in the medical and science domains.
+</bodyText>
+<sectionHeader confidence="0.966895" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.917166166666667">
+We gratefully acknowledge the support of the
+2012 JHU Summer Workshop and NSF Grant No
+1005411. We would like to thank the entire DAMT
+team (http://hal3.name/damt/) and San-
+jeev Khudanpur for their help and suggestions.
+We also acknowledge partial support from DARPA
+</bodyText>
+<page confidence="0.928134">
+1086
+</page>
+<bodyText confidence="0.9505115">
+\x0cCSSG Grant D11AP00279 and DARPA BOLT Con-
+tract HR0011-12-C-0015 for Hal Daume III and
+support from the Johns Hopkins University Human
+Language Technology Center of Excellence for Ann
+Irvine. The views and conclusions contained in this
+publication are those of the authors and should not
+be interpreted as representing official policies or en-
+dorsements of DARPA or the U.S. Government.
+</bodyText>
+<sectionHeader confidence="0.977497" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.993362031914894">
+Chris Callison-Burch and Mark Dredze. 2010. Creating
+speech and language data with Amazons Mechanical
+Turk. In Proceedings of the NAACL Workshop on Cre-
+ating Speech and Language Data with Amazons Me-
+chanical Turk.
+Marine Carpuat, Hal Daume III, Alexander Fraser, Chris
+Quirk, Fabienne Braune, Ann Clifton, Ann Irvine,
+Jagadeesh Jagarlamudi, John Morgan, Majid Raz-
+mara, Ales Tamchyna, Katharine Henry, and Rachel
+Rudinger. 2013a. Domain adaptation in machine
+translation: Final report. In 2012 Johns Hopkins Sum-
+mer Workshop Final Report.
+Marine Carpuat, Hal Daume III, Katharine Henry, Ann
+Irvine, Jagadeesh Jagarlamudi, and Rachel Rudinger.
+2013b. Sensespotting: Never let your parallel data tie
+you to an old domain. In Proceedings of the Confer-
+ence of the Association for Computational Linguistics
+(ACL).
+Colin Cherry and George Foster. 2012. Batch tun-
+ing strategies for statistical machine translation. In
+Proceedings of the Conference of the North American
+Chapter of the Association for Computational Linguis-
+tics (NAACL).
+Koby Crammer, Ofer Dekel, Joseph Keshet, Shai Shalev-
+Shwartz, and Yoram Singer. 2006. Online passive-
+aggressive algorithms. J. Mach. Learn. Res., 7:551
+585, December.
+Hal Daume III and Jagadeesh Jagarlamudi. 2011. Do-
+main adaptation for machine translation by mining un-
+seen words. In Proceedings of the Conference of the
+Association for Computational Linguistics (ACL).
+S. Della Pietra, V. Della Pietra, R. L. Mercer, and
+S. Roukos. 1992. Adaptive language modeling us-
+ing minimum discriminant estimation. Proceedings
+of the International Conference on Acoustics, Speech,
+and Signal Processing (ICASSP).
+Qing Dou and Kevin Knight. 2012. Large scale deci-
+pherment for out-of-domain machine translation. In
+Proceedings of the Conference on Empirical Methods
+in Natural Language Processing (EMNLP).
+Marcello Federico. 1999. Efficient language model
+adaptation through mdi estimation. In Proceedings of
+EUROSPEECH.
+Pascale Fung and Lo Yuen Yee. 1998. An IR approach
+for translating new words from nonparallel, compara-
+ble texts. In Proceedings of the Conference of the As-
+sociation for Computational Linguistics (ACL).
+Daniel Gabay and Bertrand Mercier. 1976. A dual al-
+gorithm for the solution of nonlinear variational prob-
+lems via finite element approximation. Computers and
+Mathematics with Applications, 2(1):17 40.
+Roland Glowinski and A. Marrocco. 1975. Sur
+lapproximation, par elements finis dordre un, et la
+resolution, par penalisation-dualite, dune classe de
+problemes de dirichlet non lineaires. Rev. Franc. Au-
+tomat. Inform. Rech. Operat., 140:4176.
+Gurobi Optimization Inc. 2013. Gurobi optimizer refer-
+ence manual.
+Aria Haghighi, Percy Liang, Taylor Berg-Kirkpatrick,
+and Dan Klein. 2008. Learning bilingual lexicons
+from monolingual corpora. In Proceedings of the Con-
+ference of the Association for Computational Linguis-
+tics (ACL).
+Ann Irvine and Chris Callison-Burch. 2013. Supervised
+bilingual lexicon induction with multiple monolingual
+signals. In Proceedings of the Conference of the North
+American Chapter of the Association for Computa-
+tional Linguistics (NAACL).
+Ann Irvine, John Morgan, Marine Carpuat, Hal Daume
+III, and Dragos Munteanu. 2013. Measuring machine
+translation errors in new domains. Transactions of the
+Association for Computational Linguistics (TACL).
+Alexandre Klementiev and Dan Roth. 2006. Weakly
+supervised named entity transliteration and discovery
+from multilingual comparable corpora. In Proceed-
+ings of the Conference of the Association for Compu-
+tational Linguistics (ACL).
+Philipp Koehn and Kevin Knight. 2002. Learning a
+translation lexicon from monolingual corpora. In ACL
+Workshop on Unsupervised Lexical Acquisition.
+Philipp Koehn, Hieu Hoang, Alexandra Birch, Chris
+Callison-Burch, Marcello Federico, Nicola Bertoldi,
+Brooke Cowan, Wade Shen, Christine Moran, Richard
+Zens, Chris Dyer, Ondrej Bojar, Alexandra Con-
+stantin, and Evan Herbst. 2007. Moses: Open source
+toolkit for statistical machine translation. In Proceed-
+ings of the Conference of the Association for Compu-
+tational Linguistics (ACL).
+David Lee. 2002. Genres, registers, text types, domains
+and styles: Clarifying the concepts and navigating a
+path through the bnc jungle. Language and Comput-
+ers, 42(1):247292.
+Mausam, Stephen Soderland, Oren Etzioni, Daniel S.
+Weld, Kobi Reiter, Michael Skinner, Marcus Sammer,
+</reference>
+<page confidence="0.647576">
+1087
+</page>
+<reference confidence="0.999411916666667">
+\x0cand Jeff Bilmes. 2010. Panlingual lexical transla-
+tion via probabilistic inference. Artificial Intelligence,
+174:619637, June.
+David Mimno, Hanna Wallach, Jason Naradowsky, David
+Smith, and Andrew McCallum. 2009. Polylingual
+topic models. In Proceedings of the Conference on
+Empirical Methods in Natural Language Processing
+(EMNLP).
+Robert C. Moore and William Lewis. 2010. Intelligent
+selection of language model training data. In Proceed-
+ings of the Conference of the Association for Compu-
+tational Linguistics (ACL).
+Preslav Nakov and Hwee Tou Ng. 2009. Improved statis-
+tical machine translation for resource-poor languages
+using related resource-rich languages. In Proceedings
+of the Conference on Empirical Methods in Natural
+Language Processing (EMNLP).
+Malte Nuhn, Arne Mauser, and Hermann Ney. 2012.
+Deciphering foreign language by combining language
+models and context vectors. In Proceedings of the
+Conference of the Association for Computational Lin-
+guistics (ACL).
+Franz Josef Och and Hermann Ney. 2003. A system-
+atic comparison of various statistical alignment mod-
+els. Computational Linguistics, 29(1):1951, March.
+Emmanuel Prochasson and Pascale Fung. 2011. Rare
+word translation extraction from aligned comparable
+documents. In Proceedings of the Conference of the
+Association for Computational Linguistics (ACL).
+Novi Quadrianto, Alex J. Smola, Tiberio S. Caetano, and
+Quoc V. Le. 2008. Estimating labels from label pro-
+portions. In Proceedings of the International Confer-
+ence on Machine Learning (ICML).
+Reinhard Rapp. 1995. Identifying word translations in
+non-parallel texts. In Proceedings of the Conference of
+the Association for Computational Linguistics (ACL).
+Reinhard Rapp. 1999. Automatic identification of word
+translations from unrelated English and German cor-
+pora. In Proceedings of the Conference of the Associ-
+ation for Computational Linguistics (ACL).
+Sujith Ravi and Kevin Knight. 2011. Deciphering for-
+eign language. In Proceedings of the Conference of
+the Association for Computational Linguistics (ACL).
+Majid Razmara, Maryam Siahbani, Gholamreza Haffari,
+and Anoop Sarkar. 2013. Graph propagation for para-
+phrasing out-of-vocabulary words in statistical ma-
+chine translation. In Proceedings of the Conference of
+the Association for Computational Linguistics (ACL).
+S.E. Robertson, S. Walker, S. Jones, M.M. Hancock-
+Beaulieu, and M. Gatford. 1994. Okapi at TREC-3.
+In Proceedings of the Text REtrieval Conference.
+Charles Schafer and David Yarowsky. 2002. Induc-
+ing translation lexicons via diverse similarity measures
+and bridge languages. In Proceedings of the Confer-
+ence on Natural Language Learning (CoNLL).
+Charles Schafer. 2006. Translation Discovery Using Di-
+verse Similarity Measures. Ph.D. thesis, Johns Hop-
+kins University.
+Jason R. Smith, Chris Quirk, and Kristina Toutanova.
+2010. Extracting parallel sentences from comparable
+corpora using document level alignment. In Proceed-
+ings of the Conference of the North American Chap-
+ter of the Association for Computational Linguistics
+(NAACL).
+David Sontag, A. Globerson, and Tommi Jaakola, 2010.
+Introduction to dual decomposition for inference,
+chapter 1. MIT Press.
+Jorg Tiedemann. 2009. News from OPUS - A collection
+of multilingual parallel corpora with tools and inter-
+faces. In N. Nicolov, K. Bontcheva, G. Angelova, and
+R. Mitkov, editors, Recent Advances in Natural Lan-
+guage Processing (RANLP).
+</reference>
+<page confidence="0.849863">
+1088
+</page>
+<figure confidence="0.266408">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.584203">
+<note confidence="0.962955">b&amp;apos;Proceedings of the 2013 Conference on Empirical Methods in Natural Language Processing, pages 10771088, Seattle, Washington, USA, 18-21 October 2013. c 2013 Association for Computational Linguistics</note>
+<title confidence="0.979206">Monolingual Marginal Matching for Translation Model Adaptation</title>
+<author confidence="0.997964">Ann Irvine</author>
+<affiliation confidence="0.997033">Johns Hopkins University</affiliation>
+<email confidence="0.995343">anni@jhu.edu</email>
+<author confidence="0.999891">Chris Quirk</author>
+<affiliation confidence="0.991384">Microsoft Research</affiliation>
+<email confidence="0.998012">chrisq@microsoft.com</email>
+<author confidence="0.757985">Hal Daume</author>
+<affiliation confidence="0.999813">University of Maryland</affiliation>
+<email confidence="0.883324">me@hal3.name</email>
+<abstract confidence="0.999527210526316">When using a machine translation (MT) model trained on OLD-domain parallel data to translate NEW-domain text, one major challenge is the large number of out-of-vocabulary (OOV) and new-translation-sense words. We present a method to identify new translations of both known and unknown source language words that uses NEW-domain comparable document pairs. Starting with a joint distribution of source-target word pairs derived from the OLD-domain parallel corpus, our method recovers a new joint distribution that matches the marginal distributions of the NEW-domain comparable document pairs, while minimizing the divergence from the OLD-domain distribution. Adding learned translations to our French-English MT model results in gains of about 2 BLEU points over strong baselines.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Chris Callison-Burch</author>
+<author>Mark Dredze</author>
+</authors>
+<title>Creating speech and language data with Amazons Mechanical Turk.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the NAACL Workshop on Creating Speech and Language Data with Amazons Mechanical Turk.</booktitle>
+<contexts>
+<context position="6789" citStr="Callison-Burch and Dredze, 2010" startWordPosition="1067" endWordPosition="1070">owever, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a starting point (prior) for this translation distribution. It is reasonable to assume an initial bilingual dictionary can be obtained even in low resource settings, for example by crowdsourcing (Callison-Burch and Dredze, 2010) or pivoting through related languages (Schafer and Yarowsky, 2002; Nakov and Ng, 2009). Daume III and Jagarlamudi (2011) mine translations for high frequency OOV words in NEWdomain text in order to do domain adaptation. Although that work shows significant MT improvements, it is based primarily on distributional similarity, thus making it difficult to learn translations for low frequency source words with sparse word context counts. Additionally, that work reports results using artificially created monolingual corpora taken from separate source and target halves of a NEWdomain parallel corpus</context>
+</contexts>
+<marker>Callison-Burch, Dredze, 2010</marker>
+<rawString>Chris Callison-Burch and Mark Dredze. 2010. Creating speech and language data with Amazons Mechanical Turk. In Proceedings of the NAACL Workshop on Creating Speech and Language Data with Amazons Mechanical Turk.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Marine Carpuat</author>
+<author>Hal Daume Alexander Fraser</author>
+<author>Chris Quirk</author>
+<author>Fabienne Braune</author>
+</authors>
+<title>Domain adaptation in machine translation: Final report.</title>
+<date>2013</date>
+<booktitle>In 2012 Johns Hopkins Summer Workshop Final Report.</booktitle>
+<location>Ann Clifton, Ann Irvine, Jagadeesh Jagarlamudi, John Morgan, Majid Razmara, Ales Tamchyna, Katharine</location>
+<contexts>
+<context position="19576" citStr="Carpuat et al., 2013" startWordPosition="3193" endWordPosition="3196"> is one of the largest freely available parallel corpora for any lan6 We could have, analogously, used the target language (English) side of the parallel corpus and measure overlap with the English Wikipedia documents, or even used both. 7 http://www.parl.gc.ca 1081 \x0cguage pair. In order to simulate more typical data settings, we sample every 32nd line, using the resulting parallel corpus of 253, 387 lines and 5, 051, 016 tokens to train our baseline model. We test our model using three NEW-domain corpora: (1) the EMEA medical corpus (Tiedemann, 2009), (2) a corpus of scientific abstracts (Carpuat et al., 2013a), and (3) a corpus of translated movie subtitles (Tiedemann, 2009). We use development and test sets to tune and evaluate our MT models. We use the NEW-domain parallel training corpora only for language modeling and for identifying NEW-domain-like comparable documents. 4.2 Machine translation We use the Moses MT framework (Koehn et al., 2007) to build a standard statistical phrase-based MT model using our OLD-domain training data. Using Moses, we extract a phrase table with a phrase limit of five words and estimate the standard set of five feature functions (phrase and lexical translation pr</context>
+<context position="39141" citStr="Carpuat et al., 2013" startWordPosition="6342" endWordPosition="6345">ge pair. However, our techniques are directly applicable to other language pairs, including those that are less related. We have observed that many domain-specific terms, particularly in medical and science domains, are borrowed across languages, whether or not the languages are related. Even for languages with different character sets, one could do transliteration before measuring orthographical similarity. Although we were able to identify translations for some NTS words (Table 1), we did not make use of them in our MT experiments. Recent work has identified NTS words in NEW-domain corpora (Carpuat et al., 2013b), and in future work we plan to incorporate discovered translations for such words into MT. 7 Conclusions We proposed a model for learning a joint distribution of source-target word pairs based on the idea that its marginals should match those observed in NEW-domain comparable corpora. Supplementing a baseline phrase-based SMT model with learned translations results in BLEU score gains of about two points in the medical and science domains. Acknowledgments We gratefully acknowledge the support of the 2012 JHU Summer Workshop and NSF Grant No 1005411. We would like to thank the entire DAMT te</context>
+</contexts>
+<marker>Carpuat, Fraser, Quirk, Braune, 2013</marker>
+<rawString>Marine Carpuat, Hal Daume III, Alexander Fraser, Chris Quirk, Fabienne Braune, Ann Clifton, Ann Irvine, Jagadeesh Jagarlamudi, John Morgan, Majid Razmara, Ales Tamchyna, Katharine Henry, and Rachel Rudinger. 2013a. Domain adaptation in machine translation: Final report. In 2012 Johns Hopkins Summer Workshop Final Report.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Marine Carpuat</author>
+<author>Hal Daume Katharine Henry</author>
+<author>Ann Irvine</author>
+<author>Jagadeesh Jagarlamudi</author>
+<author>Rachel Rudinger</author>
+</authors>
+<title>Sensespotting: Never let your parallel data tie you to an old domain.</title>
+<date>2013</date>
+<booktitle>In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</booktitle>
+<contexts>
+<context position="19576" citStr="Carpuat et al., 2013" startWordPosition="3193" endWordPosition="3196"> is one of the largest freely available parallel corpora for any lan6 We could have, analogously, used the target language (English) side of the parallel corpus and measure overlap with the English Wikipedia documents, or even used both. 7 http://www.parl.gc.ca 1081 \x0cguage pair. In order to simulate more typical data settings, we sample every 32nd line, using the resulting parallel corpus of 253, 387 lines and 5, 051, 016 tokens to train our baseline model. We test our model using three NEW-domain corpora: (1) the EMEA medical corpus (Tiedemann, 2009), (2) a corpus of scientific abstracts (Carpuat et al., 2013a), and (3) a corpus of translated movie subtitles (Tiedemann, 2009). We use development and test sets to tune and evaluate our MT models. We use the NEW-domain parallel training corpora only for language modeling and for identifying NEW-domain-like comparable documents. 4.2 Machine translation We use the Moses MT framework (Koehn et al., 2007) to build a standard statistical phrase-based MT model using our OLD-domain training data. Using Moses, we extract a phrase table with a phrase limit of five words and estimate the standard set of five feature functions (phrase and lexical translation pr</context>
+<context position="39141" citStr="Carpuat et al., 2013" startWordPosition="6342" endWordPosition="6345">ge pair. However, our techniques are directly applicable to other language pairs, including those that are less related. We have observed that many domain-specific terms, particularly in medical and science domains, are borrowed across languages, whether or not the languages are related. Even for languages with different character sets, one could do transliteration before measuring orthographical similarity. Although we were able to identify translations for some NTS words (Table 1), we did not make use of them in our MT experiments. Recent work has identified NTS words in NEW-domain corpora (Carpuat et al., 2013b), and in future work we plan to incorporate discovered translations for such words into MT. 7 Conclusions We proposed a model for learning a joint distribution of source-target word pairs based on the idea that its marginals should match those observed in NEW-domain comparable corpora. Supplementing a baseline phrase-based SMT model with learned translations results in BLEU score gains of about two points in the medical and science domains. Acknowledgments We gratefully acknowledge the support of the 2012 JHU Summer Workshop and NSF Grant No 1005411. We would like to thank the entire DAMT te</context>
+</contexts>
+<marker>Carpuat, Henry, Irvine, Jagarlamudi, Rudinger, 2013</marker>
+<rawString>Marine Carpuat, Hal Daume III, Katharine Henry, Ann Irvine, Jagadeesh Jagarlamudi, and Rachel Rudinger. 2013b. Sensespotting: Never let your parallel data tie you to an old domain. In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Colin Cherry</author>
+<author>George Foster</author>
+</authors>
+<title>Batch tuning strategies for statistical machine translation.</title>
+<date>2012</date>
+<booktitle>In Proceedings of the Conference of the North American Chapter of the Association for Computational Linguistics (NAACL).</booktitle>
+<contexts>
+<context position="20541" citStr="Cherry and Foster, 2012" startWordPosition="3347" endWordPosition="3350">2007) to build a standard statistical phrase-based MT model using our OLD-domain training data. Using Moses, we extract a phrase table with a phrase limit of five words and estimate the standard set of five feature functions (phrase and lexical translation probabilities in each direction and a constant phrase penalty feature). We also use a standard lexicalized reordering model and two language models based on the English side of the Hansard data and the given NEW-domain training corpora. Features are combined using a log-linear model optimized for BLEU, using the n-best batch MIRA algorithm (Cherry and Foster, 2012). We call this the simple baseline. In Section 5.2 we describe several other baseline approaches. 4.3 Experiments For each domain, we use the marginal matching method described in Section 3 to learn a new, domain-adapted joint distribution, pnew k (s, t), over all French and English words. We use the learned joint to compute conditional probabilities, pnew k (t|s), for each French word s and rank English translations t accordingly. First, we evaluate the learned joint directly using the distribution based on the wordaligned NEW-domain development set as a gold standard. Then, we perform end-to</context>
+</contexts>
+<marker>Cherry, Foster, 2012</marker>
+<rawString>Colin Cherry and George Foster. 2012. Batch tuning strategies for statistical machine translation. In Proceedings of the Conference of the North American Chapter of the Association for Computational Linguistics (NAACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Koby Crammer</author>
+<author>Ofer Dekel</author>
+<author>Joseph Keshet</author>
+<author>Shai ShalevShwartz</author>
+<author>Yoram Singer</author>
+</authors>
+<title>Online passiveaggressive algorithms.</title>
+<date>2006</date>
+<journal>J. Mach. Learn. Res.,</journal>
+<volume>7</volume>
+<pages>585</pages>
+<contexts>
+<context position="16701" citStr="Crammer et al., 2006" startWordPosition="2719" endWordPosition="2722">pnew 1:k1 (the subscript indicates that it includes all document pairs up to and including document k 1). We first solve Eq (1) solely on the basis of this document pair, finding a joint distribution pnew k that matches the marginals of the kth document pair only and is minimally different from pnew 1:k1. Finally, we form a new estimate of the joint distribution by moving pnew 1:k1 in the direction of pnew k , via: pnew 1:k = pnew 1:k1 + u h pnew k pnew 1:k1 i The learning rate u is set to 0.001.5 This incremental update of parameters is similar to the margin infused relaxed algorithm (MIRA) (Crammer et al., 2006). Like MIRA and the perceptron, there is not an overall objective function that we are attempting to optimize (as one would in many stochastic gradient steps). Instead, were aiming for 5 We tuned u on semi-extrinsic results on the development set. Note that although 0.001 seems small, the values we are moving are joint probabilities, which are tiny and so small learning rates make sense. a solution that makes a small amount of progress on each example, in such a way if it received that example again, it would do better (in this case: have a closer match of marginals). Also like MIRA, our learn</context>
+</contexts>
+<marker>Crammer, Dekel, Keshet, ShalevShwartz, Singer, 2006</marker>
+<rawString>Koby Crammer, Ofer Dekel, Joseph Keshet, Shai ShalevShwartz, and Yoram Singer. 2006. Online passiveaggressive algorithms. J. Mach. Learn. Res., 7:551 585, December.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hal Daume</author>
+<author>Jagadeesh Jagarlamudi</author>
+</authors>
+<title>Domain adaptation for machine translation by mining unseen words.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</booktitle>
+<marker>Daume, Jagarlamudi, 2011</marker>
+<rawString>Hal Daume III and Jagadeesh Jagarlamudi. 2011. Domain adaptation for machine translation by mining unseen words. In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Della Pietra</author>
+<author>V Della Pietra</author>
+<author>R L Mercer</author>
+<author>S Roukos</author>
+</authors>
+<title>Adaptive language modeling using minimum discriminant estimation.</title>
+<date>1992</date>
+<booktitle>Proceedings of the International Conference on Acoustics, Speech, and Signal Processing (ICASSP).</booktitle>
+<contexts>
+<context position="7939" citStr="Pietra et al. (1992)" startWordPosition="1245" endWordPosition="1248"> from separate source and target halves of a NEWdomain parallel corpus, which may have more lexical overlap with the corresponding test set than we could expect from true monolingual corpora. Our work mines NEW-domain-like document pairs from Wikipedia. In this work, we show that, keeping 1078 \x0cdata resources constant, our model drastically outperforms this previous approach. Razmara et al. (2013) take a fundamentally different approach and construct a graph using source language monolingual text and identify translations for source language OOV words by pivoting through paraphrases. Della Pietra et al. (1992) and Federico (1999) explore models for combining foreground and background distributions for the purpose of language modeling, and their approaches are somewhat similar to ours. However, our focus is on translation. 3 Model Our goal is to recover a probabilistic translation dictionary in a NEW-domain, represented as a joint probability distribution pnew(s, t) over source/target word pairs. At our disposal, we have access to a joint distribution pold(s, t) from the OLD-domain (computed from word alignments), plus comparable document pairs in the NEW-domain. From these comparable documents, we </context>
+</contexts>
+<marker>Pietra, Pietra, Mercer, Roukos, 1992</marker>
+<rawString>S. Della Pietra, V. Della Pietra, R. L. Mercer, and S. Roukos. 1992. Adaptive language modeling using minimum discriminant estimation. Proceedings of the International Conference on Acoustics, Speech, and Signal Processing (ICASSP).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Qing Dou</author>
+<author>Kevin Knight</author>
+</authors>
+<title>Large scale decipherment for out-of-domain machine translation.</title>
+<date>2012</date>
+<booktitle>In Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP).</booktitle>
+<contexts>
+<context position="6375" citStr="Dou and Knight (2012)" startWordPosition="1001" endWordPosition="1004">rns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a starting point (prior) for this translation distribution. It is reasonable to assume an initial bilingual dictionary can be obtained even in low resource settings, for example by crowdsourcing (Callison-Burch and Dredze, 2010) or pivoting through related languages (Schafer and Yarowsky, 2002; Nakov and Ng, 2009). Daume III and Jagarlamudi (2011) mine translations for high frequency OOV words in NEWdomain text</context>
+</contexts>
+<marker>Dou, Knight, 2012</marker>
+<rawString>Qing Dou and Kevin Knight. 2012. Large scale decipherment for out-of-domain machine translation. In Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Marcello Federico</author>
+</authors>
+<title>Efficient language model adaptation through mdi estimation.</title>
+<date>1999</date>
+<booktitle>In Proceedings of EUROSPEECH.</booktitle>
+<contexts>
+<context position="7959" citStr="Federico (1999)" startWordPosition="1250" endWordPosition="1251"> target halves of a NEWdomain parallel corpus, which may have more lexical overlap with the corresponding test set than we could expect from true monolingual corpora. Our work mines NEW-domain-like document pairs from Wikipedia. In this work, we show that, keeping 1078 \x0cdata resources constant, our model drastically outperforms this previous approach. Razmara et al. (2013) take a fundamentally different approach and construct a graph using source language monolingual text and identify translations for source language OOV words by pivoting through paraphrases. Della Pietra et al. (1992) and Federico (1999) explore models for combining foreground and background distributions for the purpose of language modeling, and their approaches are somewhat similar to ours. However, our focus is on translation. 3 Model Our goal is to recover a probabilistic translation dictionary in a NEW-domain, represented as a joint probability distribution pnew(s, t) over source/target word pairs. At our disposal, we have access to a joint distribution pold(s, t) from the OLD-domain (computed from word alignments), plus comparable document pairs in the NEW-domain. From these comparable documents, we can extract raw word</context>
+</contexts>
+<marker>Federico, 1999</marker>
+<rawString>Marcello Federico. 1999. Efficient language model adaptation through mdi estimation. In Proceedings of EUROSPEECH.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Pascale Fung</author>
+<author>Lo Yuen Yee</author>
+</authors>
+<title>An IR approach for translating new words from nonparallel, comparable texts.</title>
+<date>1998</date>
+<booktitle>In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</booktitle>
+<contexts>
+<context position="5923" citStr="Fung and Yee, 1998" startWordPosition="930" endWordPosition="933">a.org ing domains in machine translation. That work concludes that errors resulting from unseen (OOV) and new translation sense words cause the majority of the degradation in translation performance that occurs when an MT model trained on OLD-domain data is used to translate data in a NEW-domain. Here, we target OOV errors, though our marginal matching method is also applicable to learning translations for NTS words. A plethora of prior work learns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. P</context>
+</contexts>
+<marker>Fung, Yee, 1998</marker>
+<rawString>Pascale Fung and Lo Yuen Yee. 1998. An IR approach for translating new words from nonparallel, comparable texts. In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Daniel Gabay</author>
+<author>Bertrand Mercier</author>
+</authors>
+<title>A dual algorithm for the solution of nonlinear variational problems via finite element approximation.</title>
+<date>1976</date>
+<journal>Computers and Mathematics with Applications,</journal>
+<volume>2</volume>
+<issue>1</issue>
+<pages>40</pages>
+<contexts>
+<context position="38377" citStr="Gabay and Mercier, 1976" startWordPosition="6222" endWordPosition="6225">aven and actor Frank Sutton. our label set corresponds to entire vocabularies, and we have multiple observed label proportions. Also, while the marginal matching objective seems effective in practice, it is difficult to optimize. A number of recently developed approximate inference methods use a decomposition that bears a strong resemblance to this objective function. Considering the marginal distributions from each document pair to be a separate subproblem, we could approach the global objective of satisfying all subproblems as an instance of dual decomposition (Sontag et al., 2010) or ADMM (Gabay and Mercier, 1976; Glowinski and Marrocco, 1975). We experiment with French-English because tuning and test sets are available in several domains for that language pair. However, our techniques are directly applicable to other language pairs, including those that are less related. We have observed that many domain-specific terms, particularly in medical and science domains, are borrowed across languages, whether or not the languages are related. Even for languages with different character sets, one could do transliteration before measuring orthographical similarity. Although we were able to identify translatio</context>
+</contexts>
+<marker>Gabay, Mercier, 1976</marker>
+<rawString>Daniel Gabay and Bertrand Mercier. 1976. A dual algorithm for the solution of nonlinear variational problems via finite element approximation. Computers and Mathematics with Applications, 2(1):17 40.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Roland Glowinski</author>
+<author>A Marrocco</author>
+</authors>
+<title>Sur lapproximation, par elements finis dordre un, et la resolution, par penalisation-dualite, dune classe de problemes de dirichlet non lineaires.</title>
+<date>1975</date>
+<journal>Rev. Franc. Automat. Inform. Rech. Operat.,</journal>
+<pages>140--4176</pages>
+<contexts>
+<context position="38408" citStr="Glowinski and Marrocco, 1975" startWordPosition="6226" endWordPosition="6229">on. our label set corresponds to entire vocabularies, and we have multiple observed label proportions. Also, while the marginal matching objective seems effective in practice, it is difficult to optimize. A number of recently developed approximate inference methods use a decomposition that bears a strong resemblance to this objective function. Considering the marginal distributions from each document pair to be a separate subproblem, we could approach the global objective of satisfying all subproblems as an instance of dual decomposition (Sontag et al., 2010) or ADMM (Gabay and Mercier, 1976; Glowinski and Marrocco, 1975). We experiment with French-English because tuning and test sets are available in several domains for that language pair. However, our techniques are directly applicable to other language pairs, including those that are less related. We have observed that many domain-specific terms, particularly in medical and science domains, are borrowed across languages, whether or not the languages are related. Even for languages with different character sets, one could do transliteration before measuring orthographical similarity. Although we were able to identify translations for some NTS words (Table 1)</context>
+</contexts>
+<marker>Glowinski, Marrocco, 1975</marker>
+<rawString>Roland Glowinski and A. Marrocco. 1975. Sur lapproximation, par elements finis dordre un, et la resolution, par penalisation-dualite, dune classe de problemes de dirichlet non lineaires. Rev. Franc. Automat. Inform. Rech. Operat., 140:4176.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Gurobi Optimization Inc</author>
+</authors>
+<date>2013</date>
+<note>Gurobi optimizer reference manual.</note>
+<marker>Inc, 2013</marker>
+<rawString>Gurobi Optimization Inc. 2013. Gurobi optimizer reference manual.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Aria Haghighi</author>
+<author>Percy Liang</author>
+<author>Taylor Berg-Kirkpatrick</author>
+<author>Dan Klein</author>
+</authors>
+<title>Learning bilingual lexicons from monolingual corpora.</title>
+<date>2008</date>
+<booktitle>In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</booktitle>
+<contexts>
+<context position="6052" citStr="Haghighi et al., 2008" startWordPosition="950" endWordPosition="953">e words cause the majority of the degradation in translation performance that occurs when an MT model trained on OLD-domain data is used to translate data in a NEW-domain. Here, we target OOV errors, though our marginal matching method is also applicable to learning translations for NTS words. A plethora of prior work learns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a starting point (prior) for this translation distribution. It is reasonable to assume an i</context>
+</contexts>
+<marker>Haghighi, Liang, Berg-Kirkpatrick, Klein, 2008</marker>
+<rawString>Aria Haghighi, Percy Liang, Taylor Berg-Kirkpatrick, and Dan Klein. 2008. Learning bilingual lexicons from monolingual corpora. In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ann Irvine</author>
+<author>Chris Callison-Burch</author>
+</authors>
+<title>Supervised bilingual lexicon induction with multiple monolingual signals.</title>
+<date>2013</date>
+<booktitle>In Proceedings of the Conference of the North American Chapter of the Association for Computational Linguistics (NAACL).</booktitle>
+<contexts>
+<context position="6154" citStr="Irvine and Callison-Burch, 2013" startWordPosition="966" endWordPosition="969">n MT model trained on OLD-domain data is used to translate data in a NEW-domain. Here, we target OOV errors, though our marginal matching method is also applicable to learning translations for NTS words. A plethora of prior work learns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a starting point (prior) for this translation distribution. It is reasonable to assume an initial bilingual dictionary can be obtained even in low resource settings, for example by crowdsourcin</context>
+</contexts>
+<marker>Irvine, Callison-Burch, 2013</marker>
+<rawString>Ann Irvine and Chris Callison-Burch. 2013. Supervised bilingual lexicon induction with multiple monolingual signals. In Proceedings of the Conference of the North American Chapter of the Association for Computational Linguistics (NAACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ann Irvine</author>
+<author>John Morgan</author>
+<author>Marine Carpuat</author>
+<author>Hal Daume</author>
+<author>Dragos Munteanu</author>
+</authors>
+<title>Measuring machine translation errors in new domains. Transactions of the Association for Computational Linguistics (TACL).</title>
+<date>2013</date>
+<contexts>
+<context position="5223" citStr="Irvine et al., 2013" startWordPosition="819" endWordPosition="822">s not exploit any Wikipedia structure beyond this signal, and thus is portable to alternate sources of comparable articles, such as multilingual news articles covering the same event. Our model also relies on the assumption that each comparable document pair describes generally the same concepts, though the order and structure of presentation may differ significantly. The efficacy of this method likely depends on the degree of comparability of the data; exploring the correlation between comparability and MT performance is an interesting question for future work. 2 Previous Work In prior work (Irvine et al., 2013), we presented a systematic analysis of errors that occur when shift2 www.wikipedia.org ing domains in machine translation. That work concludes that errors resulting from unseen (OOV) and new translation sense words cause the majority of the degradation in translation performance that occurs when an MT model trained on OLD-domain data is used to translate data in a NEW-domain. Here, we target OOV errors, though our marginal matching method is also applicable to learning translations for NTS words. A plethora of prior work learns bilingual lexicons from monolingual and comparable corpora with m</context>
+</contexts>
+<marker>Irvine, Morgan, Carpuat, Daume, Munteanu, 2013</marker>
+<rawString>Ann Irvine, John Morgan, Marine Carpuat, Hal Daume III, and Dragos Munteanu. 2013. Measuring machine translation errors in new domains. Transactions of the Association for Computational Linguistics (TACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Alexandre Klementiev</author>
+<author>Dan Roth</author>
+</authors>
+<title>Weakly supervised named entity transliteration and discovery from multilingual comparable corpora.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</booktitle>
+<contexts>
+<context position="6005" citStr="Klementiev and Roth, 2006" startWordPosition="942" endWordPosition="945">esulting from unseen (OOV) and new translation sense words cause the majority of the degradation in translation performance that occurs when an MT model trained on OLD-domain data is used to translate data in a NEW-domain. Here, we target OOV errors, though our marginal matching method is also applicable to learning translations for NTS words. A plethora of prior work learns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a starting point (prior) for this translatio</context>
+</contexts>
+<marker>Klementiev, Roth, 2006</marker>
+<rawString>Alexandre Klementiev and Dan Roth. 2006. Weakly supervised named entity transliteration and discovery from multilingual comparable corpora. In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Philipp Koehn</author>
+<author>Kevin Knight</author>
+</authors>
+<title>Learning a translation lexicon from monolingual corpora.</title>
+<date>2002</date>
+<booktitle>In ACL Workshop on Unsupervised Lexical Acquisition.</booktitle>
+<contexts>
+<context position="6029" citStr="Koehn and Knight, 2002" startWordPosition="946" endWordPosition="949">and new translation sense words cause the majority of the degradation in translation performance that occurs when an MT model trained on OLD-domain data is used to translate data in a NEW-domain. Here, we target OOV errors, though our marginal matching method is also applicable to learning translations for NTS words. A plethora of prior work learns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a starting point (prior) for this translation distribution. It is re</context>
+</contexts>
+<marker>Koehn, Knight, 2002</marker>
+<rawString>Philipp Koehn and Kevin Knight. 2002. Learning a translation lexicon from monolingual corpora. In ACL Workshop on Unsupervised Lexical Acquisition.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Philipp Koehn</author>
+<author>Hieu Hoang</author>
+<author>Alexandra Birch</author>
+<author>Chris Callison-Burch</author>
+<author>Marcello Federico</author>
+<author>Nicola Bertoldi</author>
+<author>Brooke Cowan</author>
+<author>Wade Shen</author>
+</authors>
+<title>Moses: Open source toolkit for statistical machine translation.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</booktitle>
+<location>Christine Moran, Richard Zens, Chris Dyer, Ondrej Bojar, Alexandra</location>
+<contexts>
+<context position="19922" citStr="Koehn et al., 2007" startWordPosition="3248" endWordPosition="3251"> 32nd line, using the resulting parallel corpus of 253, 387 lines and 5, 051, 016 tokens to train our baseline model. We test our model using three NEW-domain corpora: (1) the EMEA medical corpus (Tiedemann, 2009), (2) a corpus of scientific abstracts (Carpuat et al., 2013a), and (3) a corpus of translated movie subtitles (Tiedemann, 2009). We use development and test sets to tune and evaluate our MT models. We use the NEW-domain parallel training corpora only for language modeling and for identifying NEW-domain-like comparable documents. 4.2 Machine translation We use the Moses MT framework (Koehn et al., 2007) to build a standard statistical phrase-based MT model using our OLD-domain training data. Using Moses, we extract a phrase table with a phrase limit of five words and estimate the standard set of five feature functions (phrase and lexical translation probabilities in each direction and a constant phrase penalty feature). We also use a standard lexicalized reordering model and two language models based on the English side of the Hansard data and the given NEW-domain training corpora. Features are combined using a log-linear model optimized for BLEU, using the n-best batch MIRA algorithm (Cherr</context>
+</contexts>
+<marker>Koehn, Hoang, Birch, Callison-Burch, Federico, Bertoldi, Cowan, Shen, 2007</marker>
+<rawString>Philipp Koehn, Hieu Hoang, Alexandra Birch, Chris Callison-Burch, Marcello Federico, Nicola Bertoldi, Brooke Cowan, Wade Shen, Christine Moran, Richard Zens, Chris Dyer, Ondrej Bojar, Alexandra Constantin, and Evan Herbst. 2007. Moses: Open source toolkit for statistical machine translation. In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Lee</author>
+</authors>
+<title>Genres, registers, text types, domains and styles: Clarifying the concepts and navigating a path through the bnc jungle.</title>
+<date>2002</date>
+<journal>Language and Computers,</journal>
+<volume>42</volume>
+<issue>1</issue>
+<contexts>
+<context position="36390" citStr="Lee (2002)" startWordPosition="5903" endWordPosition="5904">ast majority of language pairs and domains. However, In the case that we do have some NEW-domain parallel data, OOV rates will be somewhat lower, but our method is still applicable. For example, we would need 2.3 million words of Science (NEW-domain) parallel data to cover just 50% of the OOVs in our Science test set, and 4.3 million words to cover 70%. 6 Discussion BLEU score performance gains are substantial for the Science and EMEA domains, but we dont observe gains on the subtitles text. We believe this difference relates to the difference between a corpus domain and a corpus register. As Lee (2002) explains, a texts domain is most related to its topic, while a texts register is related to its type and purpose. For example, religious, scientific, and dialogue texts may be classified as separate registers, while political and scientific expositions may have a single register but different domains. Our science and EMEA corpora are certainly different in domain from the OLD-domain parliamentary proceedings, and our success in boosting MT performance with our methods indicates that the Wikipedia comparable corpora that we mined match those domains well. In contrast, the subtitles data differ</context>
+</contexts>
+<marker>Lee, 2002</marker>
+<rawString>David Lee. 2002. Genres, registers, text types, domains and styles: Clarifying the concepts and navigating a path through the bnc jungle. Language and Computers, 42(1):247292.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Stephen Soderland Mausam</author>
+<author>Oren Etzioni</author>
+<author>Daniel S Weld</author>
+<author>Kobi Reiter</author>
+<author>Michael Skinner</author>
+</authors>
+<title>Marcus Sammer, \x0cand Jeff Bilmes.</title>
+<date>2010</date>
+<journal>Artificial Intelligence,</journal>
+<volume>174</volume>
+<contexts>
+<context position="6093" citStr="Mausam et al., 2010" startWordPosition="958" endWordPosition="961">on in translation performance that occurs when an MT model trained on OLD-domain data is used to translate data in a NEW-domain. Here, we target OOV errors, though our marginal matching method is also applicable to learning translations for NTS words. A plethora of prior work learns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a starting point (prior) for this translation distribution. It is reasonable to assume an initial bilingual dictionary can be obtain</context>
+</contexts>
+<marker>Mausam, Etzioni, Weld, Reiter, Skinner, 2010</marker>
+<rawString>Mausam, Stephen Soderland, Oren Etzioni, Daniel S. Weld, Kobi Reiter, Michael Skinner, Marcus Sammer, \x0cand Jeff Bilmes. 2010. Panlingual lexical translation via probabilistic inference. Artificial Intelligence, 174:619637, June.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Mimno</author>
+<author>Hanna Wallach</author>
+<author>Jason Naradowsky</author>
+<author>David Smith</author>
+<author>Andrew McCallum</author>
+</authors>
+<title>Polylingual topic models.</title>
+<date>2009</date>
+<booktitle>In Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP).</booktitle>
+<contexts>
+<context position="6072" citStr="Mimno et al., 2009" startWordPosition="954" endWordPosition="957">ity of the degradation in translation performance that occurs when an MT model trained on OLD-domain data is used to translate data in a NEW-domain. Here, we target OOV errors, though our marginal matching method is also applicable to learning translations for NTS words. A plethora of prior work learns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a starting point (prior) for this translation distribution. It is reasonable to assume an initial bilingual dic</context>
+</contexts>
+<marker>Mimno, Wallach, Naradowsky, Smith, McCallum, 2009</marker>
+<rawString>David Mimno, Hanna Wallach, Jason Naradowsky, David Smith, and Andrew McCallum. 2009. Polylingual topic models. In Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Robert C Moore</author>
+<author>William Lewis</author>
+</authors>
+<title>Intelligent selection of language model training data.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</booktitle>
+<contexts>
+<context position="18665" citStr="Moore and Lewis (2010)" startWordPosition="3045" endWordPosition="3048">We could have targeted our learning even more by using our NEW-domain MT test sets. Doing so would increase the chances that our source language words of interest appear in the comparable corpus. However, to avoid overfitting any particular test set, we use the French side of the training data. For each Wikipedia document pair, we compute the percent of French phrases up to length four that are observed in the French monolingual NEW-domain corpus and rank document pairs by the geometric mean of the four overlap measures. More sophisticated ways to identify NEW-domainlike Wikipedia pages (e.g. Moore and Lewis (2010)) may yield additional performance gains, but, qualitatively, the ranked Wikipedia pages seemed reasonable to the authors. 4 Experimental setup 4.1 Data We use French-English Hansard parliamentary proceedings7 as our OLD-domain parallel corpus. With over 8 million parallel lines of text, it is one of the largest freely available parallel corpora for any lan6 We could have, analogously, used the target language (English) side of the parallel corpus and measure overlap with the English Wikipedia documents, or even used both. 7 http://www.parl.gc.ca 1081 \x0cguage pair. In order to simulate more </context>
+</contexts>
+<marker>Moore, Lewis, 2010</marker>
+<rawString>Robert C. Moore and William Lewis. 2010. Intelligent selection of language model training data. In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Preslav Nakov</author>
+<author>Hwee Tou Ng</author>
+</authors>
+<title>Improved statistical machine translation for resource-poor languages using related resource-rich languages.</title>
+<date>2009</date>
+<booktitle>In Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP).</booktitle>
+<contexts>
+<context position="6876" citStr="Nakov and Ng, 2009" startWordPosition="1080" endWordPosition="1083"> system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a starting point (prior) for this translation distribution. It is reasonable to assume an initial bilingual dictionary can be obtained even in low resource settings, for example by crowdsourcing (Callison-Burch and Dredze, 2010) or pivoting through related languages (Schafer and Yarowsky, 2002; Nakov and Ng, 2009). Daume III and Jagarlamudi (2011) mine translations for high frequency OOV words in NEWdomain text in order to do domain adaptation. Although that work shows significant MT improvements, it is based primarily on distributional similarity, thus making it difficult to learn translations for low frequency source words with sparse word context counts. Additionally, that work reports results using artificially created monolingual corpora taken from separate source and target halves of a NEWdomain parallel corpus, which may have more lexical overlap with the corresponding test set than we could exp</context>
+</contexts>
+<marker>Nakov, Ng, 2009</marker>
+<rawString>Preslav Nakov and Hwee Tou Ng. 2009. Improved statistical machine translation for resource-poor languages using related resource-rich languages. In Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Malte Nuhn</author>
+<author>Arne Mauser</author>
+<author>Hermann Ney</author>
+</authors>
+<title>Deciphering foreign language by combining language models and context vectors.</title>
+<date>2012</date>
+<booktitle>In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</booktitle>
+<contexts>
+<context position="6399" citStr="Nuhn et al. (2012)" startWordPosition="1006" endWordPosition="1009"> monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a starting point (prior) for this translation distribution. It is reasonable to assume an initial bilingual dictionary can be obtained even in low resource settings, for example by crowdsourcing (Callison-Burch and Dredze, 2010) or pivoting through related languages (Schafer and Yarowsky, 2002; Nakov and Ng, 2009). Daume III and Jagarlamudi (2011) mine translations for high frequency OOV words in NEWdomain text in order to do domain a</context>
+</contexts>
+<marker>Nuhn, Mauser, Ney, 2012</marker>
+<rawString>Malte Nuhn, Arne Mauser, and Hermann Ney. 2012. Deciphering foreign language by combining language models and context vectors. In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Franz Josef Och</author>
+<author>Hermann Ney</author>
+</authors>
+<title>A systematic comparison of various statistical alignment models.</title>
+<date>2003</date>
+<journal>Computational Linguistics,</journal>
+<volume>29</volume>
+<issue>1</issue>
+<contexts>
+<context position="10749" citStr="Och and Ney, 2003" startWordPosition="1697" endWordPosition="1700">nt pair marginal distributions. Finally, we describe how we identify comparable document pairs relevant to the NEW-domain. 3.1 Marginal Matching Objective Given word-aligned parallel data in the OLD-domain and source and target comparable corpora in the NEW-domain, we first estimate a joint distribution pold(s, t) over word pairs (s, t) in the OLD-domain, where s and t range over source and target language words, respectively. For the OLD-domain joint distribution, we use a simple maximum likelihood estimate based on non-null automatic word alignments (using grow-diag-final GIZA++ alignments (Och and Ney, 2003)). Next, we find source and target marginal distributions, q(s) and q(t), by relative frequency estimates over the source and target comparable corpora. Our goal is to recover a joint distribution pnew(s, t) for the new domain that matches the marginals, q(s) and q(t), but is minimally different from the original joint distribution, pold(s, t). We cast this as a linear programming problem: pnew = arg min p p pold 1 (1) subject to: X s,t p(s, t) = 1, p(s, t) 0 X s p(s, t) = q(t), X t p(s, t) = q(s) In the objective function, the joint probability matrices p and pold are interpreted as large vec</context>
+</contexts>
+<marker>Och, Ney, 2003</marker>
+<rawString>Franz Josef Och and Hermann Ney. 2003. A systematic comparison of various statistical alignment models. Computational Linguistics, 29(1):1951, March.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Emmanuel Prochasson</author>
+<author>Pascale Fung</author>
+</authors>
+<title>Rare word translation extraction from aligned comparable documents.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</booktitle>
+<contexts>
+<context position="6120" citStr="Prochasson and Fung, 2011" startWordPosition="962" endWordPosition="965">formance that occurs when an MT model trained on OLD-domain data is used to translate data in a NEW-domain. Here, we target OOV errors, though our marginal matching method is also applicable to learning translations for NTS words. A plethora of prior work learns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a starting point (prior) for this translation distribution. It is reasonable to assume an initial bilingual dictionary can be obtained even in low resource set</context>
+</contexts>
+<marker>Prochasson, Fung, 2011</marker>
+<rawString>Emmanuel Prochasson and Pascale Fung. 2011. Rare word translation extraction from aligned comparable documents. In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Novi Quadrianto</author>
+<author>Alex J Smola</author>
+<author>Tiberio S Caetano</author>
+<author>Quoc V Le</author>
+</authors>
+<title>Estimating labels from label proportions.</title>
+<date>2008</date>
+<booktitle>In Proceedings of the International Conference on Machine Learning (ICML).</booktitle>
+<contexts>
+<context position="37581" citStr="Quadrianto et al. (2008)" startWordPosition="6096" endWordPosition="6099">ntrast, the subtitles data differs from the OLD-domain parliamentary proceedings in both domain and register. Although the Wikipedia data that we mined may be closer in domain to the subtitles data than the parliamentary proceedings,11 its register is certainly not film dialogues. Although the use of marginal matching is, to the best of our knowledge, novel in MT, there are related threads of research that might inspire future work. The intuition that we should match marginal distributions is similar to work using no example labels but only label proportions to estimate labels, for example in Quadrianto et al. (2008). Unlike that work, 11 In fact, we believe that it is. Wikipedia pages that ranked very high in our subtitles-like list included, for example, the movie The Other Side of Heaven and actor Frank Sutton. our label set corresponds to entire vocabularies, and we have multiple observed label proportions. Also, while the marginal matching objective seems effective in practice, it is difficult to optimize. A number of recently developed approximate inference methods use a decomposition that bears a strong resemblance to this objective function. Considering the marginal distributions from each documen</context>
+</contexts>
+<marker>Quadrianto, Smola, Caetano, Le, 2008</marker>
+<rawString>Novi Quadrianto, Alex J. Smola, Tiberio S. Caetano, and Quoc V. Le. 2008. Estimating labels from label proportions. In Proceedings of the International Conference on Machine Learning (ICML).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Reinhard Rapp</author>
+</authors>
+<title>Identifying word translations in non-parallel texts.</title>
+<date>1995</date>
+<booktitle>In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</booktitle>
+<contexts>
+<context position="5903" citStr="Rapp, 1995" startWordPosition="928" endWordPosition="929">www.wikipedia.org ing domains in machine translation. That work concludes that errors resulting from unseen (OOV) and new translation sense words cause the majority of the degradation in translation performance that occurs when an MT model trained on OLD-domain data is used to translate data in a NEW-domain. Here, we target OOV errors, though our marginal matching method is also applicable to learning translations for NTS words. A plethora of prior work learns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain a</context>
+</contexts>
+<marker>Rapp, 1995</marker>
+<rawString>Reinhard Rapp. 1995. Identifying word translations in non-parallel texts. In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Reinhard Rapp</author>
+</authors>
+<title>Automatic identification of word translations from unrelated English and German corpora.</title>
+<date>1999</date>
+<booktitle>In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</booktitle>
+<contexts>
+<context position="5935" citStr="Rapp, 1999" startWordPosition="934" endWordPosition="935"> machine translation. That work concludes that errors resulting from unseen (OOV) and new translation sense words cause the majority of the degradation in translation performance that occurs when an MT model trained on OLD-domain data is used to translate data in a NEW-domain. Here, we target OOV errors, though our marginal matching method is also applicable to learning translations for NTS words. A plethora of prior work learns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data</context>
+</contexts>
+<marker>Rapp, 1999</marker>
+<rawString>Reinhard Rapp. 1999. Automatic identification of word translations from unrelated English and German corpora. In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sujith Ravi</author>
+<author>Kevin Knight</author>
+</authors>
+<title>Deciphering foreign language.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</booktitle>
+<contexts>
+<context position="6352" citStr="Ravi and Knight (2011)" startWordPosition="997" endWordPosition="1000">ethora of prior work learns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a starting point (prior) for this translation distribution. It is reasonable to assume an initial bilingual dictionary can be obtained even in low resource settings, for example by crowdsourcing (Callison-Burch and Dredze, 2010) or pivoting through related languages (Schafer and Yarowsky, 2002; Nakov and Ng, 2009). Daume III and Jagarlamudi (2011) mine translations for high frequency OOV </context>
+<context position="11551" citStr="Ravi and Knight, 2011" startWordPosition="1844" endWordPosition="1847">int distribution pnew(s, t) for the new domain that matches the marginals, q(s) and q(t), but is minimally different from the original joint distribution, pold(s, t). We cast this as a linear programming problem: pnew = arg min p p pold 1 (1) subject to: X s,t p(s, t) = 1, p(s, t) 0 X s p(s, t) = q(t), X t p(s, t) = q(s) In the objective function, the joint probability matrices p and pold are interpreted as large vectors over all word pairs (s, t). The first two constraints force the result to be a well-formed distribution, and the final two force the marginals to match. Following prior work (Ravi and Knight, 2011), we would like the matrix to remain as sparse as possible; that is, introduce the smallest number of new translation pairs necessary. A regularization term captures this goal: (p) = X s,t: pold(s,t)=0 r p(s, t) (2) 1079 \x0chouse place pregnant dress qold(s) enceinte 0.30 0.40 0.10 0 0.80 habiller 0 0 0 0.20 0.20 qold(t) 0.30 0.40 0.10 0.20 (a) OLD-Domain Joint (b) NEW-Domain Marginals house place pregnant dress girl q(s) enceinte ? ? ? ? ? 0.60 habiller ? ? ? ? ? 0.20 fille ? ? ? ? ? 0.20 q(t) 0.12 0.08 0.40 0.20 0.20 (c) Inferred NEW-Domain Joint house place pregnant dress girl qnew(s) ence</context>
+</contexts>
+<marker>Ravi, Knight, 2011</marker>
+<rawString>Sujith Ravi and Kevin Knight. 2011. Deciphering foreign language. In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Majid Razmara</author>
+<author>Maryam Siahbani</author>
+<author>Gholamreza Haffari</author>
+<author>Anoop Sarkar</author>
+</authors>
+<title>Graph propagation for paraphrasing out-of-vocabulary words in statistical machine translation.</title>
+<date>2013</date>
+<booktitle>In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</booktitle>
+<contexts>
+<context position="7722" citStr="Razmara et al. (2013)" startWordPosition="1212" endWordPosition="1215">al similarity, thus making it difficult to learn translations for low frequency source words with sparse word context counts. Additionally, that work reports results using artificially created monolingual corpora taken from separate source and target halves of a NEWdomain parallel corpus, which may have more lexical overlap with the corresponding test set than we could expect from true monolingual corpora. Our work mines NEW-domain-like document pairs from Wikipedia. In this work, we show that, keeping 1078 \x0cdata resources constant, our model drastically outperforms this previous approach. Razmara et al. (2013) take a fundamentally different approach and construct a graph using source language monolingual text and identify translations for source language OOV words by pivoting through paraphrases. Della Pietra et al. (1992) and Federico (1999) explore models for combining foreground and background distributions for the purpose of language modeling, and their approaches are somewhat similar to ours. However, our focus is on translation. 3 Model Our goal is to recover a probabilistic translation dictionary in a NEW-domain, represented as a joint probability distribution pnew(s, t) over source/target w</context>
+</contexts>
+<marker>Razmara, Siahbani, Haffari, Sarkar, 2013</marker>
+<rawString>Majid Razmara, Maryam Siahbani, Gholamreza Haffari, and Anoop Sarkar. 2013. Graph propagation for paraphrasing out-of-vocabulary words in statistical machine translation. In Proceedings of the Conference of the Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S E Robertson</author>
+<author>S Walker</author>
+<author>S Jones</author>
+<author>M M HancockBeaulieu</author>
+<author>M Gatford</author>
+</authors>
+<title>Okapi at TREC-3.</title>
+<date>1994</date>
+<booktitle>In Proceedings of the Text REtrieval Conference.</booktitle>
+<contexts>
+<context position="30070" citStr="Robertson et al., 1994" startWordPosition="4895" endWordPosition="4898">p OOVs from the output translations. Second, like our semi-extrinsic baseline, we rank English words by their edit distance away from each French OOV word (ED baseline). Third, we rank English words by their document-pair co-occurrence score with each French OOV word. That is, for all words w, we compute D(w), the vector indicating the document pairs in which w occurs, over the set of 50,000 document-pairs which are most NEWdomain-like. For French and English words s and t, if D(s) and D(t) are dissimilar, it is less likely (s, t) is a valid translation pair. We weight D(w) entries with BM25 (Robertson et al., 1994). For all French OOVs, we rank all English translations according to the cosine similarity between the pair of D(w) vectors. The fourth baseline uses the CCA model described in Daume III and Jagarlamudi (2011) to rank English words according to their distributional similarity with each French word. For the CCA baseline comparison, we only learned translations using 25,000 Science-domain document pairs, rather than the full 50,000 and for all domains. However, its unlikely that learning over more data would overcome the low performance observed so far. For the final three baselines, we append F</context>
+</contexts>
+<marker>Robertson, Walker, Jones, HancockBeaulieu, Gatford, 1994</marker>
+<rawString>S.E. Robertson, S. Walker, S. Jones, M.M. HancockBeaulieu, and M. Gatford. 1994. Okapi at TREC-3. In Proceedings of the Text REtrieval Conference.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Charles Schafer</author>
+<author>David Yarowsky</author>
+</authors>
+<title>Inducing translation lexicons via diverse similarity measures and bridge languages.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the Conference on Natural Language Learning (CoNLL).</booktitle>
+<contexts>
+<context position="5963" citStr="Schafer and Yarowsky, 2002" startWordPosition="936" endWordPosition="939">nslation. That work concludes that errors resulting from unseen (OOV) and new translation sense words cause the majority of the degradation in translation performance that occurs when an MT model trained on OLD-domain data is used to translate data in a NEW-domain. Here, we target OOV errors, though our marginal matching method is also applicable to learning translations for NTS words. A plethora of prior work learns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a </context>
+</contexts>
+<marker>Schafer, Yarowsky, 2002</marker>
+<rawString>Charles Schafer and David Yarowsky. 2002. Inducing translation lexicons via diverse similarity measures and bridge languages. In Proceedings of the Conference on Natural Language Learning (CoNLL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Charles Schafer</author>
+</authors>
+<title>Translation Discovery Using Diverse Similarity Measures.</title>
+<date>2006</date>
+<tech>Ph.D. thesis,</tech>
+<institution>Johns Hopkins University.</institution>
+<contexts>
+<context position="5978" citStr="Schafer, 2006" startWordPosition="940" endWordPosition="941">s that errors resulting from unseen (OOV) and new translation sense words cause the majority of the degradation in translation performance that occurs when an MT model trained on OLD-domain data is used to translate data in a NEW-domain. Here, we target OOV errors, though our marginal matching method is also applicable to learning translations for NTS words. A plethora of prior work learns bilingual lexicons from monolingual and comparable corpora with many signals including distributional, temporal, and topic similarity (Rapp, 1995; Fung and Yee, 1998; Rapp, 1999; Schafer and Yarowsky, 2002; Schafer, 2006; Klementiev and Roth, 2006; Koehn and Knight, 2002; Haghighi et al., 2008; Mimno et al., 2009; Mausam et al., 2010; Prochasson and Fung, 2011; Irvine and Callison-Burch, 2013). However, this prior work stops short of using these lexicons in translation. We augment a baseline MT system with learned translations. Our approach bears some similarity to Ravi and Knight (2011), Dou and Knight (2012), and Nuhn et al. (2012); we learn a translation distribution despite a lack of parallel data. However, we focus on the domain adaptation setting. Parallel data in an OLD-domain acts as a starting point </context>
+</contexts>
+<marker>Schafer, 2006</marker>
+<rawString>Charles Schafer. 2006. Translation Discovery Using Diverse Similarity Measures. Ph.D. thesis, Johns Hopkins University.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jason R Smith</author>
+<author>Chris Quirk</author>
+<author>Kristina Toutanova</author>
+</authors>
+<title>Extracting parallel sentences from comparable corpora using document level alignment.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the Conference of the North American Chapter of the Association for Computational Linguistics (NAACL).</booktitle>
+<contexts>
+<context position="2489" citStr="Smith et al. (2010)" startWordPosition="371" endWordPosition="374">ently in each domain. For example, the French Parliament Subtitles Medical Science Percent of Word Types that are OOV 0 10 20 30 40 50 60 3.95 27.03 41.42 50.93 Figure 1: Percent of test set word types by domain that are OOV with respect to five million tokens of OLDdomain French parliamentary proceedings data. word enceinte is mostly translated in parliamentary proceedings as place, house, or chamber; in medical text, the translation is mostly pregnant; in scientific text, enclosures. One potential remedy is to collect parallel data in the NEW-domain, from which we can train a new SMT model. Smith et al. (2010), for example, mine parallel text from comparable corpora. Parallel sentences are informative but also rare: in the data released by Smith et al. (2010), only 21% of the foreign sentences have a near-parallel counterpart in the English article.1 Furthermore, these sentences do not capture all terms. In that same dataset, we find that on average only 20% of foreign and 28% of English word types in a given article are represented in the parallel sentence pairs. In this work, we seek to learn a joint distribu1 Only 12% of sentences from generally longer English articles have a near-parallel count</context>
+</contexts>
+<marker>Smith, Quirk, Toutanova, 2010</marker>
+<rawString>Jason R. Smith, Chris Quirk, and Kristina Toutanova. 2010. Extracting parallel sentences from comparable corpora using document level alignment. In Proceedings of the Conference of the North American Chapter of the Association for Computational Linguistics (NAACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Sontag</author>
+<author>A Globerson</author>
+<author>Tommi Jaakola</author>
+</authors>
+<title>Introduction to dual decomposition for inference, chapter 1.</title>
+<date>2010</date>
+<publisher>MIT Press.</publisher>
+<contexts>
+<context position="38344" citStr="Sontag et al., 2010" startWordPosition="6216" endWordPosition="6219">the movie The Other Side of Heaven and actor Frank Sutton. our label set corresponds to entire vocabularies, and we have multiple observed label proportions. Also, while the marginal matching objective seems effective in practice, it is difficult to optimize. A number of recently developed approximate inference methods use a decomposition that bears a strong resemblance to this objective function. Considering the marginal distributions from each document pair to be a separate subproblem, we could approach the global objective of satisfying all subproblems as an instance of dual decomposition (Sontag et al., 2010) or ADMM (Gabay and Mercier, 1976; Glowinski and Marrocco, 1975). We experiment with French-English because tuning and test sets are available in several domains for that language pair. However, our techniques are directly applicable to other language pairs, including those that are less related. We have observed that many domain-specific terms, particularly in medical and science domains, are borrowed across languages, whether or not the languages are related. Even for languages with different character sets, one could do transliteration before measuring orthographical similarity. Although we</context>
+</contexts>
+<marker>Sontag, Globerson, Jaakola, 2010</marker>
+<rawString>David Sontag, A. Globerson, and Tommi Jaakola, 2010. Introduction to dual decomposition for inference, chapter 1. MIT Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jorg Tiedemann</author>
+</authors>
+<title>News from OPUS - A collection of multilingual parallel corpora with tools and interfaces.</title>
+<date>2009</date>
+<booktitle>Recent Advances in Natural Language Processing (RANLP).</booktitle>
+<editor>In N. Nicolov, K. Bontcheva, G. Angelova, and R. Mitkov, editors,</editor>
+<contexts>
+<context position="19516" citStr="Tiedemann, 2009" startWordPosition="3185" endWordPosition="3186">l corpus. With over 8 million parallel lines of text, it is one of the largest freely available parallel corpora for any lan6 We could have, analogously, used the target language (English) side of the parallel corpus and measure overlap with the English Wikipedia documents, or even used both. 7 http://www.parl.gc.ca 1081 \x0cguage pair. In order to simulate more typical data settings, we sample every 32nd line, using the resulting parallel corpus of 253, 387 lines and 5, 051, 016 tokens to train our baseline model. We test our model using three NEW-domain corpora: (1) the EMEA medical corpus (Tiedemann, 2009), (2) a corpus of scientific abstracts (Carpuat et al., 2013a), and (3) a corpus of translated movie subtitles (Tiedemann, 2009). We use development and test sets to tune and evaluate our MT models. We use the NEW-domain parallel training corpora only for language modeling and for identifying NEW-domain-like comparable documents. 4.2 Machine translation We use the Moses MT framework (Koehn et al., 2007) to build a standard statistical phrase-based MT model using our OLD-domain training data. Using Moses, we extract a phrase table with a phrase limit of five words and estimate the standard set </context>
+</contexts>
+<marker>Tiedemann, 2009</marker>
+<rawString>Jorg Tiedemann. 2009. News from OPUS - A collection of multilingual parallel corpora with tools and interfaces. In N. Nicolov, K. Bontcheva, G. Angelova, and R. Mitkov, editors, Recent Advances in Natural Language Processing (RANLP).</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

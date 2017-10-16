@@ -1,0 +1,1935 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.869552">
+b&apos;Proceedings of the 2012 Joint Conference on Empirical Methods in Natural Language Processing and Computational Natural
+Language Learning, pages 94104, Jeju Island, Korea, 1214 July 2012. c
+</bodyText>
+<sectionHeader confidence="0.586946" genericHeader="abstract">
+2012 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.783544">
+Mixed Membership Markov Models
+for Unsupervised Conversation Modeling
+</title>
+<author confidence="0.998001">
+Michael J. Paul
+</author>
+<affiliation confidence="0.964348">
+Center for Language and Speech Processing
+Johns Hopkins University
+</affiliation>
+<address confidence="0.979772">
+Baltimore, MD 21218, USA
+</address>
+<email confidence="0.997268">
+mpaul@cs.jhu.edu
+</email>
+<sectionHeader confidence="0.990747" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999525470588235">
+Recent work has explored the use of hidden
+Markov models for unsupervised discourse
+and conversation modeling, where each seg-
+ment or block of text such as a message in a
+conversation is associated with a hidden state
+in a sequence. We extend this approach to al-
+low each block of text to be a mixture of mul-
+tiple classes. Under our model, the probability
+of a class in a text block is a log-linear func-
+tion of the classes in the previous block. We
+show that this model performs well at predic-
+tive tasks on two conversation data sets, im-
+proving thread reconstruction accuracy by up
+to 15 percentage points over a standard HMM.
+Additionally, we show quantitatively that the
+induced word clusters correspond to speech
+acts more closely than baseline models.
+</bodyText>
+<sectionHeader confidence="0.998283" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.998956081632653">
+The proliferation of social media in recent years has
+lead to an increased use of informal Web data in
+the language processing community. With this ris-
+ing interest in social domains, it is natural to con-
+sider models which explicitly incorporate the con-
+versational patterns of social text. Compared to the
+naive approach of treating conversations as flat doc-
+uments, models which include conversation struc-
+ture have been shown to improve tasks such as fo-
+rum search (Elsas and Carbonell, 2009; Seo et al.,
+2009), question answering and expert finding (Xu et
+al., 2008; Wang et al., 2011a), and interpersonal re-
+lationship identification (Diehl et al., 2007).
+While conversational features may be important,
+Web-derived corpora are not always annotated with
+this information, and the nature of conversations on
+the Web can vary wildly across domains and venues.
+Addressing these concerns, there has been recent
+work with unsupervised models of Web conversa-
+tions based on hidden Markov models (Ritter et al.,
+2010), where each state corresponds to a conversa-
+tional class or act. Unlike more traditional uses of
+HMMs in which a single token is emitted per time
+step, HMM emissions in conversations correspond
+to entire blocks of text, such that an entire message
+is generated at each step. Because each time step is
+associated with a block of variables, we refer to this
+type of HMM as a block HMM (Fig. 1a).
+While block HMMs offer a concise model of
+inter-message structure, they have the limitation that
+each text block (message) belongs to exactly one
+class. Many modern generative models of text, in
+contrast, allow documents to contain many latent
+classes. For example, topic models such as Latent
+Dirichlet Allocation (LDA) (Blei et al., 2003) as-
+sume each document has its own distribution over
+multiple classes (often called topics). For many
+predictive tasks, topic models outperform single-
+class generative models such as Naive Bayes. These
+properties could similarly be desirable in conversa-
+tion modeling. An email might contain a request,
+a question, and an answer to a previous question
+three distinct dialog acts within a single message.
+This motivates the desire to allow a message to be a
+mixture of classes.
+In this paper, we introduce a new type of model
+which combines the functionality of topic models,
+which posit latent class assignments to each individ-
+ual token, with Markovian sequence models, which
+</bodyText>
+<page confidence="0.990124">
+94
+</page>
+<equation confidence="0.9497256875">
+\x0c
+z1 z2 z3 . . .
+w1 w2 w3 . . .
+N N N
+(a) Block HMM
+1 2 3
+. . .
+z1 z2 z3 . . .
+w1 w2 w3 . . .
+N N N
+(b) LDA
+1 2 3 . . .
+z1 z2 z3 . . .
+w1 w2 w3 . . .
+N N N
+(c) M4
+</equation>
+<figureCaption confidence="0.807613">
+Figure 1: The graphical models for the block HMM (left) where each block of tokens depends on exactly one latent
+class, LDA (center) where each token individually depends on a latent class, and M4
+</figureCaption>
+<bodyText confidence="0.998041114285714">
+(right) where the class distri-
+butions are dependent across blocks. Some parameters are omitted for simplicity. This figure depicts the Bayesian
+variant of the block HMM (Ritter et al., 2010) where the transition distributions depend on a Dirichlet() prior.
+govern the transitions between text blocks in a se-
+quence. We generalize the block HMM approach so
+that there is no longer a one-to-one correspondence
+between states in the Markov chain and latent dis-
+course classes. Instead, we allow a state in the HMM
+to correspond to a mixture of many classes: we re-
+fer to this family of models as mixed membership
+Markov models (M4). Instead of defining explicit
+transition probabilities from one class to another as
+in a traditional HMM, we define the distribution over
+classes as a function of the entire histogram of class
+assignments of the previous text segment. We define
+our model using the same number of parameters as
+a standard HMM (2), and we present a straightfor-
+ward approximate inference algorithm (3).
+While we introduce a general model, we will fo-
+cus on the task of unsupervised conversation model-
+ing. Specifically, we build off the Bayesian block
+HMMs used by Ritter et al. (2010) for modeling
+Twitter conversations, which will be our primary
+baseline. After discussing related work (4), we
+present experimental results on a set of Twitter con-
+versations as well as a set of threads from CNET
+discussion forums (5). We show that M4 increases
+thread reconstruction accuracy by up to 15% com-
+pared to the HMM of Ritter et al. (2010), and we
+reduce variation of information against speech act
+annotations by an average of 18% from HMM and
+LDA baselines. To the best of our knowledge, this
+work is the first attempt to quantitatively compare
+unsupervised models against gold standard speech
+act annotations.
+</bodyText>
+<sectionHeader confidence="0.4173575" genericHeader="method">
+2 M4
+: Mixed Membership Markov Models
+</sectionHeader>
+<bodyText confidence="0.998383681818182">
+In this section, we extend the block HMM by intro-
+ducing mixed membership Markov models (M4).
+Under the block HMM, as utilized by Ritter et al.
+(2010), messages in a conversation flow according to
+a Markov process, where the words of messages are
+generated according to language models associated
+with a state in a hidden Markov model. The intu-
+ition is that HMM states should correspond to some
+notion of a conversation act such as QUESTION or
+ANSWER. The intuition is the same under M4, but
+now each token in a message is given its own class
+assignment, according to a class distribution for that
+particular message. A messages class distribution
+depends on the class assignments of the previous
+message, yielding a model that retains sequential de-
+pendencies between messages, while allowing for
+finer grained class allocation than the block HMM.
+Modeling messages (or more generally, text blocks)
+as a mixture of multiple classes rather than a single
+class gives rise to the mixed membership property.
+In the subsections below, we formalize and ana-
+lyze this new model.
+</bodyText>
+<subsectionHeader confidence="0.980823">
+2.1 Structure Assumptions
+</subsectionHeader>
+<bodyText confidence="0.999176333333333">
+We first define the discourse structure and termi-
+nology we will be assuming. The discourse struc-
+ture is a directed graph, where nodes correspond to
+segments of a document (which we will refer to as
+blocks of text), and the edges define the dependen-
+cies between them.
+</bodyText>
+<page confidence="0.994377">
+95
+</page>
+<bodyText confidence="0.999695047619047">
+\x0cThus, a text block is a set of tokens, while a doc-
+ument consists of the discourse graph and all blocks
+associated with it. In the context of modeling con-
+versation threads, which will be the focus of our ex-
+periments later, we will assume a block corresponds
+to a single message in a thread. The parent of a mes-
+sage m is the message to which it is a response; if
+a message is not in response to anything in particu-
+lar, then it has no parent. Any replies to the message
+m are the children of m. The thread as a whole is
+called a document.
+The discourse graph should be acyclic. A directed
+acyclic graph (DAG) offers a flexible representation
+of discourse (Rose et al., 1995), but for simplic-
+ity, we will restrict this and assume that each sub-
+graph is a tree; i.e. no message has multiple parents.
+The graph as a whole may be a forest: for example,
+someone could write a new message in a conversa-
+tion that is not directly in reply to any previous mes-
+sage, so this message would not have any parents,
+and would form the root of a new tree in the forest.
+</bodyText>
+<subsectionHeader confidence="0.969612">
+2.2 Generative Story
+</subsectionHeader>
+<bodyText confidence="0.99916475">
+Extending the block HMM, latent classes in M4 are
+now associated with each individual token, rather
+than one class for an entire block. The key differ-
+ence between the generative process behind M4 and
+the block HMM is that the transition distributions
+are defined with a log-linear model, which uses class
+assignments in a block as features to define the dis-
+tribution over classes for the children of that block.
+Put another way, a state in M4 corresponds to a class
+histogram, and transitions between states are func-
+tions of the log-linear parameters.
+Given a block b, we will use the notation b to de-
+note the blocks feature vector, which consists of the
+histogram of latent class assignments for the tokens
+of b.1 There are K classes. Additionally, we assume
+each feature vector has an extra cell containing an
+indicator denoting whether the block has no parent
+this allows us to learn transitions from a start
+state. We also include a bias feature that is always
+1, to learn a default weight for each class. There
+</bodyText>
+<page confidence="0.936761">
+1
+</page>
+<bodyText confidence="0.997052733333333">
+One could also use other functions of the class histograms
+rather than the raw counts themselves. For example, we experi-
+mented with binary indicator features (i.e. does class k appear
+anywhere in block b?), but this performed consistently worse
+in early experiments, and we do not consider this further.
+are thus K + 2 features which are used to predict
+the probability of each of the K classes. The fea-
+tures are weighted by transition parameters, denoted
+. The random variable z denotes a latent class, and
+z is a discrete distribution over word types that
+is, each class is associated with a unigram language
+model. The transition distribution over classes is de-
+noted , which is given in terms of and the feature
+vector of the parent block.
+Under this model, a corpus D is generated by:
+</bodyText>
+<listItem confidence="0.999101166666667">
+1. For each (j, k) in the transition matrix KK+2:
+(a) Draw transition weight jk N(0, 2).
+2. For each class j:
+(a) Draw word distribution j Dirichlet().
+3. For each block b of each document d in D:
+(a) Set class probability bj =
+</listItem>
+<equation confidence="0.9919804">
+exp(T
+j a)
+P
+j0 exp(T
+j0 a)
+</equation>
+<bodyText confidence="0.974544">
+for all classes j, where a is the feature vec-
+tor for block a, the parent of b.
+</bodyText>
+<listItem confidence="0.926125666666667">
+(b) For each token n in block b:
+i. Sample class z(b,n) b.
+ii. Sample word w(b,n) z.
+</listItem>
+<bodyText confidence="0.995577954545455">
+For each block of text in a document (e.g. each
+message in a conversation), the distribution over
+classes is computed as a function of the feature
+vector of the blocks parent and the transition pa-
+rameters (feature weights) . Each jk has an intu-
+itive interpretation: a positive value means that the
+occurrence of class k in a parent block increases the
+probability that j will appear in the next block, while
+a negative value reduces this probability.
+The observed words of each block are generated
+by repeatedly sampling classes from the blocks dis-
+tribution , and for each sampled class z, a single
+word is sampled from the class-specific distribution
+over words z. In contrast, under the block HMM, a
+class z is sampled once from the transition distribu-
+tion, and words are repeatedly sampled from z.
+We place a symmetric Dirichlet prior on each
+with concentration parameter , which smoothes the
+word distributions, and we place a 0-mean Gaussian
+prior on each parameter, which acts as a regular-
+izer. The graphical diagram is shown in Figure 1
+along with the block HMM and LDA. This figure
+</bodyText>
+<page confidence="0.995997">
+96
+</page>
+<bodyText confidence="0.988592">
+\x0cshows how M4 combines the sequential dependen-
+cies of the block HMM with the token-specific class
+assignments of LDA.
+</bodyText>
+<subsectionHeader confidence="0.995442">
+2.3 Discussion
+</subsectionHeader>
+<bodyText confidence="0.995046555555555">
+Like the block HMM, M4 is a type of HMM. A latent
+sequence under M4 forms a Markov chain in which
+a state corresponds to a histogram of classes. (For
+simplicity, we are ignoring the extra features of the
+start state indicator and bias in this discussion.) If
+we assume a priori that the length of a block is un-
+bounded, then this state space is NK where 0 N.
+The probability of transitioning from a state b to an-
+other state b NK is:
+</bodyText>
+<equation confidence="0.953891">
+P(b b) N Multinomial(b|(b), N) (1)
+where N =
+P
+k bk, N is the probability that a
+</equation>
+<bodyText confidence="0.995696458333333">
+block has N tokens,2 and (b) is the transition dis-
+tribution given a vector b. This follows from the
+generative story defined above, with an additional
+step of generating the number of tokens N from the
+distribution .
+We currently define a block bs distribution b in
+terms of the discrete feature vector a given by its
+parent a. We could have instead made b a func-
+tion of the parents distribution a this would lead
+to a model that assumes a dynamical system over a
+continuous space rather than a Markov chain. How-
+ever, as a generative story we believe it makes more
+sense for a blocks distribution to depend on the ac-
+tual class values which are emitted by the parent.
+Similar arguments are made by Blei and Mcauliffe
+(2007) when designing supervised topic models.
+Under a block HMM with one class per block,
+there are K states corresponding to the K classes,
+requiring KK parameters to define the transition
+matrix. Under M4, there is a countably infinite num-
+ber of states, but the transitions are still defined by
+KK parameters (ignoring extra features). M4 thus
+utilizes a larger state space without increasing the
+number of free parameters.
+</bodyText>
+<sectionHeader confidence="0.964445" genericHeader="method">
+3 Inference and Parameter Estimation
+</sectionHeader>
+<bodyText confidence="0.999762">
+We must infer the values of the hidden variables z
+as well as the parameters for the word distributions
+</bodyText>
+<page confidence="0.972936">
+2
+</page>
+<bodyText confidence="0.997729153846154">
+The distribution over the number of tokens can be arbitrary,
+as this is observed and does not affect inference. In topic mod-
+els, this is sometimes assumed to be Poisson (Blei et al., 2003).
+and transition weights . Standard HMM dy-
+namic programming algorithms cannot straightfor-
+wardly be used for M4 because of the unboundedly
+large state space. We instead turn to Markov chain
+Monte Carlo (MCMC) methods as a tool for approx-
+imate inference. We derive a stochastic EM algo-
+rithm in which we alternate between sampling class
+assignments for the word tokens and optimizing the
+transition parameters, outlined in the following two
+subsections.
+</bodyText>
+<subsectionHeader confidence="0.999467">
+3.1 Latent Class Sampling
+</subsectionHeader>
+<bodyText confidence="0.9999405">
+To explore the posterior distribution over latent
+classes, we use a collapsed Gibbs sampler such that
+we marginalize out each word multinomial and
+only need to sample the token assignments z con-
+ditioned on each other. Given the current state of the
+sampler, we sample a tokens class according to:
+</bodyText>
+<equation confidence="0.998925095238095">
+P(z(b,n) = k|z(b,n), w, , ) (2)
+exp(T
+k a)
+P
+k0 exp(T
+k0 a)
+nw
+k +
+nk + W
+Y
+cC
+Y
+j
+exp(T
+j b)
+P
+j0 exp(T
+j0 b)
+!
+nj
+c
+</equation>
+<bodyText confidence="0.991477666666667">
+The notation nw
+k indicates the number of tokens
+with word type w that have been assigned to topic k.
+W is the vocabulary size. a is the parent block of b,
+and C is the set of bs children. b is the feature vector
+corresponding to block b (i.e. the class histogram
+plus the bias feature), where the histogram includes
+the incremented count of the candidate class k.
+This sampling distribution is very similar to that
+of LDA (Griffiths and Steyvers, 2004), but the distri-
+bution over topics is now a function of the previ-
+ous block, which gives the leftmost term. The right-
+most term is a result of the dependency of the child
+blocks (C) on the class assignments of b.
+Due to the rightmost term, the complexity of com-
+puting the sampling distribution is quadratic in the
+number of classes, rather than the linear complexity
+of a single-class HMM. Our assumption is that the
+number of sequence-dependent classes (e.g. speech
+acts or discourse states) will be reasonably small. If
+it is desired to have a large number of latent topics as
+is common in LDA, this model could be combined
+with a standard topic model without sequential de-
+pendencies, as explored by Ritter et al. (2010).
+</bodyText>
+<page confidence="0.986504">
+97
+</page>
+<bodyText confidence="0.679957">
+\x0c3.2 Transition Parameter Optimization
+Differentiating the corpus likelihood with respect to
+yields the standard equation for log-linear models:
+</bodyText>
+<equation confidence="0.983975055555556">
+`
+zk
+=
+X
+b
+ak
+\x12
+nz
+b nb
+exp(T
+z a)
+P
+z0 exp(T
+z0 a)
+\x13
+zk
+2
+(3)
+</equation>
+<bodyText confidence="0.9968294">
+where a is the parent of block b, a is the feature vec-
+tor associated with a, nz
+b is the number of times class
+z occurs in block b and nb is the total number of to-
+kens in block b.
+Standard optimization methods can be used to
+learn these parameters. In our experiments, we find
+that we obtain good results by simply performing
+a single iteration of gradient ascent after each sam-
+pling iteration t,3 with the following update:
+</bodyText>
+<equation confidence="0.989808142857143">
+(t+1)
+zk =
+(t)
+zk + (t)
+`
+zk
+(4)
+</equation>
+<bodyText confidence="0.996434">
+where is a step size function.
+</bodyText>
+<sectionHeader confidence="0.999397" genericHeader="method">
+4 Related Work
+</sectionHeader>
+<bodyText confidence="0.999053727272727">
+Hidden Markov models have a recent history as sim-
+ple models of document structure. Stolcke et al.
+(2000) used HMMs as a general model of discourse
+with an application to speech acts (or dialog acts)
+in conversations. Barzilay and Lee (2004) applied
+HMMs as an unsupervised model of discourse. This
+work used HMMs to model the progression of sen-
+tences in articles, and was shown to be useful for or-
+dering sentences and generating summaries of news
+articles. More recently, Wang et al. (2011b) exper-
+imented with similar tasks using a related HMM-
+based model called the Structural Topic Model.
+Unsupervised HMMs were applied to conversa-
+tional data by Ritter et al. (2010) who experimented
+with Twitter conversations. The authors also experi-
+mented with incorporating a topic model on top of
+the HMM to distinguish speech acts from topical
+clusters, with mixed results. Joty et al. (2011) ex-
+tended this work by enriching the emission distribu-
+tions and using additional features such as speaker
+and position information. An approach to unsuper-
+vised discourse modeling that does not use HMMs is
+</bodyText>
+<page confidence="0.972147">
+3
+</page>
+<bodyText confidence="0.997783959183674">
+Incremental updates are justified under the generalized EM
+algorithm (Dempster et al., 1977). Each gradient step with re-
+spect to corresponds to a generalized M-step, while each sam-
+pling iteration corresponds to a stochastic E-step.
+the latent permutation model of Chen et al. (2009).
+This model assumes each segment (e.g. paragraph)
+in a document is associated with a latent class or
+topic, and the ordering of topics within a document
+is modeled as a deviation from some canonical or-
+dering.
+Extensions to the block HMM have incorpo-
+rated mixed membership properties within blocks,
+notably the Markov Clustering Topic Model
+(Hospedales et al., 2009), which allows each HMM
+state to be associated with its own distribution over
+topics in a topic model. Like the block HMM, this
+still assumes a relatively small number of HMM
+states, but with an extra layer of latent variables be-
+fore the observations are emitted. This is more re-
+strictive than the unbounded state space of M4.
+Decoupling HMM states from latent classes was
+considered by Beal et al. (1997) with the Factorial
+HMM, which uses factorized state representations.
+The Factorial HMM is most often used to model in-
+dependent Markov chains, whereas M4 has a dense
+graphical model topology: the probability of each
+of the latent classes depends on the counts of all of
+the classes in the previous block. The trick in M4
+is to define the transition matrix via a function of
+a limited number of parameters, allowing tractable
+inference in a model with arbitrarily many states.
+In topic models, log-linear formulations of la-
+tent class distributions4 are utilized in correlated
+topic models (Blei and Lafferty, 2007) as a means
+of incorporating covariance structure among topic
+probabilities. Applying log-linear regression to po-
+tentially many features was combined with LDA
+by Mimno and McCallum (2008), who model the
+Dirichlet prior over topics as a function of document
+features. In M4, such features would correspond to
+the class histograms of previous blocks, introducing
+additional dependencies between documents.
+One topic model that imposes sequential depen-
+dencies between documents is Sequential LDA (Du
+et al., 2010), which models a document as a se-
+quence of segments (such as paragraphs) governed
+by a Pitman-Yor process, in which the latent topic
+distribution of one segment serves as the base dis-
+tribution for the next segment. This is in the spirit
+</bodyText>
+<page confidence="0.962984">
+4
+</page>
+<bodyText confidence="0.9974795">
+This formulation corresponds to the natural parameteriza-
+tion of the multinomial distribution.
+</bodyText>
+<page confidence="0.997539">
+98
+</page>
+<bodyText confidence="0.998683125">
+\x0cof our work, where the latent classes in a segment
+depend on the class distribution of the previous seg-
+ment. By using the Pitman-Yor process, however,
+this work assumes topics are positively correlated,
+i.e. the occurrence of a topic in one segment makes
+it likely to appear in the next. In contrast, we wish
+to learn arbitrary transitions, both positive and neg-
+ative, between the latent classes.
+</bodyText>
+<sectionHeader confidence="0.987037" genericHeader="method">
+5 Experiments with Conversation Data
+</sectionHeader>
+<bodyText confidence="0.999851166666667">
+We experiment with two corpora of text-based asyn-
+chronous conversations on the Web. One of these is
+annotated with speech act labels, against which we
+compare our unsupervised clusters. We measure the
+predictive capabilities of the model via perplexity
+experiments and the task of thread reconstruction.
+</bodyText>
+<subsectionHeader confidence="0.972041">
+5.1 Data Sets
+</subsectionHeader>
+<bodyText confidence="0.9979075625">
+First, we use a corpus of discussion threads from
+CNET forums (Kim et al., 2010), which are mostly
+technical discussion and support. This corpus in-
+cludes 321 threads and a total of 1309 messages,
+with an average message length of 78 tokens after
+preprocessing.5 Second, we use the Twitter data set
+created by Ritter et al. (2010). We consider 36K con-
+versation threads for a total of 100K messages with
+average length 13.4 tokens.
+Both data sets are already annotated with the re-
+ply structure, so the discourse graph is given. We
+preprocess the data by treating contiguous blocks
+of punctuation as tokens, and we remove infrequent
+words. The Twitter corpus has some additional pre-
+processing, such as converting URLs to a single
+word type.
+</bodyText>
+<subsectionHeader confidence="0.891728">
+5.2 Baseline Models
+</subsectionHeader>
+<bodyText confidence="0.998577875">
+Our work is motivated by the Bayesian HMM ap-
+proach of Ritter et al. (2010) the model we re-
+fer to as the block HMM (BHMM) and we con-
+sider this our primary baseline. (See also (Goldwa-
+ter and Griffiths, 2007) for more details on Bayesian
+HMMs with Dirichlet priors.) We also compare
+against LDA, which makes latent assignments at the
+token-level, but blocks of text are independent of
+</bodyText>
+<page confidence="0.936959">
+5
+</page>
+<bodyText confidence="0.995560166666667">
+Three messages in this corpus have multiple parents. For
+the sake of conciseness, we simply remove these threads rather
+than introducing a method to model multiple parents.
+each other. In other words, BHMM models sequen-
+tial dependencies but allows only single-class mem-
+bership, whereas LDA uses no sequence information
+but has a mixed membership property. M4 combines
+these two properties.
+We use standard Gibbs samplers for both baseline
+models, and we optimize the Dirichlet hyperparam-
+eters (for the transition and topic distributions) using
+Minkas fixed-point iterations (2003).
+</bodyText>
+<subsectionHeader confidence="0.992332">
+5.3 Incorporating Background Distributions
+</subsectionHeader>
+<bodyText confidence="0.9871039375">
+In our experiments, we find that the intrusion of
+common stop words can make the results difficult
+to interpret, but we do not want to perform simple
+stop word removal because common function words
+often play important roles in the latent classes (i.e.
+speech acts) of the conversation data we consider
+here. We instead handle this by extending our model
+to include a background distribution over words
+which is independent of the latent classes in a docu-
+ment; this was also done by Wang et al. (2011b).
+The idea is to introduce a binary switching vari-
+able x into the model which determines whether a
+word is generated from the general background dis-
+tribution or from the distribution specific to a latent
+class z. Loosely, if the marginal probability of a
+word was given by p(w) =
+</bodyText>
+<equation confidence="0.785294">
+P
+</equation>
+<bodyText confidence="0.674551666666667">
+z p(w|z)p(z), the
+introduction of a background distribution gives the
+marginal probability p(w) = p(x = 0)p(w|B) +
+</bodyText>
+<equation confidence="0.9988485">
+p(x = 1)
+P
+</equation>
+<bodyText confidence="0.997231571428571">
+z p(w|z). This is common practice and
+we will not go into detail; see (Chemudugunta et al.,
+2006) for a general example on sampling switching
+variables. We augment all three models with a back-
+ground distribution in exactly the same way, so that
+the comparison is fair. We use a Beta(10.0, 10.0)
+prior over the switching distribution.
+</bodyText>
+<subsectionHeader confidence="0.98575">
+5.4 Experimental Setup
+</subsectionHeader>
+<bodyText confidence="0.9975114">
+All of our results are averaged across four randomly
+initialized chains which are run for 5000 iterations,
+with five samples collected during the final 500 it-
+erations. We take small gradient steps of decreasing
+size with (t) = 0.1/(1000 + t).
+We set 2 = 10.0 as the variance of the
+weights. We use optimized asymmetric priors as de-
+scribed in 5.2, and we use a symmetric Dirichlet
+for the word distributions, following Wallach et al.
+(2009). We sample the scaling hyperparameter via
+</bodyText>
+<page confidence="0.996711">
+99
+</page>
+<table confidence="0.997736769230769">
+\x0c5 10 15 20 25
+CNET
+Unigram 63.07 63.07 63.07 63.07 63.07
+LDA 57.16 54.35 52.88 51.63 50.50
+BHMM 61.26 61.06 60.92 60.86 60.85
+M4
+60.38 59.58 59.26 59.21 59.25
+Twitter
+Unigram 93.00 93.00 93.00 93.00 93.00
+LDA 83.70 78.40 74.01 70.91 70.16
+BHMM 90.51 89.94 89.68 89.59 89.38
+M4
+88.44 86.17 85.50 85.55 86.31
+</table>
+<tableCaption confidence="0.996322">
+Table 1: Average perplexity of held-out data for various
+</tableCaption>
+<bodyText confidence="0.9571458">
+numbers of latent classes.
+Metropolis-Hastings proposals: we add Gaussian-
+distributed noise to the log of the current , then
+exponentiate this to yield the proposed (new). This
+log-space proposal ensures that is always positive.
+When computing the transition distributions for
+M4, we normalize the class histograms so that the
+counts to sum to 1. This helps with numeric sta-
+bility because the input vectors stay within a small
+bounded range.6
+</bodyText>
+<subsectionHeader confidence="0.7879665">
+5.5 Experimental Results
+5.5.1 Perplexity
+</subsectionHeader>
+<bodyText confidence="0.996974894736842">
+We begin with standard measures of the perplex-
+ity of held-out data. For these experiments, we
+train on 75% of the data, and test on the remaining
+25%. We run the sampler for 500 iterations using the
+word distributions and transition parameters learned
+during training; we compute the average perplexity
+from the final ten sampling iterations.
+Results for different numbers of classes are shown
+in Table 1. These results demonstrate the advan-
+tage of models with the mixed membership property.
+Although LDA outperforms both sequence models,
+this is be expected. Each blocks topic distribution
+is stochastically generated with LDA, whereas in the
+two sequence models, the distribution over classes
+is simply a deterministic function of the previous
+block. This allows LDA to infer parameters that fit
+the data more tightly. Comparing only the two se-
+quence models, we find that M4 does significantly
+better than BHMM in all cases with p &amp;lt; 0.05.
+</bodyText>
+<page confidence="0.854059">
+6
+</page>
+<figure confidence="0.913975791666667">
+Implementations of both M4
+and the block HMM will be
+available at http://cs.jhu.edu/ mpaul
+BHMM M4
+0.25
+0.30
+0.35
+0.40
+0.45
+0.50
+0.55
+Thread
+Reconstruction
+Accuracy
+CNET
+BHMM M4
+0.35
+0.36
+0.37
+0.38
+0.39
+0.40
+0.41
+0.42 Twitter
+</figure>
+<figureCaption confidence="0.99991">
+Figure 2: Accuracy at the task of thread reconstruction.
+</figureCaption>
+<bodyText confidence="0.9976095">
+The horizontal bar indicates a random baseline.
+If capturing sequence information is not impor-
+tant, then LDA may provide a better fit to a corpus
+than sequence models. In the next two subsections,
+we will consider tasks where the sequential structure
+is important, thus LDA is not an appropriate choice.
+</bodyText>
+<subsubsectionHeader confidence="0.938535">
+5.5.2 Thread Reconstruction
+</subsubsectionHeader>
+<bodyText confidence="0.99670419047619">
+A natural predictive task of the sequence models
+is to reconstruct the discourse graph of a document
+where the structure is unknown. In the conversa-
+tion domain, this corresponds to the task of thread
+reconstruction (Yeh and Harnly, 2006; Wang et al.,
+2011c). Given only a flat structure, can we recover
+the reply structure of messages in the conversation?
+Previous work with BHMM found the optimal
+structure by computing the likelihood of all permu-
+tations of a thread or sequence (Ritter et al., 2010;
+Wang et al., 2011b). We take a more practical ap-
+proach and find the optimal structure as part of our
+inference procedure. We do this by treating the par-
+ent of each block as a hidden variable to be inferred.
+The parent of block b is the random variable rb, and
+we alternate between sampling values of the latent
+classes z and the parents r. The sampling distri-
+butions are annealed, as a search technique to find
+the best configuration of assignments (Finkel et al.,
+2005). At temperature , we sample a blocks parent
+according to:
+</bodyText>
+<equation confidence="0.670309083333333">
+P(rb = a|z, )
+Y
+j
+exp(T
+j a)
+P
+j0 exp(T
+j0 a)
+!
+nj
+b/
+(5)
+</equation>
+<page confidence="0.642893">
+100
+</page>
+<bodyText confidence="0.992846857142857">
+\x0cFor each conversation thread, any message is a
+candidate for the parent of block b (except b itself)
+including the dummy start block.
+As before, we train on 75% of the data, and run
+this experiment on the remaining 25%. We run the
+sampler for 500 iterations, cooling by 1% after
+each iteration, where (0) = 1. We measure accu-
+racy as the percentage of blocks whose assignment
+for rb matches the true parent. For each fold, we
+run this estimation procedure from five random ini-
+tializations and average the results. Like Ritter et al.
+(2010), we do not enforce temporal constraints in the
+thread structure for this experiment. We are purely
+evaluating the predictive abilities of the model rather
+than its performance in a full-fledged reconstruction
+setup, which would require richer features beyond
+the scope of this paper.
+Figure 2 shows results comparing M4 against
+BHMM. Because all blocks are independent under
+LDA, it cannot be used in this experiment; using
+LDA would amount to a random baseline.
+We plot the distribution of results from vari-
+ous samples and various numbers of classes in
+{5, . . . , 25}. Most of the variance is across folds
+and samples; we find that there is not a strong trend
+in accuracy as a function of the number of classes.
+This suggests that most of the sequence predictions
+are carried by a small subset of the classes.
+On average, M4 outperforms BHMM by more
+than 15 points on the CNET corpus. M4 is also bet-
+ter on the Twitter corpus, but the difference is not so
+stark. This seems to confirm our intuition that the
+advantage of M4 over BHMM is greater when the
+blocks are longer; tweets may be short enough that
+the single-class assumption is not as limiting.
+</bodyText>
+<subsubsectionHeader confidence="0.717015">
+5.5.3 Speech Act Discovery
+</subsubsectionHeader>
+<bodyText confidence="0.992677545454546">
+Thus far, we have investigated the predictive
+power of the model, but we would also like to deter-
+mine if the inferred clusters correspond to human-
+interpretible classes. In the case of conversation
+data, our hope is that some of the latent classes
+represent speech acts or dialog acts (Searle, 1975).
+While there is a body of work in supervised speech
+act classification (Cohen et al., 2004; Bangalore et
+al., 2006; Surendran and Levow, 2006; Qadir and
+Riloff, 2011), the variety of conversation domains
+on the Web motivates the use of unsupervised ap-
+</bodyText>
+<figure confidence="0.983972611111111">
+5 10 15 20 25
+Number of classes
+2.0
+2.5
+3.0
+3.5
+4.0
+4.5
+5.0
+Variation
+of
+Information
+(VI)
+Speech Act Clustering (CNET)
+Random
+LDA
+BHMM
+M4
+</figure>
+<figureCaption confidence="0.999912">
+Figure 3: The variation of information between the
+</figureCaption>
+<bodyText confidence="0.996365555555556">
+human-created speech act annotations of the CNET cor-
+pus and the latent class assignments by various models.
+proaches.
+The CNET corpus is annotated with twelve
+speech act classes: QUESTION and ANSWER, which
+are both broken down into multiple sub-classes, as
+well as RESOLUTION, REPRODUCTION, and OTHER
+(Kim et al., 2010). We would like to quantitatively
+measure how closely the latent states induced by our
+model match these annotations.7
+We can measure this with variation of informa-
+tion (Meila, 2003), which has been used in recent
+years for unsupervised evaluation, e.g. in part-of-
+speech clustering (Goldwater and Griffiths, 2007).
+Given two sets of variable assignments z and z0, the
+variation of information is defined as H(Z|Z0) +
+H(Z0|Z). In other words, given one clustering, how
+much uncertainty do we have about the other? Re-
+sults are shown in Figure 3: a lower value corre-
+sponds to higher similarity.
+On the CNET corpus, M4 outperforms both base-
+lines in all cases by a very significant margin. Qual-
+itatively, we see clusters and transition parameters
+that make sense. For example, the class with top
+words {i, my, have, computer, am, ?, tried, help}
+is most likely to begin a thread (with = +1.94)
+and appears to describe questions or requests for
+</bodyText>
+<page confidence="0.993905">
+7
+</page>
+<bodyText confidence="0.9984618">
+Some messages have multiple labels. Since messages are
+not annotated at finer granularities, we handle this by simply
+duplicating such messages, once per label, and measuring clus-
+tering performance on this expanded set of labeled data which
+now has one label per token.
+</bodyText>
+<page confidence="0.990867">
+101
+</page>
+<figure confidence="0.95231225">
+\x0c! you ? :)
+u your
+good !!
+thanks
+. i , it you
+but that
+im lol its
+to in ! .
+im ? the at
+be going
+! * :d lol
+haha :p ?
+.. me !! :o
+he . is
+the him
+his that
+was like
+. the of , ?
+a in is to
+for that
+-url- rt
+just #
+today
+anyone
+people
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
+</figure>
+<figureCaption confidence="0.99998">
+Figure 4: Example output from a model trained on the Twitter corpus with 15 classes (7 shown). Each node corre-
+</figureCaption>
+<bodyText confidence="0.997102575757576">
+sponds to a class learned by the model, and the most probable words are shown for each class. The symbols + and
+on the directed edges denote the sign of the associated with transitioning from one class to another, and the size
+of the symbols is scaled by the magnitude of . Non-edge arrows going into a node represent the weight of starting a
+conversation with that class. Low-magnitude weights are not shown, and some edges are omitted to avoid clutter.
+help. The class is not likely to be followed by itself
+( = 0.32) but is likely to be followed by the class
+with words {you, your, /, com, ., http, windows}
+(with = +1.38).
+The Twitter corpus does not have speech act an-
+notations, so we offer example output in Figure 4.
+We again see patterns that we might expect to find in
+social media conversations, and some classes appear
+to correspond to speech acts such a declarations, per-
+sonal questions, and replies. For example, the class
+in the center of the figure has words like you and but
+which suggests it is used in reply to other messages,
+and indeed we see that it has a positive weight of
+following almost every class, but a negative weight
+for actually starting a thread. Conversely, the class
+containing URLs (which corresponds to the act of
+sharing news or media) is likely to begin a thread,
+but is not likely to follow other classes except itself.
+How well unsupervised models can truly capture
+speech acts is an open question. Much as LDA
+topics do not always correspond to what humans
+would judge to be semantic classes (Chang et al.,
+2009), the conversation classes inferred by unsu-
+pervised sequence models are similarly unlikely to
+be a perfect fit to human-assigned classes. Never-
+theless, these results suggest M4 is a step forward.
+Our model provides a framework for defining inter-
+message transitions as functions of multiple classes,
+which will be a desirable property for many corpora.
+</bodyText>
+<sectionHeader confidence="0.997823" genericHeader="conclusions">
+6 Conclusion
+</sectionHeader>
+<bodyText confidence="0.989208476190476">
+We have presented mixed membership Markov
+models (M4), which extend the simple HMM ap-
+proach to discourse modeling by positing class as-
+signments at the level of individual tokens. This al-
+lows blocks of text to belong to potentially multiple
+classes, a property that relates M4 to topic models.
+This type of model can be viewed as an HMM with
+an expanded state space, but because the transition
+probabilities are a function of a small number of pa-
+rameters, the output remains human-interpretible.
+M4 can be taken as a general family of models and
+can be readily extended. In this work, we focused
+on introducing a model of inter-message structure,
+but certainly more sophisticated models of intra-
+message structure beyond unigram language mod-
+els could be incorporated into M4. Standard topic
+model extensions such as n-gram models (Wallach,
+2006) can straightforwardly be applied here, and in-
+deed we already applied such an extension by in-
+corporating background distributions in 5.3. For
+conversational data, it could make sense to segment
+</bodyText>
+<page confidence="0.994395">
+102
+</page>
+<bodyText confidence="0.998725363636364">
+\x0cmessages (e.g. into sentences) and constraint each
+segment to belong to one class or speech act; modi-
+fications along these lines have been applied to topic
+models as well (Gruber et al., 2007). While we have
+focused on conversation modeling, M4 is a general
+probabilistic model that could be applied to other
+discourse applications, for example modeling sen-
+tences or paragraphs in articles rather than messages
+in conversations; it could also be applied to data be-
+yond text.
+Compared to a Bayesian block HMM, M4 per-
+forms much better at a variety of tasks. A draw-
+back is that the time complexity of inference as pre-
+sented here is quadratic in the number of classes
+rather than linear. Improving this may be the subject
+of future research. Another potential avenue of fu-
+ture work is to model transitions such that a Dirichlet
+prior for the class distribution of a block, rather than
+the class distribution itself, depends on the previous
+class assignments. This would yield a model that
+more closely resembles LDA, but with topic priors
+that encode sequence information.
+</bodyText>
+<sectionHeader confidence="0.94433" genericHeader="acknowledgments">
+Acknowledgements
+</sectionHeader>
+<bodyText confidence="0.9817095">
+Thanks to Matt Gormley, Mark Dredze, Jason Eis-
+ner, the members of my lab and the anonymous re-
+viewers for helpful feedback and discussions. This
+material is based upon work supported by a National
+Science Foundation Graduate Research Fellowship
+under Grant No. DGE-0707427 and a Deans Fel-
+lowship from the Johns Hopkins University Whiting
+School of Engineering.
+</bodyText>
+<sectionHeader confidence="0.976837" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.999223880597015">
+Srinivas Bangalore, Giuseppe Di Fabbrizio, and Amanda
+Stent. 2006. Learning the structure of task-driven
+human-human dialogs. In Proceedings of the 21st In-
+ternational Conference on Computational Linguistics
+and the 44th annual meeting of the Association for
+Computational Linguistics, ACL-44, pages 201208.
+Regina Barzilay and Lillian Lee. 2004. Catching the
+drift: Probabilistic content models, with applications
+to generation and summarization. In HLT-NAACL
+2004: Main Proceedings, pages 113120, Boston,
+Massachusetts, USA, May 2 - May 7. Association for
+Computational Linguistics.
+M. J. Beal, Z. Ghahramani, and C. E. Rasmussen. 1997.
+Factorial hidden markov models. In Machine Learn-
+ing, volume 29, pages 29245.
+D. Blei and J. Lafferty. 2007. A correlated topic model
+of science. Annals of Applied Statistics, 1(1):1735.
+David M. Blei and Jon D. Mcauliffe. 2007. Supervised
+topic models. In Advances in Neural Information Pro-
+cessing Systems 21.
+David Blei, Andrew Ng, and Michael Jordan. 2003. La-
+tent dirichlet allocation. Journal of Machine Learning
+Research, 3.
+Jonathan Chang, Jordan Boyd-Graber, Sean Gerrish,
+Chong Wang, and David Blei. 2009. Reading Tea
+Leaves: How Humans Interpret Topic Models. In Neu-
+ral Information Processing Systems (NIPS).
+Chaitanya Chemudugunta, Padhraic Smyth, and Mark
+Steyvers. 2006. Modeling general and specific as-
+pects of documents with a probabilistic topic model.
+In NIPS, pages 241248.
+Harr Chen, S. R. K. Branavan, Regina Barzilay, and
+David R. Karger. 2009. Global models of document
+structure using latent permutations. In Proceedings
+of Human Language Technologies: The 2009 Annual
+Conference of the North American Chapter of the As-
+sociation for Computational Linguistics, NAACL 09,
+pages 371379.
+William W. Cohen, Vitor R. Carvalho, and Tom M.
+Mitchell. 2004. Learning to classify email into
+speech acts. In Proceedings of EMNLP 2004,
+pages 309316, Barcelona, Spain, July. Association
+for Computational Linguistics.
+A. P. Dempster, N. M. Laird, and D. B. Rubin. 1977.
+Maximum likelihood from incomplete data via the em
+algorithm. Journal of the Royal Statistical Society. Se-
+ries B (Methodological), 39(1):138.
+Christopher P. Diehl, Galileo Namata, and Lise Getoor.
+2007. Relationship identication for social network dis-
+covery. In AAAI07.
+Lan Du, Wray Buntine, and Huidong Jin. 2010. Se-
+quential latent dirichlet allocation: Discover underly-
+ing topic structures within a document. 2010 IEEE
+International Conference on Data Mining, pages 148
+157.
+Jonathan L. Elsas and Jaime Carbonell. 2009. It pays to
+be picky: An evaluation of thread retrieval in online fo-
+rums. In 32nd Annual International ACM SIGIR Con-
+ference on Research and Development on Information
+Retrieval(SIGIR 2009).
+Jenny Rose Finkel, Trond Grenager, and Christopher D.
+Manning. 2005. Incorporating non-local information
+into information extraction systems by gibbs sampling.
+In ACL.
+Sharon Goldwater and Tom Griffiths. 2007. A fully
+bayesian approach to unsupervised part-of-speech tag-
+ging. In Proceedings of the 45th Annual Meeting of
+</reference>
+<page confidence="0.987186">
+103
+</page>
+<reference confidence="0.999331306818182">
+\x0cthe Association of Computational Linguistics, pages
+744751, Prague, Czech Republic, June. Association
+for Computational Linguistics.
+Tom Griffiths and Mark Steyvers. 2004. Finding scien-
+tific topics. In Proceedings of the National Academy
+of Sciences of the United States of America.
+Amit Gruber, Michal Rosen-Zvi, and Yair Weiss. 2007.
+Hidden topic markov models. In Artificial Intelligence
+and Statistics (AISTATS), San Juan, Puerto Rico.
+Timothy Hospedales, Shaogang Gong, and Tao Xiang.
+2009. A markov clustering topic model for mining
+behaviour in video. In International Conference on
+Computer Vision (ICCV).
+Shafiq R. Joty, Giuseppe Carenini, and Chin-Yew Lin.
+2011. Unsupervised modeling of dialog acts in asyn-
+chronous conversations. In IJCAI, pages 18071813.
+Su Nam Kim, Li Wang, and Timothy Baldwin. 2010.
+Tagging and linking web forum posts. In Proceedings
+of the Fourteenth Conference on Computational Natu-
+ral Language Learning, CoNLL 10, pages 192202.
+Marina Meila. 2003. Comparing clusterings by the vari-
+ation of information. Learning Theory and Kernel Ma-
+chines, pages 173187.
+D. Mimno and A. McCallum. 2008. Topic models condi-
+tioned on arbitrary features with dirichlet-multinomial
+regression. In UAI.
+Tom Minka. 2003. Estimating a dirichlet distribution.
+Ashequl Qadir and Ellen Riloff. 2011. Classifying sen-
+tences as speech acts in message board posts. In Pro-
+ceedings of the 2011 Conference on Empirical Meth-
+ods in Natural Language Processing, pages 748758,
+Edinburgh, Scotland, UK., July. Association for Com-
+putational Linguistics.
+Alan Ritter, Colin Cherry, and Bill Dolan. 2010. Unsu-
+pervised modeling of twitter conversations. In Human
+Language Technologies: The 2010 Annual Conference
+of the North American Chapter of the Association for
+Computational Linguistics, HLT 10, pages 172180.
+Carolyn Penstein Rose, Barbara Di Eugenio, Lori S.
+Levin, and Carol Van Ess-Dykema. 1995. Discourse
+processing of dialogues with multiple threads. In Pro-
+ceedings of the 33rd annual meeting on Association for
+Computational Linguistics, ACL 95, pages 3138.
+John Searle, 1975. A taxonomy of illocutionary acts.
+University of Minnesota Press, Minneapolis.
+Jangwon Seo, W. Bruce Croft, and David A. Smith.
+2009. Online community search using thread struc-
+ture. In ACM Conference on Information and Knowl-
+edge Management (CIKM 2009), pages 19071910.
+Andreas Stolcke, Noah Coccaro, Rebecca Bates, Paul
+Taylor, Carol Van Ess-Dykema, Klaus Ries, Eliza-
+beth Shriberg, Daniel Jurafsky, Rachel Martin, and
+Marie Meteer. 2000. Dialogue act modeling for
+automatic tagging and recognition of conversational
+speech. Computational Linguistics, 26(3):339373,
+September.
+Dinoj Surendran and Gina-Anne Levow. 2006. Dialog
+act tagging with support vector machines and hidden
+markov models. In Interspeech.
+Hanna M. Wallach, David Mimno, and Andrew McCal-
+lum. 2009. Rethinking LDA: Why priors matter. In
+NIPS.
+H.M. Wallach. 2006. Topic modeling: beyond bag-of-
+words. In ICML 06: Proceedings of the 23rd inter-
+national conference on Machine learning, pages 977
+984.
+Hongning Wang, Chi Wang, ChengXiang Zhai, and Ji-
+awei Han. 2011a. Learning online discussion struc-
+tures by conditional random fields. In 34th Annual
+International ACM SIGIR Conference on Research
+and Development in Information Retrieval (SIGIR11),
+pages 435444.
+Hongning Wang, Duo Zhang, and ChengXiang Zhai.
+2011b. Structural topic model for latent topical struc-
+ture analysis. In ACL, pages 15261535. The Associ-
+ation for Computer Linguistics.
+Li Wang, Marco Lui, Su Nam Kim, Joakim Nivre, and
+Timothy Baldwin. 2011c. Predicting thread discourse
+structure over technical web forums. In Proceedings
+of EMNLP 2011, pages 1325.
+Gu Xu, Hang Li, and Wei-Ying Ma. 2008. Fora: Lever-
+aging the power of internet communities for question
+answering. In 1st International Workshop on Question
+Answering on the Web (QAWeb08).
+Jen-Yuan Yeh and Aaron Harnly. 2006. Email thread
+reassembly using similarity matching. In Proceedings
+of the 3rd Conference on Email and Anti-Spam (CEAS
+2006), pages 6471.
+</reference>
+<page confidence="0.997061">
+104
+</page>
+<figure confidence="0.244562">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.796283">
+<note confidence="0.960657666666667">b&apos;Proceedings of the 2012 Joint Conference on Empirical Methods in Natural Language Processing and Computational Natural Language Learning, pages 94104, Jeju Island, Korea, 1214 July 2012. c 2012 Association for Computational Linguistics</note>
+<title confidence="0.9522745">Mixed Membership Markov Models for Unsupervised Conversation Modeling</title>
+<author confidence="0.999997">Michael J Paul</author>
+<affiliation confidence="0.9977225">Center for Language and Speech Processing Johns Hopkins University</affiliation>
+<address confidence="0.999864">Baltimore, MD 21218, USA</address>
+<email confidence="0.999823">mpaul@cs.jhu.edu</email>
+<abstract confidence="0.999652333333333">Recent work has explored the use of hidden Markov models for unsupervised discourse and conversation modeling, where each segment or block of text such as a message in a conversation is associated with a hidden state in a sequence. We extend this approach to allow each block of text to be a mixture of multiple classes. Under our model, the probability of a class in a text block is a log-linear function of the classes in the previous block. We show that this model performs well at predictive tasks on two conversation data sets, improving thread reconstruction accuracy by up to 15 percentage points over a standard HMM. Additionally, we show quantitatively that the induced word clusters correspond to speech acts more closely than baseline models.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Srinivas Bangalore</author>
+<author>Giuseppe Di Fabbrizio</author>
+<author>Amanda Stent</author>
+</authors>
+<title>Learning the structure of task-driven human-human dialogs.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the 21st International Conference on Computational Linguistics and the 44th annual meeting of the Association for Computational Linguistics, ACL-44,</booktitle>
+<pages>201208</pages>
+<marker>Bangalore, Di Fabbrizio, Stent, 2006</marker>
+<rawString>Srinivas Bangalore, Giuseppe Di Fabbrizio, and Amanda Stent. 2006. Learning the structure of task-driven human-human dialogs. In Proceedings of the 21st International Conference on Computational Linguistics and the 44th annual meeting of the Association for Computational Linguistics, ACL-44, pages 201208.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Regina Barzilay</author>
+<author>Lillian Lee</author>
+</authors>
+<title>Catching the drift: Probabilistic content models, with applications to generation and summarization.</title>
+<date>2004</date>
+<booktitle>In HLT-NAACL 2004: Main Proceedings,</booktitle>
+<pages>113120</pages>
+<location>Boston, Massachusetts, USA,</location>
+<contexts>
+<context position="16756" citStr="Barzilay and Lee (2004)" startWordPosition="2956" endWordPosition="2959">n block b and nb is the total number of tokens in block b. Standard optimization methods can be used to learn these parameters. In our experiments, we find that we obtain good results by simply performing a single iteration of gradient ascent after each sampling iteration t,3 with the following update: (t+1) zk = (t) zk + (t) ` zk (4) where is a step size function. 4 Related Work Hidden Markov models have a recent history as simple models of document structure. Stolcke et al. (2000) used HMMs as a general model of discourse with an application to speech acts (or dialog acts) in conversations. Barzilay and Lee (2004) applied HMMs as an unsupervised model of discourse. This work used HMMs to model the progression of sentences in articles, and was shown to be useful for ordering sentences and generating summaries of news articles. More recently, Wang et al. (2011b) experimented with similar tasks using a related HMMbased model called the Structural Topic Model. Unsupervised HMMs were applied to conversational data by Ritter et al. (2010) who experimented with Twitter conversations. The authors also experimented with incorporating a topic model on top of the HMM to distinguish speech acts from topical cluste</context>
+</contexts>
+<marker>Barzilay, Lee, 2004</marker>
+<rawString>Regina Barzilay and Lillian Lee. 2004. Catching the drift: Probabilistic content models, with applications to generation and summarization. In HLT-NAACL 2004: Main Proceedings, pages 113120, Boston, Massachusetts, USA, May 2 - May 7. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M J Beal</author>
+<author>Z Ghahramani</author>
+<author>C E Rasmussen</author>
+</authors>
+<title>Factorial hidden markov models.</title>
+<date>1997</date>
+<booktitle>In Machine Learning,</booktitle>
+<volume>29</volume>
+<pages>29245</pages>
+<contexts>
+<context position="18658" citStr="Beal et al. (1997)" startWordPosition="3270" endWordPosition="3273"> is modeled as a deviation from some canonical ordering. Extensions to the block HMM have incorporated mixed membership properties within blocks, notably the Markov Clustering Topic Model (Hospedales et al., 2009), which allows each HMM state to be associated with its own distribution over topics in a topic model. Like the block HMM, this still assumes a relatively small number of HMM states, but with an extra layer of latent variables before the observations are emitted. This is more restrictive than the unbounded state space of M4. Decoupling HMM states from latent classes was considered by Beal et al. (1997) with the Factorial HMM, which uses factorized state representations. The Factorial HMM is most often used to model independent Markov chains, whereas M4 has a dense graphical model topology: the probability of each of the latent classes depends on the counts of all of the classes in the previous block. The trick in M4 is to define the transition matrix via a function of a limited number of parameters, allowing tractable inference in a model with arbitrarily many states. In topic models, log-linear formulations of latent class distributions4 are utilized in correlated topic models (Blei and La</context>
+</contexts>
+<marker>Beal, Ghahramani, Rasmussen, 1997</marker>
+<rawString>M. J. Beal, Z. Ghahramani, and C. E. Rasmussen. 1997. Factorial hidden markov models. In Machine Learning, volume 29, pages 29245.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Blei</author>
+<author>J Lafferty</author>
+</authors>
+<title>A correlated topic model of science.</title>
+<date>2007</date>
+<journal>Annals of Applied Statistics,</journal>
+<volume>1</volume>
+<issue>1</issue>
+<contexts>
+<context position="19271" citStr="Blei and Lafferty, 2007" startWordPosition="3370" endWordPosition="3373"> al. (1997) with the Factorial HMM, which uses factorized state representations. The Factorial HMM is most often used to model independent Markov chains, whereas M4 has a dense graphical model topology: the probability of each of the latent classes depends on the counts of all of the classes in the previous block. The trick in M4 is to define the transition matrix via a function of a limited number of parameters, allowing tractable inference in a model with arbitrarily many states. In topic models, log-linear formulations of latent class distributions4 are utilized in correlated topic models (Blei and Lafferty, 2007) as a means of incorporating covariance structure among topic probabilities. Applying log-linear regression to potentially many features was combined with LDA by Mimno and McCallum (2008), who model the Dirichlet prior over topics as a function of document features. In M4, such features would correspond to the class histograms of previous blocks, introducing additional dependencies between documents. One topic model that imposes sequential dependencies between documents is Sequential LDA (Du et al., 2010), which models a document as a sequence of segments (such as paragraphs) governed by a Pit</context>
+</contexts>
+<marker>Blei, Lafferty, 2007</marker>
+<rawString>D. Blei and J. Lafferty. 2007. A correlated topic model of science. Annals of Applied Statistics, 1(1):1735.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David M Blei</author>
+<author>Jon D Mcauliffe</author>
+</authors>
+<title>Supervised topic models.</title>
+<date>2007</date>
+<booktitle>In Advances in Neural Information Processing Systems 21.</booktitle>
+<contexts>
+<context position="12973" citStr="Blei and Mcauliffe (2007)" startWordPosition="2276" endWordPosition="2279">he generative story defined above, with an additional step of generating the number of tokens N from the distribution . We currently define a block bs distribution b in terms of the discrete feature vector a given by its parent a. We could have instead made b a function of the parents distribution a this would lead to a model that assumes a dynamical system over a continuous space rather than a Markov chain. However, as a generative story we believe it makes more sense for a blocks distribution to depend on the actual class values which are emitted by the parent. Similar arguments are made by Blei and Mcauliffe (2007) when designing supervised topic models. Under a block HMM with one class per block, there are K states corresponding to the K classes, requiring KK parameters to define the transition matrix. Under M4, there is a countably infinite number of states, but the transitions are still defined by KK parameters (ignoring extra features). M4 thus utilizes a larger state space without increasing the number of free parameters. 3 Inference and Parameter Estimation We must infer the values of the hidden variables z as well as the parameters for the word distributions 2 The distribution over the number of </context>
+</contexts>
+<marker>Blei, Mcauliffe, 2007</marker>
+<rawString>David M. Blei and Jon D. Mcauliffe. 2007. Supervised topic models. In Advances in Neural Information Processing Systems 21.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Blei</author>
+<author>Andrew Ng</author>
+<author>Michael Jordan</author>
+</authors>
+<title>Latent dirichlet allocation.</title>
+<date>2003</date>
+<journal>Journal of Machine Learning Research,</journal>
+<volume>3</volume>
+<contexts>
+<context position="2953" citStr="Blei et al., 2003" startWordPosition="473" endWordPosition="476">gle token is emitted per time step, HMM emissions in conversations correspond to entire blocks of text, such that an entire message is generated at each step. Because each time step is associated with a block of variables, we refer to this type of HMM as a block HMM (Fig. 1a). While block HMMs offer a concise model of inter-message structure, they have the limitation that each text block (message) belongs to exactly one class. Many modern generative models of text, in contrast, allow documents to contain many latent classes. For example, topic models such as Latent Dirichlet Allocation (LDA) (Blei et al., 2003) assume each document has its own distribution over multiple classes (often called topics). For many predictive tasks, topic models outperform singleclass generative models such as Naive Bayes. These properties could similarly be desirable in conversation modeling. An email might contain a request, a question, and an answer to a previous question three distinct dialog acts within a single message. This motivates the desire to allow a message to be a mixture of classes. In this paper, we introduce a new type of model which combines the functionality of topic models, which posit latent class ass</context>
+<context position="13725" citStr="Blei et al., 2003" startWordPosition="2403" endWordPosition="2406">, requiring KK parameters to define the transition matrix. Under M4, there is a countably infinite number of states, but the transitions are still defined by KK parameters (ignoring extra features). M4 thus utilizes a larger state space without increasing the number of free parameters. 3 Inference and Parameter Estimation We must infer the values of the hidden variables z as well as the parameters for the word distributions 2 The distribution over the number of tokens can be arbitrary, as this is observed and does not affect inference. In topic models, this is sometimes assumed to be Poisson (Blei et al., 2003). and transition weights . Standard HMM dynamic programming algorithms cannot straightforwardly be used for M4 because of the unboundedly large state space. We instead turn to Markov chain Monte Carlo (MCMC) methods as a tool for approximate inference. We derive a stochastic EM algorithm in which we alternate between sampling class assignments for the word tokens and optimizing the transition parameters, outlined in the following two subsections. 3.1 Latent Class Sampling To explore the posterior distribution over latent classes, we use a collapsed Gibbs sampler such that we marginalize out ea</context>
+</contexts>
+<marker>Blei, Ng, Jordan, 2003</marker>
+<rawString>David Blei, Andrew Ng, and Michael Jordan. 2003. Latent dirichlet allocation. Journal of Machine Learning Research, 3.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jonathan Chang</author>
+<author>Jordan Boyd-Graber</author>
+<author>Sean Gerrish</author>
+<author>Chong Wang</author>
+<author>David Blei</author>
+</authors>
+<title>Reading Tea Leaves: How Humans Interpret Topic Models.</title>
+<date>2009</date>
+<booktitle>In Neural Information Processing Systems (NIPS).</booktitle>
+<contexts>
+<context position="33839" citStr="Chang et al., 2009" startWordPosition="5881" endWordPosition="5884"> in the center of the figure has words like you and but which suggests it is used in reply to other messages, and indeed we see that it has a positive weight of following almost every class, but a negative weight for actually starting a thread. Conversely, the class containing URLs (which corresponds to the act of sharing news or media) is likely to begin a thread, but is not likely to follow other classes except itself. How well unsupervised models can truly capture speech acts is an open question. Much as LDA topics do not always correspond to what humans would judge to be semantic classes (Chang et al., 2009), the conversation classes inferred by unsupervised sequence models are similarly unlikely to be a perfect fit to human-assigned classes. Nevertheless, these results suggest M4 is a step forward. Our model provides a framework for defining intermessage transitions as functions of multiple classes, which will be a desirable property for many corpora. 6 Conclusion We have presented mixed membership Markov models (M4), which extend the simple HMM approach to discourse modeling by positing class assignments at the level of individual tokens. This allows blocks of text to belong to potentially mult</context>
+</contexts>
+<marker>Chang, Boyd-Graber, Gerrish, Wang, Blei, 2009</marker>
+<rawString>Jonathan Chang, Jordan Boyd-Graber, Sean Gerrish, Chong Wang, and David Blei. 2009. Reading Tea Leaves: How Humans Interpret Topic Models. In Neural Information Processing Systems (NIPS).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Chaitanya Chemudugunta</author>
+<author>Padhraic Smyth</author>
+<author>Mark Steyvers</author>
+</authors>
+<title>Modeling general and specific aspects of documents with a probabilistic topic model.</title>
+<date>2006</date>
+<booktitle>In NIPS,</booktitle>
+<pages>241248</pages>
+<contexts>
+<context position="23647" citStr="Chemudugunta et al., 2006" startWordPosition="4089" endWordPosition="4092">stribution over words which is independent of the latent classes in a document; this was also done by Wang et al. (2011b). The idea is to introduce a binary switching variable x into the model which determines whether a word is generated from the general background distribution or from the distribution specific to a latent class z. Loosely, if the marginal probability of a word was given by p(w) = P z p(w|z)p(z), the introduction of a background distribution gives the marginal probability p(w) = p(x = 0)p(w|B) + p(x = 1) P z p(w|z). This is common practice and we will not go into detail; see (Chemudugunta et al., 2006) for a general example on sampling switching variables. We augment all three models with a background distribution in exactly the same way, so that the comparison is fair. We use a Beta(10.0, 10.0) prior over the switching distribution. 5.4 Experimental Setup All of our results are averaged across four randomly initialized chains which are run for 5000 iterations, with five samples collected during the final 500 iterations. We take small gradient steps of decreasing size with (t) = 0.1/(1000 + t). We set 2 = 10.0 as the variance of the weights. We use optimized asymmetric priors as described i</context>
+</contexts>
+<marker>Chemudugunta, Smyth, Steyvers, 2006</marker>
+<rawString>Chaitanya Chemudugunta, Padhraic Smyth, and Mark Steyvers. 2006. Modeling general and specific aspects of documents with a probabilistic topic model. In NIPS, pages 241248.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Harr Chen</author>
+<author>S R K Branavan</author>
+<author>Regina Barzilay</author>
+<author>David R Karger</author>
+</authors>
+<title>Global models of document structure using latent permutations.</title>
+<date>2009</date>
+<booktitle>In Proceedings of Human Language Technologies: The 2009 Annual Conference of the North American Chapter of the Association for Computational Linguistics, NAACL 09,</booktitle>
+<pages>371379</pages>
+<contexts>
+<context position="17887" citStr="Chen et al. (2009)" startWordPosition="3140" endWordPosition="3143">porating a topic model on top of the HMM to distinguish speech acts from topical clusters, with mixed results. Joty et al. (2011) extended this work by enriching the emission distributions and using additional features such as speaker and position information. An approach to unsupervised discourse modeling that does not use HMMs is 3 Incremental updates are justified under the generalized EM algorithm (Dempster et al., 1977). Each gradient step with respect to corresponds to a generalized M-step, while each sampling iteration corresponds to a stochastic E-step. the latent permutation model of Chen et al. (2009). This model assumes each segment (e.g. paragraph) in a document is associated with a latent class or topic, and the ordering of topics within a document is modeled as a deviation from some canonical ordering. Extensions to the block HMM have incorporated mixed membership properties within blocks, notably the Markov Clustering Topic Model (Hospedales et al., 2009), which allows each HMM state to be associated with its own distribution over topics in a topic model. Like the block HMM, this still assumes a relatively small number of HMM states, but with an extra layer of latent variables before </context>
+</contexts>
+<marker>Chen, Branavan, Barzilay, Karger, 2009</marker>
+<rawString>Harr Chen, S. R. K. Branavan, Regina Barzilay, and David R. Karger. 2009. Global models of document structure using latent permutations. In Proceedings of Human Language Technologies: The 2009 Annual Conference of the North American Chapter of the Association for Computational Linguistics, NAACL 09, pages 371379. William W. Cohen, Vitor R. Carvalho, and Tom M.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mitchell</author>
+</authors>
+<title>Learning to classify email into speech acts.</title>
+<date>2004</date>
+<booktitle>In Proceedings of EMNLP 2004,</booktitle>
+<pages>309316</pages>
+<location>Barcelona, Spain,</location>
+<marker>Mitchell, 2004</marker>
+<rawString>Mitchell. 2004. Learning to classify email into speech acts. In Proceedings of EMNLP 2004, pages 309316, Barcelona, Spain, July. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A P Dempster</author>
+<author>N M Laird</author>
+<author>D B Rubin</author>
+</authors>
+<title>Maximum likelihood from incomplete data via the em algorithm.</title>
+<date>1977</date>
+<journal>Journal of the Royal Statistical Society. Series B (Methodological),</journal>
+<volume>39</volume>
+<issue>1</issue>
+<contexts>
+<context position="17697" citStr="Dempster et al., 1977" startWordPosition="3109" endWordPosition="3112">ed the Structural Topic Model. Unsupervised HMMs were applied to conversational data by Ritter et al. (2010) who experimented with Twitter conversations. The authors also experimented with incorporating a topic model on top of the HMM to distinguish speech acts from topical clusters, with mixed results. Joty et al. (2011) extended this work by enriching the emission distributions and using additional features such as speaker and position information. An approach to unsupervised discourse modeling that does not use HMMs is 3 Incremental updates are justified under the generalized EM algorithm (Dempster et al., 1977). Each gradient step with respect to corresponds to a generalized M-step, while each sampling iteration corresponds to a stochastic E-step. the latent permutation model of Chen et al. (2009). This model assumes each segment (e.g. paragraph) in a document is associated with a latent class or topic, and the ordering of topics within a document is modeled as a deviation from some canonical ordering. Extensions to the block HMM have incorporated mixed membership properties within blocks, notably the Markov Clustering Topic Model (Hospedales et al., 2009), which allows each HMM state to be associat</context>
+</contexts>
+<marker>Dempster, Laird, Rubin, 1977</marker>
+<rawString>A. P. Dempster, N. M. Laird, and D. B. Rubin. 1977. Maximum likelihood from incomplete data via the em algorithm. Journal of the Royal Statistical Society. Series B (Methodological), 39(1):138.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Christopher P Diehl</author>
+<author>Galileo Namata</author>
+<author>Lise Getoor</author>
+</authors>
+<title>Relationship identication for social network discovery.</title>
+<date>2007</date>
+<booktitle>In AAAI07.</booktitle>
+<contexts>
+<context position="1864" citStr="Diehl et al., 2007" startWordPosition="295" endWordPosition="298">in recent years has lead to an increased use of informal Web data in the language processing community. With this rising interest in social domains, it is natural to consider models which explicitly incorporate the conversational patterns of social text. Compared to the naive approach of treating conversations as flat documents, models which include conversation structure have been shown to improve tasks such as forum search (Elsas and Carbonell, 2009; Seo et al., 2009), question answering and expert finding (Xu et al., 2008; Wang et al., 2011a), and interpersonal relationship identification (Diehl et al., 2007). While conversational features may be important, Web-derived corpora are not always annotated with this information, and the nature of conversations on the Web can vary wildly across domains and venues. Addressing these concerns, there has been recent work with unsupervised models of Web conversations based on hidden Markov models (Ritter et al., 2010), where each state corresponds to a conversational class or act. Unlike more traditional uses of HMMs in which a single token is emitted per time step, HMM emissions in conversations correspond to entire blocks of text, such that an entire messa</context>
+</contexts>
+<marker>Diehl, Namata, Getoor, 2007</marker>
+<rawString>Christopher P. Diehl, Galileo Namata, and Lise Getoor. 2007. Relationship identication for social network discovery. In AAAI07.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Lan Du</author>
+<author>Wray Buntine</author>
+<author>Huidong Jin</author>
+</authors>
+<title>Sequential latent dirichlet allocation: Discover underlying topic structures within a document.</title>
+<date>2010</date>
+<booktitle>IEEE International Conference on Data Mining,</booktitle>
+<pages>148--157</pages>
+<contexts>
+<context position="19781" citStr="Du et al., 2010" startWordPosition="3445" endWordPosition="3448">mulations of latent class distributions4 are utilized in correlated topic models (Blei and Lafferty, 2007) as a means of incorporating covariance structure among topic probabilities. Applying log-linear regression to potentially many features was combined with LDA by Mimno and McCallum (2008), who model the Dirichlet prior over topics as a function of document features. In M4, such features would correspond to the class histograms of previous blocks, introducing additional dependencies between documents. One topic model that imposes sequential dependencies between documents is Sequential LDA (Du et al., 2010), which models a document as a sequence of segments (such as paragraphs) governed by a Pitman-Yor process, in which the latent topic distribution of one segment serves as the base distribution for the next segment. This is in the spirit 4 This formulation corresponds to the natural parameterization of the multinomial distribution. 98 \x0cof our work, where the latent classes in a segment depend on the class distribution of the previous segment. By using the Pitman-Yor process, however, this work assumes topics are positively correlated, i.e. the occurrence of a topic in one segment makes it li</context>
+</contexts>
+<marker>Du, Buntine, Jin, 2010</marker>
+<rawString>Lan Du, Wray Buntine, and Huidong Jin. 2010. Sequential latent dirichlet allocation: Discover underlying topic structures within a document. 2010 IEEE International Conference on Data Mining, pages 148 157.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jonathan L Elsas</author>
+<author>Jaime Carbonell</author>
+</authors>
+<title>It pays to be picky: An evaluation of thread retrieval in online forums.</title>
+<date>2009</date>
+<booktitle>In 32nd Annual International ACM SIGIR Conference on Research and Development on Information Retrieval(SIGIR 2009). Jenny</booktitle>
+<contexts>
+<context position="1700" citStr="Elsas and Carbonell, 2009" startWordPosition="269" endWordPosition="272">ally, we show quantitatively that the induced word clusters correspond to speech acts more closely than baseline models. 1 Introduction The proliferation of social media in recent years has lead to an increased use of informal Web data in the language processing community. With this rising interest in social domains, it is natural to consider models which explicitly incorporate the conversational patterns of social text. Compared to the naive approach of treating conversations as flat documents, models which include conversation structure have been shown to improve tasks such as forum search (Elsas and Carbonell, 2009; Seo et al., 2009), question answering and expert finding (Xu et al., 2008; Wang et al., 2011a), and interpersonal relationship identification (Diehl et al., 2007). While conversational features may be important, Web-derived corpora are not always annotated with this information, and the nature of conversations on the Web can vary wildly across domains and venues. Addressing these concerns, there has been recent work with unsupervised models of Web conversations based on hidden Markov models (Ritter et al., 2010), where each state corresponds to a conversational class or act. Unlike more trad</context>
+</contexts>
+<marker>Elsas, Carbonell, 2009</marker>
+<rawString>Jonathan L. Elsas and Jaime Carbonell. 2009. It pays to be picky: An evaluation of thread retrieval in online forums. In 32nd Annual International ACM SIGIR Conference on Research and Development on Information Retrieval(SIGIR 2009). Jenny Rose Finkel, Trond Grenager, and Christopher D.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In ACL.</booktitle>
+<marker>Manning, 2005</marker>
+<rawString>Manning. 2005. Incorporating non-local information into information extraction systems by gibbs sampling. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sharon Goldwater</author>
+<author>Tom Griffiths</author>
+</authors>
+<title>A fully bayesian approach to unsupervised part-of-speech tagging.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the 45th Annual Meeting of \x0cthe Association of Computational Linguistics,</booktitle>
+<pages>744751</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Prague, Czech Republic,</location>
+<contexts>
+<context position="21836" citStr="Goldwater and Griffiths, 2007" startWordPosition="3790" endWordPosition="3794"> consider 36K conversation threads for a total of 100K messages with average length 13.4 tokens. Both data sets are already annotated with the reply structure, so the discourse graph is given. We preprocess the data by treating contiguous blocks of punctuation as tokens, and we remove infrequent words. The Twitter corpus has some additional preprocessing, such as converting URLs to a single word type. 5.2 Baseline Models Our work is motivated by the Bayesian HMM approach of Ritter et al. (2010) the model we refer to as the block HMM (BHMM) and we consider this our primary baseline. (See also (Goldwater and Griffiths, 2007) for more details on Bayesian HMMs with Dirichlet priors.) We also compare against LDA, which makes latent assignments at the token-level, but blocks of text are independent of 5 Three messages in this corpus have multiple parents. For the sake of conciseness, we simply remove these threads rather than introducing a method to model multiple parents. each other. In other words, BHMM models sequential dependencies but allows only single-class membership, whereas LDA uses no sequence information but has a mixed membership property. M4 combines these two properties. We use standard Gibbs samplers </context>
+<context position="30990" citStr="Goldwater and Griffiths, 2007" startWordPosition="5336" endWordPosition="5339">man-created speech act annotations of the CNET corpus and the latent class assignments by various models. proaches. The CNET corpus is annotated with twelve speech act classes: QUESTION and ANSWER, which are both broken down into multiple sub-classes, as well as RESOLUTION, REPRODUCTION, and OTHER (Kim et al., 2010). We would like to quantitatively measure how closely the latent states induced by our model match these annotations.7 We can measure this with variation of information (Meila, 2003), which has been used in recent years for unsupervised evaluation, e.g. in part-ofspeech clustering (Goldwater and Griffiths, 2007). Given two sets of variable assignments z and z0, the variation of information is defined as H(Z|Z0) + H(Z0|Z). In other words, given one clustering, how much uncertainty do we have about the other? Results are shown in Figure 3: a lower value corresponds to higher similarity. On the CNET corpus, M4 outperforms both baselines in all cases by a very significant margin. Qualitatively, we see clusters and transition parameters that make sense. For example, the class with top words {i, my, have, computer, am, ?, tried, help} is most likely to begin a thread (with = +1.94) and appears to describe </context>
+</contexts>
+<marker>Goldwater, Griffiths, 2007</marker>
+<rawString>Sharon Goldwater and Tom Griffiths. 2007. A fully bayesian approach to unsupervised part-of-speech tagging. In Proceedings of the 45th Annual Meeting of \x0cthe Association of Computational Linguistics, pages 744751, Prague, Czech Republic, June. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Tom Griffiths</author>
+<author>Mark Steyvers</author>
+</authors>
+<title>Finding scientific topics.</title>
+<date>2004</date>
+<booktitle>In Proceedings of the National Academy of Sciences of the United States of America.</booktitle>
+<contexts>
+<context position="15070" citStr="Griffiths and Steyvers, 2004" startWordPosition="2647" endWordPosition="2650">te of the sampler, we sample a tokens class according to: P(z(b,n) = k|z(b,n), w, , ) (2) exp(T k a) P k0 exp(T k0 a) nw k + nk + W Y cC Y j exp(T j b) P j0 exp(T j0 b) ! nj c The notation nw k indicates the number of tokens with word type w that have been assigned to topic k. W is the vocabulary size. a is the parent block of b, and C is the set of bs children. b is the feature vector corresponding to block b (i.e. the class histogram plus the bias feature), where the histogram includes the incremented count of the candidate class k. This sampling distribution is very similar to that of LDA (Griffiths and Steyvers, 2004), but the distribution over topics is now a function of the previous block, which gives the leftmost term. The rightmost term is a result of the dependency of the child blocks (C) on the class assignments of b. Due to the rightmost term, the complexity of computing the sampling distribution is quadratic in the number of classes, rather than the linear complexity of a single-class HMM. Our assumption is that the number of sequence-dependent classes (e.g. speech acts or discourse states) will be reasonably small. If it is desired to have a large number of latent topics as is common in LDA, this </context>
+</contexts>
+<marker>Griffiths, Steyvers, 2004</marker>
+<rawString>Tom Griffiths and Mark Steyvers. 2004. Finding scientific topics. In Proceedings of the National Academy of Sciences of the United States of America.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Amit Gruber</author>
+<author>Michal Rosen-Zvi</author>
+<author>Yair Weiss</author>
+</authors>
+<title>Hidden topic markov models.</title>
+<date>2007</date>
+<booktitle>In Artificial Intelligence and Statistics (AISTATS),</booktitle>
+<location>San Juan, Puerto Rico.</location>
+<contexts>
+<context position="35441" citStr="Gruber et al., 2007" startWordPosition="6140" endWordPosition="6143"> of inter-message structure, but certainly more sophisticated models of intramessage structure beyond unigram language models could be incorporated into M4. Standard topic model extensions such as n-gram models (Wallach, 2006) can straightforwardly be applied here, and indeed we already applied such an extension by incorporating background distributions in 5.3. For conversational data, it could make sense to segment 102 \x0cmessages (e.g. into sentences) and constraint each segment to belong to one class or speech act; modifications along these lines have been applied to topic models as well (Gruber et al., 2007). While we have focused on conversation modeling, M4 is a general probabilistic model that could be applied to other discourse applications, for example modeling sentences or paragraphs in articles rather than messages in conversations; it could also be applied to data beyond text. Compared to a Bayesian block HMM, M4 performs much better at a variety of tasks. A drawback is that the time complexity of inference as presented here is quadratic in the number of classes rather than linear. Improving this may be the subject of future research. Another potential avenue of future work is to model tr</context>
+</contexts>
+<marker>Gruber, Rosen-Zvi, Weiss, 2007</marker>
+<rawString>Amit Gruber, Michal Rosen-Zvi, and Yair Weiss. 2007. Hidden topic markov models. In Artificial Intelligence and Statistics (AISTATS), San Juan, Puerto Rico.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Timothy Hospedales</author>
+<author>Shaogang Gong</author>
+<author>Tao Xiang</author>
+</authors>
+<title>A markov clustering topic model for mining behaviour in video.</title>
+<date>2009</date>
+<booktitle>In International Conference on Computer Vision (ICCV).</booktitle>
+<contexts>
+<context position="18253" citStr="Hospedales et al., 2009" startWordPosition="3199" endWordPosition="3202">justified under the generalized EM algorithm (Dempster et al., 1977). Each gradient step with respect to corresponds to a generalized M-step, while each sampling iteration corresponds to a stochastic E-step. the latent permutation model of Chen et al. (2009). This model assumes each segment (e.g. paragraph) in a document is associated with a latent class or topic, and the ordering of topics within a document is modeled as a deviation from some canonical ordering. Extensions to the block HMM have incorporated mixed membership properties within blocks, notably the Markov Clustering Topic Model (Hospedales et al., 2009), which allows each HMM state to be associated with its own distribution over topics in a topic model. Like the block HMM, this still assumes a relatively small number of HMM states, but with an extra layer of latent variables before the observations are emitted. This is more restrictive than the unbounded state space of M4. Decoupling HMM states from latent classes was considered by Beal et al. (1997) with the Factorial HMM, which uses factorized state representations. The Factorial HMM is most often used to model independent Markov chains, whereas M4 has a dense graphical model topology: the</context>
+</contexts>
+<marker>Hospedales, Gong, Xiang, 2009</marker>
+<rawString>Timothy Hospedales, Shaogang Gong, and Tao Xiang. 2009. A markov clustering topic model for mining behaviour in video. In International Conference on Computer Vision (ICCV).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Shafiq R Joty</author>
+<author>Giuseppe Carenini</author>
+<author>Chin-Yew Lin</author>
+</authors>
+<title>Unsupervised modeling of dialog acts in asynchronous conversations.</title>
+<date>2011</date>
+<booktitle>In IJCAI,</booktitle>
+<pages>18071813</pages>
+<contexts>
+<context position="17398" citStr="Joty et al. (2011)" startWordPosition="3062" endWordPosition="3065">pervised model of discourse. This work used HMMs to model the progression of sentences in articles, and was shown to be useful for ordering sentences and generating summaries of news articles. More recently, Wang et al. (2011b) experimented with similar tasks using a related HMMbased model called the Structural Topic Model. Unsupervised HMMs were applied to conversational data by Ritter et al. (2010) who experimented with Twitter conversations. The authors also experimented with incorporating a topic model on top of the HMM to distinguish speech acts from topical clusters, with mixed results. Joty et al. (2011) extended this work by enriching the emission distributions and using additional features such as speaker and position information. An approach to unsupervised discourse modeling that does not use HMMs is 3 Incremental updates are justified under the generalized EM algorithm (Dempster et al., 1977). Each gradient step with respect to corresponds to a generalized M-step, while each sampling iteration corresponds to a stochastic E-step. the latent permutation model of Chen et al. (2009). This model assumes each segment (e.g. paragraph) in a document is associated with a latent class or topic, an</context>
+</contexts>
+<marker>Joty, Carenini, Lin, 2011</marker>
+<rawString>Shafiq R. Joty, Giuseppe Carenini, and Chin-Yew Lin. 2011. Unsupervised modeling of dialog acts in asynchronous conversations. In IJCAI, pages 18071813.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Su Nam Kim</author>
+<author>Li Wang</author>
+<author>Timothy Baldwin</author>
+</authors>
+<title>Tagging and linking web forum posts.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the Fourteenth Conference on Computational Natural Language Learning, CoNLL 10,</booktitle>
+<pages>192202</pages>
+<contexts>
+<context position="20953" citStr="Kim et al., 2010" startWordPosition="3637" endWordPosition="3640">urrence of a topic in one segment makes it likely to appear in the next. In contrast, we wish to learn arbitrary transitions, both positive and negative, between the latent classes. 5 Experiments with Conversation Data We experiment with two corpora of text-based asynchronous conversations on the Web. One of these is annotated with speech act labels, against which we compare our unsupervised clusters. We measure the predictive capabilities of the model via perplexity experiments and the task of thread reconstruction. 5.1 Data Sets First, we use a corpus of discussion threads from CNET forums (Kim et al., 2010), which are mostly technical discussion and support. This corpus includes 321 threads and a total of 1309 messages, with an average message length of 78 tokens after preprocessing.5 Second, we use the Twitter data set created by Ritter et al. (2010). We consider 36K conversation threads for a total of 100K messages with average length 13.4 tokens. Both data sets are already annotated with the reply structure, so the discourse graph is given. We preprocess the data by treating contiguous blocks of punctuation as tokens, and we remove infrequent words. The Twitter corpus has some additional prep</context>
+<context position="30677" citStr="Kim et al., 2010" startWordPosition="5288" endWordPosition="5291"> Qadir and Riloff, 2011), the variety of conversation domains on the Web motivates the use of unsupervised ap5 10 15 20 25 Number of classes 2.0 2.5 3.0 3.5 4.0 4.5 5.0 Variation of Information (VI) Speech Act Clustering (CNET) Random LDA BHMM M4 Figure 3: The variation of information between the human-created speech act annotations of the CNET corpus and the latent class assignments by various models. proaches. The CNET corpus is annotated with twelve speech act classes: QUESTION and ANSWER, which are both broken down into multiple sub-classes, as well as RESOLUTION, REPRODUCTION, and OTHER (Kim et al., 2010). We would like to quantitatively measure how closely the latent states induced by our model match these annotations.7 We can measure this with variation of information (Meila, 2003), which has been used in recent years for unsupervised evaluation, e.g. in part-ofspeech clustering (Goldwater and Griffiths, 2007). Given two sets of variable assignments z and z0, the variation of information is defined as H(Z|Z0) + H(Z0|Z). In other words, given one clustering, how much uncertainty do we have about the other? Results are shown in Figure 3: a lower value corresponds to higher similarity. On the C</context>
+</contexts>
+<marker>Kim, Wang, Baldwin, 2010</marker>
+<rawString>Su Nam Kim, Li Wang, and Timothy Baldwin. 2010. Tagging and linking web forum posts. In Proceedings of the Fourteenth Conference on Computational Natural Language Learning, CoNLL 10, pages 192202.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Marina Meila</author>
+</authors>
+<title>Comparing clusterings by the variation of information. Learning Theory and Kernel Machines,</title>
+<date>2003</date>
+<pages>173187</pages>
+<contexts>
+<context position="30859" citStr="Meila, 2003" startWordPosition="5319" endWordPosition="5320">mation (VI) Speech Act Clustering (CNET) Random LDA BHMM M4 Figure 3: The variation of information between the human-created speech act annotations of the CNET corpus and the latent class assignments by various models. proaches. The CNET corpus is annotated with twelve speech act classes: QUESTION and ANSWER, which are both broken down into multiple sub-classes, as well as RESOLUTION, REPRODUCTION, and OTHER (Kim et al., 2010). We would like to quantitatively measure how closely the latent states induced by our model match these annotations.7 We can measure this with variation of information (Meila, 2003), which has been used in recent years for unsupervised evaluation, e.g. in part-ofspeech clustering (Goldwater and Griffiths, 2007). Given two sets of variable assignments z and z0, the variation of information is defined as H(Z|Z0) + H(Z0|Z). In other words, given one clustering, how much uncertainty do we have about the other? Results are shown in Figure 3: a lower value corresponds to higher similarity. On the CNET corpus, M4 outperforms both baselines in all cases by a very significant margin. Qualitatively, we see clusters and transition parameters that make sense. For example, the class </context>
+</contexts>
+<marker>Meila, 2003</marker>
+<rawString>Marina Meila. 2003. Comparing clusterings by the variation of information. Learning Theory and Kernel Machines, pages 173187.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Mimno</author>
+<author>A McCallum</author>
+</authors>
+<title>Topic models conditioned on arbitrary features with dirichlet-multinomial regression.</title>
+<date>2008</date>
+<booktitle>In UAI.</booktitle>
+<contexts>
+<context position="19458" citStr="Mimno and McCallum (2008)" startWordPosition="3397" endWordPosition="3400"> model topology: the probability of each of the latent classes depends on the counts of all of the classes in the previous block. The trick in M4 is to define the transition matrix via a function of a limited number of parameters, allowing tractable inference in a model with arbitrarily many states. In topic models, log-linear formulations of latent class distributions4 are utilized in correlated topic models (Blei and Lafferty, 2007) as a means of incorporating covariance structure among topic probabilities. Applying log-linear regression to potentially many features was combined with LDA by Mimno and McCallum (2008), who model the Dirichlet prior over topics as a function of document features. In M4, such features would correspond to the class histograms of previous blocks, introducing additional dependencies between documents. One topic model that imposes sequential dependencies between documents is Sequential LDA (Du et al., 2010), which models a document as a sequence of segments (such as paragraphs) governed by a Pitman-Yor process, in which the latent topic distribution of one segment serves as the base distribution for the next segment. This is in the spirit 4 This formulation corresponds to the na</context>
+</contexts>
+<marker>Mimno, McCallum, 2008</marker>
+<rawString>D. Mimno and A. McCallum. 2008. Topic models conditioned on arbitrary features with dirichlet-multinomial regression. In UAI.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Tom Minka</author>
+</authors>
+<title>Estimating a dirichlet distribution.</title>
+<date>2003</date>
+<marker>Minka, 2003</marker>
+<rawString>Tom Minka. 2003. Estimating a dirichlet distribution.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ashequl Qadir</author>
+<author>Ellen Riloff</author>
+</authors>
+<title>Classifying sentences as speech acts in message board posts.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the 2011 Conference on Empirical Methods in Natural Language Processing,</booktitle>
+<pages>748758</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Edinburgh, Scotland, UK.,</location>
+<contexts>
+<context position="30084" citStr="Qadir and Riloff, 2011" startWordPosition="5189" endWordPosition="5192">4 over BHMM is greater when the blocks are longer; tweets may be short enough that the single-class assumption is not as limiting. 5.5.3 Speech Act Discovery Thus far, we have investigated the predictive power of the model, but we would also like to determine if the inferred clusters correspond to humaninterpretible classes. In the case of conversation data, our hope is that some of the latent classes represent speech acts or dialog acts (Searle, 1975). While there is a body of work in supervised speech act classification (Cohen et al., 2004; Bangalore et al., 2006; Surendran and Levow, 2006; Qadir and Riloff, 2011), the variety of conversation domains on the Web motivates the use of unsupervised ap5 10 15 20 25 Number of classes 2.0 2.5 3.0 3.5 4.0 4.5 5.0 Variation of Information (VI) Speech Act Clustering (CNET) Random LDA BHMM M4 Figure 3: The variation of information between the human-created speech act annotations of the CNET corpus and the latent class assignments by various models. proaches. The CNET corpus is annotated with twelve speech act classes: QUESTION and ANSWER, which are both broken down into multiple sub-classes, as well as RESOLUTION, REPRODUCTION, and OTHER (Kim et al., 2010). We wo</context>
+</contexts>
+<marker>Qadir, Riloff, 2011</marker>
+<rawString>Ashequl Qadir and Ellen Riloff. 2011. Classifying sentences as speech acts in message board posts. In Proceedings of the 2011 Conference on Empirical Methods in Natural Language Processing, pages 748758, Edinburgh, Scotland, UK., July. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Alan Ritter</author>
+<author>Colin Cherry</author>
+<author>Bill Dolan</author>
+</authors>
+<title>Unsupervised modeling of twitter conversations.</title>
+<date>2010</date>
+<booktitle>In Human Language Technologies: The 2010 Annual Conference of the North American Chapter of the Association for Computational Linguistics, HLT 10,</booktitle>
+<pages>172180</pages>
+<institution>Carolyn Penstein Rose, Barbara Di Eugenio, Lori S.</institution>
+<contexts>
+<context position="2219" citStr="Ritter et al., 2010" startWordPosition="349" endWordPosition="352">nversation structure have been shown to improve tasks such as forum search (Elsas and Carbonell, 2009; Seo et al., 2009), question answering and expert finding (Xu et al., 2008; Wang et al., 2011a), and interpersonal relationship identification (Diehl et al., 2007). While conversational features may be important, Web-derived corpora are not always annotated with this information, and the nature of conversations on the Web can vary wildly across domains and venues. Addressing these concerns, there has been recent work with unsupervised models of Web conversations based on hidden Markov models (Ritter et al., 2010), where each state corresponds to a conversational class or act. Unlike more traditional uses of HMMs in which a single token is emitted per time step, HMM emissions in conversations correspond to entire blocks of text, such that an entire message is generated at each step. Because each time step is associated with a block of variables, we refer to this type of HMM as a block HMM (Fig. 1a). While block HMMs offer a concise model of inter-message structure, they have the limitation that each text block (message) belongs to exactly one class. Many modern generative models of text, in contrast, a</context>
+<context position="4182" citStr="Ritter et al., 2010" startWordPosition="711" endWordPosition="714">to each individual token, with Markovian sequence models, which 94 \x0c z1 z2 z3 . . . w1 w2 w3 . . . N N N (a) Block HMM 1 2 3 . . . z1 z2 z3 . . . w1 w2 w3 . . . N N N (b) LDA 1 2 3 . . . z1 z2 z3 . . . w1 w2 w3 . . . N N N (c) M4 Figure 1: The graphical models for the block HMM (left) where each block of tokens depends on exactly one latent class, LDA (center) where each token individually depends on a latent class, and M4 (right) where the class distributions are dependent across blocks. Some parameters are omitted for simplicity. This figure depicts the Bayesian variant of the block HMM (Ritter et al., 2010) where the transition distributions depend on a Dirichlet() prior. govern the transitions between text blocks in a sequence. We generalize the block HMM approach so that there is no longer a one-to-one correspondence between states in the Markov chain and latent discourse classes. Instead, we allow a state in the HMM to correspond to a mixture of many classes: we refer to this family of models as mixed membership Markov models (M4). Instead of defining explicit transition probabilities from one class to another as in a traditional HMM, we define the distribution over classes as a function of t</context>
+<context position="5530" citStr="Ritter et al. (2010)" startWordPosition="940" endWordPosition="943">s a standard HMM (2), and we present a straightforward approximate inference algorithm (3). While we introduce a general model, we will focus on the task of unsupervised conversation modeling. Specifically, we build off the Bayesian block HMMs used by Ritter et al. (2010) for modeling Twitter conversations, which will be our primary baseline. After discussing related work (4), we present experimental results on a set of Twitter conversations as well as a set of threads from CNET discussion forums (5). We show that M4 increases thread reconstruction accuracy by up to 15% compared to the HMM of Ritter et al. (2010), and we reduce variation of information against speech act annotations by an average of 18% from HMM and LDA baselines. To the best of our knowledge, this work is the first attempt to quantitatively compare unsupervised models against gold standard speech act annotations. 2 M4 : Mixed Membership Markov Models In this section, we extend the block HMM by introducing mixed membership Markov models (M4). Under the block HMM, as utilized by Ritter et al. (2010), messages in a conversation flow according to a Markov process, where the words of messages are generated according to language models ass</context>
+<context position="15790" citStr="Ritter et al. (2010)" startWordPosition="2774" endWordPosition="2777"> term. The rightmost term is a result of the dependency of the child blocks (C) on the class assignments of b. Due to the rightmost term, the complexity of computing the sampling distribution is quadratic in the number of classes, rather than the linear complexity of a single-class HMM. Our assumption is that the number of sequence-dependent classes (e.g. speech acts or discourse states) will be reasonably small. If it is desired to have a large number of latent topics as is common in LDA, this model could be combined with a standard topic model without sequential dependencies, as explored by Ritter et al. (2010). 97 \x0c3.2 Transition Parameter Optimization Differentiating the corpus likelihood with respect to yields the standard equation for log-linear models: ` zk = X b ak \x12 nz b nb exp(T z a) P z0 exp(T z0 a) \x13 zk 2 (3) where a is the parent of block b, a is the feature vector associated with a, nz b is the number of times class z occurs in block b and nb is the total number of tokens in block b. Standard optimization methods can be used to learn these parameters. In our experiments, we find that we obtain good results by simply performing a single iteration of gradient ascent after each sam</context>
+<context position="17183" citStr="Ritter et al. (2010)" startWordPosition="3028" endWordPosition="3031">imple models of document structure. Stolcke et al. (2000) used HMMs as a general model of discourse with an application to speech acts (or dialog acts) in conversations. Barzilay and Lee (2004) applied HMMs as an unsupervised model of discourse. This work used HMMs to model the progression of sentences in articles, and was shown to be useful for ordering sentences and generating summaries of news articles. More recently, Wang et al. (2011b) experimented with similar tasks using a related HMMbased model called the Structural Topic Model. Unsupervised HMMs were applied to conversational data by Ritter et al. (2010) who experimented with Twitter conversations. The authors also experimented with incorporating a topic model on top of the HMM to distinguish speech acts from topical clusters, with mixed results. Joty et al. (2011) extended this work by enriching the emission distributions and using additional features such as speaker and position information. An approach to unsupervised discourse modeling that does not use HMMs is 3 Incremental updates are justified under the generalized EM algorithm (Dempster et al., 1977). Each gradient step with respect to corresponds to a generalized M-step, while each s</context>
+<context position="21202" citStr="Ritter et al. (2010)" startWordPosition="3679" endWordPosition="3682">ora of text-based asynchronous conversations on the Web. One of these is annotated with speech act labels, against which we compare our unsupervised clusters. We measure the predictive capabilities of the model via perplexity experiments and the task of thread reconstruction. 5.1 Data Sets First, we use a corpus of discussion threads from CNET forums (Kim et al., 2010), which are mostly technical discussion and support. This corpus includes 321 threads and a total of 1309 messages, with an average message length of 78 tokens after preprocessing.5 Second, we use the Twitter data set created by Ritter et al. (2010). We consider 36K conversation threads for a total of 100K messages with average length 13.4 tokens. Both data sets are already annotated with the reply structure, so the discourse graph is given. We preprocess the data by treating contiguous blocks of punctuation as tokens, and we remove infrequent words. The Twitter corpus has some additional preprocessing, such as converting URLs to a single word type. 5.2 Baseline Models Our work is motivated by the Bayesian HMM approach of Ritter et al. (2010) the model we refer to as the block HMM (BHMM) and we consider this our primary baseline. (See al</context>
+<context position="27302" citStr="Ritter et al., 2010" startWordPosition="4692" endWordPosition="4695"> tasks where the sequential structure is important, thus LDA is not an appropriate choice. 5.5.2 Thread Reconstruction A natural predictive task of the sequence models is to reconstruct the discourse graph of a document where the structure is unknown. In the conversation domain, this corresponds to the task of thread reconstruction (Yeh and Harnly, 2006; Wang et al., 2011c). Given only a flat structure, can we recover the reply structure of messages in the conversation? Previous work with BHMM found the optimal structure by computing the likelihood of all permutations of a thread or sequence (Ritter et al., 2010; Wang et al., 2011b). We take a more practical approach and find the optimal structure as part of our inference procedure. We do this by treating the parent of each block as a hidden variable to be inferred. The parent of block b is the random variable rb, and we alternate between sampling values of the latent classes z and the parents r. The sampling distributions are annealed, as a search technique to find the best configuration of assignments (Finkel et al., 2005). At temperature , we sample a blocks parent according to: P(rb = a|z, ) Y j exp(T j a) P j0 exp(T j0 a) ! nj b/ (5) 100 \x0cFor</context>
+</contexts>
+<marker>Ritter, Cherry, Dolan, 2010</marker>
+<rawString>Alan Ritter, Colin Cherry, and Bill Dolan. 2010. Unsupervised modeling of twitter conversations. In Human Language Technologies: The 2010 Annual Conference of the North American Chapter of the Association for Computational Linguistics, HLT 10, pages 172180. Carolyn Penstein Rose, Barbara Di Eugenio, Lori S.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Levin</author>
+<author>Carol Van Ess-Dykema</author>
+</authors>
+<title>Discourse processing of dialogues with multiple threads.</title>
+<date>1995</date>
+<booktitle>In Proceedings of the 33rd annual meeting on Association for Computational Linguistics, ACL 95,</booktitle>
+<pages>3138</pages>
+<marker>Levin, Van Ess-Dykema, 1995</marker>
+<rawString>Levin, and Carol Van Ess-Dykema. 1995. Discourse processing of dialogues with multiple threads. In Proceedings of the 33rd annual meeting on Association for Computational Linguistics, ACL 95, pages 3138.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>John Searle</author>
+</authors>
+<title>A taxonomy of illocutionary acts.</title>
+<date>1975</date>
+<publisher>University of Minnesota Press,</publisher>
+<location>Minneapolis.</location>
+<contexts>
+<context position="29917" citStr="Searle, 1975" startWordPosition="5163" endWordPosition="5164"> on the CNET corpus. M4 is also better on the Twitter corpus, but the difference is not so stark. This seems to confirm our intuition that the advantage of M4 over BHMM is greater when the blocks are longer; tweets may be short enough that the single-class assumption is not as limiting. 5.5.3 Speech Act Discovery Thus far, we have investigated the predictive power of the model, but we would also like to determine if the inferred clusters correspond to humaninterpretible classes. In the case of conversation data, our hope is that some of the latent classes represent speech acts or dialog acts (Searle, 1975). While there is a body of work in supervised speech act classification (Cohen et al., 2004; Bangalore et al., 2006; Surendran and Levow, 2006; Qadir and Riloff, 2011), the variety of conversation domains on the Web motivates the use of unsupervised ap5 10 15 20 25 Number of classes 2.0 2.5 3.0 3.5 4.0 4.5 5.0 Variation of Information (VI) Speech Act Clustering (CNET) Random LDA BHMM M4 Figure 3: The variation of information between the human-created speech act annotations of the CNET corpus and the latent class assignments by various models. proaches. The CNET corpus is annotated with twelve </context>
+</contexts>
+<marker>Searle, 1975</marker>
+<rawString>John Searle, 1975. A taxonomy of illocutionary acts. University of Minnesota Press, Minneapolis.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jangwon Seo</author>
+<author>W Bruce Croft</author>
+<author>David A Smith</author>
+</authors>
+<title>Online community search using thread structure.</title>
+<date>2009</date>
+<booktitle>In ACM Conference on Information and Knowledge Management (CIKM</booktitle>
+<pages>19071910</pages>
+<contexts>
+<context position="1719" citStr="Seo et al., 2009" startWordPosition="273" endWordPosition="276">y that the induced word clusters correspond to speech acts more closely than baseline models. 1 Introduction The proliferation of social media in recent years has lead to an increased use of informal Web data in the language processing community. With this rising interest in social domains, it is natural to consider models which explicitly incorporate the conversational patterns of social text. Compared to the naive approach of treating conversations as flat documents, models which include conversation structure have been shown to improve tasks such as forum search (Elsas and Carbonell, 2009; Seo et al., 2009), question answering and expert finding (Xu et al., 2008; Wang et al., 2011a), and interpersonal relationship identification (Diehl et al., 2007). While conversational features may be important, Web-derived corpora are not always annotated with this information, and the nature of conversations on the Web can vary wildly across domains and venues. Addressing these concerns, there has been recent work with unsupervised models of Web conversations based on hidden Markov models (Ritter et al., 2010), where each state corresponds to a conversational class or act. Unlike more traditional uses of HMM</context>
+</contexts>
+<marker>Seo, Croft, Smith, 2009</marker>
+<rawString>Jangwon Seo, W. Bruce Croft, and David A. Smith. 2009. Online community search using thread structure. In ACM Conference on Information and Knowledge Management (CIKM 2009), pages 19071910.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andreas Stolcke</author>
+<author>Noah Coccaro</author>
+<author>Rebecca Bates</author>
+<author>Paul Taylor</author>
+<author>Carol Van Ess-Dykema</author>
+<author>Klaus Ries</author>
+<author>Elizabeth Shriberg</author>
+<author>Daniel Jurafsky</author>
+<author>Rachel Martin</author>
+<author>Marie Meteer</author>
+</authors>
+<title>Dialogue act modeling for automatic tagging and recognition of conversational speech.</title>
+<date>2000</date>
+<journal>Computational Linguistics,</journal>
+<volume>26</volume>
+<issue>3</issue>
+<marker>Stolcke, Coccaro, Bates, Taylor, Van Ess-Dykema, Ries, Shriberg, Jurafsky, Martin, Meteer, 2000</marker>
+<rawString>Andreas Stolcke, Noah Coccaro, Rebecca Bates, Paul Taylor, Carol Van Ess-Dykema, Klaus Ries, Elizabeth Shriberg, Daniel Jurafsky, Rachel Martin, and Marie Meteer. 2000. Dialogue act modeling for automatic tagging and recognition of conversational speech. Computational Linguistics, 26(3):339373, September.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Dinoj Surendran</author>
+<author>Gina-Anne Levow</author>
+</authors>
+<title>Dialog act tagging with support vector machines and hidden markov models.</title>
+<date>2006</date>
+<booktitle>In Interspeech.</booktitle>
+<contexts>
+<context position="30059" citStr="Surendran and Levow, 2006" startWordPosition="5185" endWordPosition="5188">ion that the advantage of M4 over BHMM is greater when the blocks are longer; tweets may be short enough that the single-class assumption is not as limiting. 5.5.3 Speech Act Discovery Thus far, we have investigated the predictive power of the model, but we would also like to determine if the inferred clusters correspond to humaninterpretible classes. In the case of conversation data, our hope is that some of the latent classes represent speech acts or dialog acts (Searle, 1975). While there is a body of work in supervised speech act classification (Cohen et al., 2004; Bangalore et al., 2006; Surendran and Levow, 2006; Qadir and Riloff, 2011), the variety of conversation domains on the Web motivates the use of unsupervised ap5 10 15 20 25 Number of classes 2.0 2.5 3.0 3.5 4.0 4.5 5.0 Variation of Information (VI) Speech Act Clustering (CNET) Random LDA BHMM M4 Figure 3: The variation of information between the human-created speech act annotations of the CNET corpus and the latent class assignments by various models. proaches. The CNET corpus is annotated with twelve speech act classes: QUESTION and ANSWER, which are both broken down into multiple sub-classes, as well as RESOLUTION, REPRODUCTION, and OTHER </context>
+</contexts>
+<marker>Surendran, Levow, 2006</marker>
+<rawString>Dinoj Surendran and Gina-Anne Levow. 2006. Dialog act tagging with support vector machines and hidden markov models. In Interspeech.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hanna M Wallach</author>
+<author>David Mimno</author>
+<author>Andrew McCallum</author>
+</authors>
+<title>Rethinking LDA: Why priors matter.</title>
+<date>2009</date>
+<booktitle>In NIPS.</booktitle>
+<contexts>
+<context position="24346" citStr="Wallach et al. (2009)" startWordPosition="4208" endWordPosition="4211">odels with a background distribution in exactly the same way, so that the comparison is fair. We use a Beta(10.0, 10.0) prior over the switching distribution. 5.4 Experimental Setup All of our results are averaged across four randomly initialized chains which are run for 5000 iterations, with five samples collected during the final 500 iterations. We take small gradient steps of decreasing size with (t) = 0.1/(1000 + t). We set 2 = 10.0 as the variance of the weights. We use optimized asymmetric priors as described in 5.2, and we use a symmetric Dirichlet for the word distributions, following Wallach et al. (2009). We sample the scaling hyperparameter via 99 \x0c5 10 15 20 25 CNET Unigram 63.07 63.07 63.07 63.07 63.07 LDA 57.16 54.35 52.88 51.63 50.50 BHMM 61.26 61.06 60.92 60.86 60.85 M4 60.38 59.58 59.26 59.21 59.25 Twitter Unigram 93.00 93.00 93.00 93.00 93.00 LDA 83.70 78.40 74.01 70.91 70.16 BHMM 90.51 89.94 89.68 89.59 89.38 M4 88.44 86.17 85.50 85.55 86.31 Table 1: Average perplexity of held-out data for various numbers of latent classes. Metropolis-Hastings proposals: we add Gaussiandistributed noise to the log of the current , then exponentiate this to yield the proposed (new). This log-space </context>
+</contexts>
+<marker>Wallach, Mimno, McCallum, 2009</marker>
+<rawString>Hanna M. Wallach, David Mimno, and Andrew McCallum. 2009. Rethinking LDA: Why priors matter. In NIPS.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H M Wallach</author>
+</authors>
+<title>Topic modeling: beyond bag-ofwords.</title>
+<date>2006</date>
+<booktitle>In ICML 06: Proceedings of the 23rd international conference on Machine learning,</booktitle>
+<pages>977--984</pages>
+<contexts>
+<context position="35047" citStr="Wallach, 2006" startWordPosition="6078" endWordPosition="6079">y multiple classes, a property that relates M4 to topic models. This type of model can be viewed as an HMM with an expanded state space, but because the transition probabilities are a function of a small number of parameters, the output remains human-interpretible. M4 can be taken as a general family of models and can be readily extended. In this work, we focused on introducing a model of inter-message structure, but certainly more sophisticated models of intramessage structure beyond unigram language models could be incorporated into M4. Standard topic model extensions such as n-gram models (Wallach, 2006) can straightforwardly be applied here, and indeed we already applied such an extension by incorporating background distributions in 5.3. For conversational data, it could make sense to segment 102 \x0cmessages (e.g. into sentences) and constraint each segment to belong to one class or speech act; modifications along these lines have been applied to topic models as well (Gruber et al., 2007). While we have focused on conversation modeling, M4 is a general probabilistic model that could be applied to other discourse applications, for example modeling sentences or paragraphs in articles rather t</context>
+</contexts>
+<marker>Wallach, 2006</marker>
+<rawString>H.M. Wallach. 2006. Topic modeling: beyond bag-ofwords. In ICML 06: Proceedings of the 23rd international conference on Machine learning, pages 977 984.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hongning Wang</author>
+<author>Chi Wang</author>
+<author>ChengXiang Zhai</author>
+<author>Jiawei Han</author>
+</authors>
+<title>Learning online discussion structures by conditional random fields.</title>
+<date>2011</date>
+<booktitle>In 34th Annual International ACM SIGIR Conference on Research and Development in Information Retrieval (SIGIR11),</booktitle>
+<pages>435444</pages>
+<contexts>
+<context position="1794" citStr="Wang et al., 2011" startWordPosition="286" endWordPosition="289">n baseline models. 1 Introduction The proliferation of social media in recent years has lead to an increased use of informal Web data in the language processing community. With this rising interest in social domains, it is natural to consider models which explicitly incorporate the conversational patterns of social text. Compared to the naive approach of treating conversations as flat documents, models which include conversation structure have been shown to improve tasks such as forum search (Elsas and Carbonell, 2009; Seo et al., 2009), question answering and expert finding (Xu et al., 2008; Wang et al., 2011a), and interpersonal relationship identification (Diehl et al., 2007). While conversational features may be important, Web-derived corpora are not always annotated with this information, and the nature of conversations on the Web can vary wildly across domains and venues. Addressing these concerns, there has been recent work with unsupervised models of Web conversations based on hidden Markov models (Ritter et al., 2010), where each state corresponds to a conversational class or act. Unlike more traditional uses of HMMs in which a single token is emitted per time step, HMM emissions in conver</context>
+<context position="17005" citStr="Wang et al. (2011" startWordPosition="2999" endWordPosition="3002">ampling iteration t,3 with the following update: (t+1) zk = (t) zk + (t) ` zk (4) where is a step size function. 4 Related Work Hidden Markov models have a recent history as simple models of document structure. Stolcke et al. (2000) used HMMs as a general model of discourse with an application to speech acts (or dialog acts) in conversations. Barzilay and Lee (2004) applied HMMs as an unsupervised model of discourse. This work used HMMs to model the progression of sentences in articles, and was shown to be useful for ordering sentences and generating summaries of news articles. More recently, Wang et al. (2011b) experimented with similar tasks using a related HMMbased model called the Structural Topic Model. Unsupervised HMMs were applied to conversational data by Ritter et al. (2010) who experimented with Twitter conversations. The authors also experimented with incorporating a topic model on top of the HMM to distinguish speech acts from topical clusters, with mixed results. Joty et al. (2011) extended this work by enriching the emission distributions and using additional features such as speaker and position information. An approach to unsupervised discourse modeling that does not use HMMs is 3 </context>
+<context position="23140" citStr="Wang et al. (2011" startWordPosition="3998" endWordPosition="4001">tion and topic distributions) using Minkas fixed-point iterations (2003). 5.3 Incorporating Background Distributions In our experiments, we find that the intrusion of common stop words can make the results difficult to interpret, but we do not want to perform simple stop word removal because common function words often play important roles in the latent classes (i.e. speech acts) of the conversation data we consider here. We instead handle this by extending our model to include a background distribution over words which is independent of the latent classes in a document; this was also done by Wang et al. (2011b). The idea is to introduce a binary switching variable x into the model which determines whether a word is generated from the general background distribution or from the distribution specific to a latent class z. Loosely, if the marginal probability of a word was given by p(w) = P z p(w|z)p(z), the introduction of a background distribution gives the marginal probability p(w) = p(x = 0)p(w|B) + p(x = 1) P z p(w|z). This is common practice and we will not go into detail; see (Chemudugunta et al., 2006) for a general example on sampling switching variables. We augment all three models with a ba</context>
+<context position="27057" citStr="Wang et al., 2011" startWordPosition="4651" endWordPosition="4654">ask of thread reconstruction. The horizontal bar indicates a random baseline. If capturing sequence information is not important, then LDA may provide a better fit to a corpus than sequence models. In the next two subsections, we will consider tasks where the sequential structure is important, thus LDA is not an appropriate choice. 5.5.2 Thread Reconstruction A natural predictive task of the sequence models is to reconstruct the discourse graph of a document where the structure is unknown. In the conversation domain, this corresponds to the task of thread reconstruction (Yeh and Harnly, 2006; Wang et al., 2011c). Given only a flat structure, can we recover the reply structure of messages in the conversation? Previous work with BHMM found the optimal structure by computing the likelihood of all permutations of a thread or sequence (Ritter et al., 2010; Wang et al., 2011b). We take a more practical approach and find the optimal structure as part of our inference procedure. We do this by treating the parent of each block as a hidden variable to be inferred. The parent of block b is the random variable rb, and we alternate between sampling values of the latent classes z and the parents r. The sampling </context>
+</contexts>
+<marker>Wang, Wang, Zhai, Han, 2011</marker>
+<rawString>Hongning Wang, Chi Wang, ChengXiang Zhai, and Jiawei Han. 2011a. Learning online discussion structures by conditional random fields. In 34th Annual International ACM SIGIR Conference on Research and Development in Information Retrieval (SIGIR11), pages 435444.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hongning Wang</author>
+<author>Duo Zhang</author>
+<author>ChengXiang Zhai</author>
+</authors>
+<title>Structural topic model for latent topical structure analysis.</title>
+<date>2011</date>
+<booktitle>In ACL,</booktitle>
+<pages>15261535</pages>
+<institution>The Association for Computer Linguistics.</institution>
+<contexts>
+<context position="1794" citStr="Wang et al., 2011" startWordPosition="286" endWordPosition="289">n baseline models. 1 Introduction The proliferation of social media in recent years has lead to an increased use of informal Web data in the language processing community. With this rising interest in social domains, it is natural to consider models which explicitly incorporate the conversational patterns of social text. Compared to the naive approach of treating conversations as flat documents, models which include conversation structure have been shown to improve tasks such as forum search (Elsas and Carbonell, 2009; Seo et al., 2009), question answering and expert finding (Xu et al., 2008; Wang et al., 2011a), and interpersonal relationship identification (Diehl et al., 2007). While conversational features may be important, Web-derived corpora are not always annotated with this information, and the nature of conversations on the Web can vary wildly across domains and venues. Addressing these concerns, there has been recent work with unsupervised models of Web conversations based on hidden Markov models (Ritter et al., 2010), where each state corresponds to a conversational class or act. Unlike more traditional uses of HMMs in which a single token is emitted per time step, HMM emissions in conver</context>
+<context position="17005" citStr="Wang et al. (2011" startWordPosition="2999" endWordPosition="3002">ampling iteration t,3 with the following update: (t+1) zk = (t) zk + (t) ` zk (4) where is a step size function. 4 Related Work Hidden Markov models have a recent history as simple models of document structure. Stolcke et al. (2000) used HMMs as a general model of discourse with an application to speech acts (or dialog acts) in conversations. Barzilay and Lee (2004) applied HMMs as an unsupervised model of discourse. This work used HMMs to model the progression of sentences in articles, and was shown to be useful for ordering sentences and generating summaries of news articles. More recently, Wang et al. (2011b) experimented with similar tasks using a related HMMbased model called the Structural Topic Model. Unsupervised HMMs were applied to conversational data by Ritter et al. (2010) who experimented with Twitter conversations. The authors also experimented with incorporating a topic model on top of the HMM to distinguish speech acts from topical clusters, with mixed results. Joty et al. (2011) extended this work by enriching the emission distributions and using additional features such as speaker and position information. An approach to unsupervised discourse modeling that does not use HMMs is 3 </context>
+<context position="23140" citStr="Wang et al. (2011" startWordPosition="3998" endWordPosition="4001">tion and topic distributions) using Minkas fixed-point iterations (2003). 5.3 Incorporating Background Distributions In our experiments, we find that the intrusion of common stop words can make the results difficult to interpret, but we do not want to perform simple stop word removal because common function words often play important roles in the latent classes (i.e. speech acts) of the conversation data we consider here. We instead handle this by extending our model to include a background distribution over words which is independent of the latent classes in a document; this was also done by Wang et al. (2011b). The idea is to introduce a binary switching variable x into the model which determines whether a word is generated from the general background distribution or from the distribution specific to a latent class z. Loosely, if the marginal probability of a word was given by p(w) = P z p(w|z)p(z), the introduction of a background distribution gives the marginal probability p(w) = p(x = 0)p(w|B) + p(x = 1) P z p(w|z). This is common practice and we will not go into detail; see (Chemudugunta et al., 2006) for a general example on sampling switching variables. We augment all three models with a ba</context>
+<context position="27057" citStr="Wang et al., 2011" startWordPosition="4651" endWordPosition="4654">ask of thread reconstruction. The horizontal bar indicates a random baseline. If capturing sequence information is not important, then LDA may provide a better fit to a corpus than sequence models. In the next two subsections, we will consider tasks where the sequential structure is important, thus LDA is not an appropriate choice. 5.5.2 Thread Reconstruction A natural predictive task of the sequence models is to reconstruct the discourse graph of a document where the structure is unknown. In the conversation domain, this corresponds to the task of thread reconstruction (Yeh and Harnly, 2006; Wang et al., 2011c). Given only a flat structure, can we recover the reply structure of messages in the conversation? Previous work with BHMM found the optimal structure by computing the likelihood of all permutations of a thread or sequence (Ritter et al., 2010; Wang et al., 2011b). We take a more practical approach and find the optimal structure as part of our inference procedure. We do this by treating the parent of each block as a hidden variable to be inferred. The parent of block b is the random variable rb, and we alternate between sampling values of the latent classes z and the parents r. The sampling </context>
+</contexts>
+<marker>Wang, Zhang, Zhai, 2011</marker>
+<rawString>Hongning Wang, Duo Zhang, and ChengXiang Zhai. 2011b. Structural topic model for latent topical structure analysis. In ACL, pages 15261535. The Association for Computer Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Li Wang</author>
+<author>Marco Lui</author>
+<author>Su Nam Kim</author>
+<author>Joakim Nivre</author>
+<author>Timothy Baldwin</author>
+</authors>
+<title>Predicting thread discourse structure over technical web forums.</title>
+<date>2011</date>
+<booktitle>In Proceedings of EMNLP 2011,</booktitle>
+<pages>1325</pages>
+<contexts>
+<context position="1794" citStr="Wang et al., 2011" startWordPosition="286" endWordPosition="289">n baseline models. 1 Introduction The proliferation of social media in recent years has lead to an increased use of informal Web data in the language processing community. With this rising interest in social domains, it is natural to consider models which explicitly incorporate the conversational patterns of social text. Compared to the naive approach of treating conversations as flat documents, models which include conversation structure have been shown to improve tasks such as forum search (Elsas and Carbonell, 2009; Seo et al., 2009), question answering and expert finding (Xu et al., 2008; Wang et al., 2011a), and interpersonal relationship identification (Diehl et al., 2007). While conversational features may be important, Web-derived corpora are not always annotated with this information, and the nature of conversations on the Web can vary wildly across domains and venues. Addressing these concerns, there has been recent work with unsupervised models of Web conversations based on hidden Markov models (Ritter et al., 2010), where each state corresponds to a conversational class or act. Unlike more traditional uses of HMMs in which a single token is emitted per time step, HMM emissions in conver</context>
+<context position="17005" citStr="Wang et al. (2011" startWordPosition="2999" endWordPosition="3002">ampling iteration t,3 with the following update: (t+1) zk = (t) zk + (t) ` zk (4) where is a step size function. 4 Related Work Hidden Markov models have a recent history as simple models of document structure. Stolcke et al. (2000) used HMMs as a general model of discourse with an application to speech acts (or dialog acts) in conversations. Barzilay and Lee (2004) applied HMMs as an unsupervised model of discourse. This work used HMMs to model the progression of sentences in articles, and was shown to be useful for ordering sentences and generating summaries of news articles. More recently, Wang et al. (2011b) experimented with similar tasks using a related HMMbased model called the Structural Topic Model. Unsupervised HMMs were applied to conversational data by Ritter et al. (2010) who experimented with Twitter conversations. The authors also experimented with incorporating a topic model on top of the HMM to distinguish speech acts from topical clusters, with mixed results. Joty et al. (2011) extended this work by enriching the emission distributions and using additional features such as speaker and position information. An approach to unsupervised discourse modeling that does not use HMMs is 3 </context>
+<context position="23140" citStr="Wang et al. (2011" startWordPosition="3998" endWordPosition="4001">tion and topic distributions) using Minkas fixed-point iterations (2003). 5.3 Incorporating Background Distributions In our experiments, we find that the intrusion of common stop words can make the results difficult to interpret, but we do not want to perform simple stop word removal because common function words often play important roles in the latent classes (i.e. speech acts) of the conversation data we consider here. We instead handle this by extending our model to include a background distribution over words which is independent of the latent classes in a document; this was also done by Wang et al. (2011b). The idea is to introduce a binary switching variable x into the model which determines whether a word is generated from the general background distribution or from the distribution specific to a latent class z. Loosely, if the marginal probability of a word was given by p(w) = P z p(w|z)p(z), the introduction of a background distribution gives the marginal probability p(w) = p(x = 0)p(w|B) + p(x = 1) P z p(w|z). This is common practice and we will not go into detail; see (Chemudugunta et al., 2006) for a general example on sampling switching variables. We augment all three models with a ba</context>
+<context position="27057" citStr="Wang et al., 2011" startWordPosition="4651" endWordPosition="4654">ask of thread reconstruction. The horizontal bar indicates a random baseline. If capturing sequence information is not important, then LDA may provide a better fit to a corpus than sequence models. In the next two subsections, we will consider tasks where the sequential structure is important, thus LDA is not an appropriate choice. 5.5.2 Thread Reconstruction A natural predictive task of the sequence models is to reconstruct the discourse graph of a document where the structure is unknown. In the conversation domain, this corresponds to the task of thread reconstruction (Yeh and Harnly, 2006; Wang et al., 2011c). Given only a flat structure, can we recover the reply structure of messages in the conversation? Previous work with BHMM found the optimal structure by computing the likelihood of all permutations of a thread or sequence (Ritter et al., 2010; Wang et al., 2011b). We take a more practical approach and find the optimal structure as part of our inference procedure. We do this by treating the parent of each block as a hidden variable to be inferred. The parent of block b is the random variable rb, and we alternate between sampling values of the latent classes z and the parents r. The sampling </context>
+</contexts>
+<marker>Wang, Lui, Kim, Nivre, Baldwin, 2011</marker>
+<rawString>Li Wang, Marco Lui, Su Nam Kim, Joakim Nivre, and Timothy Baldwin. 2011c. Predicting thread discourse structure over technical web forums. In Proceedings of EMNLP 2011, pages 1325.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Gu Xu</author>
+<author>Hang Li</author>
+<author>Wei-Ying Ma</author>
+</authors>
+<title>Fora: Leveraging the power of internet communities for question answering.</title>
+<date>2008</date>
+<booktitle>In 1st International Workshop on Question Answering on the Web (QAWeb08).</booktitle>
+<contexts>
+<context position="1775" citStr="Xu et al., 2008" startWordPosition="282" endWordPosition="285"> more closely than baseline models. 1 Introduction The proliferation of social media in recent years has lead to an increased use of informal Web data in the language processing community. With this rising interest in social domains, it is natural to consider models which explicitly incorporate the conversational patterns of social text. Compared to the naive approach of treating conversations as flat documents, models which include conversation structure have been shown to improve tasks such as forum search (Elsas and Carbonell, 2009; Seo et al., 2009), question answering and expert finding (Xu et al., 2008; Wang et al., 2011a), and interpersonal relationship identification (Diehl et al., 2007). While conversational features may be important, Web-derived corpora are not always annotated with this information, and the nature of conversations on the Web can vary wildly across domains and venues. Addressing these concerns, there has been recent work with unsupervised models of Web conversations based on hidden Markov models (Ritter et al., 2010), where each state corresponds to a conversational class or act. Unlike more traditional uses of HMMs in which a single token is emitted per time step, HMM </context>
+</contexts>
+<marker>Xu, Li, Ma, 2008</marker>
+<rawString>Gu Xu, Hang Li, and Wei-Ying Ma. 2008. Fora: Leveraging the power of internet communities for question answering. In 1st International Workshop on Question Answering on the Web (QAWeb08).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jen-Yuan Yeh</author>
+<author>Aaron Harnly</author>
+</authors>
+<title>Email thread reassembly using similarity matching.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the 3rd Conference on Email and Anti-Spam (CEAS</booktitle>
+<pages>6471</pages>
+<contexts>
+<context position="27038" citStr="Yeh and Harnly, 2006" startWordPosition="4647" endWordPosition="4650">e 2: Accuracy at the task of thread reconstruction. The horizontal bar indicates a random baseline. If capturing sequence information is not important, then LDA may provide a better fit to a corpus than sequence models. In the next two subsections, we will consider tasks where the sequential structure is important, thus LDA is not an appropriate choice. 5.5.2 Thread Reconstruction A natural predictive task of the sequence models is to reconstruct the discourse graph of a document where the structure is unknown. In the conversation domain, this corresponds to the task of thread reconstruction (Yeh and Harnly, 2006; Wang et al., 2011c). Given only a flat structure, can we recover the reply structure of messages in the conversation? Previous work with BHMM found the optimal structure by computing the likelihood of all permutations of a thread or sequence (Ritter et al., 2010; Wang et al., 2011b). We take a more practical approach and find the optimal structure as part of our inference procedure. We do this by treating the parent of each block as a hidden variable to be inferred. The parent of block b is the random variable rb, and we alternate between sampling values of the latent classes z and the paren</context>
+</contexts>
+<marker>Yeh, Harnly, 2006</marker>
+<rawString>Jen-Yuan Yeh and Aaron Harnly. 2006. Email thread reassembly using similarity matching. In Proceedings of the 3rd Conference on Email and Anti-Spam (CEAS 2006), pages 6471.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

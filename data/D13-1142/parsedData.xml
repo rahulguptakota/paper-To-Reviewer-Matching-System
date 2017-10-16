@@ -1,0 +1,957 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000003">
+<bodyText confidence="0.843517">
+b&amp;apos;Proceedings of the 2013 Conference on Empirical Methods in Natural Language Processing, pages 13991404,
+Seattle, Washington, USA, 18-21 October 2013. c
+</bodyText>
+<figure confidence="0.888465727272727">
+2013 Association for Computational Linguistics
+Application of Localized Similarity for Web Documents
+Peter Rebersek
+Zemanta
+Celovska cesta 32
+Ljubljana, Slovenia
+peter.rebersek@zemanta.com
+Mateja Verlic
+Zemanta
+Celovska cesta 32
+Ljubljana, Slovenia
+</figure>
+<email confidence="0.903955">
+mateja.verlic@zemanta.com
+</email>
+<sectionHeader confidence="0.972735" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.9953942">
+In this paper we present a novel approach to
+automatic creation of anchor texts for hyper-
+links in a document pointing to similar doc-
+uments. Methods used in this approach rank
+parts of a document based on the similarity
+to a presumably related document. Ranks are
+then used to automatically construct the best
+anchor text for a link inside original document
+to the compared document. A number of dif-
+ferent methods from information retrieval and
+natural language processing are adapted for
+this task. Automatically constructed anchor
+texts are manually evaluated in terms of relat-
+edness to linked documents and compared to
+baseline consisting of originally inserted an-
+chor texts. Additionally we use crowdsourc-
+ing for evaluation of original anchors and au-
+tomatically constructed anchors. Results show
+that our best adapted methods rival the preci-
+sion of the baseline method.
+</bodyText>
+<sectionHeader confidence="0.99833" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999737934782609">
+One of the features of hypertext documents are hy-
+perlinks that point to other resources pictures,
+videos, tweets, or other hypertext documents. A
+fairly familiar category of the latter is related arti-
+cles; these usually appear at the end of a news article
+or a blog post with the title of the target document as
+anchor text. The target document is similar in con-
+tent to original document; it may tell the story from
+another point of view, it may be a more detailed ver-
+sion of a part of the events in the original document,
+etc. Another category are the in-text links; these ap-
+pear inside the main body of text and use some of
+the existing text as anchor. Ideally the anchor text is
+selected in such a way that it conveys some informa-
+tion about the target document; in reality sometimes
+just an adverb (e.g. here, there) is used, or even the
+destination URL may serve as anchor.
+Our goal is to develop a system that automatically
+constructs in-text links, i.e. for a query document
+finds a target document and an appropriate part of
+the text of the query document that serves as the an-
+chor text for the hyperlink. We want the target docu-
+ment to be similar in content to the query document
+and the anchor text to indicate that content.
+There are many potential uses for such a system,
+especially for simplifying and streamlining docu-
+ment creation. This includes authors of blogs that
+may use the system for adding related content from
+other sources without exhausting manual search for
+such material. It may also be used when writing
+a scientific paper, automatically adding citations to
+other relevant papers inside the main body. This ac-
+celerates the writing, again reducing the time spent
+searching for possible existing research in the field.
+A citation can be considered an in-text link without
+a defined starting point.
+We have addressed the problem in two steps, sep-
+arately finding a similar document, and finding the
+anchor text for it. Since the retrieval of similar doc-
+uments was a research focus for many years and is
+thus better researched, we have decided in this pa-
+per to focus on the placement of the anchor text for
+a link to a preselected document.
+This paper is organized as follows: related work
+is discussed in Section 2, the methods, corpus, and
+evaluation are described in Section 3, followed by
+</bodyText>
+<page confidence="0.973592">
+1399
+</page>
+<bodyText confidence="0.979816">
+\x0cresults and discussion in Section 4 and ending with
+conclusions in Section 5.
+</bodyText>
+<sectionHeader confidence="0.999604" genericHeader="related work">
+2 Related Work
+</sectionHeader>
+<bodyText confidence="0.998140975">
+Semantic similarity of textual documents offers a
+way to organize the increasing number of available
+documents. It can be used in many applications such
+as summarization, educational systems, finding du-
+plicated bug reports in software testing (Lintean et
+al., 2010), plagiarism detection (Kasprzak and Bran-
+dejs, 2010), and research of a scientific field (Kober-
+stein and Ng, 2006). Documents can vary in length
+from microblogs (Twitter) and sentences (Li et al.,
+2006; Koberstein and Ng, 2006) to paragraphs (Lin-
+tean et al., 2010) and larger documents (Budanitsky
+and Hirst, 2006).
+There is also commercial software such as nRe-
+late1, Zemanta2 and OpenCalais3 with functionality
+that ranges from named entity recognition (NER)
+and event detection to related content. Publishers
+use in-house tools that offer automatic retrieval of
+in-house similar documents.
+Most of the methods for comparing documents fo-
+cus on the query document as a whole. The calcu-
+lated score therefore belongs to the whole document
+and nothing can be said about more or less similar
+parts of the document. Our goal is to localize the
+similarity to a part of the query document, a para-
+graph, sentence, or even a part of the sentence that is
+most similar to another document. This part of the
+query document can then serve as anchor text for a
+hyperlink connection to the similar document.
+Plagiarism detection methods (Alzahrani et al.,
+2012; Monostori et al., 2002) have a task of veri-
+fying the originality of the document. Extrinsic pla-
+giarism detection methods compare two documents
+to determine if some of the material in one is pla-
+giarised from the other. Methods range from sim-
+ple exact substring matching to more advanced ones
+like semantic based methods that are able to recog-
+nize paraphrasing and refactoring (Alzahrani et al.,
+2012). These methods have localization of similarity
+already built-in as they are searching for parts of the
+text that seem to be plagiarised. We have focused on
+</bodyText>
+<footnote confidence="0.94600775">
+1
+nRelate: http://www.nrelate.com/
+2
+Zemanta: http://www.zemanta.com/
+</footnote>
+<page confidence="0.720156">
+3
+</page>
+<bodyText confidence="0.977307533333333">
+OpenCalais: http://www.opencalais.com/
+one such method, the winner of the PAN 2010 chal-
+lenge (Kasprzak and Brandejs, 2010). This method
+uses shared n-grams from the two documents in or-
+der to determine if one of them is plagiarised.
+Another similar research is automatic citation
+placement for scientific papers. Most of the work
+(Strohman et al., 2007; McNee et al., 2002) is con-
+cerned with putting citations at the end of the paper
+(non-localized), which is a task similar to inserting
+related articles for a news article at the of the text.
+There have been some attempts to place the citations
+in the main body of text (Tang and Zhang, 2009; He
+et al., 2011), typically used when referring to an idea
+or method.
+Tang and Zang (2009) used a placeholder con-
+straint: the query document must contain placehold-
+ers for citations, i.e. the places in text where citation
+might be inserted. Their method then just ranks all
+possible documents for a particular placeholder and
+chooses the best ranked document as a result. Doc-
+uments are ranked on the basis of a learned topic
+model, obtained by a two-layer Restricted Boltz-
+mann Machine.
+He et al.(2011) made a step further towards gen-
+erality of a citation location; they divide the text into
+overlapping windows and then decide which win-
+dows are viable citation context. The best method
+for deciding which citation context to use was a de-
+pendency feature model, an ensemble method using
+17 different features and decision trees.
+Named entity recognition (NER) also offers a use-
+ful insight into document similarity. If two docu-
+ments share a named entity (NE), it is more likely
+they are similar. Detected NEs may also serve as an-
+chor text for the link. NER is a fairly researched field
+(Finkel et al., 2005; Ratinov et al., 2011; Bunescu
+and Pasca, 2006; Kulkarni et al., 2009; Milne and
+Witten, 2008) and is also used in several commer-
+cial applications such as Zemanta, OpenCalais and
+AlchemyAPI4, which are able to automatically in-
+sert links for a NE pointing to a knowledge base such
+as Wikipedia or IMDB. However, at this point they
+are unable to link to arbitrary documents, but may
+be useful in conjunction with other methods.
+</bodyText>
+<page confidence="0.689709">
+4
+</page>
+<footnote confidence="0.503187">
+AlchemyAPI: http://www.alchemyapi.com/
+</footnote>
+<page confidence="0.56826">
+1400
+</page>
+<sectionHeader confidence="0.353203" genericHeader="method">
+\x0c3 Methodology
+</sectionHeader>
+<subsectionHeader confidence="0.993727">
+3.1 Corpus
+</subsectionHeader>
+<bodyText confidence="0.999374809523809">
+We have chosen 100 web articles (posts) at ran-
+dom from the end of January 2012. We extracted
+the body and title of each document. All the
+present in-text links were also extracted and filtered.
+First, automatic filtering was applied to remove un-
+wanted categories of links (videos, definition pages
+on wikipedia and imdb, etc.), and articles that were
+deemed too short for similarity comparison. The
+threshold was set at 200 words of automatically
+scraped body text of a linked document.
+All the remaining links were manually checked
+to ensure the integrity of link targets. This way we
+collected 265 articles (hereinafter related articles -
+RA). A number of different methods were then used
+to calculate similarity rank and select the best part of
+the post text to be used as anchor text for a hyperlink
+pointing to the originally linked RA.
+We have used CrowdFlower5, a crowdsourcing
+platform, to evaluate how many of the 265 postRA
+pairs were really related; the final corpus thus con-
+sisted of 236 pairs.
+</bodyText>
+<subsectionHeader confidence="0.997638">
+3.2 Evaluation
+</subsectionHeader>
+<bodyText confidence="0.9981813">
+We have used each of the methods described in Sub-
+section 3.3 to automatically construct anchor text for
+each of the 236 pairs of documents in the final cor-
+pus. If a method could not find a suitable anchor,
+no result was returned; on average there were 147
+anchors per method. All the automatically created
+links were then manually scored by the authors with
+an in-house evaluation tool using scores and guide-
+lines summarized in Table 1. To calculate precision
+and recall, we have counted scores 2 and 3 as posi-
+tive result.
+Additionally we crowdsourced the evaluation of
+results for some of the methods. For this task we pre-
+pared a special description of evaluation tasks and
+defined a set of questions for collecting results. We
+provided simplified guidelines for assigning scores
+to automatically created anchors and set a confi-
+dence threshold of 0.55 for an assignment to be con-
+sidered valid. It is important to mention that the use
+of crowdsourcing for such tasks has to be carefully
+</bodyText>
+<figure confidence="0.662933769230769">
+5
+CrowdFlower: http://crowdflower.com/
+Score Description
+0 Anchor does not signify anything about
+RA or gets it wrong
+1 Some connection can be established (an-
+chor is a shared Named Entity, Noun
+Phrase, Verb Phrase, etc.)
+2 Anchor is a good estimation of RA top-
+ics, but not wholly (anchor is a non-main
+topic in RA)
+3 RA topics can be directly inferred from
+the anchor
+</figure>
+<tableCaption confidence="0.732428">
+Table 1: Scores used for internal evaluation of automati-
+cally created anchors
+</tableCaption>
+<bodyText confidence="0.991341666666667">
+planned, because many issues related to monetary
+incentives, which are out of the scope of this paper,
+may arise.
+</bodyText>
+<subsectionHeader confidence="0.955456">
+3.3 Methods for constructing anchor texts
+</subsectionHeader>
+<bodyText confidence="0.9943095">
+We have adapted a number of methods from a vari-
+ety of sources to test how they perform for our exact
+purpose. Below is a short overview of the different
+methods used in this work.
+</bodyText>
+<subsubsectionHeader confidence="0.758598">
+3.3.1 Longest chunk
+</subsubsectionHeader>
+<bodyText confidence="0.994898388888889">
+This method is based on natural language pro-
+cessing and extensively uses NLTK package (Bird
+et al., 2009); the text is first tokenized with the de-
+fault NLTK tokenizer, and then POS tagged with one
+of the included POS taggers. After much testing, we
+have decided on a combination of Brill Trigram
+Bigram Unigram Affix Regex backoff tagger
+with noun as default tag. The trainable parts of the
+tagger were trained on the included CoNLL 2000
+tagged corpus.
+Before chunking was applied, we also simplified
+some tags and removed some others to get a simpler
+structure of POS tags. We then used a regex chun-
+ker to find a sequence of a proper noun and a verb
+separated by zero or more other tokens. We have
+also tested a proper noun - verb - proper noun com-
+bination, but there were even fewer results, so this
+direction was abandoned.
+</bodyText>
+<subsubsectionHeader confidence="0.849628">
+3.3.2 Latent Semantic Indexing (LSI) based
+</subsubsectionHeader>
+<bodyText confidence="0.999403">
+A corpus is represented in LSI (Deerwester et
+al., 1990) as a large matrix of term occurrences
+</bodyText>
+<page confidence="0.866322">
+1401
+</page>
+<bodyText confidence="0.990745666666667">
+\x0cin individual documents. The rank of the matrix
+is then reduced using singular value decomposition
+that groups together terms that occur in similar con-
+text which should therefore account for synonyms.
+We have used a tool called gensim (Rehurek and
+Sojka, 2010) that enabled us to quickly train a LSI
+model using the whole corpus and index just the re-
+lated articles. In order to localize the similarity and
+place an anchor, we split the source document into
+paragraphs and compute similarity scores between
+target document and each paragraph of the source
+document. We then split the paragraph with the
+highest score into sentences and again obtain scores
+for each. The sentence with the best score is then
+chosen as the result.
+</bodyText>
+<subsubsectionHeader confidence="0.901269">
+3.3.3 Sorted n-grams
+</subsubsectionHeader>
+<bodyText confidence="0.999328307692308">
+Drawing on plagiarism detection, the winning
+method from the PAN 2010 (Kasprzak and Bran-
+dejs, 2010) seemed a viable choice. The basis of
+the method is comparing n-grams of the source and
+the destination documents. First, the text was again
+tokenized with NLTK, removed stopwords and to-
+kens with two or less characters. Then overlapping
+n-grams were constructed. We have deviated from
+Kasprzaks merging policy and decided to merge
+two results if they are less than 20 tokens apart. We
+also required only one shared n-gram to consider the
+documents similar. Results were ranked based on
+the number of shared tokens within each.
+</bodyText>
+<subsubsectionHeader confidence="0.892364">
+3.3.4 Unigrams tf*idf
+</subsubsectionHeader>
+<bodyText confidence="0.998488714285714">
+This method uses unigram tf*idf weighted scores.
+Since we had a closed system, we used corpus-wide
+frequencies; stopwords were also removed. We have
+scored tokens in the source document with tf*idf
+summary of the destination document; tokens not
+in summary are given a zero weight. We have ex-
+perimentally determined that a summary of just top
+150 tokens improves results. Sentences were ranked
+based on the sum of its tokens weights. We also in-
+cluded NEs from Zemanta API response for both
+source and destination document. Sentences con-
+taining shared NEs get their score multiplied by the
+sum of shared NE tf*idf weights. The result was
+then the sentence with the highest score.
+</bodyText>
+<table confidence="0.970570333333333">
+Manual CrowdFlower
+P R P R
+Original links 0.691 0.691 0.981 0.432
+Sorted 5-grams 0.822 0.254
+Sorted 4-grams 0.741 0.352
+Sorted 3-grams 0.680 0.424 0.956 0.275
+Longest Chunk 0.080 0.075 0.907 0.165
+Unigrams tf*idf 0.626 0.242 0.882 0.127
+LSI based 0.648 0.640
+</table>
+<tableCaption confidence="0.990038">
+Table 2: Precision and recall for manual and Crowd-
+</tableCaption>
+<subsectionHeader confidence="0.557116">
+Flower evaluation
+3.3.5 Baseline
+</subsectionHeader>
+<bodyText confidence="0.9961734">
+Our baseline was a method that inserted links that
+were originally present in the source documents.
+This method was used to compare our automatic
+methods to what people are actually linking in the
+real world.
+</bodyText>
+<sectionHeader confidence="0.962264" genericHeader="evaluation">
+4 Evaluation Results and Discussion
+</sectionHeader>
+<bodyText confidence="0.999662230769231">
+Results are presented as precision and recall for
+different methods and both evaluations in Table 2.
+Empty cells in the table indicate that these methods
+were not evaluated using CrowdFlower. Recall is
+the fraction of relevant results out of all the possible
+results (236) and precision is the fraction of relevant
+results out of all the retrieved results.
+The first thing we notice is the general disagree-
+ment between results from the authors and Crowd-
+Flower workers; the latter tend to give higher scores,
+which leads to higher precision and recall. The rea-
+son for this might be in the authors background
+knowledge and thus higher expectations.
+As a contrast almost half of CrowdFlower work-
+ers stated they dont blog and of the rest, more than
+a third of them dont link out, i.e. do not use re-
+lated articles. We also have only 74% median inter-
+annotator agreement leading us to believe that some
+of the annotators answered without being familiar
+with the question (monetary incentive issue).
+Furthermore, CrowdFlower results for original
+links (our baseline) indicate that almost all of them
+were recognized as relevant, while our evaluators
+discarded 30% of them. Clearly seen in the re-
+sults of different sorted n-grams methods is also the
+precision-recall trade-off.
+</bodyText>
+<page confidence="0.96453">
+1402
+</page>
+<sectionHeader confidence="0.722094" genericHeader="conclusions">
+\x0c5 Conclusion
+</sectionHeader>
+<bodyText confidence="0.993520714285714">
+Based on evaluation results and despite differences
+between the evaluators with background knowledge
+and the crowds, we can conclude that that our ap-
+proach for automatic construction of in-text links
+rivals manual creation by professional writers and
+bloggers and is thus a promising direction for fur-
+ther research.
+</bodyText>
+<sectionHeader confidence="0.759831" genericHeader="acknowledgments">
+Acknowledgement
+</sectionHeader>
+<bodyText confidence="0.8678185">
+This work was partially funded by the Slovenian
+Ministry of Higher Education, Science and Technol-
+ogy, and the European Union European Regional
+Development Fund.
+</bodyText>
+<sectionHeader confidence="0.947814" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.932451571428571">
+S.M. Alzahrani, N. Salim, and A. Abraham. 2012. Un-
+derstanding plagiarism linguistic patterns, textual fea-
+tures, and detection methods. Systems, Man, and Cy-
+bernetics, Part C: Applications and Reviews, IEEE
+Transactions on, 42(2):133149.
+Steven Bird, Ewan Klein, and Edward Loper. 2009. Nat-
+ural Language Processing with Python. OReilly Me-
+dia.
+Alexander Budanitsky and Graeme Hirst. 2006. Evalu-
+ating wordnet-based measures of lexical semantic re-
+latedness. Comput. Linguist., 32(1):1347, March.
+Razvan Bunescu and Marius Pasca. 2006. Using ency-
+clopedic knowledge for named entity disambiguation.
+In Proceedings of the 11th Conference of the European
+Chapter of the Association for Computational Linguis-
+tics (EACL-06), pages 916, Trento, Italy.
+Scott Deerwester, Susan T. Dumais, George W Furnas,
+Thomas K Landauer, and Richard Harshman. 1990.
+Indexing by latent semantic analysis. Journal of the
+American society for information science, 41(6):391
+407.
+Jenny Rose Finkel, Trond Grenager, and Christopher
+Manning. 2005. Incorporating non-local informa-
+tion into information extraction systems by gibbs sam-
+pling. In Proceedings of the 43rd Annual Meeting on
+Association for Computational Linguistics, ACL 05,
+pages 363370, Stroudsburg, PA, USA. Association
+for Computational Linguistics.
+Qi He, Daniel Kifer, Jian Pei, Prasenjit Mitra, and C. Lee
+Giles. 2011. Citation recommendation without author
+supervision. In Proceedings of the fourth ACM inter-
+national conference on Web search and data mining,
+WSDM 11, pages 755764, New York, NY, USA.
+ACM.
+Jan Kasprzak and Michal Brandejs. 2010. Improving the
+reliability of the plagiarism detection system lab report
+for pan at clef 2010.
+Jonathan Koberstein and Yiu-Kai Ng. 2006. Us-
+ing word clusters to detect similar web documents.
+In Proceedings of the First international conference
+on Knowledge Science, Engineering and Manage-
+ment, KSEM06, pages 215228, Berlin, Heidelberg.
+Springer-Verlag.
+Sayali Kulkarni, Amit Singh, Ganesh Ramakrishnan, and
+Soumen Chakrabarti. 2009. Collective annotation
+of wikipedia entities in web text. In Proceedings
+of the 15th ACM SIGKDD international conference
+on Knowledge discovery and data mining, KDD 09,
+pages 457466, New York, NY, USA. ACM.
+Yuhua Li, David McLean, Zuhair A. Bandar, James D.
+OShea, and Keeley Crockett. 2006. Sentence sim-
+ilarity based on semantic nets and corpus statistics.
+IEEE Trans. on Knowl. and Data Eng., 18(8):1138
+1150, August.
+Mihai Lintean, Cristian Moldovan, Vasile Rus, and
+Danielle McNamara. 2010. The role of local and
+global weighting in assessing the semantic similarity
+of texts using latent semantic analysis. In Proceedings
+of the 23rd International Florida Artificial Intelligence
+Research Society Conference, Daytona Beach, FL.
+Sean M. McNee, Istvan Albert, Dan Cosley, Prateep
+Gopalkrishnan, Shyong K. Lam, Al Mamunur Rashid,
+Joseph A. Konstan, and John Riedl. 2002. On the rec-
+ommending of citations for research papers. In Pro-
+ceedings of the 2002 ACM conference on Computer
+supported cooperative work, CSCW 02, pages 116
+125, New York, NY, USA. ACM.
+David Milne and Ian H. Witten. 2008. Learning to link
+with wikipedia. In Proceedings of the 17th ACM con-
+ference on Information and knowledge management,
+CIKM 08, pages 509518, New York, NY, USA.
+ACM.
+Krisztian Monostori, Raphael Finkel, Arkady Zaslavsky,
+Gabor Hodasz, and Mate Pataki. 2002. Comparison
+of overlap detection techniques. In PeterM.A. Sloot,
+AlfonsG. Hoekstra, C.J.Kenneth Tan, and JackJ. Don-
+garra, editors, Computational Science ICCS 2002,
+volume 2329 of Lecture Notes in Computer Science,
+pages 5160. Springer Berlin Heidelberg.
+Lev Ratinov, Dan Roth, Doug Downey, and Mike An-
+derson. 2011. Local and global algorithms for dis-
+ambiguation to Wikipedia. In Proceedings of the 49th
+Annual Meeting of the Association for Computational
+Linguistics: Human Language Technologies - Volume
+1, HLT 11, pages 13751384, Stroudsburg, PA, USA.
+Association for Computational Linguistics.
+Radim Rehurek and Petr Sojka. 2010. Software Frame-
+work for Topic Modelling with Large Corpora. In Pro-
+1403
+\x0cceedings of the LREC 2010 Workshop on New Chal-
+lenges for NLP Frameworks, pages 4550, Valletta,
+Malta, May. ELRA.
+Trevor Strohman, W. Bruce Croft, and David Jensen.
+2007. Recommending citations for academic papers.
+In In Proceedings of the 30th Annual International
+ACM SIGIR Conference on Research and Develop-
+ment in Information Retrieval (SIGIR07, pages 705
+706.
+Jie Tang and Jing Zhang. 2009. A discriminative ap-
+proach to topic-based citation recommendation. In
+Thanaruk Theeramunkong, Boonserm Kijsirikul, Nick
+Cercone, and Tu-Bao Ho, editors, Advances in Knowl-
+edge Discovery and Data Mining, volume 5476 of
+Lecture Notes in Computer Science, pages 572579.
+Springer Berlin Heidelberg.
+</reference>
+<page confidence="0.71479">
+1404
+</page>
+<figure confidence="0.298835">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.074541">
+<note confidence="0.910053666666667">b&amp;apos;Proceedings of the 2013 Conference on Empirical Methods in Natural Language Processing, pages 13991404, Seattle, Washington, USA, 18-21 October 2013. c 2013 Association for Computational Linguistics</note>
+<title confidence="0.93101">Application of Localized Similarity for Web Documents</title>
+<author confidence="0.961723">Peter Rebersek</author>
+<affiliation confidence="0.45461">Zemanta</affiliation>
+<address confidence="0.7559625">Celovska cesta 32 Ljubljana, Slovenia</address>
+<email confidence="0.999775">peter.rebersek@zemanta.com</email>
+<author confidence="0.9822">Mateja Verlic</author>
+<affiliation confidence="0.404553">Zemanta</affiliation>
+<address confidence="0.687688">Celovska cesta 32 Ljubljana, Slovenia</address>
+<email confidence="0.999892">mateja.verlic@zemanta.com</email>
+<abstract confidence="0.997983857142857">In this paper we present a novel approach to automatic creation of anchor texts for hyperlinks in a document pointing to similar documents. Methods used in this approach rank parts of a document based on the similarity to a presumably related document. Ranks are then used to automatically construct the best anchor text for a link inside original document to the compared document. A number of different methods from information retrieval and natural language processing are adapted for this task. Automatically constructed anchor texts are manually evaluated in terms of relatedness to linked documents and compared to baseline consisting of originally inserted anchor texts. Additionally we use crowdsourcing for evaluation of original anchors and automatically constructed anchors. Results show that our best adapted methods rival the precision of the baseline method.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>S M Alzahrani</author>
+<author>N Salim</author>
+<author>A Abraham</author>
+</authors>
+<title>Understanding plagiarism linguistic patterns, textual features, and detection methods. Systems, Man, and Cybernetics, Part C: Applications and Reviews,</title>
+<date>2012</date>
+<journal>IEEE Transactions on,</journal>
+<volume>42</volume>
+<issue>2</issue>
+<contexts>
+<context position="5154" citStr="Alzahrani et al., 2012" startWordPosition="841" endWordPosition="844"> tools that offer automatic retrieval of in-house similar documents. Most of the methods for comparing documents focus on the query document as a whole. The calculated score therefore belongs to the whole document and nothing can be said about more or less similar parts of the document. Our goal is to localize the similarity to a part of the query document, a paragraph, sentence, or even a part of the sentence that is most similar to another document. This part of the query document can then serve as anchor text for a hyperlink connection to the similar document. Plagiarism detection methods (Alzahrani et al., 2012; Monostori et al., 2002) have a task of verifying the originality of the document. Extrinsic plagiarism detection methods compare two documents to determine if some of the material in one is plagiarised from the other. Methods range from simple exact substring matching to more advanced ones like semantic based methods that are able to recognize paraphrasing and refactoring (Alzahrani et al., 2012). These methods have localization of similarity already built-in as they are searching for parts of the text that seem to be plagiarised. We have focused on 1 nRelate: http://www.nrelate.com/ 2 Zeman</context>
+</contexts>
+<marker>Alzahrani, Salim, Abraham, 2012</marker>
+<rawString>S.M. Alzahrani, N. Salim, and A. Abraham. 2012. Understanding plagiarism linguistic patterns, textual features, and detection methods. Systems, Man, and Cybernetics, Part C: Applications and Reviews, IEEE Transactions on, 42(2):133149.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Steven Bird</author>
+<author>Ewan Klein</author>
+<author>Edward Loper</author>
+</authors>
+<date>2009</date>
+<booktitle>Natural Language Processing with Python. OReilly Media.</booktitle>
+<contexts>
+<context position="10949" citStr="Bird et al., 2009" startWordPosition="1821" endWordPosition="1824">s a non-main topic in RA) 3 RA topics can be directly inferred from the anchor Table 1: Scores used for internal evaluation of automatically created anchors planned, because many issues related to monetary incentives, which are out of the scope of this paper, may arise. 3.3 Methods for constructing anchor texts We have adapted a number of methods from a variety of sources to test how they perform for our exact purpose. Below is a short overview of the different methods used in this work. 3.3.1 Longest chunk This method is based on natural language processing and extensively uses NLTK package (Bird et al., 2009); the text is first tokenized with the default NLTK tokenizer, and then POS tagged with one of the included POS taggers. After much testing, we have decided on a combination of Brill Trigram Bigram Unigram Affix Regex backoff tagger with noun as default tag. The trainable parts of the tagger were trained on the included CoNLL 2000 tagged corpus. Before chunking was applied, we also simplified some tags and removed some others to get a simpler structure of POS tags. We then used a regex chunker to find a sequence of a proper noun and a verb separated by zero or more other tokens. We have also t</context>
+</contexts>
+<marker>Bird, Klein, Loper, 2009</marker>
+<rawString>Steven Bird, Ewan Klein, and Edward Loper. 2009. Natural Language Processing with Python. OReilly Media.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Alexander Budanitsky</author>
+<author>Graeme Hirst</author>
+</authors>
+<title>Evaluating wordnet-based measures of lexical semantic relatedness.</title>
+<date>2006</date>
+<journal>Comput. Linguist.,</journal>
+<volume>32</volume>
+<issue>1</issue>
+<contexts>
+<context position="4323" citStr="Budanitsky and Hirst, 2006" startWordPosition="703" endWordPosition="706">g with conclusions in Section 5. 2 Related Work Semantic similarity of textual documents offers a way to organize the increasing number of available documents. It can be used in many applications such as summarization, educational systems, finding duplicated bug reports in software testing (Lintean et al., 2010), plagiarism detection (Kasprzak and Brandejs, 2010), and research of a scientific field (Koberstein and Ng, 2006). Documents can vary in length from microblogs (Twitter) and sentences (Li et al., 2006; Koberstein and Ng, 2006) to paragraphs (Lintean et al., 2010) and larger documents (Budanitsky and Hirst, 2006). There is also commercial software such as nRelate1, Zemanta2 and OpenCalais3 with functionality that ranges from named entity recognition (NER) and event detection to related content. Publishers use in-house tools that offer automatic retrieval of in-house similar documents. Most of the methods for comparing documents focus on the query document as a whole. The calculated score therefore belongs to the whole document and nothing can be said about more or less similar parts of the document. Our goal is to localize the similarity to a part of the query document, a paragraph, sentence, or even </context>
+</contexts>
+<marker>Budanitsky, Hirst, 2006</marker>
+<rawString>Alexander Budanitsky and Graeme Hirst. 2006. Evaluating wordnet-based measures of lexical semantic relatedness. Comput. Linguist., 32(1):1347, March.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Razvan Bunescu</author>
+<author>Marius Pasca</author>
+</authors>
+<title>Using encyclopedic knowledge for named entity disambiguation.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the 11th Conference of the European Chapter of the Association for Computational Linguistics (EACL-06),</booktitle>
+<pages>916</pages>
+<location>Trento, Italy.</location>
+<contexts>
+<context position="7578" citStr="Bunescu and Pasca, 2006" startWordPosition="1248" endWordPosition="1251">s generality of a citation location; they divide the text into overlapping windows and then decide which windows are viable citation context. The best method for deciding which citation context to use was a dependency feature model, an ensemble method using 17 different features and decision trees. Named entity recognition (NER) also offers a useful insight into document similarity. If two documents share a named entity (NE), it is more likely they are similar. Detected NEs may also serve as anchor text for the link. NER is a fairly researched field (Finkel et al., 2005; Ratinov et al., 2011; Bunescu and Pasca, 2006; Kulkarni et al., 2009; Milne and Witten, 2008) and is also used in several commercial applications such as Zemanta, OpenCalais and AlchemyAPI4, which are able to automatically insert links for a NE pointing to a knowledge base such as Wikipedia or IMDB. However, at this point they are unable to link to arbitrary documents, but may be useful in conjunction with other methods. 4 AlchemyAPI: http://www.alchemyapi.com/ 1400 \x0c3 Methodology 3.1 Corpus We have chosen 100 web articles (posts) at random from the end of January 2012. We extracted the body and title of each document. All the present</context>
+</contexts>
+<marker>Bunescu, Pasca, 2006</marker>
+<rawString>Razvan Bunescu and Marius Pasca. 2006. Using encyclopedic knowledge for named entity disambiguation. In Proceedings of the 11th Conference of the European Chapter of the Association for Computational Linguistics (EACL-06), pages 916, Trento, Italy.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Scott Deerwester</author>
+<author>Susan T Dumais</author>
+<author>George W Furnas</author>
+<author>Thomas K Landauer</author>
+<author>Richard Harshman</author>
+</authors>
+<title>Indexing by latent semantic analysis.</title>
+<date>1990</date>
+<journal>Journal of the American society for information science,</journal>
+<volume>41</volume>
+<issue>6</issue>
+<pages>407</pages>
+<contexts>
+<context position="11770" citStr="Deerwester et al., 1990" startWordPosition="1968" endWordPosition="1971"> Unigram Affix Regex backoff tagger with noun as default tag. The trainable parts of the tagger were trained on the included CoNLL 2000 tagged corpus. Before chunking was applied, we also simplified some tags and removed some others to get a simpler structure of POS tags. We then used a regex chunker to find a sequence of a proper noun and a verb separated by zero or more other tokens. We have also tested a proper noun - verb - proper noun combination, but there were even fewer results, so this direction was abandoned. 3.3.2 Latent Semantic Indexing (LSI) based A corpus is represented in LSI (Deerwester et al., 1990) as a large matrix of term occurrences 1401 \x0cin individual documents. The rank of the matrix is then reduced using singular value decomposition that groups together terms that occur in similar context which should therefore account for synonyms. We have used a tool called gensim (Rehurek and Sojka, 2010) that enabled us to quickly train a LSI model using the whole corpus and index just the related articles. In order to localize the similarity and place an anchor, we split the source document into paragraphs and compute similarity scores between target document and each paragraph of the sour</context>
+</contexts>
+<marker>Deerwester, Dumais, Furnas, Landauer, Harshman, 1990</marker>
+<rawString>Scott Deerwester, Susan T. Dumais, George W Furnas, Thomas K Landauer, and Richard Harshman. 1990. Indexing by latent semantic analysis. Journal of the American society for information science, 41(6):391 407.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Rose Finkel</author>
+<author>Trond Grenager</author>
+<author>Christopher Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the 43rd Annual Meeting on Association for Computational Linguistics, ACL 05,</booktitle>
+<pages>363370</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Stroudsburg, PA, USA.</location>
+<contexts>
+<context position="7531" citStr="Finkel et al., 2005" startWordPosition="1240" endWordPosition="1243"> He et al.(2011) made a step further towards generality of a citation location; they divide the text into overlapping windows and then decide which windows are viable citation context. The best method for deciding which citation context to use was a dependency feature model, an ensemble method using 17 different features and decision trees. Named entity recognition (NER) also offers a useful insight into document similarity. If two documents share a named entity (NE), it is more likely they are similar. Detected NEs may also serve as anchor text for the link. NER is a fairly researched field (Finkel et al., 2005; Ratinov et al., 2011; Bunescu and Pasca, 2006; Kulkarni et al., 2009; Milne and Witten, 2008) and is also used in several commercial applications such as Zemanta, OpenCalais and AlchemyAPI4, which are able to automatically insert links for a NE pointing to a knowledge base such as Wikipedia or IMDB. However, at this point they are unable to link to arbitrary documents, but may be useful in conjunction with other methods. 4 AlchemyAPI: http://www.alchemyapi.com/ 1400 \x0c3 Methodology 3.1 Corpus We have chosen 100 web articles (posts) at random from the end of January 2012. We extracted the b</context>
+</contexts>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>Jenny Rose Finkel, Trond Grenager, and Christopher Manning. 2005. Incorporating non-local information into information extraction systems by gibbs sampling. In Proceedings of the 43rd Annual Meeting on Association for Computational Linguistics, ACL 05, pages 363370, Stroudsburg, PA, USA. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Qi He</author>
+<author>Daniel Kifer</author>
+<author>Jian Pei</author>
+<author>Prasenjit Mitra</author>
+<author>C Lee Giles</author>
+</authors>
+<title>Citation recommendation without author supervision.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the fourth ACM international conference on Web search and data mining, WSDM 11,</booktitle>
+<pages>755764</pages>
+<publisher>ACM.</publisher>
+<location>New York, NY, USA.</location>
+<contexts>
+<context position="6444" citStr="He et al., 2011" startWordPosition="1054" endWordPosition="1057">uch method, the winner of the PAN 2010 challenge (Kasprzak and Brandejs, 2010). This method uses shared n-grams from the two documents in order to determine if one of them is plagiarised. Another similar research is automatic citation placement for scientific papers. Most of the work (Strohman et al., 2007; McNee et al., 2002) is concerned with putting citations at the end of the paper (non-localized), which is a task similar to inserting related articles for a news article at the of the text. There have been some attempts to place the citations in the main body of text (Tang and Zhang, 2009; He et al., 2011), typically used when referring to an idea or method. Tang and Zang (2009) used a placeholder constraint: the query document must contain placeholders for citations, i.e. the places in text where citation might be inserted. Their method then just ranks all possible documents for a particular placeholder and chooses the best ranked document as a result. Documents are ranked on the basis of a learned topic model, obtained by a two-layer Restricted Boltzmann Machine. He et al.(2011) made a step further towards generality of a citation location; they divide the text into overlapping windows and th</context>
+</contexts>
+<marker>He, Kifer, Pei, Mitra, Giles, 2011</marker>
+<rawString>Qi He, Daniel Kifer, Jian Pei, Prasenjit Mitra, and C. Lee Giles. 2011. Citation recommendation without author supervision. In Proceedings of the fourth ACM international conference on Web search and data mining, WSDM 11, pages 755764, New York, NY, USA. ACM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jan Kasprzak</author>
+<author>Michal Brandejs</author>
+</authors>
+<title>Improving the reliability of the plagiarism detection system lab report for pan at clef</title>
+<date>2010</date>
+<contexts>
+<context position="4061" citStr="Kasprzak and Brandejs, 2010" startWordPosition="659" endWordPosition="663">of the anchor text for a link to a preselected document. This paper is organized as follows: related work is discussed in Section 2, the methods, corpus, and evaluation are described in Section 3, followed by 1399 \x0cresults and discussion in Section 4 and ending with conclusions in Section 5. 2 Related Work Semantic similarity of textual documents offers a way to organize the increasing number of available documents. It can be used in many applications such as summarization, educational systems, finding duplicated bug reports in software testing (Lintean et al., 2010), plagiarism detection (Kasprzak and Brandejs, 2010), and research of a scientific field (Koberstein and Ng, 2006). Documents can vary in length from microblogs (Twitter) and sentences (Li et al., 2006; Koberstein and Ng, 2006) to paragraphs (Lintean et al., 2010) and larger documents (Budanitsky and Hirst, 2006). There is also commercial software such as nRelate1, Zemanta2 and OpenCalais3 with functionality that ranges from named entity recognition (NER) and event detection to related content. Publishers use in-house tools that offer automatic retrieval of in-house similar documents. Most of the methods for comparing documents focus on the que</context>
+<context position="5906" citStr="Kasprzak and Brandejs, 2010" startWordPosition="958" endWordPosition="961">ompare two documents to determine if some of the material in one is plagiarised from the other. Methods range from simple exact substring matching to more advanced ones like semantic based methods that are able to recognize paraphrasing and refactoring (Alzahrani et al., 2012). These methods have localization of similarity already built-in as they are searching for parts of the text that seem to be plagiarised. We have focused on 1 nRelate: http://www.nrelate.com/ 2 Zemanta: http://www.zemanta.com/ 3 OpenCalais: http://www.opencalais.com/ one such method, the winner of the PAN 2010 challenge (Kasprzak and Brandejs, 2010). This method uses shared n-grams from the two documents in order to determine if one of them is plagiarised. Another similar research is automatic citation placement for scientific papers. Most of the work (Strohman et al., 2007; McNee et al., 2002) is concerned with putting citations at the end of the paper (non-localized), which is a task similar to inserting related articles for a news article at the of the text. There have been some attempts to place the citations in the main body of text (Tang and Zhang, 2009; He et al., 2011), typically used when referring to an idea or method. Tang and</context>
+<context position="12666" citStr="Kasprzak and Brandejs, 2010" startWordPosition="2116" endWordPosition="2120"> called gensim (Rehurek and Sojka, 2010) that enabled us to quickly train a LSI model using the whole corpus and index just the related articles. In order to localize the similarity and place an anchor, we split the source document into paragraphs and compute similarity scores between target document and each paragraph of the source document. We then split the paragraph with the highest score into sentences and again obtain scores for each. The sentence with the best score is then chosen as the result. 3.3.3 Sorted n-grams Drawing on plagiarism detection, the winning method from the PAN 2010 (Kasprzak and Brandejs, 2010) seemed a viable choice. The basis of the method is comparing n-grams of the source and the destination documents. First, the text was again tokenized with NLTK, removed stopwords and tokens with two or less characters. Then overlapping n-grams were constructed. We have deviated from Kasprzaks merging policy and decided to merge two results if they are less than 20 tokens apart. We also required only one shared n-gram to consider the documents similar. Results were ranked based on the number of shared tokens within each. 3.3.4 Unigrams tf*idf This method uses unigram tf*idf weighted scores. Si</context>
+</contexts>
+<marker>Kasprzak, Brandejs, 2010</marker>
+<rawString>Jan Kasprzak and Michal Brandejs. 2010. Improving the reliability of the plagiarism detection system lab report for pan at clef 2010.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jonathan Koberstein</author>
+<author>Yiu-Kai Ng</author>
+</authors>
+<title>Using word clusters to detect similar web documents.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the First international conference on Knowledge Science, Engineering and Management, KSEM06,</booktitle>
+<pages>215228</pages>
+<publisher>Springer-Verlag.</publisher>
+<location>Berlin, Heidelberg.</location>
+<contexts>
+<context position="4123" citStr="Koberstein and Ng, 2006" startWordPosition="670" endWordPosition="674">r is organized as follows: related work is discussed in Section 2, the methods, corpus, and evaluation are described in Section 3, followed by 1399 \x0cresults and discussion in Section 4 and ending with conclusions in Section 5. 2 Related Work Semantic similarity of textual documents offers a way to organize the increasing number of available documents. It can be used in many applications such as summarization, educational systems, finding duplicated bug reports in software testing (Lintean et al., 2010), plagiarism detection (Kasprzak and Brandejs, 2010), and research of a scientific field (Koberstein and Ng, 2006). Documents can vary in length from microblogs (Twitter) and sentences (Li et al., 2006; Koberstein and Ng, 2006) to paragraphs (Lintean et al., 2010) and larger documents (Budanitsky and Hirst, 2006). There is also commercial software such as nRelate1, Zemanta2 and OpenCalais3 with functionality that ranges from named entity recognition (NER) and event detection to related content. Publishers use in-house tools that offer automatic retrieval of in-house similar documents. Most of the methods for comparing documents focus on the query document as a whole. The calculated score therefore belongs</context>
+</contexts>
+<marker>Koberstein, Ng, 2006</marker>
+<rawString>Jonathan Koberstein and Yiu-Kai Ng. 2006. Using word clusters to detect similar web documents. In Proceedings of the First international conference on Knowledge Science, Engineering and Management, KSEM06, pages 215228, Berlin, Heidelberg. Springer-Verlag.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sayali Kulkarni</author>
+<author>Amit Singh</author>
+<author>Ganesh Ramakrishnan</author>
+<author>Soumen Chakrabarti</author>
+</authors>
+<title>Collective annotation of wikipedia entities in web text.</title>
+<date>2009</date>
+<booktitle>In Proceedings of the 15th ACM SIGKDD international conference on Knowledge discovery and data mining, KDD 09,</booktitle>
+<pages>457466</pages>
+<publisher>ACM.</publisher>
+<location>New York, NY, USA.</location>
+<contexts>
+<context position="7601" citStr="Kulkarni et al., 2009" startWordPosition="1252" endWordPosition="1255">n location; they divide the text into overlapping windows and then decide which windows are viable citation context. The best method for deciding which citation context to use was a dependency feature model, an ensemble method using 17 different features and decision trees. Named entity recognition (NER) also offers a useful insight into document similarity. If two documents share a named entity (NE), it is more likely they are similar. Detected NEs may also serve as anchor text for the link. NER is a fairly researched field (Finkel et al., 2005; Ratinov et al., 2011; Bunescu and Pasca, 2006; Kulkarni et al., 2009; Milne and Witten, 2008) and is also used in several commercial applications such as Zemanta, OpenCalais and AlchemyAPI4, which are able to automatically insert links for a NE pointing to a knowledge base such as Wikipedia or IMDB. However, at this point they are unable to link to arbitrary documents, but may be useful in conjunction with other methods. 4 AlchemyAPI: http://www.alchemyapi.com/ 1400 \x0c3 Methodology 3.1 Corpus We have chosen 100 web articles (posts) at random from the end of January 2012. We extracted the body and title of each document. All the present in-text links were als</context>
+</contexts>
+<marker>Kulkarni, Singh, Ramakrishnan, Chakrabarti, 2009</marker>
+<rawString>Sayali Kulkarni, Amit Singh, Ganesh Ramakrishnan, and Soumen Chakrabarti. 2009. Collective annotation of wikipedia entities in web text. In Proceedings of the 15th ACM SIGKDD international conference on Knowledge discovery and data mining, KDD 09, pages 457466, New York, NY, USA. ACM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yuhua Li</author>
+<author>David McLean</author>
+<author>Zuhair A Bandar</author>
+<author>James D OShea</author>
+<author>Keeley Crockett</author>
+</authors>
+<title>Sentence similarity based on semantic nets and corpus statistics.</title>
+<date>2006</date>
+<contexts>
+<context position="4210" citStr="Li et al., 2006" startWordPosition="685" endWordPosition="688">uation are described in Section 3, followed by 1399 \x0cresults and discussion in Section 4 and ending with conclusions in Section 5. 2 Related Work Semantic similarity of textual documents offers a way to organize the increasing number of available documents. It can be used in many applications such as summarization, educational systems, finding duplicated bug reports in software testing (Lintean et al., 2010), plagiarism detection (Kasprzak and Brandejs, 2010), and research of a scientific field (Koberstein and Ng, 2006). Documents can vary in length from microblogs (Twitter) and sentences (Li et al., 2006; Koberstein and Ng, 2006) to paragraphs (Lintean et al., 2010) and larger documents (Budanitsky and Hirst, 2006). There is also commercial software such as nRelate1, Zemanta2 and OpenCalais3 with functionality that ranges from named entity recognition (NER) and event detection to related content. Publishers use in-house tools that offer automatic retrieval of in-house similar documents. Most of the methods for comparing documents focus on the query document as a whole. The calculated score therefore belongs to the whole document and nothing can be said about more or less similar parts of the </context>
+</contexts>
+<marker>Li, McLean, Bandar, OShea, Crockett, 2006</marker>
+<rawString>Yuhua Li, David McLean, Zuhair A. Bandar, James D. OShea, and Keeley Crockett. 2006. Sentence similarity based on semantic nets and corpus statistics.</rawString>
+</citation>
+<citation valid="true">
+<date></date>
+<journal>IEEE Trans. on Knowl. and Data Eng.,</journal>
+<volume>18</volume>
+<issue>8</issue>
+<pages>1150</pages>
+<marker></marker>
+<rawString>IEEE Trans. on Knowl. and Data Eng., 18(8):1138 1150, August.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mihai Lintean</author>
+<author>Cristian Moldovan</author>
+<author>Vasile Rus</author>
+<author>Danielle McNamara</author>
+</authors>
+<title>The role of local and global weighting in assessing the semantic similarity of texts using latent semantic analysis.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 23rd International Florida Artificial Intelligence Research Society Conference,</booktitle>
+<location>Daytona Beach, FL.</location>
+<contexts>
+<context position="4009" citStr="Lintean et al., 2010" startWordPosition="653" endWordPosition="656">ided in this paper to focus on the placement of the anchor text for a link to a preselected document. This paper is organized as follows: related work is discussed in Section 2, the methods, corpus, and evaluation are described in Section 3, followed by 1399 \x0cresults and discussion in Section 4 and ending with conclusions in Section 5. 2 Related Work Semantic similarity of textual documents offers a way to organize the increasing number of available documents. It can be used in many applications such as summarization, educational systems, finding duplicated bug reports in software testing (Lintean et al., 2010), plagiarism detection (Kasprzak and Brandejs, 2010), and research of a scientific field (Koberstein and Ng, 2006). Documents can vary in length from microblogs (Twitter) and sentences (Li et al., 2006; Koberstein and Ng, 2006) to paragraphs (Lintean et al., 2010) and larger documents (Budanitsky and Hirst, 2006). There is also commercial software such as nRelate1, Zemanta2 and OpenCalais3 with functionality that ranges from named entity recognition (NER) and event detection to related content. Publishers use in-house tools that offer automatic retrieval of in-house similar documents. Most of </context>
+</contexts>
+<marker>Lintean, Moldovan, Rus, McNamara, 2010</marker>
+<rawString>Mihai Lintean, Cristian Moldovan, Vasile Rus, and Danielle McNamara. 2010. The role of local and global weighting in assessing the semantic similarity of texts using latent semantic analysis. In Proceedings of the 23rd International Florida Artificial Intelligence Research Society Conference, Daytona Beach, FL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sean M McNee</author>
+<author>Istvan Albert</author>
+<author>Dan Cosley</author>
+<author>Prateep Gopalkrishnan</author>
+<author>Shyong K Lam</author>
+<author>Al Mamunur Rashid</author>
+<author>Joseph A Konstan</author>
+<author>John Riedl</author>
+</authors>
+<title>On the recommending of citations for research papers.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the 2002 ACM conference on Computer supported cooperative work, CSCW 02,</booktitle>
+<pages>116--125</pages>
+<publisher>ACM.</publisher>
+<location>New York, NY, USA.</location>
+<contexts>
+<context position="6156" citStr="McNee et al., 2002" startWordPosition="1000" endWordPosition="1003">rani et al., 2012). These methods have localization of similarity already built-in as they are searching for parts of the text that seem to be plagiarised. We have focused on 1 nRelate: http://www.nrelate.com/ 2 Zemanta: http://www.zemanta.com/ 3 OpenCalais: http://www.opencalais.com/ one such method, the winner of the PAN 2010 challenge (Kasprzak and Brandejs, 2010). This method uses shared n-grams from the two documents in order to determine if one of them is plagiarised. Another similar research is automatic citation placement for scientific papers. Most of the work (Strohman et al., 2007; McNee et al., 2002) is concerned with putting citations at the end of the paper (non-localized), which is a task similar to inserting related articles for a news article at the of the text. There have been some attempts to place the citations in the main body of text (Tang and Zhang, 2009; He et al., 2011), typically used when referring to an idea or method. Tang and Zang (2009) used a placeholder constraint: the query document must contain placeholders for citations, i.e. the places in text where citation might be inserted. Their method then just ranks all possible documents for a particular placeholder and cho</context>
+</contexts>
+<marker>McNee, Albert, Cosley, Gopalkrishnan, Lam, Rashid, Konstan, Riedl, 2002</marker>
+<rawString>Sean M. McNee, Istvan Albert, Dan Cosley, Prateep Gopalkrishnan, Shyong K. Lam, Al Mamunur Rashid, Joseph A. Konstan, and John Riedl. 2002. On the recommending of citations for research papers. In Proceedings of the 2002 ACM conference on Computer supported cooperative work, CSCW 02, pages 116 125, New York, NY, USA. ACM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Milne</author>
+<author>Ian H Witten</author>
+</authors>
+<title>Learning to link with wikipedia.</title>
+<date>2008</date>
+<booktitle>In Proceedings of the 17th ACM conference on Information and knowledge management, CIKM 08,</booktitle>
+<pages>509518</pages>
+<publisher>ACM.</publisher>
+<location>New York, NY, USA.</location>
+<contexts>
+<context position="7626" citStr="Milne and Witten, 2008" startWordPosition="1256" endWordPosition="1259"> the text into overlapping windows and then decide which windows are viable citation context. The best method for deciding which citation context to use was a dependency feature model, an ensemble method using 17 different features and decision trees. Named entity recognition (NER) also offers a useful insight into document similarity. If two documents share a named entity (NE), it is more likely they are similar. Detected NEs may also serve as anchor text for the link. NER is a fairly researched field (Finkel et al., 2005; Ratinov et al., 2011; Bunescu and Pasca, 2006; Kulkarni et al., 2009; Milne and Witten, 2008) and is also used in several commercial applications such as Zemanta, OpenCalais and AlchemyAPI4, which are able to automatically insert links for a NE pointing to a knowledge base such as Wikipedia or IMDB. However, at this point they are unable to link to arbitrary documents, but may be useful in conjunction with other methods. 4 AlchemyAPI: http://www.alchemyapi.com/ 1400 \x0c3 Methodology 3.1 Corpus We have chosen 100 web articles (posts) at random from the end of January 2012. We extracted the body and title of each document. All the present in-text links were also extracted and filtered.</context>
+</contexts>
+<marker>Milne, Witten, 2008</marker>
+<rawString>David Milne and Ian H. Witten. 2008. Learning to link with wikipedia. In Proceedings of the 17th ACM conference on Information and knowledge management, CIKM 08, pages 509518, New York, NY, USA. ACM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Krisztian Monostori</author>
+<author>Raphael Finkel</author>
+<author>Arkady Zaslavsky</author>
+<author>Gabor Hodasz</author>
+<author>Mate Pataki</author>
+</authors>
+<title>Comparison of overlap detection techniques.</title>
+<date>2002</date>
+<booktitle>Computational Science ICCS 2002,</booktitle>
+<volume>2329</volume>
+<pages>5160</pages>
+<editor>In PeterM.A. Sloot, AlfonsG. Hoekstra, C.J.Kenneth Tan, and JackJ. Dongarra, editors,</editor>
+<publisher>Springer</publisher>
+<location>Berlin Heidelberg.</location>
+<contexts>
+<context position="5179" citStr="Monostori et al., 2002" startWordPosition="845" endWordPosition="848">tic retrieval of in-house similar documents. Most of the methods for comparing documents focus on the query document as a whole. The calculated score therefore belongs to the whole document and nothing can be said about more or less similar parts of the document. Our goal is to localize the similarity to a part of the query document, a paragraph, sentence, or even a part of the sentence that is most similar to another document. This part of the query document can then serve as anchor text for a hyperlink connection to the similar document. Plagiarism detection methods (Alzahrani et al., 2012; Monostori et al., 2002) have a task of verifying the originality of the document. Extrinsic plagiarism detection methods compare two documents to determine if some of the material in one is plagiarised from the other. Methods range from simple exact substring matching to more advanced ones like semantic based methods that are able to recognize paraphrasing and refactoring (Alzahrani et al., 2012). These methods have localization of similarity already built-in as they are searching for parts of the text that seem to be plagiarised. We have focused on 1 nRelate: http://www.nrelate.com/ 2 Zemanta: http://www.zemanta.co</context>
+</contexts>
+<marker>Monostori, Finkel, Zaslavsky, Hodasz, Pataki, 2002</marker>
+<rawString>Krisztian Monostori, Raphael Finkel, Arkady Zaslavsky, Gabor Hodasz, and Mate Pataki. 2002. Comparison of overlap detection techniques. In PeterM.A. Sloot, AlfonsG. Hoekstra, C.J.Kenneth Tan, and JackJ. Dongarra, editors, Computational Science ICCS 2002, volume 2329 of Lecture Notes in Computer Science, pages 5160. Springer Berlin Heidelberg.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Lev Ratinov</author>
+<author>Dan Roth</author>
+<author>Doug Downey</author>
+<author>Mike Anderson</author>
+</authors>
+<title>Local and global algorithms for disambiguation to Wikipedia.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics: Human Language Technologies - Volume 1, HLT 11,</booktitle>
+<pages>13751384</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Stroudsburg, PA, USA.</location>
+<contexts>
+<context position="7553" citStr="Ratinov et al., 2011" startWordPosition="1244" endWordPosition="1247"> a step further towards generality of a citation location; they divide the text into overlapping windows and then decide which windows are viable citation context. The best method for deciding which citation context to use was a dependency feature model, an ensemble method using 17 different features and decision trees. Named entity recognition (NER) also offers a useful insight into document similarity. If two documents share a named entity (NE), it is more likely they are similar. Detected NEs may also serve as anchor text for the link. NER is a fairly researched field (Finkel et al., 2005; Ratinov et al., 2011; Bunescu and Pasca, 2006; Kulkarni et al., 2009; Milne and Witten, 2008) and is also used in several commercial applications such as Zemanta, OpenCalais and AlchemyAPI4, which are able to automatically insert links for a NE pointing to a knowledge base such as Wikipedia or IMDB. However, at this point they are unable to link to arbitrary documents, but may be useful in conjunction with other methods. 4 AlchemyAPI: http://www.alchemyapi.com/ 1400 \x0c3 Methodology 3.1 Corpus We have chosen 100 web articles (posts) at random from the end of January 2012. We extracted the body and title of each </context>
+</contexts>
+<marker>Ratinov, Roth, Downey, Anderson, 2011</marker>
+<rawString>Lev Ratinov, Dan Roth, Doug Downey, and Mike Anderson. 2011. Local and global algorithms for disambiguation to Wikipedia. In Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics: Human Language Technologies - Volume 1, HLT 11, pages 13751384, Stroudsburg, PA, USA. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Radim Rehurek</author>
+<author>Petr Sojka</author>
+</authors>
+<title>Software Framework for Topic Modelling with Large Corpora.</title>
+<date>2010</date>
+<booktitle>In Pro1403 \x0cceedings of the LREC 2010 Workshop on New Challenges for NLP Frameworks,</booktitle>
+<pages>4550</pages>
+<publisher>ELRA.</publisher>
+<location>Valletta, Malta,</location>
+<contexts>
+<context position="12078" citStr="Rehurek and Sojka, 2010" startWordPosition="2018" endWordPosition="2021">d a sequence of a proper noun and a verb separated by zero or more other tokens. We have also tested a proper noun - verb - proper noun combination, but there were even fewer results, so this direction was abandoned. 3.3.2 Latent Semantic Indexing (LSI) based A corpus is represented in LSI (Deerwester et al., 1990) as a large matrix of term occurrences 1401 \x0cin individual documents. The rank of the matrix is then reduced using singular value decomposition that groups together terms that occur in similar context which should therefore account for synonyms. We have used a tool called gensim (Rehurek and Sojka, 2010) that enabled us to quickly train a LSI model using the whole corpus and index just the related articles. In order to localize the similarity and place an anchor, we split the source document into paragraphs and compute similarity scores between target document and each paragraph of the source document. We then split the paragraph with the highest score into sentences and again obtain scores for each. The sentence with the best score is then chosen as the result. 3.3.3 Sorted n-grams Drawing on plagiarism detection, the winning method from the PAN 2010 (Kasprzak and Brandejs, 2010) seemed a vi</context>
+</contexts>
+<marker>Rehurek, Sojka, 2010</marker>
+<rawString>Radim Rehurek and Petr Sojka. 2010. Software Framework for Topic Modelling with Large Corpora. In Pro1403 \x0cceedings of the LREC 2010 Workshop on New Challenges for NLP Frameworks, pages 4550, Valletta, Malta, May. ELRA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Trevor Strohman</author>
+<author>W Bruce Croft</author>
+<author>David Jensen</author>
+</authors>
+<title>Recommending citations for academic papers. In</title>
+<date>2007</date>
+<booktitle>In Proceedings of the 30th Annual International ACM SIGIR Conference on Research and Development in Information Retrieval (SIGIR07,</booktitle>
+<pages>705--706</pages>
+<contexts>
+<context position="6135" citStr="Strohman et al., 2007" startWordPosition="996" endWordPosition="999"> and refactoring (Alzahrani et al., 2012). These methods have localization of similarity already built-in as they are searching for parts of the text that seem to be plagiarised. We have focused on 1 nRelate: http://www.nrelate.com/ 2 Zemanta: http://www.zemanta.com/ 3 OpenCalais: http://www.opencalais.com/ one such method, the winner of the PAN 2010 challenge (Kasprzak and Brandejs, 2010). This method uses shared n-grams from the two documents in order to determine if one of them is plagiarised. Another similar research is automatic citation placement for scientific papers. Most of the work (Strohman et al., 2007; McNee et al., 2002) is concerned with putting citations at the end of the paper (non-localized), which is a task similar to inserting related articles for a news article at the of the text. There have been some attempts to place the citations in the main body of text (Tang and Zhang, 2009; He et al., 2011), typically used when referring to an idea or method. Tang and Zang (2009) used a placeholder constraint: the query document must contain placeholders for citations, i.e. the places in text where citation might be inserted. Their method then just ranks all possible documents for a particula</context>
+</contexts>
+<marker>Strohman, Croft, Jensen, 2007</marker>
+<rawString>Trevor Strohman, W. Bruce Croft, and David Jensen. 2007. Recommending citations for academic papers. In In Proceedings of the 30th Annual International ACM SIGIR Conference on Research and Development in Information Retrieval (SIGIR07, pages 705 706.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jie Tang</author>
+<author>Jing Zhang</author>
+</authors>
+<title>A discriminative approach to topic-based citation recommendation.</title>
+<date>2009</date>
+<booktitle>In Thanaruk Theeramunkong, Boonserm Kijsirikul, Nick Cercone, and Tu-Bao Ho, editors, Advances in Knowledge Discovery and Data Mining,</booktitle>
+<volume>5476</volume>
+<pages>572579</pages>
+<publisher>Springer</publisher>
+<location>Berlin Heidelberg.</location>
+<contexts>
+<context position="6426" citStr="Tang and Zhang, 2009" startWordPosition="1050" endWordPosition="1053">.opencalais.com/ one such method, the winner of the PAN 2010 challenge (Kasprzak and Brandejs, 2010). This method uses shared n-grams from the two documents in order to determine if one of them is plagiarised. Another similar research is automatic citation placement for scientific papers. Most of the work (Strohman et al., 2007; McNee et al., 2002) is concerned with putting citations at the end of the paper (non-localized), which is a task similar to inserting related articles for a news article at the of the text. There have been some attempts to place the citations in the main body of text (Tang and Zhang, 2009; He et al., 2011), typically used when referring to an idea or method. Tang and Zang (2009) used a placeholder constraint: the query document must contain placeholders for citations, i.e. the places in text where citation might be inserted. Their method then just ranks all possible documents for a particular placeholder and chooses the best ranked document as a result. Documents are ranked on the basis of a learned topic model, obtained by a two-layer Restricted Boltzmann Machine. He et al.(2011) made a step further towards generality of a citation location; they divide the text into overlapp</context>
+</contexts>
+<marker>Tang, Zhang, 2009</marker>
+<rawString>Jie Tang and Jing Zhang. 2009. A discriminative approach to topic-based citation recommendation. In Thanaruk Theeramunkong, Boonserm Kijsirikul, Nick Cercone, and Tu-Bao Ho, editors, Advances in Knowledge Discovery and Data Mining, volume 5476 of Lecture Notes in Computer Science, pages 572579. Springer Berlin Heidelberg.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

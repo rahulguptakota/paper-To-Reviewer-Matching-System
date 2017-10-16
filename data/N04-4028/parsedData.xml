@@ -1,0 +1,743 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000764">
+<title confidence="0.918128">
+b&apos;Confidence Estimation for Information Extraction
+</title>
+<author confidence="0.985156">
+Aron Culotta
+</author>
+<affiliation confidence="0.9969905">
+Department of Computer Science
+University of Massachusetts
+</affiliation>
+<address confidence="0.958999">
+Amherst, MA 01003
+</address>
+<email confidence="0.995728">
+culotta@cs.umass.edu
+</email>
+<author confidence="0.994651">
+Andrew McCallum
+</author>
+<affiliation confidence="0.9970955">
+Department of Computer Science
+University of Massachusetts
+</affiliation>
+<address confidence="0.959135">
+Amherst, MA 01003
+</address>
+<email confidence="0.996949">
+mccallum@cs.umass.edu
+</email>
+<sectionHeader confidence="0.990495" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.998658684210527">
+Information extraction techniques automati-
+cally create structured databases from un-
+structured data sources, such as the Web or
+newswire documents. Despite the successes of
+these systems, accuracy will always be imper-
+fect. For many reasons, it is highly desirable to
+accurately estimate the confidence the system
+has in the correctness of each extracted field.
+The information extraction system we evalu-
+ate is based on a linear-chain conditional ran-
+dom field (CRF), a probabilistic model which
+has performed well on information extraction
+tasks because of its ability to capture arbitrary,
+overlapping features of the input in a Markov
+model. We implement several techniques to es-
+timate the confidence of both extracted fields
+and entire multi-field records, obtaining an av-
+erage precision of 98% for retrieving correct
+fields and 87% for multi-field records.
+</bodyText>
+<sectionHeader confidence="0.998186" genericHeader="keywords">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999608711111111">
+Information extraction usually consists of tagging a se-
+quence of words (e.g. a Web document) with semantic
+labels (e.g. PERSONNAME, PHONENUMBER) and de-
+positing these extracted fields into a database. Because
+automated information extraction will never be perfectly
+accurate, it is helpful to have an effective measure of
+the confidence that the proposed database entries are cor-
+rect. There are at least three important applications of
+accurate confidence estimation. First, accuracy-coverage
+trade-offs are a common way to improve data integrity in
+databases. Efficiently making these trade-offs requires an
+accurate prediction of correctness.
+Second, confidence estimates are essential for inter-
+active information extraction, in which users may cor-
+rect incorrectly extracted fields. These corrections are
+then automatically propagated in order to correct other
+mistakes in the same record. Directing the user to
+the least confident field allows the system to improve
+its performance with a minimal amount of user effort.
+Kristjannson et al. (2004) show that using accurate con-
+fidence estimation reduces error rates by 46%.
+Third, confidence estimates can improve performance
+of data mining algorithms that depend upon databases
+created by information extraction systems (McCallum
+and Jensen, 2003). Confidence estimates provide data
+mining applications with a richer set of bottom-up hy-
+potheses, resulting in more accurate inferences. An ex-
+ample of this occurs in the task of citation co-reference
+resolution. An information extraction system labels each
+field of a paper citation (e.g. AUTHOR, TITLE), and then
+co-reference resolution merges disparate references to the
+same paper. Attaching a confidence value to each field
+allows the system to examine alternate labelings for less
+confident fields to improve performance.
+Sound probabilistic extraction models are most con-
+ducive to accurate confidence estimation because of their
+intelligent handling of uncertainty information. In this
+work we use conditional random fields (Lafferty et al.,
+2001), a type of undirected graphical model, to automat-
+ically label fields of contact records. Here, a record is an
+entire block of a persons contact information, and a field
+is one element of that record (e.g. COMPANYNAME). We
+implement several techniques to estimate both field con-
+fidence and record confidence, obtaining an average pre-
+cision of 98% for fields and 87% for records.
+</bodyText>
+<sectionHeader confidence="0.983807" genericHeader="introduction">
+2 Conditional Random Fields
+</sectionHeader>
+<bodyText confidence="0.999433">
+Conditional random fields (Lafferty et al., 2001) are undi-
+rected graphical models to calculate the conditional prob-
+ability of values on designated output nodes given val-
+ues on designated input nodes. In the special case in
+which the designated output nodes are linked by edges in
+a linear chain, CRFs make a first-order Markov indepen-
+dence assumption among output nodes, and thus corre-
+\x0cspond to finite state machines (FSMs). In this case CRFs
+can be roughly understood as conditionally-trained hid-
+den Markov models, with additional flexibility to effec-
+tively take advantage of complex overlapping features.
+Let o = ho1, o2, ...oT i be some observed input data se-
+quence, such as a sequence of words in a document (the
+values on T input nodes of the graphical model). Let S be
+a set of FSM states, each of which is associated with a la-
+bel (such as COMPANYNAME). Let s = hs1, s2, ...sT i be
+some sequence of states (the values on T output nodes).
+CRFs define the conditional probability of a state se-
+quence given an input sequence as
+</bodyText>
+<equation confidence="0.999042461538461">
+p(s|o) =
+1
+Zo
+exp
+T
+X
+t=1
+X
+k
+kfk(st1, st, o, t)
+!
+,
+(1)
+</equation>
+<bodyText confidence="0.9965167">
+where Zo is a normalization factor over all state se-
+quences, fk(st1, st, o, t) is an arbitrary feature func-
+tion over its arguments, and k is a learned weight for
+each feature function. Zo is efficiently calculated using
+dynamic programming. Inference (very much like the
+Viterbi algorithm in this case) is also a matter of dynamic
+programming. Maximum aposteriori training of these
+models is efficiently performed by hill-climbing methods
+such as conjugate gradient, or its improved second-order
+cousin, limited-memory BFGS.
+</bodyText>
+<sectionHeader confidence="0.984845" genericHeader="method">
+3 Field Confidence Estimation
+</sectionHeader>
+<bodyText confidence="0.996626636363636">
+The Viterbi algorithm finds the most likely state sequence
+matching the observed word sequence. The word that
+Viterbi matches with a particular FSM state is extracted
+as belonging to the corresponding database field. We can
+obtain a numeric score for an entire sequence, and then
+turn this into a probability for the entire sequence by nor-
+malizing. However, to estimate the confidence of an indi-
+vidual field, we desire the probability of a subsequence,
+marginalizing out the state selection for all other parts
+of the sequence. A specialization of Forward-Backward,
+termed Constrained Forward-Backward (CFB), returns
+exactly this probability.
+Because CRFs are conditional models, Viterbi finds
+the most likely state sequence given an observation se-
+quence, defined as s
+= argmaxs p(s|o). To avoid an
+exponential-time search over all possible settings of s,
+Viterbi stores the probability of the most likely path at
+time t that accounts for the first t observations and ends
+in state si. Following traditional notation, we define this
+probability to be t(si), where 0(si) is the probability of
+starting in each state si, and the recursive formula is:
+</bodyText>
+<equation confidence="0.947611066666667">
+t+1(si) = max
+s0
+h
+t(s0
+) exp
+\x10 X
+k
+kfk(s0
+, si, o, t)
+\x11i
+(2)
+terminating in s
+= argmax
+s1sisN
+[T (si)].
+</equation>
+<bodyText confidence="0.998176857142857">
+The Forward-Backward algorithm can be viewed as a
+generalization of the Viterbi algorithm: instead of choos-
+ing the optimal state sequence, Forward-Backward eval-
+uates all possible state sequences given the observation
+sequence. The forward values t+1(si) are recursively
+defined similarly as in Eq. 2, except the max is replaced
+by a summation. Thus we have
+</bodyText>
+<equation confidence="0.9810479375">
+t+1(si) =
+X
+s0
+h
+t(s0
+) exp
+\x10 X
+k
+kfk(s0
+, si, o, t)
+\x11i
+.
+(3)
+terminating in Zo =
+P
+i T (si) from Eq. 1.
+</equation>
+<bodyText confidence="0.995772733333333">
+To estimate the probability that a field is extracted
+correctly, we constrain the Forward-Backward algorithm
+such that each path conforms to some subpath of con-
+straints C = hsq . . . sri from time step q to r. Here,
+sq C can be either a positive constraint (the sequence
+must pass through sq) or a negative constraint (the se-
+quence must not pass through sq).
+In the context of information extraction, C corresponds
+to an extracted field. The positive constraints specify the
+observation tokens labeled inside the field, and the neg-
+ative constraints specify the field boundary. For exam-
+ple, if we use states names B-TITLE and I-JOBTITLE to
+label tokens that begin and continue a JOBTITLE field,
+and the system labels observation sequence ho2, . . . , o5i
+as a JOBTITLE field, then C = hs2 = B-JOBTITLE,
+</bodyText>
+<equation confidence="0.980667">
+s3 = . . . = s5 = I-JOBTITLE, s6 6= I-JOBTITLEi.
+</equation>
+<bodyText confidence="0.685498">
+The calculations of the forward values can be made to
+conform to C by the recursion 0
+</bodyText>
+<equation confidence="0.988501">
+q(si) =
+(P
+s0
+h
+0
+q1(s0
+) exp
+P
+k kfk(s0
+, si, o, t)
+i
+if si \&apos; sq
+0 otherwise
+</equation>
+<bodyText confidence="0.8239574">
+for all sq C, where the operator si \&apos; sq means si
+conforms to constraint sq. For time steps not constrained
+by C, Eq. 3 is used instead.
+If 0
+t+1(si) is the constrained forward value, then
+</bodyText>
+<equation confidence="0.9875788">
+Z0
+o =
+P
+i 0
+T (si) is the value of the constrained lat-
+</equation>
+<bodyText confidence="0.931218857142857">
+tice, the set of all paths that conform to C. Our confi-
+dence estimate is obtained by normalizing Z0
+o using Zo,
+i.e. Z0
+o Zo.
+We also implement an alternative method that uses the
+state probability distributions for each state in the ex-
+tracted field. Let t(si) = p(si|o1, . . . , oT ) be the prob-
+ability of being in state i at time t given the observation
+sequence . We define the confidence measure GAMMA
+to be
+Qv
+i=u i(si), where u and v are the start and end
+indices of the extracted field.
+</bodyText>
+<sectionHeader confidence="0.987144" genericHeader="method">
+4 Record Confidence Estimation
+</sectionHeader>
+<bodyText confidence="0.997671923076923">
+We can similarly use CFB to estimate the probability that
+an entire record is labeled correctly. The procedure is
+the same as in the previous section, except that C now
+specifies the labels for all fields in the record.
+\x0cWe also implement three alternative record confidence
+estimates. FIELDPRODUCT calculates the confidence of
+each field in the record using CFB, then multiplies these
+values together to obtain the record confidence. FIELD-
+MIN instead uses the minimum field confidence as the
+record confidence. VITERBIRATIO uses the ratio of the
+probabilities of the top two Viterbi paths, capturing how
+much more likely s
+is than its closest alternative.
+</bodyText>
+<sectionHeader confidence="0.760192" genericHeader="method">
+5 Reranking with Maximum Entropy
+</sectionHeader>
+<bodyText confidence="0.999814333333333">
+We also trained two conditional maximum entropy clas-
+sifiers to classify fields and records as being labeled cor-
+rectly or incorrectly. The resulting posterior probabil-
+ity of the correct label is used as the confidence mea-
+sure. The approach is inspired by results from (Collins,
+2000), which show discriminative classifiers can improve
+the ranking of parses produced by a generative parser.
+After initial experimentation, the most informative in-
+puts for the field confidence classifier were field length,
+the predicted label of the field, whether or not this field
+has been extracted elsewhere in this record, and the CFB
+confidence estimate for this field. For the record confi-
+dence classifier, we incorporated the following features:
+record length, whether or not two fields were tagged with
+the same label, and the CFB confidence estimate.
+</bodyText>
+<sectionHeader confidence="0.998369" genericHeader="method">
+6 Experiments
+</sectionHeader>
+<bodyText confidence="0.994101652173913">
+2187 contact records (27,560 words) were collected from
+Web pages and email and 25 classes of data fields were
+hand-labeled.1
+The features for the CRF consist of the
+token text, capitalization features, 24 regular expressions
+over the token text (e.g. CONTAINSHYPHEN), and off-
+sets of these features within a window of size 5. We also
+use 19 lexicons, including US Last Names, US First
+Names, and State Names. Feature induction is not
+used in these experiments. The CRF is trained on 60% of
+the data, and the remaining 40% is split evenly into de-
+velopment and testing sets. The development set is used
+to train the maximum entropy classifiers, and the testing
+set is used to measure the accuracy of the confidence es-
+timates. The CRF achieves an overall token accuracy of
+87.32 on the testing data, with a field-level performance
+of F1 = 84.11, precision = 85.43, and recall = 82.83.
+To evaluate confidence estimation, we use three meth-
+ods. The first is Pearsons r, a correlation coefficient
+ranging from -1 to 1 that measures the correlation be-
+tween a confidence score and whether or not the field
+(or record) is correctly labeled. The second is average
+precision, used in the Information Retrieval community
+</bodyText>
+<page confidence="0.86578">
+1
+</page>
+<bodyText confidence="0.92329">
+The 25 fields are: FirstName, MiddleName, LastName,
+</bodyText>
+<reference confidence="0.80804325">
+NickName, Suffix, Title, JobTitle, CompanyName, Depart-
+ment, AddressLine, City1, City2, State, Country, PostalCode,
+HomePhone, Fax, CompanyPhone, DirectCompanyPhone, Mo-
+bile, Pager, VoiceMail, URL, Email, InstantMessage
+</reference>
+<table confidence="0.961437333333333">
+Pearsons r Avg. Prec
+CFB .573 .976
+MaxEnt .571 .976
+Gamma .418 .912
+Random .012 .858
+WorstCase .672
+</table>
+<tableCaption confidence="0.9632355">
+Table 1: Evaluation of confidence estimates for field confi-
+dence. CFB and MAXENT outperform competing methods.
+</tableCaption>
+<table confidence="0.9914845">
+Pearsons r Avg. Prec
+CFB .626 .863
+MaxEnt .630 .867
+FieldProduct .608 .858
+FieldMin .588 .843
+ViterbiRatio .313 .842
+Random .043 .526
+WorstCase .304
+</table>
+<tableCaption confidence="0.999354">
+Table 2: Evaluation of confidence estimates for record confi-
+</tableCaption>
+<bodyText confidence="0.986826681818182">
+dence. CFB, MAXENT again perform best.
+to evaluate ranked lists. It calculates the precision at
+each point in the ranked list where a relevant document
+is found and then averages these values. Instead of rank-
+ing documents by their relevance score, here we rank
+fields (and records) by their confidence score, where a
+correctly labeled field is analogous to a relevant docu-
+ment. WORSTCASE is the average precision obtained
+by ranking all incorrect instances above all correct in-
+stances. Tables 1 and 2 show that CFB and MAXENT are
+statistically similar, and that both outperform competing
+methods. Note that WORSTCASE achieves a high aver-
+age precision simply because so many fields are correctly
+labeled. In all experiments, RANDOM assigns confidence
+values chosen uniformly at random between 0 and 1.
+The third measure is an accuracy-coverage graph. Bet-
+ter confidence estimates push the curve to the upper-right.
+Figure 1 shows that CFB and MAXENT dramatically out-
+perform GAMMA. Although omitted for space, similar
+results are also achieved on a noun-phrase chunking task
+(CFB r = .516, GAMMA r = .432) and a named-entity
+extraction task (CFB r = .508, GAMMA r = .480).
+</bodyText>
+<sectionHeader confidence="0.998876" genericHeader="method">
+7 Related Work
+</sectionHeader>
+<bodyText confidence="0.998669416666667">
+While there has been previous work using probabilistic
+estimates for token confidence, and heuristic estimates
+for field confidence, to the best of our knowledge this pa-
+per is the first to use a sound, probabilistic estimate for
+confidence of multi-word fields and records in informa-
+tion extraction.
+Much of the work in confidence estimation
+for IE has been in the active learning literature.
+Scheffer et al. (2001) derive confidence estimates using
+hidden Markov models in an information extraction
+system. However, they do not estimate the confidence
+of entire fields, only singleton tokens. They estimate
+</bodyText>
+<figure confidence="0.995842058823529">
+\x0c0.84
+0.86
+0.88
+0.9
+0.92
+0.94
+0.96
+0.98
+1
+0 0.2 0.4 0.6 0.8 1
+accuracy
+coverage
+&amp;quot;Optimal&amp;quot;
+&amp;quot;CFB&amp;quot;
+&amp;quot;MaxEnt&amp;quot;
+&amp;quot;Gamma&amp;quot;
+&amp;quot;Random&amp;quot;
+</figure>
+<figureCaption confidence="0.8960005">
+Figure 1: The precision-recall curve for fields shows that CFB
+and MAXENT outperform GAMMA.
+</figureCaption>
+<bodyText confidence="0.99915695">
+the confidence of a token by the difference between
+the probabilities of its first and second most likely
+labels, whereas CFB considers the full distribution of
+all suboptimal paths. Scheffer et al. (2001) also explore
+an idea similar to CFB to perform Baum-Welch training
+with partially labeled data, where the provided labels
+are constraints. However, these constraints are again for
+singleton tokens only.
+Rule-based extraction methods (Thompson et al.,
+1999) estimate confidence based on a rules coverage in
+the training data. Other areas where confidence estima-
+tion is used include document classification (Bennett et
+al., 2002), where classifiers are built using meta-features
+of the document; speech recognition (Gunawardana et al.,
+1998), where the confidence of a recognized word is esti-
+mated by considering a list of commonly confused words;
+and machine translation (Gandrabur and Foster, 2003),
+where neural networks are used to learn the probability of
+a correct word translation using text features and knowl-
+edge of alternate translations.
+</bodyText>
+<sectionHeader confidence="0.996534" genericHeader="conclusions">
+8 Conclusion
+</sectionHeader>
+<bodyText confidence="0.985183588235294">
+We have shown that CFB is a mathematically and empir-
+ically sound confidence estimator for finite state informa-
+tion extraction systems, providing strong correlation with
+correctness and obtaining an average precision of 97.6%
+for estimating field correctness. Unlike methods margin
+maximization methods such as SVMs and M3
+Ns (Taskar
+et al., 2003), CRFs are trained to maximize conditional
+probability and are thus more naturally appropriate for
+confidence estimation. Interestingly, reranking by MAX-
+ENT does not seem to improve performance, despite the
+benefit Collins (2000) has shown discriminative rerank-
+ing to provide generative parsers. We hypothesize this is
+because CRFs are already discriminative (not joint, gen-
+erative) models; furthermore, this may suggest that future
+discriminative parsing methods will also have the benefits
+of discriminative reranking built-in directly.
+</bodyText>
+<sectionHeader confidence="0.978313" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.98309">
+We thank the reviewers for helpful suggestions and refer-
+ences. This work was supported in part by the Center for
+</bodyText>
+<reference confidence="0.94466475">
+Intelligent Information Retrieval, by the Advanced Research
+and Development Activity under contract number MDA904-
+01-C-0984, by The Central Intelligence Agency, the Na-
+tional Security Agency and National Science Foundation un-
+der NSF grant #IIS-0326249, and by the Defense Advanced
+Research Projects Agency, through the Department of the Inte-
+rior, NBC, Acquisition Services Division, under contract num-
+ber NBCHD030010.
+</reference>
+<sectionHeader confidence="0.551998" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.997117636363636">
+Paul N. Bennett, Susan T. Dumais, and Eric Horvitz. 2002.
+Probabilistic combination of text classifiers using reliability
+indicators: models and results. In Proceedings of the 25th
+annual international ACM SIGIR conference on Research
+and development in information retrieval, pages 207214.
+ACM Press.
+Michael Collins. 2000. Discriminative reranking for natu-
+ral language parsing. In Proc. 17th International Conf. on
+Machine Learning, pages 175182. Morgan Kaufmann, San
+Francisco, CA.
+Simona Gandrabur and George Foster. 2003. Confidence esti-
+mation for text prediction. In Proceedings of the Conference
+on Natural Language Learning (CoNLL 2003), Edmonton,
+Canada.
+A. Gunawardana, H. Hon, and L. Jiang. 1998. Word-based
+acoustic confidence measures for large-vocabulary speech
+recognition. In Proc. ICSLP-98, pages 791794, Sydney,
+Australia.
+Trausti Kristjannson, Aron Culotta, Paul Viola, and Andrew
+McCallum. 2004. Interactive information extraction with
+conditional random fields. To appear in Nineteenth National
+Conference on Artificial Intelligence (AAAI 2004).
+John Lafferty, Andrew McCallum, and Fernando Pereira. 2001.
+Conditional random fields: Probabilistic models for seg-
+menting and labeling sequence data. In Proc. 18th Interna-
+tional Conf. on Machine Learning, pages 282289. Morgan
+Kaufmann, San Francisco, CA.
+Andrew McCallum and David Jensen. 2003. A note on the
+unification of information extraction and data mining using
+conditional-probability, relational models. In IJCAI03 Work-
+shop on Learning Statistical Models from Relational Data.
+Tobias Scheffer, Christian Decomain, and Stefan Wrobel. 2001.
+Active hidden markov models for information extraction.
+In Advances in Intelligent Data Analysis, 4th International
+Conference, IDA 2001.
+Ben Taskar, Carlos Guestrin, and Daphne Koller. 2003. Max-
+margin markov networks. In Proceedings of Neural Infor-
+mation Processing Systems Conference.
+Cynthia A. Thompson, Mary Elaine Califf, and Raymond J.
+Mooney. 1999. Active learning for natural language pars-
+ing and information extraction. In Proc. 16th International
+Conf. on Machine Learning, pages 406414. Morgan Kauf-
+mann, San Francisco, CA.
+\x0c&apos;
+</reference>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.979481">
+<title confidence="0.99993">b&apos;Confidence Estimation for Information Extraction</title>
+<author confidence="0.999974">Aron Culotta</author>
+<affiliation confidence="0.999982">Department of Computer Science University of Massachusetts</affiliation>
+<address confidence="0.999863">Amherst, MA 01003</address>
+<email confidence="0.999773">culotta@cs.umass.edu</email>
+<author confidence="0.999848">Andrew McCallum</author>
+<affiliation confidence="0.999978">Department of Computer Science University of Massachusetts</affiliation>
+<address confidence="0.999602">Amherst, MA 01003</address>
+<email confidence="0.99985">mccallum@cs.umass.edu</email>
+<abstract confidence="0.9990118">Information extraction techniques automatically create structured databases from unstructured data sources, such as the Web or newswire documents. Despite the successes of these systems, accuracy will always be imperfect. For many reasons, it is highly desirable to accurately estimate the confidence the system has in the correctness of each extracted field. The information extraction system we evaluate is based on a linear-chain conditional random field (CRF), a probabilistic model which has performed well on information extraction tasks because of its ability to capture arbitrary, overlapping features of the input in a Markov model. We implement several techniques to estimate the confidence of both extracted fields and entire multi-field records, obtaining an average precision of 98% for retrieving correct fields and 87% for multi-field records.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Paul N Bennett</author>
+<author>Susan T Dumais</author>
+<author>Eric Horvitz</author>
+</authors>
+<title>Probabilistic combination of text classifiers using reliability indicators: models and results.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the 25th annual international ACM SIGIR conference on Research and development in information retrieval,</booktitle>
+<pages>207214</pages>
+<publisher>ACM Press.</publisher>
+<marker>Bennett, Dumais, Horvitz, 2002</marker>
+<rawString>Paul N. Bennett, Susan T. Dumais, and Eric Horvitz. 2002. Probabilistic combination of text classifiers using reliability indicators: models and results. In Proceedings of the 25th annual international ACM SIGIR conference on Research and development in information retrieval, pages 207214. ACM Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+</authors>
+<title>Discriminative reranking for natural language parsing.</title>
+<date>2000</date>
+<booktitle>In Proc. 17th International Conf. on Machine Learning,</booktitle>
+<pages>175182</pages>
+<publisher>Morgan Kaufmann,</publisher>
+<location>San Francisco, CA.</location>
+<contexts>
+<context position="9754" citStr="Collins, 2000" startWordPosition="1607" endWordPosition="1608"> CFB, then multiplies these values together to obtain the record confidence. FIELDMIN instead uses the minimum field confidence as the record confidence. VITERBIRATIO uses the ratio of the probabilities of the top two Viterbi paths, capturing how much more likely s is than its closest alternative. 5 Reranking with Maximum Entropy We also trained two conditional maximum entropy classifiers to classify fields and records as being labeled correctly or incorrectly. The resulting posterior probability of the correct label is used as the confidence measure. The approach is inspired by results from (Collins, 2000), which show discriminative classifiers can improve the ranking of parses produced by a generative parser. After initial experimentation, the most informative inputs for the field confidence classifier were field length, the predicted label of the field, whether or not this field has been extracted elsewhere in this record, and the CFB confidence estimate for this field. For the record confidence classifier, we incorporated the following features: record length, whether or not two fields were tagged with the same label, and the CFB confidence estimate. 6 Experiments 2187 contact records (27,56</context>
+</contexts>
+<marker>Collins, 2000</marker>
+<rawString>Michael Collins. 2000. Discriminative reranking for natural language parsing. In Proc. 17th International Conf. on Machine Learning, pages 175182. Morgan Kaufmann, San Francisco, CA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Simona Gandrabur</author>
+<author>George Foster</author>
+</authors>
+<title>Confidence estimation for text prediction.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the Conference on Natural Language Learning (CoNLL</booktitle>
+<location>Edmonton, Canada.</location>
+<marker>Gandrabur, Foster, 2003</marker>
+<rawString>Simona Gandrabur and George Foster. 2003. Confidence estimation for text prediction. In Proceedings of the Conference on Natural Language Learning (CoNLL 2003), Edmonton, Canada.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Gunawardana</author>
+<author>H Hon</author>
+<author>L Jiang</author>
+</authors>
+<title>Word-based acoustic confidence measures for large-vocabulary speech recognition.</title>
+<date>1998</date>
+<booktitle>In Proc. ICSLP-98,</booktitle>
+<pages>791794</pages>
+<location>Sydney, Australia.</location>
+<marker>Gunawardana, Hon, Jiang, 1998</marker>
+<rawString>A. Gunawardana, H. Hon, and L. Jiang. 1998. Word-based acoustic confidence measures for large-vocabulary speech recognition. In Proc. ICSLP-98, pages 791794, Sydney, Australia.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Trausti Kristjannson</author>
+<author>Aron Culotta</author>
+<author>Paul Viola</author>
+<author>Andrew McCallum</author>
+</authors>
+<title>Interactive information extraction with conditional random fields.</title>
+<date>2004</date>
+<booktitle>Nineteenth National Conference on Artificial Intelligence (AAAI</booktitle>
+<note>To appear in</note>
+<contexts>
+<context position="2208" citStr="Kristjannson et al. (2004)" startWordPosition="314" endWordPosition="317">lications of accurate confidence estimation. First, accuracy-coverage trade-offs are a common way to improve data integrity in databases. Efficiently making these trade-offs requires an accurate prediction of correctness. Second, confidence estimates are essential for interactive information extraction, in which users may correct incorrectly extracted fields. These corrections are then automatically propagated in order to correct other mistakes in the same record. Directing the user to the least confident field allows the system to improve its performance with a minimal amount of user effort. Kristjannson et al. (2004) show that using accurate confidence estimation reduces error rates by 46%. Third, confidence estimates can improve performance of data mining algorithms that depend upon databases created by information extraction systems (McCallum and Jensen, 2003). Confidence estimates provide data mining applications with a richer set of bottom-up hypotheses, resulting in more accurate inferences. An example of this occurs in the task of citation co-reference resolution. An information extraction system labels each field of a paper citation (e.g. AUTHOR, TITLE), and then co-reference resolution merges disp</context>
+</contexts>
+<marker>Kristjannson, Culotta, Viola, McCallum, 2004</marker>
+<rawString>Trausti Kristjannson, Aron Culotta, Paul Viola, and Andrew McCallum. 2004. Interactive information extraction with conditional random fields. To appear in Nineteenth National Conference on Artificial Intelligence (AAAI 2004).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>John Lafferty</author>
+<author>Andrew McCallum</author>
+<author>Fernando Pereira</author>
+</authors>
+<title>Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In</title>
+<date>2001</date>
+<booktitle>Proc. 18th International Conf. on Machine Learning,</booktitle>
+<pages>282289</pages>
+<publisher>Morgan Kaufmann,</publisher>
+<location>San Francisco, CA.</location>
+<contexts>
+<context position="3212" citStr="Lafferty et al., 2001" startWordPosition="459" endWordPosition="462">nces. An example of this occurs in the task of citation co-reference resolution. An information extraction system labels each field of a paper citation (e.g. AUTHOR, TITLE), and then co-reference resolution merges disparate references to the same paper. Attaching a confidence value to each field allows the system to examine alternate labelings for less confident fields to improve performance. Sound probabilistic extraction models are most conducive to accurate confidence estimation because of their intelligent handling of uncertainty information. In this work we use conditional random fields (Lafferty et al., 2001), a type of undirected graphical model, to automatically label fields of contact records. Here, a record is an entire block of a persons contact information, and a field is one element of that record (e.g. COMPANYNAME). We implement several techniques to estimate both field confidence and record confidence, obtaining an average precision of 98% for fields and 87% for records. 2 Conditional Random Fields Conditional random fields (Lafferty et al., 2001) are undirected graphical models to calculate the conditional probability of values on designated output nodes given values on designated input </context>
+</contexts>
+<marker>Lafferty, McCallum, Pereira, 2001</marker>
+<rawString>John Lafferty, Andrew McCallum, and Fernando Pereira. 2001. Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In Proc. 18th International Conf. on Machine Learning, pages 282289. Morgan Kaufmann, San Francisco, CA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andrew McCallum</author>
+<author>David Jensen</author>
+</authors>
+<title>A note on the unification of information extraction and data mining using conditional-probability, relational models.</title>
+<date>2003</date>
+<booktitle>In IJCAI03 Workshop on Learning Statistical Models from Relational Data.</booktitle>
+<contexts>
+<context position="2458" citStr="McCallum and Jensen, 2003" startWordPosition="349" endWordPosition="352"> are essential for interactive information extraction, in which users may correct incorrectly extracted fields. These corrections are then automatically propagated in order to correct other mistakes in the same record. Directing the user to the least confident field allows the system to improve its performance with a minimal amount of user effort. Kristjannson et al. (2004) show that using accurate confidence estimation reduces error rates by 46%. Third, confidence estimates can improve performance of data mining algorithms that depend upon databases created by information extraction systems (McCallum and Jensen, 2003). Confidence estimates provide data mining applications with a richer set of bottom-up hypotheses, resulting in more accurate inferences. An example of this occurs in the task of citation co-reference resolution. An information extraction system labels each field of a paper citation (e.g. AUTHOR, TITLE), and then co-reference resolution merges disparate references to the same paper. Attaching a confidence value to each field allows the system to examine alternate labelings for less confident fields to improve performance. Sound probabilistic extraction models are most conducive to accurate con</context>
+</contexts>
+<marker>McCallum, Jensen, 2003</marker>
+<rawString>Andrew McCallum and David Jensen. 2003. A note on the unification of information extraction and data mining using conditional-probability, relational models. In IJCAI03 Workshop on Learning Statistical Models from Relational Data.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Tobias Scheffer</author>
+<author>Christian Decomain</author>
+<author>Stefan Wrobel</author>
+</authors>
+<title>Active hidden markov models for information extraction.</title>
+<date>2001</date>
+<marker>Scheffer, Decomain, Wrobel, 2001</marker>
+<rawString>Tobias Scheffer, Christian Decomain, and Stefan Wrobel. 2001. Active hidden markov models for information extraction.</rawString>
+</citation>
+<citation valid="true">
+<date>2001</date>
+<booktitle>In Advances in Intelligent Data Analysis, 4th International Conference, IDA</booktitle>
+<marker>2001</marker>
+<rawString>In Advances in Intelligent Data Analysis, 4th International Conference, IDA 2001.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ben Taskar</author>
+<author>Carlos Guestrin</author>
+<author>Daphne Koller</author>
+</authors>
+<title>Maxmargin markov networks.</title>
+<date>2003</date>
+<booktitle>In Proceedings of Neural Information Processing Systems Conference. Cynthia</booktitle>
+<marker>Taskar, Guestrin, Koller, 2003</marker>
+<rawString>Ben Taskar, Carlos Guestrin, and Daphne Koller. 2003. Maxmargin markov networks. In Proceedings of Neural Information Processing Systems Conference. Cynthia A. Thompson, Mary Elaine Califf, and Raymond J.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mooney</author>
+</authors>
+<title>Active learning for natural language parsing and information extraction.</title>
+<date>1999</date>
+<booktitle>In Proc. 16th International Conf. on Machine Learning,</booktitle>
+<pages>406414</pages>
+<publisher>Morgan Kaufmann,</publisher>
+<location>San Francisco, CA. \x0c&apos;</location>
+<marker>Mooney, 1999</marker>
+<rawString>Mooney. 1999. Active learning for natural language parsing and information extraction. In Proc. 16th International Conf. on Machine Learning, pages 406414. Morgan Kaufmann, San Francisco, CA. \x0c&apos;</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

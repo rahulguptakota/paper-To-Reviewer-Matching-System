@@ -1,0 +1,1663 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<title confidence="0.598385">
+b&apos;Human Language Technologies: The 2010 Annual Conference of the North American Chapter of the ACL, pages 10201028,
+</title>
+<author confidence="0.448958">
+Los Angeles, California, June 2010. c
+</author>
+<figure confidence="0.416151142857143">
+2010 Association for Computational Linguistics
+Syntactic/Semantic Structures for Textual Entailment Recognition
+Yashar Mehdad
+FBK-IRST, DISI
+University of Trento
+Povo (TN) - Italy
+mehdad@fbk.eu
+Alessandro Moschitti
+DISI
+University of Trento
+Povo (TN) - Italy
+moschitti@disi.unitn.it
+Fabio Massimo Zanzotto
+DISP
+</figure>
+<affiliation confidence="0.869042">
+University of Rome Tor Vergata
+</affiliation>
+<address confidence="0.471889">
+Roma - Italy
+</address>
+<email confidence="0.899073">
+zanzotto@info.uniroma2.it
+</email>
+<sectionHeader confidence="0.982522" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.998990666666667">
+In this paper, we describe an approach based
+on off-the-shelf parsers and semantic re-
+sources for the Recognizing Textual Entail-
+ment (RTE) challenge that can be generally
+applied to any domain. Syntax is exploited
+by means of tree kernels whereas lexical se-
+mantics is derived from heterogeneous re-
+sources, e.g. WordNet or distributional se-
+mantics through Wikipedia. The joint syn-
+tactic/semantic model is realized by means of
+tree kernels, which can exploit lexical related-
+ness to match syntactically similar structures,
+i.e. whose lexical compounds are related. The
+comparative experiments across different RTE
+challenges and traditional systems show that
+our approach consistently and meaningfully
+achieves high accuracy, without requiring any
+adaptation or tuning.
+</bodyText>
+<sectionHeader confidence="0.996111" genericHeader="keywords">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.992695978723404">
+Recognizing Textual Entailment (RTE) is rather
+challenging as effectively modeling syntactic and
+semantic for this task is difficult. Early deep seman-
+tic models (e.g., (Norvig, 1987)) as well as more re-
+cent ones (e.g., (Tatu and Moldovan, 2005; Bos and
+Markert, 2005; Roth and Sammons, 2007)) rely on
+specific world knowledge encoded in rules for draw-
+ing decisions. Shallower models exploit matching
+methods between syntactic/semantic graphs of texts
+and hypotheses (Haghighi et al., 2005). The match-
+ing step is carried out after the application of some
+lexical-syntactic rules that are used to transform the
+text T or the hypothesis H (Bar-Haim et al., 2009)
+at surface form level. For all these methods, the ef-
+fective use of syntactic and semantic information de-
+pends on the coverage and the quality of the specific
+rules. Lexical-syntactic rules can be automatically
+extracted from plain corpora (e.g., (Lin and Pantel,
+2001; Szpektor and Dagan, 2008)) but the quality
+(also in terms of little noise) and the coverage is low.
+In contrast, rules written at the semantic level are
+more accurate but their automatic design is difficult
+and so they are typically hand-coded for the specific
+phenomena.
+In this paper, we propose models for effectively
+using syntactic and semantic information in RTE,
+without requiring either large automatic rule acqui-
+sition or hand-coding. These models exploit lexi-
+cal similarities to generalize lexical-syntactic rules
+automatically derived by supervised learning meth-
+ods. In more detail, syntax is encoded in the form of
+parse trees whereas similarities are defined by means
+of WordNet simlilarity measures or Latent Seman-
+tic Analysis (LSA) applied to Wikipedia or to the
+British National Corpus (BNC). The joint syntac-
+tic/semantic model is realized by means of novel tree
+kernels, which can match subtrees whose leaves are
+lexically similar (so not just identical).
+To assess the benefit of our approach, we carried
+out comparative experiments with previous work:
+especially with the method described in (Zanzotto
+and Moschitti, 2006; Zanzotto et al., 2009). This
+constitutes our strong baseline as, although it can
+only exploit lexical-syntactic rules, it has achieved
+top accuracy in all RTE challenges. The results,
+across different RTE challenges, show that our ap-
+proach constantly and significantly improves the
+</bodyText>
+<page confidence="0.975771">
+1020
+</page>
+<bodyText confidence="0.983970315789474">
+\x0cbaseline model. Moreover, our approach does not
+require any adaptation or tuning and uses a compu-
+tation for the similarity function based on Wikipedia
+which is faster than the computation of tools based
+on WordNet or other resources (Basili et al., 2006).
+The remainder of the paper is organized as fol-
+lows: Section 2 critically reviews the previous work
+by highlighting the need of generalizing lexico-
+syntactic rules. Section 3 describes lexical similar-
+ity approaches, which can serve the generalization
+purpose. Section 4 describes how to integrate lex-
+ical similarity in syntactic structures using syntac-
+tic/semantic tree kernels (SSTK) whereas Section 5
+shows how to use SSTK in a kernel-based RTE sys-
+tem. Section 6 describes the experiments and re-
+sults. Section 7 discusses the efficiency and accu-
+racy of our system compared with other RTE sys-
+tems. Finally, we draw the conclusions in Section
+8.
+</bodyText>
+<sectionHeader confidence="0.998627" genericHeader="introduction">
+2 Related work
+</sectionHeader>
+<bodyText confidence="0.998950833333333">
+Lexical-syntactic rules are largely used in textual en-
+tailment recognition systems (e.g., (Bar-Haim et al.,
+2007; Dinu and Wang, 2009)) as they conveniently
+encode world knowledge into linguistic structures.
+For example, to decide whether the simple sentences
+are in the entailment relation:
+</bodyText>
+<table confidence="0.79698525">
+T2 ?H2
+T2 In 1980 Chapman killed Lennon.
+H2 John Lennon died in 1980.
+we need a lexical-syntactic rule such as:
+</table>
+<sectionHeader confidence="0.470683" genericHeader="method">
+3 = Xkilled Y Ydied
+</sectionHeader>
+<bodyText confidence="0.994815">
+along with such rules, the temporal information
+should be taken into consideration.
+Given the importance of lexical-syntactic rules in
+RTE, many methods have been proposed for their
+extraction from large corpora (e.g., (Lin and Pantel,
+2001; Szpektor and Dagan, 2008)). Unfortunately,
+these unsupervised methods in general produce rules
+that can hardly be used: noise and coverage are the
+most critical issues.
+Supervised approaches were experimented in
+(Zanzotto and Moschitti, 2006; Zanzotto et al.,
+2009), where lexical-syntactic rules were derived
+from examples in terms of complex relational fea-
+tures. This approach can easily miss some useful
+information and rules. For example, given the pair
+hT2, H2i, to derive the entailment value of the fol-
+</bodyText>
+<table confidence="0.6638216">
+lowing case:
+T4 ?H4
+T4 In 1963 Lee Harvey Oswald mur-
+dered JFK
+H4 JFK died in 1963
+</table>
+<bodyText confidence="0.900751833333333">
+we can only rely on this relatively interesting
+lexical-syntactic rule (i.e. which is in common be-
+tween the two examples):
+5 = (V P (V BZ)(NP X )) (S(NP X )(V P (V BZ died)))
+Unfortunately, this can be extremely misleading
+since it also derives similar decisions for the follow-
+</bodyText>
+<table confidence="0.6219415">
+ing example:
+T6 ?H6
+T6 In 1956 JFK met Marilyn Monroe
+H6 Marilyn Monroe died in 1956
+</table>
+<bodyText confidence="0.986221230769231">
+The problem is that the pairs hT2, H2i and
+hT4, H4i share more meaningful features than the
+rule 5, which should make the difference with re-
+spect to the relation between the pairs hT2, H2i and
+hT6, H6i. Indeed, the word kill is more semanti-
+cally related to murdered than to meet. Using
+this information, it is possible to derive more effec-
+tive rules from training examples.
+There are several solutions for taking this infor-
+mation into account, e.g. by using FrameNet se-
+mantics (e.g., like in (Burchardt et al., 2007)), it is
+possible to encode a lexical-syntactic rule using the
+KILLING and the DEATH frames, i.e.:
+</bodyText>
+<equation confidence="0.997553">
+7 =
+KILLING(Killer : X ,
+V ictim : Y )
+DEATH(
+P rotagonist : Y )
+</equation>
+<bodyText confidence="0.991521333333333">
+However, to use this model, specific rules and a
+semantic role labeler on the specific corpora are
+needed.
+</bodyText>
+<sectionHeader confidence="0.972012" genericHeader="method">
+3 Lexical similarities
+</sectionHeader>
+<bodyText confidence="0.9811435">
+Previous research in computational linguistics has
+produced many effective lexical similarity mea-
+sures based on many different resources or corpora.
+For example, WordNet similarities (Pedersen et al.,
+2004) or Latent Semantic Analysis over a large cor-
+pus are widely used in many applications and for
+</bodyText>
+<page confidence="0.963494">
+1021
+</page>
+<bodyText confidence="0.999385375">
+\x0cthe definition of kernel functions, e.g. (Basili et al.,
+2006; Basili et al., 2005; Bloehdorn et al., 2006).
+In this section we present the main component of
+our new kernel, i.e. a lexical similarity derived from
+different resources. This is used inside the syntac-
+tic/semantic tree kernel defined in (Bloehdorn and
+Moschitti, 2007a; Bloehdorn and Moschitti, 2007b)
+to enhance the basic tree kernel functions.
+</bodyText>
+<subsectionHeader confidence="0.99956">
+3.1 WordNet Similarities
+</subsectionHeader>
+<bodyText confidence="0.990547727272727">
+WordNet similarities have been heavily used in pre-
+vious NLP work (Chan and Ng, 2005; Agirre et al.,
+2009). All WordNet similarities apply to pairs of
+synonymy sets (synsets) and return a value indicat-
+ing their semantic relatedness. For example, the fol-
+lowing measures, that we use in this study, are based
+on path lengths between concepts in the Wordnet Hi-
+erarchy:
+Path the measure is equal to the inverse of the
+shortest path length (path length) between two
+synsets c1 and c2 in WordNet
+</bodyText>
+<equation confidence="0.960729">
+SimP ath =
+1
+path length(c1, c2)
+(1)
+</equation>
+<bodyText confidence="0.9685102">
+WUP the Wu and Palmer (Wu and Palmer, 1994)
+similarity metric is based on the depth of two given
+synsets c1 and c2 in the WordNet taxonomy, and the
+depth of their least common subsumer (lcs). These
+are combined into a similarity score:
+</bodyText>
+<equation confidence="0.623828">
+SimW UP =
+2 depth(lcs)
+depth(c1) + depth(c2)
+</equation>
+<bodyText confidence="0.702944">
+(2)
+Wordnet similarity measures on synsets can be
+extended to similarity measures between words as
+follows:
+</bodyText>
+<equation confidence="0.810366">
+S(w1, w2) = max(c1,c2)C1C2
+SimS(c1, c2)
+(3)
+</equation>
+<bodyText confidence="0.9605785">
+where S is Path or WUP and Ci is the set of the
+synsets related to the word wi.
+</bodyText>
+<subsectionHeader confidence="0.81253">
+3.2 Distributional Semantic Similarity
+Latent Semantic Analysis (LSA) is one of the
+</subsectionHeader>
+<bodyText confidence="0.952774285714286">
+corpus-based measure of distributional semantic
+similarity, proposed by (Landauer et al., 1998).
+Words ~
+wi are represented in a document space. Each
+feauture is a document and its value is the frequency
+of the word in the document. The similarity is gen-
+erally computed as a cosine similarity:
+</bodyText>
+<equation confidence="0.997068625">
+LSI(w1, w2) =
+~
+w1 ~
+w2
+ ||~
+w1   |~
+w2||
+(4)
+</equation>
+<bodyText confidence="0.9885512">
+In our approach we define a proximity matrix P
+where pi,j represents LSI(wi, wj) The core of our
+approach lies on LSI (Latent Semantic Indexing)
+over a large corpus. We used singular value de-
+composition (SVD) to build the proximity matrix
+</bodyText>
+<equation confidence="0.788682">
+P = DDT from a large corpus, represented by its
+</equation>
+<bodyText confidence="0.961474666666667">
+word-by-document matrix D.
+SVD decomposes D (weighted matrix of term
+frequencies in a collection of text) into three matri-
+ces UV T , where U (matrix of term vectors) and
+V (matrix of document vectors) are orthogonal ma-
+trices whose columns are the eigenvectors of DDT
+and DT D respectively, and is the diagonal matrix
+containing the singular value of D.
+Given such decomposition, P can be obtained as
+</bodyText>
+<equation confidence="0.6567335">
+Uk2
+kUT
+</equation>
+<bodyText confidence="0.947228769230769">
+k , where Uk is the matrix containing the first
+k columns of U and k is the dimensionality of the
+latent semantic space. This is efficiently used to re-
+duce the memory requirements while retaining the
+information. Finally we computed the term simi-
+larity using the cosine measure in the vector space
+model (VSM).
+Generally, LSA can be observed as a way to over-
+come some of the drawbacks of the standard vector
+space model, such as sparseness and dimensionality.
+In other words, the LSA similarity is computed in
+a lower dimensional space, in which second-order
+relations among words and documents are exploited
+(Mihalcea et al., 2006).
+It is worth mentioning that the LSA similarity
+measure depends on the selected corpus but it ben-
+efits from a higher computation speed in compari-
+son to the construction of the similarity matrix based
+on the WordNet Similarity package (Pedersen et al.,
+2004).
+4 Lexical similarity in Syntactic Tree
+Kernels
+Section 2 has shown that the role of the syntax is im-
+portant in extracting generalized rules for RTE but it
+is not enough. Therefore, the lexical similarity de-
+scribed in the previous section should be taken into
+</bodyText>
+<page confidence="0.870084">
+1022
+</page>
+<figure confidence="0.998987113207547">
+\x0cS
+PP
+IN
+CD
+1963
+NP
+NNP
+Lee
+NNP
+Harvey
+NNP
+Oswald
+VP
+VBN
+murdered
+NNP
+JFK
+S
+PP
+IN
+CD
+NP VP
+VBN
+murdered
+NNP
+S
+PP
+IN
+CD
+NP VP
+VBN NNP
+S
+PP
+IN
+NP VP
+VBN NNP
+VP
+VBN
+murdered
+NNP
+JFK
+VP
+VBN
+murdered
+NNP
+VP
+VBN NNP
+JFK
+VP
+VBN
+killed
+NNP
+Kennedy
+</figure>
+<figureCaption confidence="0.999878">
+Figure 1: A syntactic parse tree (on the left) along with some of its fragments. After the bar there is an important
+</figureCaption>
+<bodyText confidence="0.958011">
+fragment from a semantically similar sentence, which cannot be matched by STK but it is matched by SSTK.
+account in the model definition. Since tree kernels
+have been shown to be very effective for exploit-
+ing syntactic information in natural language tasks, a
+promising idea is to merge together the two different
+approaches, i.e. tree kernels and semantic similari-
+ties.
+</bodyText>
+<subsectionHeader confidence="0.997893">
+4.1 Syntactic Tree Kernel (STK)
+</subsectionHeader>
+<bodyText confidence="0.998224">
+Tree kernels compute the number of common sub-
+structures between two trees T1 and T2 without ex-
+plicitly considering the whole fragment space. The
+standard definition of the STK, given in (Collins and
+Duffy, 2002), allows for any set of nodes linked by
+one or more entire production rules to be valid sub-
+structures. The formal characterization is given in
+(Collins and Duffy, 2002) and is reported hereafter:
+Let F = {f1, f2, . . . , f|F|} be the set of tree
+fragments and i(n) be an indicator function,
+equal to 1 if the target fi is rooted at node n
+and equal to 0 otherwise. A tree kernel func-
+tion over T1 and T2 is defined as TK(T1, T2) =
+</bodyText>
+<equation confidence="0.9332956">
+P
+n1NT1
+P
+n2NT2
+(n1, n2), where NT1 and NT2
+</equation>
+<bodyText confidence="0.779578">
+are the sets of nodes in T1 and T2, respectively and
+</bodyText>
+<equation confidence="0.992839">
+(n1, n2) =
+P|F|
+i=1 i(n1)i(n2).
+</equation>
+<bodyText confidence="0.964716">
+function counts the number of subtrees rooted
+in n1 and n2 and can be evaluated as follows:
+</bodyText>
+<listItem confidence="0.966552571428571">
+1. if the productions at n1 and n2 are different
+then (n1, n2) = 0;
+2. if the productions at n1 and n2 are the same,
+and n1 and n2 have only leaf children (i.e. they
+are pre-terminal symbols) then (n1, n2) = ;
+3. if the productions at n1 and n2 are the same,
+and n1 and n2 are not pre-terminals then
+</listItem>
+<equation confidence="0.998994333333333">
+(n1, n2) =
+Ql(n1)
+j=1 (1 + (cn1 (j), cn2 (j))),
+</equation>
+<bodyText confidence="0.997563681818182">
+where l(n1) is the number of children of n1,
+cn(j) is the j-th child of node n and is a de-
+cay factor penalizing larger structures.
+Figure 1 shows some fragments (out of the over-
+all 472) of the syntactic parse tree on the left, which
+is derived from the text T4. These fragments sat-
+isfy the constraint that grammatical rules cannot be
+broken. For example, (VP (VBN (murdered) NNP
+(JFK))) is a valid fragment whereas (VP (VBN (mur-
+dered)) is not. One drawback of such kernel is that
+two sentences expressing similar semantics but with
+different lexicals produce structures which will not
+be matched. For example, after the vertical bar
+there is a fragment, extracted from the parse tree
+of a semantically identical sentences: In 1963
+Oswald killed Kennedy. In this case, much
+less matches will be counted by the kernel function
+applied to such parse trees and the one of T4. In par-
+ticular, the complete VP subtree will not be matched.
+To tackle this problem the Syntactic Semantic
+Tree Kernel (SSTK) was defined in (Bloehdorn and
+Moschitti, 2007a); hereafter, we report its definition.
+</bodyText>
+<subsectionHeader confidence="0.963829">
+4.2 Syntactic Semantic Tree kernels (SSTK)
+</subsectionHeader>
+<bodyText confidence="0.961928363636364">
+An SSTK produces all the matches of STK. More-
+over, the fragments, which are identical but for their
+lexical nodes, produce a match proportional to the
+product of the similarity between their correspond-
+ing words. This is a sound definition. Indeed, since
+the structures are the same, each word in position i
+of the first fragment can be associated with a word
+located in the same position i of the second frag-
+ment. More formally, the fast evaluation of for
+STK can be used for computing the semantic for
+SSTK by simply adding the following step
+</bodyText>
+<equation confidence="0.931223">
+0. if n1 and n2 are pre-terminals and label(n1) =
+label(n2) then (n1, n2) = S(ch1
+n1
+, ch1
+n2
+),
+</equation>
+<bodyText confidence="0.95570175">
+where label(ni) is the label of node ni and S is
+a term similarity kernel, e.g. based on Wikipedia,
+Wordnet or BNC, defined in Section 3. Note that:
+(a) since n1 and n2 are pre-terminals of a parse tree
+</bodyText>
+<page confidence="0.798906">
+1023
+</page>
+<bodyText confidence="0.246068">
+\x0cthey can have only one child (i.e. ch1
+</bodyText>
+<equation confidence="0.94869875">
+n1
+and ch1
+n2
+)
+</equation>
+<bodyText confidence="0.993431875">
+and such children are words and (b) Step 2 of the
+original evaluation is no longer necessary.
+For example, the fragments: (VP (VBN (murdered)
+NNP (JFK))) has a match with (VP (VBN (killed)
+NNP (Kennedy))) equal to S(murdered, kill)
+S(JFK, Kennedy).
+Beside the novelty of taking into account tree
+fragments that are not identical it should be noted
+that the lexical semantic similarity is constrained
+in syntactic structures, which limit errors/noise due
+to incorrect (or, as in our case, not provided) word
+sense disambiguation.
+Finally, it should be noted that when a valid ker-
+nel is used in place of S, SSTK is a valid kernel for
+definition of convolution kernels (Haussler, 1999).
+Since the matrix P derived by applying LSA pro-
+duces a semi-definite matrix (see (Cristianini and
+Holloway, 2001)) we can always use the similarity
+matrix derived by LSA in SSTK. In case of Wordnet,
+the validity of the kernel will depend of the kind of
+similarity used. In our experiments, we have carried
+out single value decomposition and we have verified
+that our Wordenet matrices, Path and WUP, are in-
+deed positive semi-definite.
+</bodyText>
+<sectionHeader confidence="0.983461" genericHeader="method">
+5 Kernels for Textual Entailment
+</sectionHeader>
+<subsectionHeader confidence="0.586319">
+Recognition
+</subsectionHeader>
+<bodyText confidence="0.999121285714286">
+In this section, we describe how we use the syntac-
+tic tree kernel (STK) and the semantic/syntactic tree
+kernel (SSTK) for modeling lexical-syntactic ker-
+nels for textual entailment recognition. We build
+on the kernel described in (Zanzotto and Moschitti,
+2006; Zanzotto et al., 2009) that can model lexical-
+syntactic rules with variables (i.e., first-order rules).
+</bodyText>
+<subsectionHeader confidence="0.994488">
+5.1 Anchoring and pruning
+</subsectionHeader>
+<bodyText confidence="0.97668225">
+Kernels for modeling lexical-syntactic rules with
+variables presuppose that words in texts T are ex-
+plicitly related to words in hypotheses H. This cor-
+relation is generally called anchoring and it is imple-
+mented with placeholders that co-index the syntactic
+trees derived from T and H. Words and intermediate
+nodes are co-indexed when they are equal or similar.
+For example, in the pair:
+</bodyText>
+<table confidence="0.963827714285714">
+T8 ?H8
+T8 Lee Harvey Oswald was born in
+New Orleans, Louisiana, and was
+of English, German, French and
+Irish ancestry. In 1963 1 Oswald
+murdered JFK 2
+H8 JFK 2 died in 1963 1
+</table>
+<bodyText confidence="0.9976165">
+Moreover, the set of anchors also allows us to
+prune fragments of the text T that are irrelevant
+for the final decision: we can discard sentences
+or phrases uncovered by placeholders. For exam-
+ple, in the pair hT8, H8i, we can infer that Lee
+H. . . ancestry is not a relevant fragment and remove
+it. This allows us to focus on the critical part for de-
+termining the entailment value.
+</bodyText>
+<subsectionHeader confidence="0.9392985">
+5.2 Kernels for capturing lexical-syntactic
+rules
+</subsectionHeader>
+<bodyText confidence="0.999522142857143">
+Once placeholders are available in the entailment
+pairs, we can apply the model proposed in (Zan-
+zotto et al., 2009). This derives the maximal simi-
+larity between pairs of T and H based on the lexico-
+syntactic information encoded by the syntactic parse
+trees of T and H enriched with placeholders. More
+formally, the original kernel is based on the follow-
+</bodyText>
+<equation confidence="0.940082571428571">
+ing equation:
+maxST K(hT, Hi, hT 0
+, H0
+i) = maxcC (5)
+(ST K(t(T, c), t(T 0
+, i)) + ST K(t(H, c), t(H0
+, i)),
+</equation>
+<bodyText confidence="0.9729125">
+where: (i) C is the set of all bijective mappings be-
+tween the placeholders (i.e., the possible variables)
+from hT, Hi into hT0, H0i; (ii) c C is a substitu-
+tion function, which implements such mapping; (iii)
+t(, c) returns the syntactic tree enriched with place-
+holders replaced by means of the substitution c; and
+(iv) STK(1, 2) is a tree kernel function.
+The new semantic-syntactic kernel for lexical-
+syntactic rules, maxSSTK, substitutes STK with
+SSTK in Eq. 5 thus enlarging the coverage of the
+matching between the pairs of texts and the pairs of
+hypotheses.
+</bodyText>
+<sectionHeader confidence="0.998563" genericHeader="method">
+6 Experiments
+</sectionHeader>
+<bodyText confidence="0.995183">
+The aim of the experiments is to investigate if our
+RTE system exploiting syntactic semantic kernels
+(SSTK) can effectively derive generalized lexico-
+syntactic rules. In more detail, first, we determine
+the best lexical similarity suitable for the task, i.e.
+</bodyText>
+<page confidence="0.984414">
+1024
+</page>
+<table confidence="0.993754857142857">
+\x0cNo Semantic Wiki BNC Path WUP
+RTE2 j = 1 63.12 63.5 62.75 62.88 63.88
+j = 0.9 63.38 64.75 62.26 63.88 64.25
+RTE3 j = 1 66.88 67.25 67.25 66.88 66.5
+j = 0.9 67.25 67.75 67.5 67.12 67.38
+RTE5 j = 1 65.5 66.5 65.83 66 66
+j = 0.9 65.5 66.83 65.67 66 66.33
+</table>
+<tableCaption confidence="0.997226">
+Table 1: Accuracy of plain (WOK+STK+maxSTK) and Semantic Lexico-Syntactic (WOK+SSTK+maxSSTK) Ker-
+</tableCaption>
+<bodyText confidence="0.9888394">
+nels. The latter according to different similarities
+distributional vs. Wordnet-based approaches. Sec-
+ond, we derive qualitative and quantitative proper-
+ties, which justify the selection of one with respect
+to the other.
+For this purpose, we tested four different version
+of SSTK, i.e. using Path, WUP, BNC and WIKI
+lexical similarities on three different RTE datasets.
+These correspond to the three different challenges in
+which the development set was provided.
+</bodyText>
+<subsectionHeader confidence="0.998156">
+6.1 Experimental Setup
+</subsectionHeader>
+<bodyText confidence="0.989615934426229">
+We used the data from three recognizing textual en-
+tailment challenge: RTE2 (Bar-Haim et al., 2006),
+RTE3 (Giampiccolo et al., 2007), and RTE5, along
+with the standard split between training and test sets.
+We did not use RTE1 as it was differently built from
+the others and RTE4 as it does not contain the devel-
+opment set.
+We used the following publicly available tools:
+the Charniak Parser (Charniak, 2000) for pars-
+ing sentences and SVM-light-TK (Moschitti, 2006;
+Joachims, 1999), in which we coded our new kernels
+for RTE. Additionally, we used the Jiang&amp;Conrath
+(J&amp;C) distance (Jiang and Conrath, 1997) com-
+puted with wn::similarity package (Pedersen
+et al., 2004) to measure the similarity between T and
+H. This similarity is also used to define the text-
+hypothesis word overlap kernel (WOK).
+The distributional semantics is captured by means
+of LSA: we used the java Latent Semantic Indexing
+(jLSI) tool (Giuliano, 2007). In particular, we pre-
+computed the word-pair matrices for RTE2, RTE3,
+and RTE5. We built different LSA matrices from
+the British National Corpus (BNC) and Wikipedia
+(Wiki). The British National Corpus (BNC) is a bal-
+anced synchronic text corpus containing 100 mil-
+lion words with morpho-syntactic annotation. For
+Wikipedia, we created a model from the 200,000
+most visited Wikipedia articles, after cleaning the
+unnecessary markup tags. Articles are our doc-
+uments for creating the term-by-document matrix.
+Wikipedia provides the largest coverage knowledge
+resource developed by a community, besides the no-
+ticeable coverage of named entities. This further
+motivates the design of a similarity measure. We
+also consider two typical WordNet similarities (i.e.,
+Path and WUP, respectively) as described in Sec.
+3.1.
+The main RTE model that we consider is consti-
+tuted by three main kernels:
+WOK, i.e. the kernel based on only the text-
+hypothesis lexical overlapping words (this is an
+intra-pair similarity);
+STK, i.e. the sum of the standard tree kernel
+(see Section 4.1) applied to the two text parse-
+trees and the two hypothesis parse trees;
+SSTK, i.e. the same as STK with the use of
+lexical similarities as explained in Section 4.2;
+maxSTK and maxSSTK, i.e. the kernel for
+RTE, illustrated in Section 5.2, where the lat-
+ter exploits similarity since it uses SSTK in Eq.
+5.
+Note that the model presented in (Zanzotto et al.,
+2009), our baseline, corresponds to the combination
+kernel: WOK+maxSTK. In this paper, in addition to
+the role of lexical similarities, we also study several
+combinations (we just need to sum the separated ker-
+nels), i.e. WOK+STK+maxSTK, SSTK+maxSSTK,
+WOK+SSTK+maxSSTK and WOK+maxSSTK.
+Finally, we measure the performance of our sys-
+tem with the standard accuracy and then we deter-
+mine the statistical significance by using the model
+</bodyText>
+<page confidence="0.981612">
+1025
+</page>
+<table confidence="0.998827">
+\x0cSTK SSTK maxSTK maxSSTK STK+maxSTK SSTK+maxSSTK
+RTE2 +WOK 61.5 61.12 63.88 64.12 63.12 63.50 60.62
+52.62 52.75 61.25 59.38 61.25 58.75 -
+RTE3 +WOK 66.38 66.5 66.5 67.0 66.88 67.25 66.75
+53.25 54.5 62.25 64.38 63.12 63.62 -
+RTE5 +WOK 62.0 62.0 64.83 64.83 65.5 66.5 60.67
+54.33 57.33 63.33 62.67 61.83 62.67 -
+</table>
+<tableCaption confidence="0.999012">
+Table 2: Comparing different lexico-syntactic kernels with Wiki-based semantic kernels
+</tableCaption>
+<bodyText confidence="0.8377895">
+described in (Yeh, 2000) and implemented in (Pado,
+2006).
+</bodyText>
+<subsectionHeader confidence="0.936759">
+6.2 Distributional vs. WordNet-based
+Semantics
+</subsectionHeader>
+<bodyText confidence="0.998842833333333">
+The first experiment compares the basic kernel, i.e.
+WOK+STK+maxSTK, with the new semantic ker-
+nel, i.e. WOK+SSTK+maxSSTK, where SSTK
+and maxSSTK encode four different kinds of sim-
+ilarities, BNC, WIKI, WUP and Path. The aim
+is twofold: understanding if semantic similarities
+can be effectively used to derive generalized lexico-
+syntactic rules and to determine the best similarity
+model.
+Table 1 shows the results according to No Seman-
+tics, Wiki, BNC, Path and WUP. The three pairs of
+rows represent the results over the three different
+datasets, i.e., RTE2, RTE3, and RTE5. For each
+pair, we have two rows representing a different j
+parameter of SVM. An increase of j augments the
+weight of positive with respect to negative examples
+and during learning it tunes-up the Recall/Precision
+rate. We use two values j = 1 (the default value)
+and j = 0.9 (selected during a preliminary experi-
+ment on a validation set on RTE2). j = 0.9 was used
+to minimally increase the Precision, considering that
+the semantic model tends to improve the Recall.
+The results show that:
+WIKI semantics constantly improves the basic
+kernel (no Semantics) for any datasets or pa-
+rameter.
+The distributional semantics is almost always
+better than the WordNet-based one.
+In one case WUP improves WIKI, i.e. 63.88 vs
+63.5 and in another case BNC reaches WIKI,
+i.e. 67.25 but this happens for the default values
+of the j parameters, i.e. j = 1, which was not
+selected by our limited parameter validation.
+Finally, the difference between the accuracy of the
+best WIKI kernels and the No Semantic kernels are
+statistically significant (p &lt;&lt; 0.05).
+</bodyText>
+<subsectionHeader confidence="0.998943">
+6.3 Kernel Comparisons
+</subsectionHeader>
+<bodyText confidence="0.999339129032258">
+The previous experiments (Sec. 6.2) show that
+Wikipedia-based distributional semantics provides
+an effective similarity to generalize lexico-syntactic
+rules (features). As our RTE kernel is a composition
+of other basic kernels, we experimented with dif-
+ferent combinations to understand the role of each
+component. Moreover, to obtain results independent
+of parameterization we used the default parameter j.
+Table 2 reports the accuracy of different kernels
+and their combinations on different RTE datasets.
+Each row describes the results for each dataset and
+it is split in two according to the use of WOK or not
+in the RTE model. In the each column, the different
+kernels are reported. For example, the entry in the
+4th column and the 2nd row refers to the accuracy of
+SSTK in combination with WOK, i.e. WOK+SSTK
+for the RTE2.
+We observe that: first WOK produces a very high
+accuracy in RTE challenges, i.e. 60.62, 66.75 and
+60.67 and it is an essential component of RTE sys-
+tems since its ablation always causes a large accu-
+racy decrease. This is reasonable as the major source
+of information to establish entailment between sen-
+tences is their word overlap.
+Second, STK and SSTK, when added to WOK,
+improve it on RTE2 and RTE5 but do not improve
+it on RTE3. This suggests a difficulty of exploiting
+syntactic information for RTE3.
+Third, maxSTK+WOK relevantly improves
+WOK on RTE2 and RTE5 but fails in RTE3. Again,
+the syntactic rules (with variables) which this kernel
+</bodyText>
+<page confidence="0.961723">
+1026
+</page>
+<table confidence="0.99010825">
+\x0cBNC WN WIKI
+RTE2 0.55 0.42 0.83
+RTE3 0.54 0.41 0.83
+RTE5 0.45 0.34 0.82
+</table>
+<tableCaption confidence="0.999579">
+Table 3: Coverage of the different resources for the words
+</tableCaption>
+<bodyText confidence="0.994404428571429">
+of the three datasets
+can provide are not enough general for RTE3. In
+contrast, maxSSTK+WOK improves WOK on all
+datasets thanks to its generalization ability.
+Finally, STK and SSTK added to maxSTK+WOK
+or to maxSSTK+WOK tend to produce an accuracy
+increase, although not in every condition.
+</bodyText>
+<sectionHeader confidence="0.993658" genericHeader="method">
+7 Discussion
+</sectionHeader>
+<subsectionHeader confidence="0.921893">
+7.1 Coverage and efficiency
+</subsectionHeader>
+<bodyText confidence="0.997647">
+As already mentioned, the practical use of
+Wikipedia to design lexical similarities is motivated
+by a large coverage. Deriving similarities from other
+resources such as WordNet is more time-consuming.
+To prove our claim, we performed an analysis on the
+coverage and efficiency in computing the pair term
+similarity.
+Table 3 shows the coverage of the content words
+of the three datasets. The coverage of Wikipedia is
+about two times more than the other resources in all
+experimented datasets.
+</bodyText>
+<table confidence="0.94271075">
+Speed Milliseconds
+LSA 0.54
+WN with POS 5.3
+WN without POS 15.2
+</table>
+<tableCaption confidence="0.998734">
+Table 4: The comparison in terms of speed calculated
+</tableCaption>
+<bodyText confidence="0.994114142857143">
+over 10000 pairs after loading the model.
+Moreover, Table 4 shows that the computation
+of the LSA matrix on Wikipedia is faster than us-
+ing the WordNet similarity software (Pedersen et al.,
+2004). Even if the accuracy of some WordNet mod-
+els can reach the one based on Wikipedia, the latter
+is preferable for the smaller computational cost.
+</bodyText>
+<subsectionHeader confidence="0.996708">
+7.2 Comparison with previous work
+</subsectionHeader>
+<bodyText confidence="0.99055425">
+The results of our models show that lexical se-
+mantics for building more effective lexical-syntactic
+rules is promising. Here, we compare our ap-
+proaches with other RTE systems to show that our
+</bodyText>
+<table confidence="0.894497">
+Average Acc. Our rank # participants
+RTE2 59.8 3rd 23
+RTE3 64.5 4th 26
+RTE5 61.5 4th 20
+</table>
+<tableCaption confidence="0.999692">
+Table 5: Comparison with other approaches to RTE
+</tableCaption>
+<bodyText confidence="0.975000913043478">
+results are indeed state-of-the-art. Unfortunately,
+deriving a reasonable accuracy value to represent the
+state-of-the-art is extremely difficult as many fac-
+tors can determine the final score. For example, the
+best systems in RTE2 and RTE3 (Giampiccolo et al.,
+2007) have an accuracy 10% higher than the others
+but they generally use resources that are not publicly
+available.
+Table 5 shows the average accuracy of the partici-
+pant systems, the rank of our system that we propose
+in this paper and the number of participants. Our
+model accuracy is absolutely above the average and
+it is ranked at the top positions. We can also carry
+out a finer comparison with respect to RTE2 (Bar-
+Haim et al., 2006). Our system results are the best
+when compared with systems using semantic mod-
+els based on FrameNet, indeed the best ranked sys-
+tem in this class, i.e., (Burchardt et al., 2007), scores
+only 62.5. Among systems using logical inference,
+our model is instead the 3rd out of 8 systems using
+logical inference that perform worse than ours. Fi-
+nally, it is the 2nd among systems using supervised
+machine learning models.
+</bodyText>
+<sectionHeader confidence="0.9959" genericHeader="conclusions">
+8 Conclusion
+</sectionHeader>
+<bodyText confidence="0.9941708">
+In this paper we presented a model to effectively in-
+clude semantics in lexical-syntactic features for tex-
+tual entailment recognition. We have experimentally
+shown that LSA-derived lexical semantics embed-
+ded in syntactic structures is a promising approach.
+The model that we have presented is one of the
+best system in the RTE challenges. Additionally, in
+contrast to many other methods it does not require
+large sets of handcrafted or corpus extracted lexical-
+syntactic rules.
+</bodyText>
+<sectionHeader confidence="0.947736" genericHeader="acknowledgments">
+Acknowledgements
+</sectionHeader>
+<bodyText confidence="0.788073">
+The research of Alessandro Moschitti has been par-
+tially supported by Trustworthy Eternal Systems via
+</bodyText>
+<reference confidence="0.984870361111111">
+Evolving Software, Data and Knowledge (EternalS,
+project number FP7 247758).
+1027
+\x0cReferences
+E. Agirre, E. Alfonseca, K. Hall, J. Kravalova, M. Pasca,
+and A. Soroa. 2009. A study on similarity and re-
+latedness using distributional and wordnet-based ap-
+proaches. In NAACL 09: Proc. HLT/NAACL.
+R. Bar-Haim, I. Dagan, B. Dolan, L. Ferro, D. Giampic-
+colo, and I. Magnini, B. Szpektor. 2006. The ii
+PASCAL recognising textual entailment challenge. In
+Proc. of the II PASCAL Challenges Workshop.
+R. Bar-Haim, I. Dagan, I. Greental, and E. Shnarch.
+2007. Semantic inference at the lexical-syntactic level.
+In AAAI07: Proc. of the 22nd national conference on
+Artificial intelligence.
+R. Bar-Haim, J. Berant, and I. Dagan. 2009. A com-
+pact forest for scalable inference over entailment and
+paraphrase rules. In Proc. of EMNLP.
+R. Basili, M. Cammisa, and A. Moschitti. 2005. Effec-
+tive use of wordnet semantics via kernel-based learn-
+ing. In CoNLL.
+R. Basili, M. Cammisa, and A. Moschitti. 2006. A se-
+mantic kernel to classify texts with very few training
+examples. In Informatica.
+S. Bloehdorn and A. Moschitti. 2007a. Combined syn-
+tactic and semantic kernels for text classification. In
+ECIR.
+S. Bloehdorn and A. Moschitti. 2007b. Structure and se-
+mantics for expressive text kernels. In Proc. of CIKM
+07.
+S. Bloehdorn, R. Basili, M. Cammisa, and A. Moschitti.
+2006. Semantic kernels for text classification based on
+topological measures of feature similarity. In Proc. of
+ICDM 06, Hong Kong, 2006.
+J. Bos and K. Markert. 2005. Recognising textual entail-
+ment with logical inference. In HLT 05: Proc. of the
+conference on HLT and EMNLP.
+A. Burchardt, N. Reiter, S. Thater, and A. Frank. 2007.
+Semantic Approach to Textual Entailment: System
+Evaluation and Task Analysis. In Proc. of the 3rd-
+PASCAL Workshop on Textual Entailment, Prague.
+Y. S. Chan and H. T. Ng. 2005. Word sense disambigua-
+tion with distribution estimation. In Proc. of IJCAI05.
+Eugene Charniak. 2000. A maximum-entropy-inspired
+parser. In Proc. of the 1st NAACL conference.
+M. Collins and N. Duffy. 2002. New ranking algorithms
+for parsing and tagging: kernels over discrete struc-
+tures, and the voted perceptron. In Proc. of ACL 02.
+N. Cristianini and R. Holloway. 2001. Latent semantic
+kernels.
+G. Dinu and R. Wang. 2009. Inference rules and their
+application to recognizing textual entailment. In Proc.
+of the EACL 09.
+D. Giampiccolo, B. Magnini, Ido Dagan, and B. Dolan.
+2007. The third pascal recognizing textual entailment
+challenge. In Proc. of the ACL-PASCAL Workshop on
+Textual Entailment and Paraphrasing.
+Claudio Giuliano. 2007. jLSI a for latent se-
+mantic indexing. http://tcc.itc.it/research/textec/tools-
+resources/jLSI.html.
+A. D. Haghighi, A. Y. Ng, and C. D. Manning. 2005.
+Robust textual inference via graph matching. In HLT
+05: Proc. of the conference on HLT and EMNLP.
+David Haussler. 1999. Convolution kernels on discrete
+structures. Technical report.
+J. J. Jiang and D. W. Conrath. 1997. Semantic similarity
+based on corpus statistics and lexical taxonomy. In
+Proc. of the 10th ROCLING.
+Thorsten Joachims. 1999. Making large-scale support
+vector machine learning practical.
+Landauer, Foltz, and Laham. 1998. Introduction to latent
+semantic analysis. In Discourse Processes 25.
+D. Lin and P. Pantel. 2001. DIRT-discovery of inference
+rules from text. In Proc. of the ACM KDD-01.
+R. Mihalcea, C. Corley, and C. Strapparava. 2006.
+Corpus-based and knowledge-based measures of text
+semantic similarity. In Proc. of AAAI06.
+Alessandro Moschitti. 2006. Making tree kernels practi-
+cal for natural language learning. In Proc. of EACL.
+Peter Norvig. 1987. A unified theory of inference for
+text understanding. Technical report, USA.
+Sebastian Pado, 2006. Users guide to sigf: Signifi-
+cance testing by approximate randomisation.
+T. Pedersen, S. Patwardhan, and J. Michelizzi. 2004.
+Wordnet::similarity - measuring the relatedness of
+concepts. In Proc. of 5th NAACL.
+D. Roth and M. Sammons. 2007. Semantic and logi-
+cal inference model for textual entailment. In Proc.
+of the ACL-PASCAL Workshop on Textual Entailment
+and Paraphrasing.
+I. Szpektor and I. Dagan. 2008. Learning entailment
+rules for unary templates. In Proc. of COLING 08.
+M. Tatu and D. Moldovan. 2005. A semantic approach
+to recognizing textual entailment. In HLT 05: Proc.
+of HLT/EMNLP.
+Z. Wu and M. Palmer. 1994. Verb semantics and lexical
+selection. In Proc. of ACL.
+Alexander Yeh. 2000. More accurate tests for the statis-
+tical significance of result differences. In Proc. of ACL
+2000, Morristown, NJ, USA.
+F. M. Zanzotto and A. Moschitti. 2006. Automatic learn-
+ing of textual entailments with cross-pair similarities.
+In Proc. of ACL 06.
+F. M. Zanzotto, M. Pennacchiotti, and A. Moschitti.
+2009. A machine learning approach to textual en-
+tailment recognition. NATURAL LANGUAGE ENGI-
+NEERING.
+</reference>
+<page confidence="0.671113">
+1028
+</page>
+<figure confidence="0.348712">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.141783">
+<note confidence="0.929053333333333">b&apos;Human Language Technologies: The 2010 Annual Conference of the North American Chapter of the ACL, pages 10201028, Los Angeles, California, June 2010. c 2010 Association for Computational Linguistics</note>
+<title confidence="0.987517">Syntactic/Semantic Structures for Textual Entailment Recognition</title>
+<author confidence="0.915029">Yashar Mehdad</author>
+<affiliation confidence="0.852454666666667">FBK-IRST, DISI University of Trento Povo (TN) - Italy</affiliation>
+<email confidence="0.989215">mehdad@fbk.eu</email>
+<author confidence="0.999687">Alessandro Moschitti</author>
+<affiliation confidence="0.828623333333333">DISI University of Trento Povo (TN) - Italy</affiliation>
+<email confidence="0.99603">moschitti@disi.unitn.it</email>
+<author confidence="0.999682">Fabio Massimo Zanzotto</author>
+<affiliation confidence="0.984452">DISP University of Rome Tor Vergata</affiliation>
+<address confidence="0.632988">Roma - Italy</address>
+<email confidence="0.991748">zanzotto@info.uniroma2.it</email>
+<abstract confidence="0.99905047368421">In this paper, we describe an approach based on off-the-shelf parsers and semantic resources for the Recognizing Textual Entailment (RTE) challenge that can be generally applied to any domain. Syntax is exploited by means of tree kernels whereas lexical semantics is derived from heterogeneous resources, e.g. WordNet or distributional semantics through Wikipedia. The joint syntactic/semantic model is realized by means of tree kernels, which can exploit lexical relatedness to match syntactically similar structures, i.e. whose lexical compounds are related. The comparative experiments across different RTE challenges and traditional systems show that our approach consistently and meaningfully achieves high accuracy, without requiring any adaptation or tuning.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>\x0cReferences E Agirre</author>
+<author>E Alfonseca</author>
+<author>K Hall</author>
+<author>J Kravalova</author>
+<author>M Pasca</author>
+<author>A Soroa</author>
+</authors>
+<title>A study on similarity and relatedness using distributional and wordnet-based approaches.</title>
+<date>2009</date>
+<booktitle>In NAACL 09: Proc. HLT/NAACL.</booktitle>
+<contexts>
+<context position="7879" citStr="Agirre et al., 2009" startWordPosition="1239" endWordPosition="1242">alysis over a large corpus are widely used in many applications and for 1021 \x0cthe definition of kernel functions, e.g. (Basili et al., 2006; Basili et al., 2005; Bloehdorn et al., 2006). In this section we present the main component of our new kernel, i.e. a lexical similarity derived from different resources. This is used inside the syntactic/semantic tree kernel defined in (Bloehdorn and Moschitti, 2007a; Bloehdorn and Moschitti, 2007b) to enhance the basic tree kernel functions. 3.1 WordNet Similarities WordNet similarities have been heavily used in previous NLP work (Chan and Ng, 2005; Agirre et al., 2009). All WordNet similarities apply to pairs of synonymy sets (synsets) and return a value indicating their semantic relatedness. For example, the following measures, that we use in this study, are based on path lengths between concepts in the Wordnet Hierarchy: Path the measure is equal to the inverse of the shortest path length (path length) between two synsets c1 and c2 in WordNet SimP ath = 1 path length(c1, c2) (1) WUP the Wu and Palmer (Wu and Palmer, 1994) similarity metric is based on the depth of two given synsets c1 and c2 in the WordNet taxonomy, and the depth of their least common sub</context>
+</contexts>
+<marker>Agirre, Alfonseca, Hall, Kravalova, Pasca, Soroa, 2009</marker>
+<rawString>\x0cReferences E. Agirre, E. Alfonseca, K. Hall, J. Kravalova, M. Pasca, and A. Soroa. 2009. A study on similarity and relatedness using distributional and wordnet-based approaches. In NAACL 09: Proc. HLT/NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Bar-Haim</author>
+<author>I Dagan</author>
+<author>B Dolan</author>
+<author>L Ferro</author>
+<author>D Giampiccolo</author>
+<author>I Magnini</author>
+<author>B Szpektor</author>
+</authors>
+<title>The ii PASCAL recognising textual entailment challenge.</title>
+<date>2006</date>
+<booktitle>In Proc. of the II PASCAL Challenges Workshop.</booktitle>
+<contexts>
+<context position="19873" citStr="Bar-Haim et al., 2006" startWordPosition="3353" endWordPosition="3356">Lexico-Syntactic (WOK+SSTK+maxSSTK) Kernels. The latter according to different similarities distributional vs. Wordnet-based approaches. Second, we derive qualitative and quantitative properties, which justify the selection of one with respect to the other. For this purpose, we tested four different version of SSTK, i.e. using Path, WUP, BNC and WIKI lexical similarities on three different RTE datasets. These correspond to the three different challenges in which the development set was provided. 6.1 Experimental Setup We used the data from three recognizing textual entailment challenge: RTE2 (Bar-Haim et al., 2006), RTE3 (Giampiccolo et al., 2007), and RTE5, along with the standard split between training and test sets. We did not use RTE1 as it was differently built from the others and RTE4 as it does not contain the development set. We used the following publicly available tools: the Charniak Parser (Charniak, 2000) for parsing sentences and SVM-light-TK (Moschitti, 2006; Joachims, 1999), in which we coded our new kernels for RTE. Additionally, we used the Jiang&amp;Conrath (J&amp;C) distance (Jiang and Conrath, 1997) computed with wn::similarity package (Pedersen et al., 2004) to measure the similarity betwee</context>
+</contexts>
+<marker>Bar-Haim, Dagan, Dolan, Ferro, Giampiccolo, Magnini, Szpektor, 2006</marker>
+<rawString>R. Bar-Haim, I. Dagan, B. Dolan, L. Ferro, D. Giampiccolo, and I. Magnini, B. Szpektor. 2006. The ii PASCAL recognising textual entailment challenge. In Proc. of the II PASCAL Challenges Workshop.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Bar-Haim</author>
+<author>I Dagan</author>
+<author>I Greental</author>
+<author>E Shnarch</author>
+</authors>
+<title>Semantic inference at the lexical-syntactic level.</title>
+<date>2007</date>
+<booktitle>In AAAI07: Proc. of the 22nd national conference on Artificial intelligence.</booktitle>
+<contexts>
+<context position="4714" citStr="Bar-Haim et al., 2007" startWordPosition="712" endWordPosition="715">actic rules. Section 3 describes lexical similarity approaches, which can serve the generalization purpose. Section 4 describes how to integrate lexical similarity in syntactic structures using syntactic/semantic tree kernels (SSTK) whereas Section 5 shows how to use SSTK in a kernel-based RTE system. Section 6 describes the experiments and results. Section 7 discusses the efficiency and accuracy of our system compared with other RTE systems. Finally, we draw the conclusions in Section 8. 2 Related work Lexical-syntactic rules are largely used in textual entailment recognition systems (e.g., (Bar-Haim et al., 2007; Dinu and Wang, 2009)) as they conveniently encode world knowledge into linguistic structures. For example, to decide whether the simple sentences are in the entailment relation: T2 ?H2 T2 In 1980 Chapman killed Lennon. H2 John Lennon died in 1980. we need a lexical-syntactic rule such as: 3 = Xkilled Y Ydied along with such rules, the temporal information should be taken into consideration. Given the importance of lexical-syntactic rules in RTE, many methods have been proposed for their extraction from large corpora (e.g., (Lin and Pantel, 2001; Szpektor and Dagan, 2008)). Unfortunately, the</context>
+</contexts>
+<marker>Bar-Haim, Dagan, Greental, Shnarch, 2007</marker>
+<rawString>R. Bar-Haim, I. Dagan, I. Greental, and E. Shnarch. 2007. Semantic inference at the lexical-syntactic level. In AAAI07: Proc. of the 22nd national conference on Artificial intelligence.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Bar-Haim</author>
+<author>J Berant</author>
+<author>I Dagan</author>
+</authors>
+<title>A compact forest for scalable inference over entailment and paraphrase rules.</title>
+<date>2009</date>
+<booktitle>In Proc. of EMNLP.</booktitle>
+<contexts>
+<context position="1984" citStr="Bar-Haim et al., 2009" startWordPosition="285" endWordPosition="288">is rather challenging as effectively modeling syntactic and semantic for this task is difficult. Early deep semantic models (e.g., (Norvig, 1987)) as well as more recent ones (e.g., (Tatu and Moldovan, 2005; Bos and Markert, 2005; Roth and Sammons, 2007)) rely on specific world knowledge encoded in rules for drawing decisions. Shallower models exploit matching methods between syntactic/semantic graphs of texts and hypotheses (Haghighi et al., 2005). The matching step is carried out after the application of some lexical-syntactic rules that are used to transform the text T or the hypothesis H (Bar-Haim et al., 2009) at surface form level. For all these methods, the effective use of syntactic and semantic information depends on the coverage and the quality of the specific rules. Lexical-syntactic rules can be automatically extracted from plain corpora (e.g., (Lin and Pantel, 2001; Szpektor and Dagan, 2008)) but the quality (also in terms of little noise) and the coverage is low. In contrast, rules written at the semantic level are more accurate but their automatic design is difficult and so they are typically hand-coded for the specific phenomena. In this paper, we propose models for effectively using syn</context>
+</contexts>
+<marker>Bar-Haim, Berant, Dagan, 2009</marker>
+<rawString>R. Bar-Haim, J. Berant, and I. Dagan. 2009. A compact forest for scalable inference over entailment and paraphrase rules. In Proc. of EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Basili</author>
+<author>M Cammisa</author>
+<author>A Moschitti</author>
+</authors>
+<title>Effective use of wordnet semantics via kernel-based learning.</title>
+<date>2005</date>
+<booktitle>In CoNLL.</booktitle>
+<contexts>
+<context position="7422" citStr="Basili et al., 2005" startWordPosition="1167" endWordPosition="1170">LING and the DEATH frames, i.e.: 7 = KILLING(Killer : X , V ictim : Y ) DEATH( P rotagonist : Y ) However, to use this model, specific rules and a semantic role labeler on the specific corpora are needed. 3 Lexical similarities Previous research in computational linguistics has produced many effective lexical similarity measures based on many different resources or corpora. For example, WordNet similarities (Pedersen et al., 2004) or Latent Semantic Analysis over a large corpus are widely used in many applications and for 1021 \x0cthe definition of kernel functions, e.g. (Basili et al., 2006; Basili et al., 2005; Bloehdorn et al., 2006). In this section we present the main component of our new kernel, i.e. a lexical similarity derived from different resources. This is used inside the syntactic/semantic tree kernel defined in (Bloehdorn and Moschitti, 2007a; Bloehdorn and Moschitti, 2007b) to enhance the basic tree kernel functions. 3.1 WordNet Similarities WordNet similarities have been heavily used in previous NLP work (Chan and Ng, 2005; Agirre et al., 2009). All WordNet similarities apply to pairs of synonymy sets (synsets) and return a value indicating their semantic relatedness. For example, the</context>
+</contexts>
+<marker>Basili, Cammisa, Moschitti, 2005</marker>
+<rawString>R. Basili, M. Cammisa, and A. Moschitti. 2005. Effective use of wordnet semantics via kernel-based learning. In CoNLL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Basili</author>
+<author>M Cammisa</author>
+<author>A Moschitti</author>
+</authors>
+<title>A semantic kernel to classify texts with very few training examples.</title>
+<date>2006</date>
+<booktitle>In Informatica.</booktitle>
+<contexts>
+<context position="3941" citStr="Basili et al., 2006" startWordPosition="589" endWordPosition="592">rk: especially with the method described in (Zanzotto and Moschitti, 2006; Zanzotto et al., 2009). This constitutes our strong baseline as, although it can only exploit lexical-syntactic rules, it has achieved top accuracy in all RTE challenges. The results, across different RTE challenges, show that our approach constantly and significantly improves the 1020 \x0cbaseline model. Moreover, our approach does not require any adaptation or tuning and uses a computation for the similarity function based on Wikipedia which is faster than the computation of tools based on WordNet or other resources (Basili et al., 2006). The remainder of the paper is organized as follows: Section 2 critically reviews the previous work by highlighting the need of generalizing lexicosyntactic rules. Section 3 describes lexical similarity approaches, which can serve the generalization purpose. Section 4 describes how to integrate lexical similarity in syntactic structures using syntactic/semantic tree kernels (SSTK) whereas Section 5 shows how to use SSTK in a kernel-based RTE system. Section 6 describes the experiments and results. Section 7 discusses the efficiency and accuracy of our system compared with other RTE systems. F</context>
+<context position="7401" citStr="Basili et al., 2006" startWordPosition="1163" endWordPosition="1166">ic rule using the KILLING and the DEATH frames, i.e.: 7 = KILLING(Killer : X , V ictim : Y ) DEATH( P rotagonist : Y ) However, to use this model, specific rules and a semantic role labeler on the specific corpora are needed. 3 Lexical similarities Previous research in computational linguistics has produced many effective lexical similarity measures based on many different resources or corpora. For example, WordNet similarities (Pedersen et al., 2004) or Latent Semantic Analysis over a large corpus are widely used in many applications and for 1021 \x0cthe definition of kernel functions, e.g. (Basili et al., 2006; Basili et al., 2005; Bloehdorn et al., 2006). In this section we present the main component of our new kernel, i.e. a lexical similarity derived from different resources. This is used inside the syntactic/semantic tree kernel defined in (Bloehdorn and Moschitti, 2007a; Bloehdorn and Moschitti, 2007b) to enhance the basic tree kernel functions. 3.1 WordNet Similarities WordNet similarities have been heavily used in previous NLP work (Chan and Ng, 2005; Agirre et al., 2009). All WordNet similarities apply to pairs of synonymy sets (synsets) and return a value indicating their semantic relatedn</context>
+</contexts>
+<marker>Basili, Cammisa, Moschitti, 2006</marker>
+<rawString>R. Basili, M. Cammisa, and A. Moschitti. 2006. A semantic kernel to classify texts with very few training examples. In Informatica.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Bloehdorn</author>
+<author>A Moschitti</author>
+</authors>
+<title>Combined syntactic and semantic kernels for text classification.</title>
+<date>2007</date>
+<booktitle>In ECIR.</booktitle>
+<contexts>
+<context position="7670" citStr="Bloehdorn and Moschitti, 2007" startWordPosition="1206" endWordPosition="1209">esearch in computational linguistics has produced many effective lexical similarity measures based on many different resources or corpora. For example, WordNet similarities (Pedersen et al., 2004) or Latent Semantic Analysis over a large corpus are widely used in many applications and for 1021 \x0cthe definition of kernel functions, e.g. (Basili et al., 2006; Basili et al., 2005; Bloehdorn et al., 2006). In this section we present the main component of our new kernel, i.e. a lexical similarity derived from different resources. This is used inside the syntactic/semantic tree kernel defined in (Bloehdorn and Moschitti, 2007a; Bloehdorn and Moschitti, 2007b) to enhance the basic tree kernel functions. 3.1 WordNet Similarities WordNet similarities have been heavily used in previous NLP work (Chan and Ng, 2005; Agirre et al., 2009). All WordNet similarities apply to pairs of synonymy sets (synsets) and return a value indicating their semantic relatedness. For example, the following measures, that we use in this study, are based on path lengths between concepts in the Wordnet Hierarchy: Path the measure is equal to the inverse of the shortest path length (path length) between two synsets c1 and c2 in WordNet SimP at</context>
+<context position="14100" citStr="Bloehdorn and Moschitti, 2007" startWordPosition="2364" endWordPosition="2367">s (VP (VBN (murdered)) is not. One drawback of such kernel is that two sentences expressing similar semantics but with different lexicals produce structures which will not be matched. For example, after the vertical bar there is a fragment, extracted from the parse tree of a semantically identical sentences: In 1963 Oswald killed Kennedy. In this case, much less matches will be counted by the kernel function applied to such parse trees and the one of T4. In particular, the complete VP subtree will not be matched. To tackle this problem the Syntactic Semantic Tree Kernel (SSTK) was defined in (Bloehdorn and Moschitti, 2007a); hereafter, we report its definition. 4.2 Syntactic Semantic Tree kernels (SSTK) An SSTK produces all the matches of STK. Moreover, the fragments, which are identical but for their lexical nodes, produce a match proportional to the product of the similarity between their corresponding words. This is a sound definition. Indeed, since the structures are the same, each word in position i of the first fragment can be associated with a word located in the same position i of the second fragment. More formally, the fast evaluation of for STK can be used for computing the semantic for SSTK by simpl</context>
+</contexts>
+<marker>Bloehdorn, Moschitti, 2007</marker>
+<rawString>S. Bloehdorn and A. Moschitti. 2007a. Combined syntactic and semantic kernels for text classification. In ECIR.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Bloehdorn</author>
+<author>A Moschitti</author>
+</authors>
+<title>Structure and semantics for expressive text kernels.</title>
+<date>2007</date>
+<booktitle>In Proc. of CIKM 07.</booktitle>
+<contexts>
+<context position="7670" citStr="Bloehdorn and Moschitti, 2007" startWordPosition="1206" endWordPosition="1209">esearch in computational linguistics has produced many effective lexical similarity measures based on many different resources or corpora. For example, WordNet similarities (Pedersen et al., 2004) or Latent Semantic Analysis over a large corpus are widely used in many applications and for 1021 \x0cthe definition of kernel functions, e.g. (Basili et al., 2006; Basili et al., 2005; Bloehdorn et al., 2006). In this section we present the main component of our new kernel, i.e. a lexical similarity derived from different resources. This is used inside the syntactic/semantic tree kernel defined in (Bloehdorn and Moschitti, 2007a; Bloehdorn and Moschitti, 2007b) to enhance the basic tree kernel functions. 3.1 WordNet Similarities WordNet similarities have been heavily used in previous NLP work (Chan and Ng, 2005; Agirre et al., 2009). All WordNet similarities apply to pairs of synonymy sets (synsets) and return a value indicating their semantic relatedness. For example, the following measures, that we use in this study, are based on path lengths between concepts in the Wordnet Hierarchy: Path the measure is equal to the inverse of the shortest path length (path length) between two synsets c1 and c2 in WordNet SimP at</context>
+<context position="14100" citStr="Bloehdorn and Moschitti, 2007" startWordPosition="2364" endWordPosition="2367">s (VP (VBN (murdered)) is not. One drawback of such kernel is that two sentences expressing similar semantics but with different lexicals produce structures which will not be matched. For example, after the vertical bar there is a fragment, extracted from the parse tree of a semantically identical sentences: In 1963 Oswald killed Kennedy. In this case, much less matches will be counted by the kernel function applied to such parse trees and the one of T4. In particular, the complete VP subtree will not be matched. To tackle this problem the Syntactic Semantic Tree Kernel (SSTK) was defined in (Bloehdorn and Moschitti, 2007a); hereafter, we report its definition. 4.2 Syntactic Semantic Tree kernels (SSTK) An SSTK produces all the matches of STK. Moreover, the fragments, which are identical but for their lexical nodes, produce a match proportional to the product of the similarity between their corresponding words. This is a sound definition. Indeed, since the structures are the same, each word in position i of the first fragment can be associated with a word located in the same position i of the second fragment. More formally, the fast evaluation of for STK can be used for computing the semantic for SSTK by simpl</context>
+</contexts>
+<marker>Bloehdorn, Moschitti, 2007</marker>
+<rawString>S. Bloehdorn and A. Moschitti. 2007b. Structure and semantics for expressive text kernels. In Proc. of CIKM 07.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Bloehdorn</author>
+<author>R Basili</author>
+<author>M Cammisa</author>
+<author>A Moschitti</author>
+</authors>
+<title>Semantic kernels for text classification based on topological measures of feature similarity.</title>
+<date>2006</date>
+<booktitle>In Proc. of ICDM 06,</booktitle>
+<location>Hong Kong,</location>
+<contexts>
+<context position="7447" citStr="Bloehdorn et al., 2006" startWordPosition="1171" endWordPosition="1174">ames, i.e.: 7 = KILLING(Killer : X , V ictim : Y ) DEATH( P rotagonist : Y ) However, to use this model, specific rules and a semantic role labeler on the specific corpora are needed. 3 Lexical similarities Previous research in computational linguistics has produced many effective lexical similarity measures based on many different resources or corpora. For example, WordNet similarities (Pedersen et al., 2004) or Latent Semantic Analysis over a large corpus are widely used in many applications and for 1021 \x0cthe definition of kernel functions, e.g. (Basili et al., 2006; Basili et al., 2005; Bloehdorn et al., 2006). In this section we present the main component of our new kernel, i.e. a lexical similarity derived from different resources. This is used inside the syntactic/semantic tree kernel defined in (Bloehdorn and Moschitti, 2007a; Bloehdorn and Moschitti, 2007b) to enhance the basic tree kernel functions. 3.1 WordNet Similarities WordNet similarities have been heavily used in previous NLP work (Chan and Ng, 2005; Agirre et al., 2009). All WordNet similarities apply to pairs of synonymy sets (synsets) and return a value indicating their semantic relatedness. For example, the following measures, that</context>
+</contexts>
+<marker>Bloehdorn, Basili, Cammisa, Moschitti, 2006</marker>
+<rawString>S. Bloehdorn, R. Basili, M. Cammisa, and A. Moschitti. 2006. Semantic kernels for text classification based on topological measures of feature similarity. In Proc. of ICDM 06, Hong Kong, 2006.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Bos</author>
+<author>K Markert</author>
+</authors>
+<title>Recognising textual entailment with logical inference.</title>
+<date>2005</date>
+<booktitle>In HLT 05: Proc. of the conference on HLT and EMNLP.</booktitle>
+<contexts>
+<context position="1591" citStr="Bos and Markert, 2005" startWordPosition="223" endWordPosition="226">ee kernels, which can exploit lexical relatedness to match syntactically similar structures, i.e. whose lexical compounds are related. The comparative experiments across different RTE challenges and traditional systems show that our approach consistently and meaningfully achieves high accuracy, without requiring any adaptation or tuning. 1 Introduction Recognizing Textual Entailment (RTE) is rather challenging as effectively modeling syntactic and semantic for this task is difficult. Early deep semantic models (e.g., (Norvig, 1987)) as well as more recent ones (e.g., (Tatu and Moldovan, 2005; Bos and Markert, 2005; Roth and Sammons, 2007)) rely on specific world knowledge encoded in rules for drawing decisions. Shallower models exploit matching methods between syntactic/semantic graphs of texts and hypotheses (Haghighi et al., 2005). The matching step is carried out after the application of some lexical-syntactic rules that are used to transform the text T or the hypothesis H (Bar-Haim et al., 2009) at surface form level. For all these methods, the effective use of syntactic and semantic information depends on the coverage and the quality of the specific rules. Lexical-syntactic rules can be automatica</context>
+</contexts>
+<marker>Bos, Markert, 2005</marker>
+<rawString>J. Bos and K. Markert. 2005. Recognising textual entailment with logical inference. In HLT 05: Proc. of the conference on HLT and EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Burchardt</author>
+<author>N Reiter</author>
+<author>S Thater</author>
+<author>A Frank</author>
+</authors>
+<title>Semantic Approach to Textual Entailment: System Evaluation and Task Analysis.</title>
+<date>2007</date>
+<booktitle>In Proc. of the 3rdPASCAL Workshop on Textual Entailment,</booktitle>
+<location>Prague.</location>
+<contexts>
+<context position="6737" citStr="Burchardt et al., 2007" startWordPosition="1053" endWordPosition="1056">cisions for the following example: T6 ?H6 T6 In 1956 JFK met Marilyn Monroe H6 Marilyn Monroe died in 1956 The problem is that the pairs hT2, H2i and hT4, H4i share more meaningful features than the rule 5, which should make the difference with respect to the relation between the pairs hT2, H2i and hT6, H6i. Indeed, the word kill is more semantically related to murdered than to meet. Using this information, it is possible to derive more effective rules from training examples. There are several solutions for taking this information into account, e.g. by using FrameNet semantics (e.g., like in (Burchardt et al., 2007)), it is possible to encode a lexical-syntactic rule using the KILLING and the DEATH frames, i.e.: 7 = KILLING(Killer : X , V ictim : Y ) DEATH( P rotagonist : Y ) However, to use this model, specific rules and a semantic role labeler on the specific corpora are needed. 3 Lexical similarities Previous research in computational linguistics has produced many effective lexical similarity measures based on many different resources or corpora. For example, WordNet similarities (Pedersen et al., 2004) or Latent Semantic Analysis over a large corpus are widely used in many applications and for 1021 \</context>
+<context position="28825" citStr="Burchardt et al., 2007" startWordPosition="4820" endWordPosition="4823">et al., 2007) have an accuracy 10% higher than the others but they generally use resources that are not publicly available. Table 5 shows the average accuracy of the participant systems, the rank of our system that we propose in this paper and the number of participants. Our model accuracy is absolutely above the average and it is ranked at the top positions. We can also carry out a finer comparison with respect to RTE2 (BarHaim et al., 2006). Our system results are the best when compared with systems using semantic models based on FrameNet, indeed the best ranked system in this class, i.e., (Burchardt et al., 2007), scores only 62.5. Among systems using logical inference, our model is instead the 3rd out of 8 systems using logical inference that perform worse than ours. Finally, it is the 2nd among systems using supervised machine learning models. 8 Conclusion In this paper we presented a model to effectively include semantics in lexical-syntactic features for textual entailment recognition. We have experimentally shown that LSA-derived lexical semantics embedded in syntactic structures is a promising approach. The model that we have presented is one of the best system in the RTE challenges. Additionall</context>
+</contexts>
+<marker>Burchardt, Reiter, Thater, Frank, 2007</marker>
+<rawString>A. Burchardt, N. Reiter, S. Thater, and A. Frank. 2007. Semantic Approach to Textual Entailment: System Evaluation and Task Analysis. In Proc. of the 3rdPASCAL Workshop on Textual Entailment, Prague.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y S Chan</author>
+<author>H T Ng</author>
+</authors>
+<title>Word sense disambiguation with distribution estimation.</title>
+<date>2005</date>
+<booktitle>In Proc. of IJCAI05.</booktitle>
+<contexts>
+<context position="7857" citStr="Chan and Ng, 2005" startWordPosition="1235" endWordPosition="1238"> Latent Semantic Analysis over a large corpus are widely used in many applications and for 1021 \x0cthe definition of kernel functions, e.g. (Basili et al., 2006; Basili et al., 2005; Bloehdorn et al., 2006). In this section we present the main component of our new kernel, i.e. a lexical similarity derived from different resources. This is used inside the syntactic/semantic tree kernel defined in (Bloehdorn and Moschitti, 2007a; Bloehdorn and Moschitti, 2007b) to enhance the basic tree kernel functions. 3.1 WordNet Similarities WordNet similarities have been heavily used in previous NLP work (Chan and Ng, 2005; Agirre et al., 2009). All WordNet similarities apply to pairs of synonymy sets (synsets) and return a value indicating their semantic relatedness. For example, the following measures, that we use in this study, are based on path lengths between concepts in the Wordnet Hierarchy: Path the measure is equal to the inverse of the shortest path length (path length) between two synsets c1 and c2 in WordNet SimP ath = 1 path length(c1, c2) (1) WUP the Wu and Palmer (Wu and Palmer, 1994) similarity metric is based on the depth of two given synsets c1 and c2 in the WordNet taxonomy, and the depth of </context>
+</contexts>
+<marker>Chan, Ng, 2005</marker>
+<rawString>Y. S. Chan and H. T. Ng. 2005. Word sense disambiguation with distribution estimation. In Proc. of IJCAI05.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eugene Charniak</author>
+</authors>
+<title>A maximum-entropy-inspired parser.</title>
+<date>2000</date>
+<booktitle>In Proc. of the 1st NAACL conference.</booktitle>
+<contexts>
+<context position="20181" citStr="Charniak, 2000" startWordPosition="3408" endWordPosition="3409">K, i.e. using Path, WUP, BNC and WIKI lexical similarities on three different RTE datasets. These correspond to the three different challenges in which the development set was provided. 6.1 Experimental Setup We used the data from three recognizing textual entailment challenge: RTE2 (Bar-Haim et al., 2006), RTE3 (Giampiccolo et al., 2007), and RTE5, along with the standard split between training and test sets. We did not use RTE1 as it was differently built from the others and RTE4 as it does not contain the development set. We used the following publicly available tools: the Charniak Parser (Charniak, 2000) for parsing sentences and SVM-light-TK (Moschitti, 2006; Joachims, 1999), in which we coded our new kernels for RTE. Additionally, we used the Jiang&amp;Conrath (J&amp;C) distance (Jiang and Conrath, 1997) computed with wn::similarity package (Pedersen et al., 2004) to measure the similarity between T and H. This similarity is also used to define the texthypothesis word overlap kernel (WOK). The distributional semantics is captured by means of LSA: we used the java Latent Semantic Indexing (jLSI) tool (Giuliano, 2007). In particular, we precomputed the word-pair matrices for RTE2, RTE3, and RTE5. We </context>
+</contexts>
+<marker>Charniak, 2000</marker>
+<rawString>Eugene Charniak. 2000. A maximum-entropy-inspired parser. In Proc. of the 1st NAACL conference.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+<author>N Duffy</author>
+</authors>
+<title>New ranking algorithms for parsing and tagging: kernels over discrete structures, and the voted perceptron.</title>
+<date>2002</date>
+<booktitle>In Proc. of ACL 02.</booktitle>
+<contexts>
+<context position="12059" citStr="Collins and Duffy, 2002" startWordPosition="1978" endWordPosition="1981">important fragment from a semantically similar sentence, which cannot be matched by STK but it is matched by SSTK. account in the model definition. Since tree kernels have been shown to be very effective for exploiting syntactic information in natural language tasks, a promising idea is to merge together the two different approaches, i.e. tree kernels and semantic similarities. 4.1 Syntactic Tree Kernel (STK) Tree kernels compute the number of common substructures between two trees T1 and T2 without explicitly considering the whole fragment space. The standard definition of the STK, given in (Collins and Duffy, 2002), allows for any set of nodes linked by one or more entire production rules to be valid substructures. The formal characterization is given in (Collins and Duffy, 2002) and is reported hereafter: Let F = {f1, f2, . . . , f|F|} be the set of tree fragments and i(n) be an indicator function, equal to 1 if the target fi is rooted at node n and equal to 0 otherwise. A tree kernel function over T1 and T2 is defined as TK(T1, T2) = P n1NT1 P n2NT2 (n1, n2), where NT1 and NT2 are the sets of nodes in T1 and T2, respectively and (n1, n2) = P|F| i=1 i(n1)i(n2). function counts the number of subtrees ro</context>
+</contexts>
+<marker>Collins, Duffy, 2002</marker>
+<rawString>M. Collins and N. Duffy. 2002. New ranking algorithms for parsing and tagging: kernels over discrete structures, and the voted perceptron. In Proc. of ACL 02.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N Cristianini</author>
+<author>R Holloway</author>
+</authors>
+<title>Latent semantic kernels.</title>
+<date>2001</date>
+<contexts>
+<context position="15888" citStr="Cristianini and Holloway, 2001" startWordPosition="2676" endWordPosition="2679"> with (VP (VBN (killed) NNP (Kennedy))) equal to S(murdered, kill) S(JFK, Kennedy). Beside the novelty of taking into account tree fragments that are not identical it should be noted that the lexical semantic similarity is constrained in syntactic structures, which limit errors/noise due to incorrect (or, as in our case, not provided) word sense disambiguation. Finally, it should be noted that when a valid kernel is used in place of S, SSTK is a valid kernel for definition of convolution kernels (Haussler, 1999). Since the matrix P derived by applying LSA produces a semi-definite matrix (see (Cristianini and Holloway, 2001)) we can always use the similarity matrix derived by LSA in SSTK. In case of Wordnet, the validity of the kernel will depend of the kind of similarity used. In our experiments, we have carried out single value decomposition and we have verified that our Wordenet matrices, Path and WUP, are indeed positive semi-definite. 5 Kernels for Textual Entailment Recognition In this section, we describe how we use the syntactic tree kernel (STK) and the semantic/syntactic tree kernel (SSTK) for modeling lexical-syntactic kernels for textual entailment recognition. We build on the kernel described in (Zan</context>
+</contexts>
+<marker>Cristianini, Holloway, 2001</marker>
+<rawString>N. Cristianini and R. Holloway. 2001. Latent semantic kernels.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>G Dinu</author>
+<author>R Wang</author>
+</authors>
+<title>Inference rules and their application to recognizing textual entailment.</title>
+<date>2009</date>
+<booktitle>In Proc. of the EACL 09.</booktitle>
+<contexts>
+<context position="4736" citStr="Dinu and Wang, 2009" startWordPosition="716" endWordPosition="719">describes lexical similarity approaches, which can serve the generalization purpose. Section 4 describes how to integrate lexical similarity in syntactic structures using syntactic/semantic tree kernels (SSTK) whereas Section 5 shows how to use SSTK in a kernel-based RTE system. Section 6 describes the experiments and results. Section 7 discusses the efficiency and accuracy of our system compared with other RTE systems. Finally, we draw the conclusions in Section 8. 2 Related work Lexical-syntactic rules are largely used in textual entailment recognition systems (e.g., (Bar-Haim et al., 2007; Dinu and Wang, 2009)) as they conveniently encode world knowledge into linguistic structures. For example, to decide whether the simple sentences are in the entailment relation: T2 ?H2 T2 In 1980 Chapman killed Lennon. H2 John Lennon died in 1980. we need a lexical-syntactic rule such as: 3 = Xkilled Y Ydied along with such rules, the temporal information should be taken into consideration. Given the importance of lexical-syntactic rules in RTE, many methods have been proposed for their extraction from large corpora (e.g., (Lin and Pantel, 2001; Szpektor and Dagan, 2008)). Unfortunately, these unsupervised method</context>
+</contexts>
+<marker>Dinu, Wang, 2009</marker>
+<rawString>G. Dinu and R. Wang. 2009. Inference rules and their application to recognizing textual entailment. In Proc. of the EACL 09.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Giampiccolo</author>
+<author>B Magnini</author>
+<author>Ido Dagan</author>
+<author>B Dolan</author>
+</authors>
+<title>The third pascal recognizing textual entailment challenge.</title>
+<date>2007</date>
+<booktitle>In Proc. of the ACL-PASCAL Workshop on Textual Entailment and Paraphrasing.</booktitle>
+<contexts>
+<context position="19906" citStr="Giampiccolo et al., 2007" startWordPosition="3358" endWordPosition="3361">SSTK) Kernels. The latter according to different similarities distributional vs. Wordnet-based approaches. Second, we derive qualitative and quantitative properties, which justify the selection of one with respect to the other. For this purpose, we tested four different version of SSTK, i.e. using Path, WUP, BNC and WIKI lexical similarities on three different RTE datasets. These correspond to the three different challenges in which the development set was provided. 6.1 Experimental Setup We used the data from three recognizing textual entailment challenge: RTE2 (Bar-Haim et al., 2006), RTE3 (Giampiccolo et al., 2007), and RTE5, along with the standard split between training and test sets. We did not use RTE1 as it was differently built from the others and RTE4 as it does not contain the development set. We used the following publicly available tools: the Charniak Parser (Charniak, 2000) for parsing sentences and SVM-light-TK (Moschitti, 2006; Joachims, 1999), in which we coded our new kernels for RTE. Additionally, we used the Jiang&amp;Conrath (J&amp;C) distance (Jiang and Conrath, 1997) computed with wn::similarity package (Pedersen et al., 2004) to measure the similarity between T and H. This similarity is als</context>
+<context position="28215" citStr="Giampiccolo et al., 2007" startWordPosition="4711" endWordPosition="4714">Comparison with previous work The results of our models show that lexical semantics for building more effective lexical-syntactic rules is promising. Here, we compare our approaches with other RTE systems to show that our Average Acc. Our rank # participants RTE2 59.8 3rd 23 RTE3 64.5 4th 26 RTE5 61.5 4th 20 Table 5: Comparison with other approaches to RTE results are indeed state-of-the-art. Unfortunately, deriving a reasonable accuracy value to represent the state-of-the-art is extremely difficult as many factors can determine the final score. For example, the best systems in RTE2 and RTE3 (Giampiccolo et al., 2007) have an accuracy 10% higher than the others but they generally use resources that are not publicly available. Table 5 shows the average accuracy of the participant systems, the rank of our system that we propose in this paper and the number of participants. Our model accuracy is absolutely above the average and it is ranked at the top positions. We can also carry out a finer comparison with respect to RTE2 (BarHaim et al., 2006). Our system results are the best when compared with systems using semantic models based on FrameNet, indeed the best ranked system in this class, i.e., (Burchardt et </context>
+</contexts>
+<marker>Giampiccolo, Magnini, Dagan, Dolan, 2007</marker>
+<rawString>D. Giampiccolo, B. Magnini, Ido Dagan, and B. Dolan. 2007. The third pascal recognizing textual entailment challenge. In Proc. of the ACL-PASCAL Workshop on Textual Entailment and Paraphrasing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Claudio Giuliano</author>
+</authors>
+<title>jLSI a for latent semantic indexing.</title>
+<date>2007</date>
+<note>http://tcc.itc.it/research/textec/toolsresources/jLSI.html.</note>
+<contexts>
+<context position="20697" citStr="Giuliano, 2007" startWordPosition="3489" endWordPosition="3490">velopment set. We used the following publicly available tools: the Charniak Parser (Charniak, 2000) for parsing sentences and SVM-light-TK (Moschitti, 2006; Joachims, 1999), in which we coded our new kernels for RTE. Additionally, we used the Jiang&amp;Conrath (J&amp;C) distance (Jiang and Conrath, 1997) computed with wn::similarity package (Pedersen et al., 2004) to measure the similarity between T and H. This similarity is also used to define the texthypothesis word overlap kernel (WOK). The distributional semantics is captured by means of LSA: we used the java Latent Semantic Indexing (jLSI) tool (Giuliano, 2007). In particular, we precomputed the word-pair matrices for RTE2, RTE3, and RTE5. We built different LSA matrices from the British National Corpus (BNC) and Wikipedia (Wiki). The British National Corpus (BNC) is a balanced synchronic text corpus containing 100 million words with morpho-syntactic annotation. For Wikipedia, we created a model from the 200,000 most visited Wikipedia articles, after cleaning the unnecessary markup tags. Articles are our documents for creating the term-by-document matrix. Wikipedia provides the largest coverage knowledge resource developed by a community, besides th</context>
+</contexts>
+<marker>Giuliano, 2007</marker>
+<rawString>Claudio Giuliano. 2007. jLSI a for latent semantic indexing. http://tcc.itc.it/research/textec/toolsresources/jLSI.html.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A D Haghighi</author>
+<author>A Y Ng</author>
+<author>C D Manning</author>
+</authors>
+<title>Robust textual inference via graph matching.</title>
+<date>2005</date>
+<booktitle>In HLT 05: Proc. of the conference on HLT and EMNLP.</booktitle>
+<contexts>
+<context position="1814" citStr="Haghighi et al., 2005" startWordPosition="255" endWordPosition="258">w that our approach consistently and meaningfully achieves high accuracy, without requiring any adaptation or tuning. 1 Introduction Recognizing Textual Entailment (RTE) is rather challenging as effectively modeling syntactic and semantic for this task is difficult. Early deep semantic models (e.g., (Norvig, 1987)) as well as more recent ones (e.g., (Tatu and Moldovan, 2005; Bos and Markert, 2005; Roth and Sammons, 2007)) rely on specific world knowledge encoded in rules for drawing decisions. Shallower models exploit matching methods between syntactic/semantic graphs of texts and hypotheses (Haghighi et al., 2005). The matching step is carried out after the application of some lexical-syntactic rules that are used to transform the text T or the hypothesis H (Bar-Haim et al., 2009) at surface form level. For all these methods, the effective use of syntactic and semantic information depends on the coverage and the quality of the specific rules. Lexical-syntactic rules can be automatically extracted from plain corpora (e.g., (Lin and Pantel, 2001; Szpektor and Dagan, 2008)) but the quality (also in terms of little noise) and the coverage is low. In contrast, rules written at the semantic level are more ac</context>
+</contexts>
+<marker>Haghighi, Ng, Manning, 2005</marker>
+<rawString>A. D. Haghighi, A. Y. Ng, and C. D. Manning. 2005. Robust textual inference via graph matching. In HLT 05: Proc. of the conference on HLT and EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Haussler</author>
+</authors>
+<title>Convolution kernels on discrete structures.</title>
+<date>1999</date>
+<tech>Technical report.</tech>
+<contexts>
+<context position="15774" citStr="Haussler, 1999" startWordPosition="2660" endWordPosition="2661">on is no longer necessary. For example, the fragments: (VP (VBN (murdered) NNP (JFK))) has a match with (VP (VBN (killed) NNP (Kennedy))) equal to S(murdered, kill) S(JFK, Kennedy). Beside the novelty of taking into account tree fragments that are not identical it should be noted that the lexical semantic similarity is constrained in syntactic structures, which limit errors/noise due to incorrect (or, as in our case, not provided) word sense disambiguation. Finally, it should be noted that when a valid kernel is used in place of S, SSTK is a valid kernel for definition of convolution kernels (Haussler, 1999). Since the matrix P derived by applying LSA produces a semi-definite matrix (see (Cristianini and Holloway, 2001)) we can always use the similarity matrix derived by LSA in SSTK. In case of Wordnet, the validity of the kernel will depend of the kind of similarity used. In our experiments, we have carried out single value decomposition and we have verified that our Wordenet matrices, Path and WUP, are indeed positive semi-definite. 5 Kernels for Textual Entailment Recognition In this section, we describe how we use the syntactic tree kernel (STK) and the semantic/syntactic tree kernel (SSTK) f</context>
+</contexts>
+<marker>Haussler, 1999</marker>
+<rawString>David Haussler. 1999. Convolution kernels on discrete structures. Technical report.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J J Jiang</author>
+<author>D W Conrath</author>
+</authors>
+<title>Semantic similarity based on corpus statistics and lexical taxonomy.</title>
+<date>1997</date>
+<booktitle>In Proc. of the 10th ROCLING.</booktitle>
+<contexts>
+<context position="20379" citStr="Jiang and Conrath, 1997" startWordPosition="3436" endWordPosition="3439"> Experimental Setup We used the data from three recognizing textual entailment challenge: RTE2 (Bar-Haim et al., 2006), RTE3 (Giampiccolo et al., 2007), and RTE5, along with the standard split between training and test sets. We did not use RTE1 as it was differently built from the others and RTE4 as it does not contain the development set. We used the following publicly available tools: the Charniak Parser (Charniak, 2000) for parsing sentences and SVM-light-TK (Moschitti, 2006; Joachims, 1999), in which we coded our new kernels for RTE. Additionally, we used the Jiang&amp;Conrath (J&amp;C) distance (Jiang and Conrath, 1997) computed with wn::similarity package (Pedersen et al., 2004) to measure the similarity between T and H. This similarity is also used to define the texthypothesis word overlap kernel (WOK). The distributional semantics is captured by means of LSA: we used the java Latent Semantic Indexing (jLSI) tool (Giuliano, 2007). In particular, we precomputed the word-pair matrices for RTE2, RTE3, and RTE5. We built different LSA matrices from the British National Corpus (BNC) and Wikipedia (Wiki). The British National Corpus (BNC) is a balanced synchronic text corpus containing 100 million words with mor</context>
+</contexts>
+<marker>Jiang, Conrath, 1997</marker>
+<rawString>J. J. Jiang and D. W. Conrath. 1997. Semantic similarity based on corpus statistics and lexical taxonomy. In Proc. of the 10th ROCLING.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Thorsten Joachims</author>
+</authors>
+<title>Making large-scale support vector machine learning practical.</title>
+<date>1999</date>
+<contexts>
+<context position="20254" citStr="Joachims, 1999" startWordPosition="3418" endWordPosition="3419">rent RTE datasets. These correspond to the three different challenges in which the development set was provided. 6.1 Experimental Setup We used the data from three recognizing textual entailment challenge: RTE2 (Bar-Haim et al., 2006), RTE3 (Giampiccolo et al., 2007), and RTE5, along with the standard split between training and test sets. We did not use RTE1 as it was differently built from the others and RTE4 as it does not contain the development set. We used the following publicly available tools: the Charniak Parser (Charniak, 2000) for parsing sentences and SVM-light-TK (Moschitti, 2006; Joachims, 1999), in which we coded our new kernels for RTE. Additionally, we used the Jiang&amp;Conrath (J&amp;C) distance (Jiang and Conrath, 1997) computed with wn::similarity package (Pedersen et al., 2004) to measure the similarity between T and H. This similarity is also used to define the texthypothesis word overlap kernel (WOK). The distributional semantics is captured by means of LSA: we used the java Latent Semantic Indexing (jLSI) tool (Giuliano, 2007). In particular, we precomputed the word-pair matrices for RTE2, RTE3, and RTE5. We built different LSA matrices from the British National Corpus (BNC) and W</context>
+</contexts>
+<marker>Joachims, 1999</marker>
+<rawString>Thorsten Joachims. 1999. Making large-scale support vector machine learning practical.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Foltz Landauer</author>
+<author>Laham</author>
+</authors>
+<title>Introduction to latent semantic analysis.</title>
+<date>1998</date>
+<booktitle>In Discourse Processes 25.</booktitle>
+<marker>Landauer, Laham, 1998</marker>
+<rawString>Landauer, Foltz, and Laham. 1998. Introduction to latent semantic analysis. In Discourse Processes 25.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Lin</author>
+<author>P Pantel</author>
+</authors>
+<title>DIRT-discovery of inference rules from text.</title>
+<date>2001</date>
+<booktitle>In Proc. of the ACM KDD-01.</booktitle>
+<contexts>
+<context position="2252" citStr="Lin and Pantel, 2001" startWordPosition="328" endWordPosition="331">ic world knowledge encoded in rules for drawing decisions. Shallower models exploit matching methods between syntactic/semantic graphs of texts and hypotheses (Haghighi et al., 2005). The matching step is carried out after the application of some lexical-syntactic rules that are used to transform the text T or the hypothesis H (Bar-Haim et al., 2009) at surface form level. For all these methods, the effective use of syntactic and semantic information depends on the coverage and the quality of the specific rules. Lexical-syntactic rules can be automatically extracted from plain corpora (e.g., (Lin and Pantel, 2001; Szpektor and Dagan, 2008)) but the quality (also in terms of little noise) and the coverage is low. In contrast, rules written at the semantic level are more accurate but their automatic design is difficult and so they are typically hand-coded for the specific phenomena. In this paper, we propose models for effectively using syntactic and semantic information in RTE, without requiring either large automatic rule acquisition or hand-coding. These models exploit lexical similarities to generalize lexical-syntactic rules automatically derived by supervised learning methods. In more detail, synt</context>
+<context position="5266" citStr="Lin and Pantel, 2001" startWordPosition="800" endWordPosition="803">textual entailment recognition systems (e.g., (Bar-Haim et al., 2007; Dinu and Wang, 2009)) as they conveniently encode world knowledge into linguistic structures. For example, to decide whether the simple sentences are in the entailment relation: T2 ?H2 T2 In 1980 Chapman killed Lennon. H2 John Lennon died in 1980. we need a lexical-syntactic rule such as: 3 = Xkilled Y Ydied along with such rules, the temporal information should be taken into consideration. Given the importance of lexical-syntactic rules in RTE, many methods have been proposed for their extraction from large corpora (e.g., (Lin and Pantel, 2001; Szpektor and Dagan, 2008)). Unfortunately, these unsupervised methods in general produce rules that can hardly be used: noise and coverage are the most critical issues. Supervised approaches were experimented in (Zanzotto and Moschitti, 2006; Zanzotto et al., 2009), where lexical-syntactic rules were derived from examples in terms of complex relational features. This approach can easily miss some useful information and rules. For example, given the pair hT2, H2i, to derive the entailment value of the following case: T4 ?H4 T4 In 1963 Lee Harvey Oswald murdered JFK H4 JFK died in 1963 we can </context>
+</contexts>
+<marker>Lin, Pantel, 2001</marker>
+<rawString>D. Lin and P. Pantel. 2001. DIRT-discovery of inference rules from text. In Proc. of the ACM KDD-01.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Mihalcea</author>
+<author>C Corley</author>
+<author>C Strapparava</author>
+</authors>
+<title>Corpus-based and knowledge-based measures of text semantic similarity.</title>
+<date>2006</date>
+<booktitle>In Proc. of AAAI06.</booktitle>
+<contexts>
+<context position="10561" citStr="Mihalcea et al., 2006" startWordPosition="1708" endWordPosition="1711">Uk is the matrix containing the first k columns of U and k is the dimensionality of the latent semantic space. This is efficiently used to reduce the memory requirements while retaining the information. Finally we computed the term similarity using the cosine measure in the vector space model (VSM). Generally, LSA can be observed as a way to overcome some of the drawbacks of the standard vector space model, such as sparseness and dimensionality. In other words, the LSA similarity is computed in a lower dimensional space, in which second-order relations among words and documents are exploited (Mihalcea et al., 2006). It is worth mentioning that the LSA similarity measure depends on the selected corpus but it benefits from a higher computation speed in comparison to the construction of the similarity matrix based on the WordNet Similarity package (Pedersen et al., 2004). 4 Lexical similarity in Syntactic Tree Kernels Section 2 has shown that the role of the syntax is important in extracting generalized rules for RTE but it is not enough. Therefore, the lexical similarity described in the previous section should be taken into 1022 \x0cS PP IN CD 1963 NP NNP Lee NNP Harvey NNP Oswald VP VBN murdered NNP JFK</context>
+</contexts>
+<marker>Mihalcea, Corley, Strapparava, 2006</marker>
+<rawString>R. Mihalcea, C. Corley, and C. Strapparava. 2006. Corpus-based and knowledge-based measures of text semantic similarity. In Proc. of AAAI06.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Alessandro Moschitti</author>
+</authors>
+<title>Making tree kernels practical for natural language learning.</title>
+<date>2006</date>
+<booktitle>In Proc. of EACL.</booktitle>
+<contexts>
+<context position="3394" citStr="Moschitti, 2006" startWordPosition="506" endWordPosition="507">utomatically derived by supervised learning methods. In more detail, syntax is encoded in the form of parse trees whereas similarities are defined by means of WordNet simlilarity measures or Latent Semantic Analysis (LSA) applied to Wikipedia or to the British National Corpus (BNC). The joint syntactic/semantic model is realized by means of novel tree kernels, which can match subtrees whose leaves are lexically similar (so not just identical). To assess the benefit of our approach, we carried out comparative experiments with previous work: especially with the method described in (Zanzotto and Moschitti, 2006; Zanzotto et al., 2009). This constitutes our strong baseline as, although it can only exploit lexical-syntactic rules, it has achieved top accuracy in all RTE challenges. The results, across different RTE challenges, show that our approach constantly and significantly improves the 1020 \x0cbaseline model. Moreover, our approach does not require any adaptation or tuning and uses a computation for the similarity function based on Wikipedia which is faster than the computation of tools based on WordNet or other resources (Basili et al., 2006). The remainder of the paper is organized as follows:</context>
+<context position="5509" citStr="Moschitti, 2006" startWordPosition="836" endWordPosition="837">T2 ?H2 T2 In 1980 Chapman killed Lennon. H2 John Lennon died in 1980. we need a lexical-syntactic rule such as: 3 = Xkilled Y Ydied along with such rules, the temporal information should be taken into consideration. Given the importance of lexical-syntactic rules in RTE, many methods have been proposed for their extraction from large corpora (e.g., (Lin and Pantel, 2001; Szpektor and Dagan, 2008)). Unfortunately, these unsupervised methods in general produce rules that can hardly be used: noise and coverage are the most critical issues. Supervised approaches were experimented in (Zanzotto and Moschitti, 2006; Zanzotto et al., 2009), where lexical-syntactic rules were derived from examples in terms of complex relational features. This approach can easily miss some useful information and rules. For example, given the pair hT2, H2i, to derive the entailment value of the following case: T4 ?H4 T4 In 1963 Lee Harvey Oswald murdered JFK H4 JFK died in 1963 we can only rely on this relatively interesting lexical-syntactic rule (i.e. which is in common between the two examples): 5 = (V P (V BZ)(NP X )) (S(NP X )(V P (V BZ died))) Unfortunately, this can be extremely misleading since it also derives simil</context>
+<context position="16513" citStr="Moschitti, 2006" startWordPosition="2779" endWordPosition="2780">lways use the similarity matrix derived by LSA in SSTK. In case of Wordnet, the validity of the kernel will depend of the kind of similarity used. In our experiments, we have carried out single value decomposition and we have verified that our Wordenet matrices, Path and WUP, are indeed positive semi-definite. 5 Kernels for Textual Entailment Recognition In this section, we describe how we use the syntactic tree kernel (STK) and the semantic/syntactic tree kernel (SSTK) for modeling lexical-syntactic kernels for textual entailment recognition. We build on the kernel described in (Zanzotto and Moschitti, 2006; Zanzotto et al., 2009) that can model lexicalsyntactic rules with variables (i.e., first-order rules). 5.1 Anchoring and pruning Kernels for modeling lexical-syntactic rules with variables presuppose that words in texts T are explicitly related to words in hypotheses H. This correlation is generally called anchoring and it is implemented with placeholders that co-index the syntactic trees derived from T and H. Words and intermediate nodes are co-indexed when they are equal or similar. For example, in the pair: T8 ?H8 T8 Lee Harvey Oswald was born in New Orleans, Louisiana, and was of English</context>
+<context position="20237" citStr="Moschitti, 2006" startWordPosition="3416" endWordPosition="3417">es on three different RTE datasets. These correspond to the three different challenges in which the development set was provided. 6.1 Experimental Setup We used the data from three recognizing textual entailment challenge: RTE2 (Bar-Haim et al., 2006), RTE3 (Giampiccolo et al., 2007), and RTE5, along with the standard split between training and test sets. We did not use RTE1 as it was differently built from the others and RTE4 as it does not contain the development set. We used the following publicly available tools: the Charniak Parser (Charniak, 2000) for parsing sentences and SVM-light-TK (Moschitti, 2006; Joachims, 1999), in which we coded our new kernels for RTE. Additionally, we used the Jiang&amp;Conrath (J&amp;C) distance (Jiang and Conrath, 1997) computed with wn::similarity package (Pedersen et al., 2004) to measure the similarity between T and H. This similarity is also used to define the texthypothesis word overlap kernel (WOK). The distributional semantics is captured by means of LSA: we used the java Latent Semantic Indexing (jLSI) tool (Giuliano, 2007). In particular, we precomputed the word-pair matrices for RTE2, RTE3, and RTE5. We built different LSA matrices from the British National C</context>
+</contexts>
+<marker>Moschitti, 2006</marker>
+<rawString>Alessandro Moschitti. 2006. Making tree kernels practical for natural language learning. In Proc. of EACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Peter Norvig</author>
+</authors>
+<title>A unified theory of inference for text understanding.</title>
+<date>1987</date>
+<tech>Technical report, USA.</tech>
+<contexts>
+<context position="1507" citStr="Norvig, 1987" startWordPosition="209" endWordPosition="210">ugh Wikipedia. The joint syntactic/semantic model is realized by means of tree kernels, which can exploit lexical relatedness to match syntactically similar structures, i.e. whose lexical compounds are related. The comparative experiments across different RTE challenges and traditional systems show that our approach consistently and meaningfully achieves high accuracy, without requiring any adaptation or tuning. 1 Introduction Recognizing Textual Entailment (RTE) is rather challenging as effectively modeling syntactic and semantic for this task is difficult. Early deep semantic models (e.g., (Norvig, 1987)) as well as more recent ones (e.g., (Tatu and Moldovan, 2005; Bos and Markert, 2005; Roth and Sammons, 2007)) rely on specific world knowledge encoded in rules for drawing decisions. Shallower models exploit matching methods between syntactic/semantic graphs of texts and hypotheses (Haghighi et al., 2005). The matching step is carried out after the application of some lexical-syntactic rules that are used to transform the text T or the hypothesis H (Bar-Haim et al., 2009) at surface form level. For all these methods, the effective use of syntactic and semantic information depends on the cover</context>
+</contexts>
+<marker>Norvig, 1987</marker>
+<rawString>Peter Norvig. 1987. A unified theory of inference for text understanding. Technical report, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sebastian Pado</author>
+</authors>
+<title>Users guide to sigf: Significance testing by approximate randomisation.</title>
+<date>2006</date>
+<contexts>
+<context position="23009" citStr="Pado, 2006" startWordPosition="3857" endWordPosition="3858">K. Finally, we measure the performance of our system with the standard accuracy and then we determine the statistical significance by using the model 1025 \x0cSTK SSTK maxSTK maxSSTK STK+maxSTK SSTK+maxSSTK RTE2 +WOK 61.5 61.12 63.88 64.12 63.12 63.50 60.62 52.62 52.75 61.25 59.38 61.25 58.75 - RTE3 +WOK 66.38 66.5 66.5 67.0 66.88 67.25 66.75 53.25 54.5 62.25 64.38 63.12 63.62 - RTE5 +WOK 62.0 62.0 64.83 64.83 65.5 66.5 60.67 54.33 57.33 63.33 62.67 61.83 62.67 - Table 2: Comparing different lexico-syntactic kernels with Wiki-based semantic kernels described in (Yeh, 2000) and implemented in (Pado, 2006). 6.2 Distributional vs. WordNet-based Semantics The first experiment compares the basic kernel, i.e. WOK+STK+maxSTK, with the new semantic kernel, i.e. WOK+SSTK+maxSSTK, where SSTK and maxSSTK encode four different kinds of similarities, BNC, WIKI, WUP and Path. The aim is twofold: understanding if semantic similarities can be effectively used to derive generalized lexicosyntactic rules and to determine the best similarity model. Table 1 shows the results according to No Semantics, Wiki, BNC, Path and WUP. The three pairs of rows represent the results over the three different datasets, i.e., </context>
+</contexts>
+<marker>Pado, 2006</marker>
+<rawString>Sebastian Pado, 2006. Users guide to sigf: Significance testing by approximate randomisation.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Pedersen</author>
+<author>S Patwardhan</author>
+<author>J Michelizzi</author>
+</authors>
+<title>Wordnet::similarity - measuring the relatedness of concepts.</title>
+<date>2004</date>
+<booktitle>In Proc. of 5th NAACL.</booktitle>
+<contexts>
+<context position="7237" citStr="Pedersen et al., 2004" startWordPosition="1135" endWordPosition="1138">lutions for taking this information into account, e.g. by using FrameNet semantics (e.g., like in (Burchardt et al., 2007)), it is possible to encode a lexical-syntactic rule using the KILLING and the DEATH frames, i.e.: 7 = KILLING(Killer : X , V ictim : Y ) DEATH( P rotagonist : Y ) However, to use this model, specific rules and a semantic role labeler on the specific corpora are needed. 3 Lexical similarities Previous research in computational linguistics has produced many effective lexical similarity measures based on many different resources or corpora. For example, WordNet similarities (Pedersen et al., 2004) or Latent Semantic Analysis over a large corpus are widely used in many applications and for 1021 \x0cthe definition of kernel functions, e.g. (Basili et al., 2006; Basili et al., 2005; Bloehdorn et al., 2006). In this section we present the main component of our new kernel, i.e. a lexical similarity derived from different resources. This is used inside the syntactic/semantic tree kernel defined in (Bloehdorn and Moschitti, 2007a; Bloehdorn and Moschitti, 2007b) to enhance the basic tree kernel functions. 3.1 WordNet Similarities WordNet similarities have been heavily used in previous NLP wor</context>
+<context position="10819" citStr="Pedersen et al., 2004" startWordPosition="1751" endWordPosition="1754">e measure in the vector space model (VSM). Generally, LSA can be observed as a way to overcome some of the drawbacks of the standard vector space model, such as sparseness and dimensionality. In other words, the LSA similarity is computed in a lower dimensional space, in which second-order relations among words and documents are exploited (Mihalcea et al., 2006). It is worth mentioning that the LSA similarity measure depends on the selected corpus but it benefits from a higher computation speed in comparison to the construction of the similarity matrix based on the WordNet Similarity package (Pedersen et al., 2004). 4 Lexical similarity in Syntactic Tree Kernels Section 2 has shown that the role of the syntax is important in extracting generalized rules for RTE but it is not enough. Therefore, the lexical similarity described in the previous section should be taken into 1022 \x0cS PP IN CD 1963 NP NNP Lee NNP Harvey NNP Oswald VP VBN murdered NNP JFK S PP IN CD NP VP VBN murdered NNP S PP IN CD NP VP VBN NNP S PP IN NP VP VBN NNP VP VBN murdered NNP JFK VP VBN murdered NNP VP VBN NNP JFK VP VBN killed NNP Kennedy Figure 1: A syntactic parse tree (on the left) along with some of its fragments. After the </context>
+<context position="20440" citStr="Pedersen et al., 2004" startWordPosition="3445" endWordPosition="3448">tual entailment challenge: RTE2 (Bar-Haim et al., 2006), RTE3 (Giampiccolo et al., 2007), and RTE5, along with the standard split between training and test sets. We did not use RTE1 as it was differently built from the others and RTE4 as it does not contain the development set. We used the following publicly available tools: the Charniak Parser (Charniak, 2000) for parsing sentences and SVM-light-TK (Moschitti, 2006; Joachims, 1999), in which we coded our new kernels for RTE. Additionally, we used the Jiang&amp;Conrath (J&amp;C) distance (Jiang and Conrath, 1997) computed with wn::similarity package (Pedersen et al., 2004) to measure the similarity between T and H. This similarity is also used to define the texthypothesis word overlap kernel (WOK). The distributional semantics is captured by means of LSA: we used the java Latent Semantic Indexing (jLSI) tool (Giuliano, 2007). In particular, we precomputed the word-pair matrices for RTE2, RTE3, and RTE5. We built different LSA matrices from the British National Corpus (BNC) and Wikipedia (Wiki). The British National Corpus (BNC) is a balanced synchronic text corpus containing 100 million words with morpho-syntactic annotation. For Wikipedia, we created a model f</context>
+<context position="27441" citStr="Pedersen et al., 2004" startWordPosition="4584" endWordPosition="4587">ore time-consuming. To prove our claim, we performed an analysis on the coverage and efficiency in computing the pair term similarity. Table 3 shows the coverage of the content words of the three datasets. The coverage of Wikipedia is about two times more than the other resources in all experimented datasets. Speed Milliseconds LSA 0.54 WN with POS 5.3 WN without POS 15.2 Table 4: The comparison in terms of speed calculated over 10000 pairs after loading the model. Moreover, Table 4 shows that the computation of the LSA matrix on Wikipedia is faster than using the WordNet similarity software (Pedersen et al., 2004). Even if the accuracy of some WordNet models can reach the one based on Wikipedia, the latter is preferable for the smaller computational cost. 7.2 Comparison with previous work The results of our models show that lexical semantics for building more effective lexical-syntactic rules is promising. Here, we compare our approaches with other RTE systems to show that our Average Acc. Our rank # participants RTE2 59.8 3rd 23 RTE3 64.5 4th 26 RTE5 61.5 4th 20 Table 5: Comparison with other approaches to RTE results are indeed state-of-the-art. Unfortunately, deriving a reasonable accuracy value to </context>
+</contexts>
+<marker>Pedersen, Patwardhan, Michelizzi, 2004</marker>
+<rawString>T. Pedersen, S. Patwardhan, and J. Michelizzi. 2004. Wordnet::similarity - measuring the relatedness of concepts. In Proc. of 5th NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Roth</author>
+<author>M Sammons</author>
+</authors>
+<title>Semantic and logical inference model for textual entailment.</title>
+<date>2007</date>
+<booktitle>In Proc. of the ACL-PASCAL Workshop on Textual Entailment and Paraphrasing.</booktitle>
+<contexts>
+<context position="1616" citStr="Roth and Sammons, 2007" startWordPosition="227" endWordPosition="230">xploit lexical relatedness to match syntactically similar structures, i.e. whose lexical compounds are related. The comparative experiments across different RTE challenges and traditional systems show that our approach consistently and meaningfully achieves high accuracy, without requiring any adaptation or tuning. 1 Introduction Recognizing Textual Entailment (RTE) is rather challenging as effectively modeling syntactic and semantic for this task is difficult. Early deep semantic models (e.g., (Norvig, 1987)) as well as more recent ones (e.g., (Tatu and Moldovan, 2005; Bos and Markert, 2005; Roth and Sammons, 2007)) rely on specific world knowledge encoded in rules for drawing decisions. Shallower models exploit matching methods between syntactic/semantic graphs of texts and hypotheses (Haghighi et al., 2005). The matching step is carried out after the application of some lexical-syntactic rules that are used to transform the text T or the hypothesis H (Bar-Haim et al., 2009) at surface form level. For all these methods, the effective use of syntactic and semantic information depends on the coverage and the quality of the specific rules. Lexical-syntactic rules can be automatically extracted from plain </context>
+</contexts>
+<marker>Roth, Sammons, 2007</marker>
+<rawString>D. Roth and M. Sammons. 2007. Semantic and logical inference model for textual entailment. In Proc. of the ACL-PASCAL Workshop on Textual Entailment and Paraphrasing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>I Szpektor</author>
+<author>I Dagan</author>
+</authors>
+<title>Learning entailment rules for unary templates.</title>
+<date>2008</date>
+<booktitle>In Proc. of COLING 08.</booktitle>
+<contexts>
+<context position="2279" citStr="Szpektor and Dagan, 2008" startWordPosition="332" endWordPosition="335">oded in rules for drawing decisions. Shallower models exploit matching methods between syntactic/semantic graphs of texts and hypotheses (Haghighi et al., 2005). The matching step is carried out after the application of some lexical-syntactic rules that are used to transform the text T or the hypothesis H (Bar-Haim et al., 2009) at surface form level. For all these methods, the effective use of syntactic and semantic information depends on the coverage and the quality of the specific rules. Lexical-syntactic rules can be automatically extracted from plain corpora (e.g., (Lin and Pantel, 2001; Szpektor and Dagan, 2008)) but the quality (also in terms of little noise) and the coverage is low. In contrast, rules written at the semantic level are more accurate but their automatic design is difficult and so they are typically hand-coded for the specific phenomena. In this paper, we propose models for effectively using syntactic and semantic information in RTE, without requiring either large automatic rule acquisition or hand-coding. These models exploit lexical similarities to generalize lexical-syntactic rules automatically derived by supervised learning methods. In more detail, syntax is encoded in the form o</context>
+<context position="5293" citStr="Szpektor and Dagan, 2008" startWordPosition="804" endWordPosition="807">ognition systems (e.g., (Bar-Haim et al., 2007; Dinu and Wang, 2009)) as they conveniently encode world knowledge into linguistic structures. For example, to decide whether the simple sentences are in the entailment relation: T2 ?H2 T2 In 1980 Chapman killed Lennon. H2 John Lennon died in 1980. we need a lexical-syntactic rule such as: 3 = Xkilled Y Ydied along with such rules, the temporal information should be taken into consideration. Given the importance of lexical-syntactic rules in RTE, many methods have been proposed for their extraction from large corpora (e.g., (Lin and Pantel, 2001; Szpektor and Dagan, 2008)). Unfortunately, these unsupervised methods in general produce rules that can hardly be used: noise and coverage are the most critical issues. Supervised approaches were experimented in (Zanzotto and Moschitti, 2006; Zanzotto et al., 2009), where lexical-syntactic rules were derived from examples in terms of complex relational features. This approach can easily miss some useful information and rules. For example, given the pair hT2, H2i, to derive the entailment value of the following case: T4 ?H4 T4 In 1963 Lee Harvey Oswald murdered JFK H4 JFK died in 1963 we can only rely on this relativel</context>
+</contexts>
+<marker>Szpektor, Dagan, 2008</marker>
+<rawString>I. Szpektor and I. Dagan. 2008. Learning entailment rules for unary templates. In Proc. of COLING 08.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Tatu</author>
+<author>D Moldovan</author>
+</authors>
+<title>A semantic approach to recognizing textual entailment.</title>
+<date>2005</date>
+<booktitle>In HLT 05: Proc. of HLT/EMNLP.</booktitle>
+<contexts>
+<context position="1568" citStr="Tatu and Moldovan, 2005" startWordPosition="219" endWordPosition="222">s realized by means of tree kernels, which can exploit lexical relatedness to match syntactically similar structures, i.e. whose lexical compounds are related. The comparative experiments across different RTE challenges and traditional systems show that our approach consistently and meaningfully achieves high accuracy, without requiring any adaptation or tuning. 1 Introduction Recognizing Textual Entailment (RTE) is rather challenging as effectively modeling syntactic and semantic for this task is difficult. Early deep semantic models (e.g., (Norvig, 1987)) as well as more recent ones (e.g., (Tatu and Moldovan, 2005; Bos and Markert, 2005; Roth and Sammons, 2007)) rely on specific world knowledge encoded in rules for drawing decisions. Shallower models exploit matching methods between syntactic/semantic graphs of texts and hypotheses (Haghighi et al., 2005). The matching step is carried out after the application of some lexical-syntactic rules that are used to transform the text T or the hypothesis H (Bar-Haim et al., 2009) at surface form level. For all these methods, the effective use of syntactic and semantic information depends on the coverage and the quality of the specific rules. Lexical-syntactic </context>
+</contexts>
+<marker>Tatu, Moldovan, 2005</marker>
+<rawString>M. Tatu and D. Moldovan. 2005. A semantic approach to recognizing textual entailment. In HLT 05: Proc. of HLT/EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Z Wu</author>
+<author>M Palmer</author>
+</authors>
+<title>Verb semantics and lexical selection.</title>
+<date>1994</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="8343" citStr="Wu and Palmer, 1994" startWordPosition="1322" endWordPosition="1325">ic tree kernel functions. 3.1 WordNet Similarities WordNet similarities have been heavily used in previous NLP work (Chan and Ng, 2005; Agirre et al., 2009). All WordNet similarities apply to pairs of synonymy sets (synsets) and return a value indicating their semantic relatedness. For example, the following measures, that we use in this study, are based on path lengths between concepts in the Wordnet Hierarchy: Path the measure is equal to the inverse of the shortest path length (path length) between two synsets c1 and c2 in WordNet SimP ath = 1 path length(c1, c2) (1) WUP the Wu and Palmer (Wu and Palmer, 1994) similarity metric is based on the depth of two given synsets c1 and c2 in the WordNet taxonomy, and the depth of their least common subsumer (lcs). These are combined into a similarity score: SimW UP = 2 depth(lcs) depth(c1) + depth(c2) (2) Wordnet similarity measures on synsets can be extended to similarity measures between words as follows: S(w1, w2) = max(c1,c2)C1C2 SimS(c1, c2) (3) where S is Path or WUP and Ci is the set of the synsets related to the word wi. 3.2 Distributional Semantic Similarity Latent Semantic Analysis (LSA) is one of the corpus-based measure of distributional semanti</context>
+</contexts>
+<marker>Wu, Palmer, 1994</marker>
+<rawString>Z. Wu and M. Palmer. 1994. Verb semantics and lexical selection. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Alexander Yeh</author>
+</authors>
+<title>More accurate tests for the statistical significance of result differences.</title>
+<date>2000</date>
+<booktitle>In Proc. of ACL 2000,</booktitle>
+<location>Morristown, NJ, USA.</location>
+<contexts>
+<context position="22977" citStr="Yeh, 2000" startWordPosition="3852" endWordPosition="3853">WOK+SSTK+maxSSTK and WOK+maxSSTK. Finally, we measure the performance of our system with the standard accuracy and then we determine the statistical significance by using the model 1025 \x0cSTK SSTK maxSTK maxSSTK STK+maxSTK SSTK+maxSSTK RTE2 +WOK 61.5 61.12 63.88 64.12 63.12 63.50 60.62 52.62 52.75 61.25 59.38 61.25 58.75 - RTE3 +WOK 66.38 66.5 66.5 67.0 66.88 67.25 66.75 53.25 54.5 62.25 64.38 63.12 63.62 - RTE5 +WOK 62.0 62.0 64.83 64.83 65.5 66.5 60.67 54.33 57.33 63.33 62.67 61.83 62.67 - Table 2: Comparing different lexico-syntactic kernels with Wiki-based semantic kernels described in (Yeh, 2000) and implemented in (Pado, 2006). 6.2 Distributional vs. WordNet-based Semantics The first experiment compares the basic kernel, i.e. WOK+STK+maxSTK, with the new semantic kernel, i.e. WOK+SSTK+maxSSTK, where SSTK and maxSSTK encode four different kinds of similarities, BNC, WIKI, WUP and Path. The aim is twofold: understanding if semantic similarities can be effectively used to derive generalized lexicosyntactic rules and to determine the best similarity model. Table 1 shows the results according to No Semantics, Wiki, BNC, Path and WUP. The three pairs of rows represent the results over the </context>
+</contexts>
+<marker>Yeh, 2000</marker>
+<rawString>Alexander Yeh. 2000. More accurate tests for the statistical significance of result differences. In Proc. of ACL 2000, Morristown, NJ, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F M Zanzotto</author>
+<author>A Moschitti</author>
+</authors>
+<title>Automatic learning of textual entailments with cross-pair similarities.</title>
+<date>2006</date>
+<booktitle>In Proc. of ACL 06.</booktitle>
+<contexts>
+<context position="3394" citStr="Zanzotto and Moschitti, 2006" startWordPosition="504" endWordPosition="507">actic rules automatically derived by supervised learning methods. In more detail, syntax is encoded in the form of parse trees whereas similarities are defined by means of WordNet simlilarity measures or Latent Semantic Analysis (LSA) applied to Wikipedia or to the British National Corpus (BNC). The joint syntactic/semantic model is realized by means of novel tree kernels, which can match subtrees whose leaves are lexically similar (so not just identical). To assess the benefit of our approach, we carried out comparative experiments with previous work: especially with the method described in (Zanzotto and Moschitti, 2006; Zanzotto et al., 2009). This constitutes our strong baseline as, although it can only exploit lexical-syntactic rules, it has achieved top accuracy in all RTE challenges. The results, across different RTE challenges, show that our approach constantly and significantly improves the 1020 \x0cbaseline model. Moreover, our approach does not require any adaptation or tuning and uses a computation for the similarity function based on Wikipedia which is faster than the computation of tools based on WordNet or other resources (Basili et al., 2006). The remainder of the paper is organized as follows:</context>
+<context position="5509" citStr="Zanzotto and Moschitti, 2006" startWordPosition="834" endWordPosition="837">nt relation: T2 ?H2 T2 In 1980 Chapman killed Lennon. H2 John Lennon died in 1980. we need a lexical-syntactic rule such as: 3 = Xkilled Y Ydied along with such rules, the temporal information should be taken into consideration. Given the importance of lexical-syntactic rules in RTE, many methods have been proposed for their extraction from large corpora (e.g., (Lin and Pantel, 2001; Szpektor and Dagan, 2008)). Unfortunately, these unsupervised methods in general produce rules that can hardly be used: noise and coverage are the most critical issues. Supervised approaches were experimented in (Zanzotto and Moschitti, 2006; Zanzotto et al., 2009), where lexical-syntactic rules were derived from examples in terms of complex relational features. This approach can easily miss some useful information and rules. For example, given the pair hT2, H2i, to derive the entailment value of the following case: T4 ?H4 T4 In 1963 Lee Harvey Oswald murdered JFK H4 JFK died in 1963 we can only rely on this relatively interesting lexical-syntactic rule (i.e. which is in common between the two examples): 5 = (V P (V BZ)(NP X )) (S(NP X )(V P (V BZ died))) Unfortunately, this can be extremely misleading since it also derives simil</context>
+<context position="16513" citStr="Zanzotto and Moschitti, 2006" startWordPosition="2777" endWordPosition="2780">01)) we can always use the similarity matrix derived by LSA in SSTK. In case of Wordnet, the validity of the kernel will depend of the kind of similarity used. In our experiments, we have carried out single value decomposition and we have verified that our Wordenet matrices, Path and WUP, are indeed positive semi-definite. 5 Kernels for Textual Entailment Recognition In this section, we describe how we use the syntactic tree kernel (STK) and the semantic/syntactic tree kernel (SSTK) for modeling lexical-syntactic kernels for textual entailment recognition. We build on the kernel described in (Zanzotto and Moschitti, 2006; Zanzotto et al., 2009) that can model lexicalsyntactic rules with variables (i.e., first-order rules). 5.1 Anchoring and pruning Kernels for modeling lexical-syntactic rules with variables presuppose that words in texts T are explicitly related to words in hypotheses H. This correlation is generally called anchoring and it is implemented with placeholders that co-index the syntactic trees derived from T and H. Words and intermediate nodes are co-indexed when they are equal or similar. For example, in the pair: T8 ?H8 T8 Lee Harvey Oswald was born in New Orleans, Louisiana, and was of English</context>
+</contexts>
+<marker>Zanzotto, Moschitti, 2006</marker>
+<rawString>F. M. Zanzotto and A. Moschitti. 2006. Automatic learning of textual entailments with cross-pair similarities. In Proc. of ACL 06.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F M Zanzotto</author>
+<author>M Pennacchiotti</author>
+<author>A Moschitti</author>
+</authors>
+<title>A machine learning approach to textual entailment recognition.</title>
+<date>2009</date>
+<journal>NATURAL LANGUAGE ENGINEERING.</journal>
+<contexts>
+<context position="3418" citStr="Zanzotto et al., 2009" startWordPosition="508" endWordPosition="511">ved by supervised learning methods. In more detail, syntax is encoded in the form of parse trees whereas similarities are defined by means of WordNet simlilarity measures or Latent Semantic Analysis (LSA) applied to Wikipedia or to the British National Corpus (BNC). The joint syntactic/semantic model is realized by means of novel tree kernels, which can match subtrees whose leaves are lexically similar (so not just identical). To assess the benefit of our approach, we carried out comparative experiments with previous work: especially with the method described in (Zanzotto and Moschitti, 2006; Zanzotto et al., 2009). This constitutes our strong baseline as, although it can only exploit lexical-syntactic rules, it has achieved top accuracy in all RTE challenges. The results, across different RTE challenges, show that our approach constantly and significantly improves the 1020 \x0cbaseline model. Moreover, our approach does not require any adaptation or tuning and uses a computation for the similarity function based on Wikipedia which is faster than the computation of tools based on WordNet or other resources (Basili et al., 2006). The remainder of the paper is organized as follows: Section 2 critically re</context>
+<context position="5533" citStr="Zanzotto et al., 2009" startWordPosition="838" endWordPosition="841"> Chapman killed Lennon. H2 John Lennon died in 1980. we need a lexical-syntactic rule such as: 3 = Xkilled Y Ydied along with such rules, the temporal information should be taken into consideration. Given the importance of lexical-syntactic rules in RTE, many methods have been proposed for their extraction from large corpora (e.g., (Lin and Pantel, 2001; Szpektor and Dagan, 2008)). Unfortunately, these unsupervised methods in general produce rules that can hardly be used: noise and coverage are the most critical issues. Supervised approaches were experimented in (Zanzotto and Moschitti, 2006; Zanzotto et al., 2009), where lexical-syntactic rules were derived from examples in terms of complex relational features. This approach can easily miss some useful information and rules. For example, given the pair hT2, H2i, to derive the entailment value of the following case: T4 ?H4 T4 In 1963 Lee Harvey Oswald murdered JFK H4 JFK died in 1963 we can only rely on this relatively interesting lexical-syntactic rule (i.e. which is in common between the two examples): 5 = (V P (V BZ)(NP X )) (S(NP X )(V P (V BZ died))) Unfortunately, this can be extremely misleading since it also derives similar decisions for the fol</context>
+<context position="16537" citStr="Zanzotto et al., 2009" startWordPosition="2781" endWordPosition="2784">ilarity matrix derived by LSA in SSTK. In case of Wordnet, the validity of the kernel will depend of the kind of similarity used. In our experiments, we have carried out single value decomposition and we have verified that our Wordenet matrices, Path and WUP, are indeed positive semi-definite. 5 Kernels for Textual Entailment Recognition In this section, we describe how we use the syntactic tree kernel (STK) and the semantic/syntactic tree kernel (SSTK) for modeling lexical-syntactic kernels for textual entailment recognition. We build on the kernel described in (Zanzotto and Moschitti, 2006; Zanzotto et al., 2009) that can model lexicalsyntactic rules with variables (i.e., first-order rules). 5.1 Anchoring and pruning Kernels for modeling lexical-syntactic rules with variables presuppose that words in texts T are explicitly related to words in hypotheses H. This correlation is generally called anchoring and it is implemented with placeholders that co-index the syntactic trees derived from T and H. Words and intermediate nodes are co-indexed when they are equal or similar. For example, in the pair: T8 ?H8 T8 Lee Harvey Oswald was born in New Orleans, Louisiana, and was of English, German, French and Iri</context>
+<context position="22121" citStr="Zanzotto et al., 2009" startWordPosition="3717" endWordPosition="3720">ec. 3.1. The main RTE model that we consider is constituted by three main kernels: WOK, i.e. the kernel based on only the texthypothesis lexical overlapping words (this is an intra-pair similarity); STK, i.e. the sum of the standard tree kernel (see Section 4.1) applied to the two text parsetrees and the two hypothesis parse trees; SSTK, i.e. the same as STK with the use of lexical similarities as explained in Section 4.2; maxSTK and maxSSTK, i.e. the kernel for RTE, illustrated in Section 5.2, where the latter exploits similarity since it uses SSTK in Eq. 5. Note that the model presented in (Zanzotto et al., 2009), our baseline, corresponds to the combination kernel: WOK+maxSTK. In this paper, in addition to the role of lexical similarities, we also study several combinations (we just need to sum the separated kernels), i.e. WOK+STK+maxSTK, SSTK+maxSSTK, WOK+SSTK+maxSSTK and WOK+maxSSTK. Finally, we measure the performance of our system with the standard accuracy and then we determine the statistical significance by using the model 1025 \x0cSTK SSTK maxSTK maxSSTK STK+maxSTK SSTK+maxSSTK RTE2 +WOK 61.5 61.12 63.88 64.12 63.12 63.50 60.62 52.62 52.75 61.25 59.38 61.25 58.75 - RTE3 +WOK 66.38 66.5 66.5 6</context>
+</contexts>
+<marker>Zanzotto, Pennacchiotti, Moschitti, 2009</marker>
+<rawString>F. M. Zanzotto, M. Pennacchiotti, and A. Moschitti. 2009. A machine learning approach to textual entailment recognition. NATURAL LANGUAGE ENGINEERING.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

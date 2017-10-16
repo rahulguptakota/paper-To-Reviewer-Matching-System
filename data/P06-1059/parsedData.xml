@@ -1,0 +1,1096 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.7799555">
+b&amp;apos;Proceedings of the 21st International Conference on Computational Linguistics and 44th Annual Meeting of the ACL, pages 465472,
+Sydney, July 2006. c
+</bodyText>
+<sectionHeader confidence="0.541833" genericHeader="abstract">
+2006 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.809808">
+Improving the Scalability of Semi-Markov Conditional
+Random Fields for Named Entity Recognition
+</title>
+<author confidence="0.808339">
+Daisuke Okanohara Yusuke Miyao Yoshimasa Tsuruoka Junichi Tsujii
+</author>
+<affiliation confidence="0.977788">
+Department of Computer Science, University of Tokyo
+</affiliation>
+<address confidence="0.741719">
+Hongo 7-3-1, Bunkyo-ku, Tokyo, Japan
+</address>
+<affiliation confidence="0.801148">
+School of Informatics, University of Manchester
+</affiliation>
+<reference confidence="0.475476666666667">
+POBox 88, Sackville St, MANCHESTER M60 1QD, UK
+SORST, Solution Oriented Research for Science and Technology
+Honcho 4-1-8, Kawaguchi-shi, Saitama, Japan
+</reference>
+<email confidence="0.976479">
+{hillbig,yusuke,tsuruoka,tsujii}@is.s.u-tokyo.ac.jp
+</email>
+<sectionHeader confidence="0.990282" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.997798">
+This paper presents techniques to apply
+semi-CRFs to Named Entity Recognition
+tasks with a tractable computational cost.
+Our framework can handle an NER task
+that has long named entities and many
+labels which increase the computational
+cost. To reduce the computational cost,
+we propose two techniques: the first is the
+use of feature forests, which enables us to
+pack feature-equivalent states, and the sec-
+ond is the introduction of a filtering pro-
+cess which significantly reduces the num-
+ber of candidate states. This framework
+allows us to use a rich set of features ex-
+tracted from the chunk-based representa-
+tion that can capture informative charac-
+teristics of entities. We also introduce a
+simple trick to transfer information about
+distant entities by embedding label infor-
+mation into non-entity labels. Experimen-
+tal results show that our model achieves an
+F-score of 71.48% on the JNLPBA 2004
+shared task without using any external re-
+sources or post-processing techniques.
+</bodyText>
+<sectionHeader confidence="0.998269" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.998569930232558">
+The rapid increase of information in the biomedi-
+cal domain has emphasized the need for automated
+information extraction techniques. In this paper
+we focus on the Named Entity Recognition (NER)
+task, which is the first step in tackling more com-
+plex tasks such as relation extraction and knowl-
+edge mining.
+Biomedical NER (Bio-NER) tasks are, in gen-
+eral, more difficult than ones in the news domain.
+For example, the best F-score in the shared task of
+Bio-NER in COLING 2004 JNLPBA (Kim et al.,
+2004) was 72.55% (Zhou and Su, 2004) 1, whereas
+the best performance at MUC-6, in which systems
+tried to identify general named entities such as
+person or organization names, was an accuracy of
+95% (Sundheim, 1995).
+Many of the previous studies of Bio-NER tasks
+have been based on machine learning techniques
+including Hidden Markov Models (HMMs) (Bikel
+et al., 1997), the dictionary HMM model (Kou et
+al., 2005) and Maximum Entropy Markov Mod-
+els (MEMMs) (Finkel et al., 2004). Among these
+methods, conditional random fields (CRFs) (Laf-
+ferty et al., 2001) have achieved good results (Kim
+et al., 2005; Settles, 2004), presumably because
+they are free from the so-called label bias problem
+by using a global normalization.
+Sarawagi and Cohen (2004) have recently in-
+troduced semi-Markov conditional random fields
+(semi-CRFs). They are defined on semi-Markov
+chains and attach labels to the subsequences of a
+sentence, rather than to the tokens2. The semi-
+Markov formulation allows one to easily construct
+entity-level features. Since the features can cap-
+ture all the characteristics of a subsequence, we
+can use, for example, a dictionary feature which
+measures the similarity between a candidate seg-
+ment and the closest element in the dictionary.
+Kou et al. (2005) have recently showed that semi-
+CRFs perform better than CRFs in the task of
+recognition of protein entities.
+The main difficulty of applying semi-CRFs to
+Bio-NER lies in the computational cost at training
+</bodyText>
+<page confidence="0.757176">
+1
+</page>
+<bodyText confidence="0.92215625">
+Krauthammer (2004) reported that the inter-annotator
+agreement rate of human experts was 77.6% for bio-NLP,
+which suggests that the upper bound of the F-score in a Bio-
+NER task may be around 80%.
+</bodyText>
+<page confidence="0.961957">
+2
+</page>
+<bodyText confidence="0.9576225">
+Assuming that non-entity words are placed in unit-length
+segments.
+</bodyText>
+<page confidence="0.999881">
+465
+</page>
+<tableCaption confidence="0.738842">
+\x0cTable 1: Length distribution of entities in the train-
+ing set of the shared task in 2004 JNLPBA
+</tableCaption>
+<table confidence="0.922097636363636">
+Length # entity Ratio
+1 21646 42.19
+2 15442 30.10
+3 7530 14.68
+4 3505 6.83
+5 1379 2.69
+6 732 1.43
+7 409 0.80
+8 252 0.49
+&amp;gt;8 406 0.79
+total 51301 100.00
+</table>
+<bodyText confidence="0.998161741935484">
+because the number of named entity classes tends
+to be large, and the training data typically contain
+many long entities, which makes it difficult to enu-
+merate all the entity candidates in training. Table
+1 shows the length distribution of entities in the
+training set of the shared task in 2004 JNLPBA.
+Formally, the computational cost of training semi-
+CRFs is O(KLN), where L is the upper bound
+length of entities, N is the length of sentence and
+K is the size of label set. And that of training in
+first order semi-CRFs is O(K2LN). The increase
+of the cost is used to transfer non-adjacent entity
+information.
+To improve the scalability of semi-CRFs, we
+propose two techniques: the first is to intro-
+duce a filtering process that significantly re-
+duces the number of candidate entities by using
+a lightweight classifier, and the second is to
+use feature forest (Miyao and Tsujii, 2002), with
+which we pack the feature equivalent states. These
+enable us to construct semi-CRF models for the
+tasks where entity names may be long and many
+class-labels exist at the same time. We also present
+an extended version of semi-CRFs in which we
+can make use of information about a preceding
+named entity in defining features within the frame-
+work of first order semi-CRFs. Since the preced-
+ing entity is not necessarily adjacent to the current
+entity, we achieve this by embedding the informa-
+tion on preceding labels for named entities into the
+labels for non-named entities.
+</bodyText>
+<sectionHeader confidence="0.813192" genericHeader="method">
+2 CRFs and Semi-CRFs
+</sectionHeader>
+<bodyText confidence="0.998580875">
+CRFs are undirected graphical models that encode
+a conditional probability distribution using a given
+set of features. CRFs allow both discriminative
+training and bi-directional flow of probabilistic in-
+formation along the sequence. In NER, we of-
+ten use linear-chain CRFs, which define the con-
+ditional probability of a state sequence y = y1, ...,
+yn given the observed sequence x = x1,...,xn by:
+</bodyText>
+<equation confidence="0.9210765">
+p(y|x, ) =
+1
+Z(x)
+exp(n
+i=1jjfj(yi1, yi, x, i)),
+(1)
+</equation>
+<bodyText confidence="0.999492888888889">
+where fj(yi1, yi, x, i) is a feature function and
+Z(x) is the normalization factor over all the state
+sequences for the sequence x. The model parame-
+ters are a set of real-valued weights = {j}, each
+of which represents the weight of a feature. All the
+feature functions are real-valued and can use adja-
+cent label information.
+Semi-CRFs are actually a restricted version of
+order-L CRFs in which all the labels in a chunk are
+the same. We follow the definitions in (Sarawagi
+and Cohen, 2004). Let s = hs1, ..., spi denote a
+segmentation of x, where a segment sj = htj, uj,
+yji consists of a start position tj, an end position
+uj, and a label yj. We assume that segments have a
+positive length bounded above by the pre-defined
+upper bound L (tj uj, uj tj + 1 L) and
+completely cover the sequence x without overlap-
+ping, that is, s satisfies t1 = 1, up = |x|, and
+</bodyText>
+<equation confidence="0.872983">
+tj+1 = uj + 1 for j = 1, ..., p 1. Semi-CRFs
+</equation>
+<bodyText confidence="0.99512">
+define a conditional probability of a state sequence
+y given an observed sequence x by:
+</bodyText>
+<equation confidence="0.8361438">
+p(y|x, ) =
+1
+Z(x)
+exp(jiifi(sj)), (2)
+where fi(sj) := fi(yj1, yj, x, tj, uj) is a fea-
+</equation>
+<bodyText confidence="0.993381444444445">
+ture function and Z(x) is the normalization factor
+as defined for CRFs. The inference problem for
+semi-CRFs can be solved by using a semi-Markov
+analog of the usual Viterbi algorithm. The com-
+putational cost for semi-CRFs is O(KLN) where
+L is the upper bound length of entities, N is the
+length of sentence and K is the number of label
+set. If we use previous label information, the cost
+becomes O(K2LN).
+</bodyText>
+<sectionHeader confidence="0.704057" genericHeader="method">
+3 Using Non-Local Information in
+</sectionHeader>
+<bodyText confidence="0.909715833333333">
+Semi-CRFs
+In conventional CRFs and semi-CRFs, one can
+only use the information on the adjacent previ-
+ous label when defining the features on a certain
+state or entity. In NER tasks, however, informa-
+tion about a distant entity is often more useful than
+</bodyText>
+<page confidence="0.997826">
+466
+</page>
+<equation confidence="0.598659">
+\x0cO protein O O DNA
+O protein O-protein O-protein DNA
+</equation>
+<figureCaption confidence="0.998079">
+Figure 1: Modification of O (other labels) to
+</figureCaption>
+<bodyText confidence="0.997070981132076">
+transfer information on a preceding named entity.
+information about the previous state (Finkel et al.,
+2005). For example, consider the sentence ... in-
+cluding Sp1 and CP1. where the correct labels of
+Sp1 and CP1 are both protein. It would be
+useful if the model could utilize the (non-adjacent)
+information about Sp1 being protein to clas-
+sify CP1 as protein. On the other hand, in-
+formation about adjacent labels does not necessar-
+ily provide useful information because, in many
+cases, the previous label of a named entity is O,
+which indicates a non-named entity. For 98.0% of
+the named entities in the training data of the shared
+task in the 2004 JNLPBA, the label of the preced-
+ing entity was O.
+In order to incorporate such non-local informa-
+tion into semi-CRFs, we take a simple approach.
+We divide the label of O into O-protein and
+O so that they convey the information on the
+preceding named entity. Figure 1 shows an ex-
+ample of this conversion, in which the two labels
+for the third and fourth states are converted from
+O to O-protein. When we define the fea-
+tures for the fifth state, we can use the informa-
+tion on the preceding entity protein by look-
+ing at the fourth state. Since this modification
+changes only the label set, we can do this within
+the framework of semi-CRF models. This idea is
+originally proposed in (Peshkin and Pfeffer, 2003).
+However, they used a dynamic Bayesian network
+(DBNs) rather than a semi-CRF, and semi-CRFs
+are likely to have significantly better performance
+than DBNs.
+In previous work, such non-local information
+has usually been employed at a post-processing
+stage. This is because the use of long distance
+dependency violates the locality of the model and
+prevents us from using dynamic programming
+techniques in training and inference. Skip-CRFs
+(Sutton and McCallum, 2004) are a direct imple-
+mentation of long distance effects to the model.
+However, they need to determine the structure
+for propagating non-local information in advance.
+In a recent study by Finkel et al., (2005), non-
+local information is encoded using an indepen-
+dence model, and the inference is performed by
+Gibbs sampling, which enables us to use a state-
+of-the-art factored model and carry out training ef-
+ficiently, but inference still incurs a considerable
+computational cost. Since our model handles lim-
+ited type of non-local information, i.e. the label
+of the preceding entity, the model can be solved
+without approximation.
+</bodyText>
+<sectionHeader confidence="0.942889" genericHeader="method">
+4 Reduction of Training/Inference Cost
+</sectionHeader>
+<bodyText confidence="0.999695592592592">
+The straightforward implementation of this mod-
+eling in semi-CRFs often results in a prohibitive
+computational cost.
+In biomedical documents, there are quite a few
+entity names which consist of many words (names
+of 8 words in length are not rare). This makes
+it difficult for us to use semi-CRFs for biomedi-
+cal NER, because we have to set L to be eight or
+larger, where L is the upper bound of the length of
+possible chunks in semi-CRFs. Moreover, in or-
+der to take into account the dependency between
+named entities of different classes appearing in a
+sentence, we need to incorporate multiple labels
+into a single probabilistic model. For example, in
+the shared task in COLING 2004 JNLPBA (Kim
+et al., 2004) the number of labels is six (pro-
+tein, DNA, RNA, cell line, cell type
+and other). This also increases the computa-
+tional cost of a semi-CRF model.
+To reduce the computational cost, we propose
+two methods (see Figure 2). The first is employing
+a filtering process using a lightweight classifier to
+remove unnecessary state candidates beforehand
+(Figure 2 (2)), and the second is the using the fea-
+ture forest model (Miyao and Tsujii, 2002) (Fig-
+ure 2 (3)), which employs dynamic programming
+at training as much as possible.
+</bodyText>
+<subsectionHeader confidence="0.847555">
+4.1 Filtering with a naive Bayes classifier
+</subsectionHeader>
+<bodyText confidence="0.997681142857143">
+We introduce a filtering process to remove low
+probability candidate states. This is the first step
+of our NER system. After this filtering step, we
+construct semi-CRFs on the remaining candidate
+states using a feature forest. Therefore the aim of
+this filtering is to reduce the number of candidate
+states, without removing correct entities. This idea
+</bodyText>
+<page confidence="0.99538">
+467
+</page>
+<figure confidence="0.988612625">
+\x0c(1) Enumerate
+Candidate States
+(2) Filtering by
+Naive Bayes
+(3) Construct feature forest
+Training/
+Inference
+: other : entity : other with preceding entity information
+</figure>
+<figureCaption confidence="0.894103">
+Figure 2: The framework of our system. We first enumerate all possible candidate states, and then filter
+out low probability states by using a light-weight classifier, and represent them by using feature forest.
+</figureCaption>
+<tableCaption confidence="0.953221">
+Table 2: Features used in the naive Bayes Classi-
+</tableCaption>
+<bodyText confidence="0.69903">
+fier for the entity candidate: ws, ws+1, ..., we. spi
+is the result of shallow parsing at wi.
+</bodyText>
+<table confidence="0.937359142857143">
+Feature Name Example of Features
+Start/End Word ws, we
+Inside Word ws, ws+1, ... , we
+Context Word ws1, we+1
+Start/End SP sps, spe
+Inside SP sps, sps+1, ..., spe
+Context SP sps1, spe+1
+</table>
+<bodyText confidence="0.99430525">
+is similar to the method proposed by Tsuruoka and
+Tsujii (2005) for chunk parsing, in which implau-
+sible phrase candidates are removed beforehand.
+We construct a binary naive Bayes classifier us-
+ing the same training data as those for semi-CRFs.
+In training and inference, we enumerate all possi-
+ble chunks (the max length of a chunk is L as for
+semi-CRFs) and then classify those into entity
+or other. Table 2 lists the features used in the
+naive Bayes classifier. This process can be per-
+formed independently of semi-CRFs
+Since the purpose of the filtering is to reduce the
+computational cost, rather than to achieve a good
+F-score by itself, we chose the threshold probabil-
+ity of filtering so that the recall of filtering results
+would be near 100 %.
+</bodyText>
+<subsectionHeader confidence="0.938206">
+4.2 Feature Forest
+</subsectionHeader>
+<bodyText confidence="0.992517714285714">
+In estimating semi-CRFs, we can use an efficient
+dynamic programming algorithm, which is simi-
+lar to the forward-backward algorithm (Sarawagi
+and Cohen, 2004). The proposal here is a more
+general framework for estimating sequential con-
+ditional random fields.
+This framework is based on the feature forest
+</bodyText>
+<figure confidence="0.990774636363636">
+DNA
+protein
+Other
+DNA
+protein
+Other
+: or node (disjunctive node)
+: and node (conjunctive node)
+pos i i+1
+...
+...
+</figure>
+<figureCaption confidence="0.999403333333333">
+Figure 3: Example of feature forest representation
+of linear chain CRFs. Feature functions are as-
+signed to and nodes.
+</figureCaption>
+<figure confidence="0.9842345">
+protein
+O-protein
+protein
+uj
+=8
+prev-entity:protein
+uj
+= 8
+prev-entity: protein
+packed
+pos 8
+7 9
+</figure>
+<figureCaption confidence="0.999992">
+Figure 4: Example of packed representation of
+</figureCaption>
+<bodyText confidence="0.958172111111111">
+semi-CRFs. The states that have the same end po-
+sition and prev-entity label are packed.
+model, which was originally proposed for disam-
+biguation models for parsing (Miyao and Tsujii,
+2002). A feature forest model is a maximum en-
+tropy model defined over feature forests, which are
+abstract representations of an exponential number
+of sequence/tree structures. A feature forest is
+an and/or graph: in Figure 3, circles represent
+</bodyText>
+<page confidence="0.998309">
+468
+</page>
+<bodyText confidence="0.998915538461539">
+\x0cand nodes (conjunctive nodes), while boxes de-
+note or nodes (disjunctive nodes). Feature func-
+tions are assigned to and nodes. We can use
+the information of the previous and node for de-
+signing the feature functions through the previous
+or node. Each sequence in a feature forest is
+obtained by choosing a conjunctive node for each
+disjunctive node. For example, Figure 3 represents
+3 3 = 9 sequences, since each disjunctive node
+has three candidates. It should be noted that fea-
+ture forests can represent an exponential number
+of sequences with a polynomial number of con-
+junctive/disjunctive nodes.
+One can estimate a maximum entropy model for
+the whole sequence with dynamic programming
+by representing the probabilistic events, i.e. se-
+quence of named entity tags, by feature forests
+(Miyao and Tsujii, 2002).
+In the previous work (Lafferty et al., 2001;
+Sarawagi and Cohen, 2004), or nodes are con-
+sidered implicitly in the dynamic programming
+framework. In feature forest models, or nodes
+are packed when they have same conditions. For
+example, or nodes are packed when they have
+same end positions and same labels in the first or-
+der semi-CRFs,
+In general, we can pack different or nodes that
+yield equivalent feature functions in the follow-
+ing nodes. In other words, or nodes are packed
+when the following states use partial information
+on the preceding states. Consider the task of tag-
+ging entity and O-entity, where the latter tag is ac-
+tually O tags that distinguish the preceding named
+entity tags. When we simply apply first-order
+semi-CRFs, we must distinguish states that have
+different previous states. However, when we want
+to distinguish only the preceding named entity tags
+rather than the immediate previous states, feature
+forests can represent these events more compactly
+(Figure 4). We can implement this as follows. In
+each or node, we generate the following and
+nodes and their feature functions. Then we check
+whether there exist or node which has same con-
+ditions by using its information about end posi-
+tion and previous entity. If so, we connect the
+and node to the corresponding or node. If not,
+we generate a new or node and continue the pro-
+cess.
+Since the states with label O-entity and entity
+are packed, the computational cost of training in
+our model (First order semi-CRFs) becomes the
+half of the original one.
+</bodyText>
+<sectionHeader confidence="0.996441" genericHeader="evaluation">
+5 Experiments
+</sectionHeader>
+<subsectionHeader confidence="0.965062">
+5.1 Experimental Setting
+</subsectionHeader>
+<bodyText confidence="0.997102842105263">
+Our experiments were performed on the training
+and evaluation set provided by the shared task in
+COLING 2004 JNLPBA (Kim et al., 2004). The
+training data used in this shared task came from
+the GENIA version 3.02 corpus. In the task there
+are five semantic labels: protein, DNA, RNA,
+cell line and cell type. The training set consists
+of 2000 abstracts from MEDLINE, and the evalu-
+ation set consists of 404 abstracts. We divided the
+original training set into 1800 abstracts and 200
+abstracts, and the former was used as the training
+data and the latter as the development data. For
+semi-CRFs, we used amis3 for training the semi-
+CRF with feature-forest. We used GENIA taggar4
+for POS-tagging and shallow parsing.
+We set L = 10 for training and evaluation when
+we do not state L explicitly , where L is the upper
+bound of the length of possible chunks in semi-
+CRFs.
+</bodyText>
+<subsectionHeader confidence="0.94742">
+5.2 Features
+</subsectionHeader>
+<bodyText confidence="0.998205526315789">
+Table 3 lists the features used in our semi-CRFs.
+We describe the chunk-dependent features in de-
+tail, which cannot be encoded in token-level fea-
+tures.
+Whole chunk is the normalized names at-
+tached to a chunk, which performs like the closed
+dictionary. Length and Length and End-
+Word capture the tendency of the length of a
+named entity. Count feature captures the ten-
+dency for named entities to appear repeatedly in
+the same sentence.
+Preceding Entity and Prev Word are fea-
+tures that capture specifically words for conjunc-
+tions such as and or , (comma), e.g., for the
+phrase OCIM1 and K562, both OCIM1 and
+K562 are assigned cell line labels. Even if
+the model can determine only that OCIM1 is a
+cell line , this feature helps K562 to be assigned
+the label cell line.
+</bodyText>
+<subsectionHeader confidence="0.541611">
+5.3 Results
+</subsectionHeader>
+<footnote confidence="0.593709375">
+We first evaluated the filtering performance. Table
+4 shows the result of the filtering on the training
+3
+http://www-tsujii.is.s.u-tokyo.ac.jp/amis/
+4
+http://www-tsujii.is.s.u-tokyo.ac.jp/GENIA/tagger/
+Note that the evaluation data are not used for training the GE-
+NIA tagger.
+</footnote>
+<page confidence="0.984069">
+469
+</page>
+<tableCaption confidence="0.440939">
+\x0cTable 3: Feature templates used for the chunk s := ws ws+1 ... we where ws and we represent the words
+at the beginning and ending of the target chunk respectively. pi is the part of speech tag of wi and sci is
+the shallow parse result of wi.
+</tableCaption>
+<table confidence="0.968341615384615">
+Feature Name description of features
+Non-Chunk Features
+Word/POS/SC with Position BEGIN + ws, END + we, IN + ws+1, ..., IN + we1, BEGIN + ps,...
+Context Uni-gram/Bi-gram ws1, we+1, ws2 + ws1, we+1 + we+2, ws1 + we+1
+Prefix/Suffix of Chunk 2/3-gram character prefix of ws, 2/3/4-gram character suffix of we
+Orthography capitalization and word formation of ws...we
+Chunk Features
+Whole chunk ws + ws+1 + ... + we
+Word/POS/SC End Bi-grams we1 + we, pe1 + pe, sce1 + sce
+Length, Length and End Word |s|, |s|+we
+Count Feature the frequency of wsws+1..we in a sentence is greater than one
+Preceding Entity Features
+Preceding Entity /and Prev Word PrevState, PrevState + ws1
+</table>
+<tableCaption confidence="0.8335815">
+Table 4: Filtering results using the naive Bayes
+classifier. The number of entity candidates for the
+</tableCaption>
+<table confidence="0.9450563">
+training set was 4179662, and that of the develop-
+ment set was 418628.
+Training set
+Threshold probability reduction ratio recall
+1.0 1012 0.14 0.984
+1.0 1015 0.20 0.993
+Development set
+Threshold probability reduction ratio recall
+1.0 1012 0.14 0.985
+1.0 1015 0.20 0.994
+</table>
+<bodyText confidence="0.99799">
+and evaluation data. The naive Bayes classifiers
+effectively reduced the number of candidate states
+with very few falsely removed correct entities.
+We then examined the effect of filtering on the
+final performance. In this experiment, we could
+not examine the performance without filtering us-
+ing all the training data, because training on all
+the training data without filtering required much
+larger memory resources (estimated to be about
+80G Byte) than was possible for our experimental
+setup. We thus compared the result of the recog-
+nizers with and without filtering using only 2000
+sentences as the training data. Table 5 shows the
+result of the total system with different filtering
+thresholds. The result indicates that the filtering
+method achieved very well without decreasing the
+overall performance.
+We next evaluate the effect of filtering, chunk
+information and non-local information on final
+performance. Table 6 shows the performance re-
+sult for the recognition task. L means the upper
+bound of the length of possible chunks in semi-
+CRFs. We note that we cannot examine the re-
+sult of L = 10 without filtering because of the in-
+tractable computational cost. The row w/o Chunk
+Feature shows the result of the system which does
+not employ Chunk-Features in Table 3 at training
+and inference. The row Preceding Entity shows
+the result of a system which uses Preceding En-
+tity and Preceding Entity and Prev Word fea-
+tures. The results indicate that the chunk features
+contributed to the performance, and the filtering
+process enables us to use full chunk representation
+(L = 10). The results of McNemars test suggest
+that the system with chunk features is significantly
+better than the system without it (the p-value is
+less than 1.0 &amp;lt; 104). The result of the preceding
+entity information improves the performance. On
+the other hand, the system with preceding infor-
+mation is not significantly better than the system
+without it5. Other non-local information may im-
+prove performance with our framework and this is
+a topic for future work.
+Table 7 shows the result of the overall perfor-
+mance in our best setting, which uses the infor-
+mation about the preceding entity and 1.01015
+threshold probability for filtering. We note that the
+result of our system is similar to those of other sys-
+</bodyText>
+<page confidence="0.889701">
+5
+</page>
+<bodyText confidence="0.996719333333333">
+The result of the classifier on development data is 74.64
+(without preceding information) and 75.14 (with preceding
+information).
+</bodyText>
+<page confidence="0.98986">
+470
+</page>
+<tableCaption confidence="0.684725">
+\x0cTable 5: Performance with filtering on the development data. (&amp;lt; 1.0 1012) means the threshold
+</tableCaption>
+<table confidence="0.965634714285714">
+probability of the filtering is 1.0 1012.
+Recall Precision F-score Memory Usage (MB) Training Time (s)
+Small Training Data = 2000 sentences
+Without filtering 65.77 72.80 69.10 4238 7463
+Filtering (&amp;lt; 1.0 10.012
+) 64.22 70.62 67.27 600 1080
+Filtering (&amp;lt; 1.0 10.015
+) 65.34 72.52 68.74 870 2154
+All Training Data = 16713 sentences
+Without filtering Not available Not available
+Filtering (&amp;lt; 1.0 10.012
+) 70.05 76.06 72.93 10444 14661
+Filtering (&amp;lt; 1.0 10.015
+) 72.09 78.47 75.14 15257 31636
+</table>
+<tableCaption confidence="0.918239">
+Table 6: Overall performance on the evaluation set. L is the upper bound of the length of possible chunks
+</tableCaption>
+<table confidence="0.944327142857143">
+in semi-CRFs.
+Recall Precision F-score
+L &amp;lt; 5 64.33 65.51 64.92
+L = 10 + Filtering (&amp;lt; 1.0 10.012) 70.87 68.33 69.58
+L = 10 + Filtering (&amp;lt; 1.0 10.015) 72.59 70.16 71.36
+w/o Chunk Feature 70.53 69.92 70.22
++ Preceding Entity 72.65 70.35 71.48
+</table>
+<bodyText confidence="0.9879106">
+tems in several respects, that is, the performance of
+cell line is not good, and the performance of the
+right boundary identification (78.91% in F-score)
+is better than that of the left boundary identifica-
+tion (75.19% in F-score).
+Table 8 shows a comparison between our sys-
+tem and other state-of-the-art systems. Our sys-
+tem has achieved a comparable performance to
+these systems and would be still improved by us-
+ing external resources or conducting pre/post pro-
+cessing. For example, Zhou et. al (2004) used
+post processing, abbreviation resolution and exter-
+nal dictionary, and reported that they improved F-
+score by 3.1%, 2.1% and 1.2% respectively. Kim
+et. al (2005) used the original GENIA corpus
+to employ the information about other semantic
+classes for identifying term boundaries. Finkel
+et. al (2004) used gazetteers, web-querying, sur-
+rounding abstracts, and frequency counts from
+the BNC corpus. Settles (2004) used seman-
+tic domain knowledge of 17 types of lexicon.
+Since our approach and the use of external re-
+sources/knowledge do not conflict but are com-
+plementary, examining the combination of those
+techniques should be an interesting research topic.
+</bodyText>
+<tableCaption confidence="0.996568">
+Table 7: Performance of our system on the evalu-
+</tableCaption>
+<table confidence="0.962249875">
+ation set
+Class Recall Precision F-score
+protein 77.74 68.92 73.07
+DNA 69.03 70.16 69.59
+RNA 69.49 67.21 68.33
+cell type 65.33 82.19 72.80
+cell line 57.60 53.14 55.28
+overall 72.65 70.35 71.48
+</table>
+<tableCaption confidence="0.995987">
+Table 8: Comparison with other systems
+</tableCaption>
+<table confidence="0.998668166666667">
+System Recall Precision F-score
+Zhou et. al (2004) 75.99 69.42 72.55
+Our system 72.65 70.35 71.48
+Kim et.al (2005) 72.77 69.68 71.19
+Finkel et. al (2004) 68.56 71.62 70.06
+Settles (2004) 70.3 69.3 69.8
+</table>
+<page confidence="0.979673">
+471
+</page>
+<sectionHeader confidence="0.940504" genericHeader="conclusions">
+\x0c6 Conclusion
+</sectionHeader>
+<bodyText confidence="0.999513703703704">
+In this paper, we have proposed a single proba-
+bilistic model that can capture important charac-
+teristics of biomedical named entities. To over-
+come the prohibitive computational cost, we have
+presented an efficient training framework and a fil-
+tering method which enabled us to apply first or-
+der semi-CRF models to sentences having many
+labels and entities with long names. Our results
+showed that our filtering method works very well
+without decreasing the overall performance. Our
+system achieved an F-score of 71.48% without the
+use of gazetteers, post-processing or external re-
+sources. The performance of our system came
+close to that of the current best performing system
+which makes extensive use of external resources
+and rule based post-processing.
+The contribution of the non-local information
+introduced by our method was not significant in
+the experiments. However, other types of non-
+local information have also been shown to be ef-
+fective (Finkel et al., 2005) and we will examine
+the effectiveness of other non-local information
+which can be embedded into label information.
+As the next stage of our research, we hope to ap-
+ply our method to shallow parsing, in which seg-
+ments tend to be long and non-local information is
+important.
+</bodyText>
+<sectionHeader confidence="0.991514" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.99974650877193">
+Daniel M. Bikel, Richard Schwartz, and Ralph
+Weischedel. 1997. Nymble: a high-performance
+learning name-finder. In Proc. of the Fifth Confer-
+ence on Applied Natural Language Processing.
+Jenny Finkel, Shipra Dingare, Huy Nguyen, Malv-
+ina Nissim, Gail Sinclair, and Christopher Man-
+ning. 2004. Exploiting context for biomedical en-
+tity recognition: From syntax to the web. In Proc. of
+JNLPBA-04.
+Jenny Rose Finkel, Trond Grenager, and Christopher
+Manning. 2005. Incorporating non-local informa-
+tion into information extraction systems by Gibbs
+sampling. In Proc. of ACL 2005, pages 363370.
+Jin-Dong Kim, Tomoko Ohta, Yoshimasa Tsuruoka,
+Yuka Tateisi, and Nigel Collier. 2004. Introduc-
+tion to the bio-entity recognition task at JNLPBA.
+In Proc. of JNLPBA-04, pages 7075.
+Seonho Kim, Juntae Yoon, Kyung-Mi Park, and Hae-
+Chang Rim. 2005. Two-phase biomedical named
+entity recognition using a hybrid method. In Proc. of
+the Second International Joint Conference on Natu-
+ral Language Processing (IJCNLP-05).
+Zhenzhen Kou, William W. Cohen, and Robert F. Mur-
+phy. 2005. High-recall protein entity recognition
+using a dictionary. Bioinformatics 2005 21.
+Micahel Krauthammer and Goran Nenadic. 2004.
+Term identification in the biomedical literature. Jor-
+nal of Biomedical Informatics.
+John Lafferty, Andrew McCallum, and Fernando
+Pereira. 2001. Conditional random fields: Prob-
+abilistic models for segmenting and labeling se-
+quence data. In Proc. of ICML 2001.
+Yusuke Miyao and Junichi Tsujii. 2002. Maximum
+entropy estimation for feature forests. In Proc. of
+HLT 2002.
+Peshkin and Pfeffer. 2003. Bayesian information ex-
+traction network. In IJCAI.
+Sunita Sarawagi and William W. Cohen. 2004. Semi-
+markov conditional random fields for information
+extraction. In NIPS 2004.
+Burr Settles. 2004. Biomedical named entity recogni-
+tion using conditional random fields and rich feature
+sets. In Proc. of JNLPBA-04.
+Beth M. Sundheim. 1995. Overview of results of the
+MUC-6 evaluation. In Sixth Message Understand-
+ing Conference (MUC-6), pages 1332.
+Charles Sutton and Andrew McCallum. 2004. Collec-
+tive segmentation and labeling of distant entities in
+information extraction. In ICML workshop on Sta-
+tistical Relational Learning.
+Yoshimasa Tsuruoka and Junichi Tsujii. 2005. Chunk
+parsing revisited. In Proceedings of the 9th Inter-
+national Workshop on Parsing Technologies (IWPT
+2005).
+GuoDong Zhou and Jian Su. 2004. Exploring deep
+knowledge resources in biomedical name recogni-
+tion. In Proc. of JNLPBA-04.
+</reference>
+<page confidence="0.987483">
+472
+</page>
+<figure confidence="0.245765">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.554635">
+<note confidence="0.942085333333333">b&amp;apos;Proceedings of the 21st International Conference on Computational Linguistics and 44th Annual Meeting of the ACL, pages 465472, Sydney, July 2006. c 2006 Association for Computational Linguistics</note>
+<title confidence="0.915748">Improving the Scalability of Semi-Markov Conditional Random Fields for Named Entity Recognition</title>
+<author confidence="0.997222">Daisuke Okanohara Yusuke Miyao Yoshimasa Tsuruoka Junichi Tsujii</author>
+<affiliation confidence="0.999908">Department of Computer Science, University of Tokyo</affiliation>
+<address confidence="0.911349">Hongo 7-3-1, Bunkyo-ku, Tokyo, Japan</address>
+<affiliation confidence="0.997329">School of Informatics, University of Manchester</affiliation>
+<address confidence="0.986657">POBox 88, Sackville St, MANCHESTER M60 1QD, UK</address>
+<affiliation confidence="0.963322">SORST, Solution Oriented Research for Science and Technology</affiliation>
+<address confidence="0.987503">Honcho 4-1-8, Kawaguchi-shi, Saitama, Japan</address>
+<email confidence="0.983498">hillbig@is.s.u-tokyo.ac.jp</email>
+<email confidence="0.983498">yusuke@is.s.u-tokyo.ac.jp</email>
+<email confidence="0.983498">tsuruoka@is.s.u-tokyo.ac.jp</email>
+<email confidence="0.983498">tsujii@is.s.u-tokyo.ac.jp</email>
+<abstract confidence="0.990870181818182">This paper presents techniques to apply semi-CRFs to Named Entity Recognition tasks with a tractable computational cost. Our framework can handle an NER task that has long named entities and many labels which increase the computational cost. To reduce the computational cost, we propose two techniques: the first is the use of feature forests, which enables us to pack feature-equivalent states, and the sec-</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>POBox</author>
+</authors>
+<title>Sackville St, MANCHESTER M60 1QD, UK SORST, Solution Oriented Research for Science and Technology Honcho 4-1-8,</title>
+<date>1997</date>
+<booktitle>In Proc. of the Fifth Conference on Applied Natural Language Processing.</booktitle>
+<location>Kawaguchi-shi, Saitama, Japan</location>
+<marker>POBox, 1997</marker>
+<rawString>POBox 88, Sackville St, MANCHESTER M60 1QD, UK SORST, Solution Oriented Research for Science and Technology Honcho 4-1-8, Kawaguchi-shi, Saitama, Japan Daniel M. Bikel, Richard Schwartz, and Ralph Weischedel. 1997. Nymble: a high-performance learning name-finder. In Proc. of the Fifth Conference on Applied Natural Language Processing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Finkel</author>
+<author>Shipra Dingare</author>
+<author>Huy Nguyen</author>
+<author>Malvina Nissim</author>
+<author>Gail Sinclair</author>
+<author>Christopher Manning</author>
+</authors>
+<title>Exploiting context for biomedical entity recognition: From syntax to the web. In</title>
+<date>2004</date>
+<booktitle>Proc. of JNLPBA-04.</booktitle>
+<marker>Finkel, Dingare, Nguyen, Nissim, Sinclair, Manning, 2004</marker>
+<rawString>Jenny Finkel, Shipra Dingare, Huy Nguyen, Malvina Nissim, Gail Sinclair, and Christopher Manning. 2004. Exploiting context for biomedical entity recognition: From syntax to the web. In Proc. of JNLPBA-04.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Rose Finkel</author>
+<author>Trond Grenager</author>
+<author>Christopher Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by Gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In Proc. of ACL</booktitle>
+<pages>363370</pages>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>Jenny Rose Finkel, Trond Grenager, and Christopher Manning. 2005. Incorporating non-local information into information extraction systems by Gibbs sampling. In Proc. of ACL 2005, pages 363370.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jin-Dong Kim</author>
+<author>Tomoko Ohta</author>
+<author>Yoshimasa Tsuruoka</author>
+<author>Yuka Tateisi</author>
+<author>Nigel Collier</author>
+</authors>
+<title>Introduction to the bio-entity recognition task at JNLPBA.</title>
+<date>2004</date>
+<booktitle>In Proc. of JNLPBA-04,</booktitle>
+<pages>7075</pages>
+<marker>Kim, Ohta, Tsuruoka, Tateisi, Collier, 2004</marker>
+<rawString>Jin-Dong Kim, Tomoko Ohta, Yoshimasa Tsuruoka, Yuka Tateisi, and Nigel Collier. 2004. Introduction to the bio-entity recognition task at JNLPBA. In Proc. of JNLPBA-04, pages 7075.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Seonho Kim</author>
+<author>Juntae Yoon</author>
+<author>Kyung-Mi Park</author>
+<author>HaeChang Rim</author>
+</authors>
+<title>Two-phase biomedical named entity recognition using a hybrid method.</title>
+<date>2005</date>
+<booktitle>In Proc. of the Second International Joint Conference on Natural Language Processing (IJCNLP-05).</booktitle>
+<marker>Kim, Yoon, Park, Rim, 2005</marker>
+<rawString>Seonho Kim, Juntae Yoon, Kyung-Mi Park, and HaeChang Rim. 2005. Two-phase biomedical named entity recognition using a hybrid method. In Proc. of the Second International Joint Conference on Natural Language Processing (IJCNLP-05).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Zhenzhen Kou</author>
+<author>William W Cohen</author>
+<author>Robert F Murphy</author>
+</authors>
+<title>High-recall protein entity recognition using a dictionary. Bioinformatics</title>
+<date>2005</date>
+<pages>21</pages>
+<marker>Kou, Cohen, Murphy, 2005</marker>
+<rawString>Zhenzhen Kou, William W. Cohen, and Robert F. Murphy. 2005. High-recall protein entity recognition using a dictionary. Bioinformatics 2005 21.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Micahel Krauthammer</author>
+<author>Goran Nenadic</author>
+</authors>
+<title>Term identification in the biomedical literature.</title>
+<date>2004</date>
+<journal>Jornal of Biomedical Informatics.</journal>
+<marker>Krauthammer, Nenadic, 2004</marker>
+<rawString>Micahel Krauthammer and Goran Nenadic. 2004. Term identification in the biomedical literature. Jornal of Biomedical Informatics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>John Lafferty</author>
+<author>Andrew McCallum</author>
+<author>Fernando Pereira</author>
+</authors>
+<title>Conditional random fields: Probabilistic models for segmenting and labeling sequence data.</title>
+<date>2001</date>
+<booktitle>In Proc. of ICML</booktitle>
+<marker>Lafferty, McCallum, Pereira, 2001</marker>
+<rawString>John Lafferty, Andrew McCallum, and Fernando Pereira. 2001. Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In Proc. of ICML 2001.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yusuke Miyao</author>
+<author>Junichi Tsujii</author>
+</authors>
+<title>Maximum entropy estimation for feature forests.</title>
+<date>2002</date>
+<booktitle>In Proc. of HLT</booktitle>
+<marker>Miyao, Tsujii, 2002</marker>
+<rawString>Yusuke Miyao and Junichi Tsujii. 2002. Maximum entropy estimation for feature forests. In Proc. of HLT 2002.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Peshkin</author>
+<author>Pfeffer</author>
+</authors>
+<title>Bayesian information extraction network.</title>
+<date>2003</date>
+<booktitle>In IJCAI.</booktitle>
+<marker>Peshkin, Pfeffer, 2003</marker>
+<rawString>Peshkin and Pfeffer. 2003. Bayesian information extraction network. In IJCAI.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sunita Sarawagi</author>
+<author>William W Cohen</author>
+</authors>
+<title>Semimarkov conditional random fields for information extraction.</title>
+<date>2004</date>
+<booktitle>In NIPS</booktitle>
+<marker>Sarawagi, Cohen, 2004</marker>
+<rawString>Sunita Sarawagi and William W. Cohen. 2004. Semimarkov conditional random fields for information extraction. In NIPS 2004.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Burr Settles</author>
+</authors>
+<title>Biomedical named entity recognition using conditional random fields and rich feature sets.</title>
+<date>2004</date>
+<booktitle>In Proc. of JNLPBA-04.</booktitle>
+<marker>Settles, 2004</marker>
+<rawString>Burr Settles. 2004. Biomedical named entity recognition using conditional random fields and rich feature sets. In Proc. of JNLPBA-04.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Beth M Sundheim</author>
+</authors>
+<title>Overview of results of the MUC-6 evaluation.</title>
+<date>1995</date>
+<booktitle>In Sixth Message Understanding Conference (MUC-6),</booktitle>
+<pages>1332</pages>
+<marker>Sundheim, 1995</marker>
+<rawString>Beth M. Sundheim. 1995. Overview of results of the MUC-6 evaluation. In Sixth Message Understanding Conference (MUC-6), pages 1332.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Charles Sutton</author>
+<author>Andrew McCallum</author>
+</authors>
+<title>Collective segmentation and labeling of distant entities in information extraction.</title>
+<date>2004</date>
+<booktitle>In ICML workshop on Statistical Relational Learning.</booktitle>
+<marker>Sutton, McCallum, 2004</marker>
+<rawString>Charles Sutton and Andrew McCallum. 2004. Collective segmentation and labeling of distant entities in information extraction. In ICML workshop on Statistical Relational Learning.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yoshimasa Tsuruoka</author>
+<author>Junichi Tsujii</author>
+</authors>
+<title>Chunk parsing revisited.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the 9th International Workshop on Parsing Technologies (IWPT</booktitle>
+<marker>Tsuruoka, Tsujii, 2005</marker>
+<rawString>Yoshimasa Tsuruoka and Junichi Tsujii. 2005. Chunk parsing revisited. In Proceedings of the 9th International Workshop on Parsing Technologies (IWPT 2005).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>GuoDong Zhou</author>
+<author>Jian Su</author>
+</authors>
+<title>Exploring deep knowledge resources in biomedical name recognition.</title>
+<date>2004</date>
+<booktitle>In Proc. of JNLPBA-04.</booktitle>
+<marker>Zhou, Su, 2004</marker>
+<rawString>GuoDong Zhou and Jian Su. 2004. Exploring deep knowledge resources in biomedical name recognition. In Proc. of JNLPBA-04.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

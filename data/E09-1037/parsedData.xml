@@ -1,0 +1,1708 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.737753">
+b&amp;apos;Proceedings of the 12th Conference of the European Chapter of the ACL, pages 318326,
+Athens, Greece, 30 March 3 April 2009. c
+</bodyText>
+<sectionHeader confidence="0.642407" genericHeader="abstract">
+2009 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.4955005">
+Cube Summing, Approximate Inference with Non-Local Features,
+and Dynamic Programming without Semirings
+</title>
+<author confidence="0.961043">
+Kevin Gimpel and Noah A. Smith
+</author>
+<affiliation confidence="0.955507">
+Language Technologies Institute
+Carnegie Mellon University
+</affiliation>
+<address confidence="0.81105">
+Pittsburgh, PA 15213, USA
+</address>
+<email confidence="0.998562">
+{kgimpel,nasmith}@cs.cmu.edu
+</email>
+<sectionHeader confidence="0.990862" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999087952380952">
+We introduce cube summing, a technique
+that permits dynamic programming algo-
+rithms for summing over structures (like
+the forward and inside algorithms) to be
+extended with non-local features that vio-
+late the classical structural independence
+assumptions. It is inspired by cube prun-
+ing (Chiang, 2007; Huang and Chiang,
+2007) in its computation of non-local
+features dynamically using scored k-best
+lists, but also maintains additional resid-
+ual quantities used in calculating approx-
+imate marginals. When restricted to lo-
+cal features, cube summing reduces to a
+novel semiring (k-best+residual) that gen-
+eralizes many of the semirings of Good-
+man (1999). When non-local features are
+included, cube summing does not reduce
+to any semiring, but is compatible with
+generic techniques for solving dynamic
+programming equations.
+</bodyText>
+<sectionHeader confidence="0.994999" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.993427088888889">
+Probabilistic NLP researchers frequently make in-
+dependence assumptions to keep inference algo-
+rithms tractable. Doing so limits the features that
+are available to our models, requiring features
+to be structurally local. Yet many problems in
+NLPmachine translation, parsing, named-entity
+recognition, and othershave benefited from the
+addition of non-local features that break classical
+independence assumptions. Doing so has required
+algorithms for approximate inference.
+Recently cube pruning (Chiang, 2007; Huang
+and Chiang, 2007) was proposed as a way to lever-
+age existing dynamic programming algorithms
+that find optimal-scoring derivations or structures
+when only local features are involved. Cube prun-
+ing permits approximate decoding with non-local
+features, but leaves open the question of how the
+feature weights or probabilities are learned. Mean-
+while, some learning algorithms, like maximum
+likelihood for conditional log-linear models (Laf-
+ferty et al., 2001), unsupervised models (Pereira
+and Schabes, 1992), and models with hidden vari-
+ables (Koo and Collins, 2005; Wang et al., 2007;
+Blunsom et al., 2008), require summing over the
+scores of many structures to calculate marginals.
+We first review the semiring-weighted logic
+programming view of dynamic programming al-
+gorithms (Shieber et al., 1995) and identify an in-
+tuitive property of a program called proof locality
+that follows from feature locality in the underlying
+probability model (2). We then provide an analy-
+sis of cube pruning as an approximation to the in-
+tractable problem of exact optimization over struc-
+tures with non-local features and show how the
+use of non-local features with k-best lists breaks
+certain semiring properties (3). The primary
+contribution of this paper is a novel technique
+cube summingfor approximate summing over
+discrete structures with non-local features, which
+we relate to cube pruning (4). We discuss imple-
+mentation (5) and show that cube summing be-
+comes exact and expressible as a semiring when
+restricted to local features; this semiring general-
+izes many commonly-used semirings in dynamic
+programming (6).
+</bodyText>
+<sectionHeader confidence="0.991584" genericHeader="method">
+2 Background
+</sectionHeader>
+<bodyText confidence="0.999282833333333">
+In this section, we discuss dynamic programming
+algorithms as semiring-weighted logic programs.
+We then review the definition of semirings and im-
+portant examples. We discuss the relationship be-
+tween locally-factored structure scores and proofs
+in logic programs.
+</bodyText>
+<subsectionHeader confidence="0.97155">
+2.1 Dynamic Programming
+</subsectionHeader>
+<bodyText confidence="0.9443075">
+Many algorithms in NLP involve dynamic pro-
+gramming (e.g., the Viterbi, forward-backward,
+</bodyText>
+<page confidence="0.998291">
+318
+</page>
+<bodyText confidence="0.99080548">
+\x0cprobabilistic Earleys, and minimum edit distance
+algorithms). Dynamic programming (DP) in-
+volves solving certain kinds of recursive equations
+with shared substructure and a topological order-
+ing of the variables.
+Shieber et al. (1995) showed a connection
+between DP (specifically, as used in parsing)
+and logic programming, and Goodman (1999)
+augmented such logic programs with semiring
+weights, giving an algebraic explanation for the
+intuitive connections among classes of algorithms
+with the same logical structure. For example, in
+Goodmans framework, the forward algorithm and
+the Viterbi algorithm are comprised of the same
+logic program with different semirings. Goodman
+defined other semirings, including ones we will
+use here. This formal framework was the basis
+for the Dyna programming language, which per-
+mits a declarative specification of the logic pro-
+gram and compiles it into an efficient, agenda-
+based, bottom-up procedure (Eisner et al., 2005).
+For our purposes, a DP consists of a set of recur-
+sive equations over a set of indexed variables. For
+example, the probabilistic CKY algorithm (run on
+sentence w1w2...wn) is written as
+</bodyText>
+<equation confidence="0.9978106">
+CX,i1,i = pXwi (1)
+CX,i,k = max
+Y,ZN;j{i+1,...,k1}
+pXY Z CY,i,j CZ,j,k
+goal = CS,0,n
+</equation>
+<bodyText confidence="0.99913621875">
+where N is the nonterminal set and S N is the
+start symbol. Each CX,i,j variable corresponds to
+the chart value (probability of the most likely sub-
+tree) of an X-constituent spanning the substring
+wi+1...wj. goal is a special variable of greatest in-
+terest, though solving for goal correctly may (in
+general, but not in this example) require solving
+for all the other values. We will use the term in-
+dex to refer to the subscript values on variables
+(X, i, j on CX,i,j).
+Where convenient, we will make use of Shieber
+et al.s logic programming view of dynamic pro-
+gramming. In this view, each variable (e.g., CX,i,j
+in Eq. 1) corresponds to the value of a theo-
+rem, the constants in the equations (e.g., pXY Z
+in Eq. 1) correspond to the values of axioms,
+and the DP defines quantities corresponding to
+weighted proofs of the goal theorem (e.g., find-
+ing the maximum-valued proof, or aggregating
+proof values). The value of a proof is a combi-
+nation of the values of the axioms it starts with.
+Semirings define these values and define two op-
+erators over them, called aggregation (max in
+Eq. 1) and combination ( in Eq. 1).
+Goodman and Eisner et al. assumed that the val-
+ues of the variables are in a semiring, and that the
+equations are defined solely in terms of the two
+semiring operations. We will often refer to the
+probability of a proof, by which we mean a non-
+negative R-valued score defined by the semantics
+of the dynamic program variables; it may not be a
+normalized probability.
+</bodyText>
+<subsectionHeader confidence="0.998427">
+2.2 Semirings
+</subsectionHeader>
+<bodyText confidence="0.994886060606061">
+A semiring is a tuple hA, , , 0, 1i, in which A
+is a set, : A A A is the aggregation
+operation, : A A A is the combina-
+tion operation, 0 is the additive identity element
+(a A, a 0 = a), and 1 is the multiplica-
+tive identity element (a A, a 1 = a). A
+semiring requires to be associative and com-
+mutative, and to be associative and to distribute
+over . Finally, we require a0 = 0a = 0 for
+all a A.1 Examples include the inside semir-
+ing, hR0, +, , 0, 1i, and the Viterbi semiring,
+hR0, max, , 0, 1i. The former sums the prob-
+abilities of all proofs of each theorem. The lat-
+ter (used in Eq. 1) calculates the probability of the
+most probable proof of each theorem. Two more
+examples follow.
+Viterbi proof semiring. We typically need to
+recover the steps in the most probable proof in
+addition to its probability. This is often done us-
+ing backpointers, but can also be accomplished by
+representing the most probable proof for each the-
+orem in its entirety as part of the semiring value
+(Goodman, 1999). For generality, we define a
+proof as a string that is constructed from strings
+associated with axioms, but the particular form
+of a proof is problem-dependent. The Viterbi
+proof semiring includes the probability of the
+most probable proof and the proof itself. Letting
+L be the proof language on some symbol
+set , this semiring is defined on the set R0 L
+with 0 element h0, \x0fi and 1 element h1, \x0fi. For
+two values hu1, U1i and hu2, U2i, the aggregation
+operator returns hmax(u1, u2), Uargmaxi{1,2} ui i.
+</bodyText>
+<page confidence="0.924746">
+1
+</page>
+<bodyText confidence="0.998332166666667">
+When cycles are permitted, i.e., where the value of one
+variable depends on itself, infinite sums can be involved. We
+must ensure that these infinite sums are well defined under
+the semiring. So-called complete semirings satisfy additional
+conditions to handle infinite sums, but for simplicity we will
+restrict our attention to DPs that do not involve cycles.
+</bodyText>
+<page confidence="0.998361">
+319
+</page>
+<equation confidence="0.572687833333333">
+\x0cSemiring A Aggregation () Combination () 0 1
+inside R0 u1 + u2 u1u2 0 1
+Viterbi R0 max(u1, u2) u1u2 0 1
+Viterbi proof R0 L hmax(u1, u2), Uargmaxi{1,2} ui i hu1u2, U1.U2i h0, \x0fi h1, \x0fi
+k-best proof (R0 L)k
+max-k(u1 u2) max-k(u1 ? u2) {h1, \x0fi}
+</equation>
+<tableCaption confidence="0.995872">
+Table 1: Commonly used semirings. An element in the Viterbi proof semiring is denoted hu1, U1i, where u1 is the probability
+</tableCaption>
+<bodyText confidence="0.981117954545455">
+of proof U1. The max-k function returns a sorted list of the top-k proofs from a set. The ? function performs a cross-product
+on two k-best proof lists (Eq. 2).
+The combination operator returns hu1u2, U1.U2i,
+where U1.U2 denotes the string concatenation of
+U1 and U2.2
+k-best proof semiring. The k-best proof
+semiring computes the values and proof strings of
+the k most-probable proofs for each theorem. The
+set is (R0 L)k, i.e., sequences (up to length
+k) of sorted probability/proof pairs. The aggrega-
+tion operator uses max-k, which chooses the k
+highest-scoring proofs from its argument (a set of
+scored proofs) and sorts them in decreasing order.
+To define the combination operator , we require
+a cross-product that pairs probabilities and proofs
+from two k-best lists. We call this ?, defined on
+two semiring values u = hhu1, U1i, ..., huk, Ukii
+and v = hhv1, V1i, ..., hvk, Vkii by:
+u ? v = {huivj, Ui.Vji  |i, j {1, ..., k}} (2)
+Then, u v = max-k(u ? v). This is similar to
+the k-best semiring defined by Goodman (1999).
+These semirings are summarized in Table 1.
+</bodyText>
+<subsectionHeader confidence="0.971338">
+2.3 Features and Inference
+</subsectionHeader>
+<bodyText confidence="0.998317">
+Let X be the space of inputs to our logic program,
+i.e., x X is a set of axioms. Let L denote the
+proof language and let Y L denote the set of
+proof strings that constitute full proofs, i.e., proofs
+of the special goal theorem. We assume an expo-
+nential probabilistic model such that
+</bodyText>
+<equation confidence="0.988096666666667">
+p(y  |x)
+QM
+m=1
+hm(x,y)
+m (3)
+where each m 0 is a parameter of the model
+</equation>
+<bodyText confidence="0.9772415">
+and each hm is a feature function. There is a bijec-
+tion between Y and the space of discrete structures
+that our model predicts.
+Given such a model, DP is helpful for solving
+two kinds of inference problems. The first prob-
+lem, decoding, is to find the highest scoring proof
+</bodyText>
+<page confidence="0.972986">
+2
+</page>
+<bodyText confidence="0.953552">
+We assume for simplicity that the best proof will never
+be a tie among more than one proof. Goodman (1999) han-
+dles this situation more carefully, though our version is more
+likely to be used in practice for both the Viterbi proof and
+k-best proof semirings.
+y Y for a given input x X:
+</bodyText>
+<equation confidence="0.9967408">
+y(x) = argmaxyY
+QM
+m=1 m
+hm(x,y)
+(4)
+</equation>
+<bodyText confidence="0.928841333333333">
+The second is the summing problem, which
+marginalizes the proof probabilities (without nor-
+malization):
+</bodyText>
+<equation confidence="0.995167571428571">
+s(x) =
+P
+yY
+QM
+m=1 m
+hm(x,y)
+(5)
+</equation>
+<bodyText confidence="0.989351333333333">
+As defined, the feature functions hm can depend
+on arbitrary parts of the input axiom set x and the
+entire output proof y.
+</bodyText>
+<subsectionHeader confidence="0.984456">
+2.4 Proof and Feature Locality
+</subsectionHeader>
+<bodyText confidence="0.995606545454545">
+An important characteristic of problems suited for
+DP is that the global calculation (i.e., the value of
+goal) depend only on local factored parts. In DP
+equations, this means that each equation connects
+a relatively small number of indexed variables re-
+lated through a relatively small number of indices.
+In the logic programming formulation, it means
+that each step of the proof depends only on the the-
+orems being used at that step, not the full proofs
+of those theorems. We call this property proof lo-
+cality. In the statistical modeling view of Eq. 3,
+classical DP requires that the probability model
+make strong Markovian conditional independence
+assumptions (e.g., in HMMs, St1 St+1  |St);
+in exponential families over discrete structures,
+this corresponds to feature locality.
+For a particular proof y of goal consisting of
+t intermediate theorems, we define a set of proof
+strings `i L for i {1, ..., t}, where `i corre-
+sponds to the proof of the ith theorem.3 We can
+break the computation of feature function hm into
+a summation over terms corresponding to each `i:
+</bodyText>
+<equation confidence="0.999265333333333">
+hm(x, y) =
+Pt
+i=1 fm(x, `i) (6)
+</equation>
+<bodyText confidence="0.9931695">
+This is simply a way of noting that feature func-
+tions fire incrementally at specific points in the
+</bodyText>
+<page confidence="0.989701">
+3
+</page>
+<bodyText confidence="0.999808666666667">
+The theorem indexing scheme might be based on a topo-
+logical ordering given by the proof structure, but is not im-
+portant for our purposes.
+</bodyText>
+<page confidence="0.982956">
+320
+</page>
+<bodyText confidence="0.993646333333333">
+\x0cproof, normally at the first opportunity. Any fea-
+ture function can be expressed this way. For local
+features, we can go farther; we define a function
+top(`) that returns the proof string corresponding
+to the antecedents and consequent of the last infer-
+ence step in `. Local features have the property:
+</bodyText>
+<equation confidence="0.97650175">
+hloc
+m (x, y) =
+Pt
+i=1 fm(x, top(`i)) (7)
+</equation>
+<bodyText confidence="0.998961857142857">
+Local features only have access to the most re-
+cent deductive proof step (though they may fire
+repeatedly in the proof), while non-local features
+have access to the entire proof up to a given the-
+orem. For both kinds of features, the f terms
+are used within the DP formulation. When tak-
+ing an inference step to prove theorem i, the value
+</bodyText>
+<equation confidence="0.945377">
+QM
+m=1
+fm(x,`i)
+</equation>
+<bodyText confidence="0.999301948717949">
+m is combined into the calculation
+of that theorems value, along with the values of
+the antecedents. Note that typically only a small
+number of fm are nonzero for theorem i.
+When non-local hm/fm that depend on arbitrary
+parts of the proof are involved, the decoding and
+summing inference problems are NP-hard (they
+instantiate probabilistic inference in a fully con-
+nected graphical model). Sometimes, it is possible
+to achieve proof locality by adding more indices to
+the DP variables (for example, consider modify-
+ing the bigram HMM Viterbi algorithm for trigram
+HMMs). This increases the number of variables
+and hence computational cost. In general, it leads
+to exponential-time inference in the worst case.
+There have been many algorithms proposed for
+approximately solving instances of these decod-
+ing and summing problems with non-local fea-
+tures. Some stem from work on graphical mod-
+els, including loopy belief propagation (Sutton and
+McCallum, 2004; Smith and Eisner, 2008), Gibbs
+sampling (Finkel et al., 2005), sequential Monte
+Carlo methods such as particle filtering (Levy et
+al., 2008), and variational inference (Jordan et al.,
+1999; MacKay, 1997; Kurihara and Sato, 2006).
+Also relevant are stacked learning (Cohen and
+Carvalho, 2005), interpretable as approximation
+of non-local feature values (Martins et al., 2008),
+and M-estimation (Smith et al., 2007), which al-
+lows training without inference. Several other ap-
+proaches used frequently in NLP are approximate
+methods for decoding only. These include beam
+search (Lowerre, 1976), cube pruning, which we
+discuss in 3, integer linear programming (Roth
+and Yih, 2004), in which arbitrary features can act
+as constraints on y, and approximate solutions like
+McDonald and Pereira (2006), in which an exact
+solution to a related decoding problem is found
+and then modified to fit the problem of interest.
+</bodyText>
+<sectionHeader confidence="0.969029" genericHeader="method">
+3 Approximate Decoding
+</sectionHeader>
+<bodyText confidence="0.979986642857143">
+Cube pruning (Chiang, 2007; Huang and Chi-
+ang, 2007) is an approximate technique for decod-
+ing (Eq. 4); it is used widely in machine transla-
+tion. Given proof locality, it is essentially an effi-
+cient implementation of the k-best proof semiring.
+Cube pruning goes farther in that it permits non-
+local features to weigh in on the proof probabili-
+ties, at the expense of making the k-best operation
+approximate. We describe the two approximations
+cube pruning makes, then propose cube decoding,
+which removes the second approximation. Cube
+decoding cannot be represented as a semiring; we
+propose a more general algebraic structure that ac-
+commodates it.
+</bodyText>
+<subsectionHeader confidence="0.99813">
+3.1 Approximations in Cube Pruning
+</subsectionHeader>
+<bodyText confidence="0.971368785714286">
+Cube pruning is an approximate solution to the de-
+coding problem (Eq. 4) in two ways.
+Approximation 1: k &lt; . Cube pruning uses
+a finite k for the k-best lists stored in each value.
+If k = , the algorithm performs exact decoding
+with non-local features (at obviously formidable
+expense in combinatorial problems).
+Approximation 2: lazy computation. Cube
+pruning exploits the fact that k &lt; to use lazy
+computation. When combining the k-best proof
+lists of d theorems values, cube pruning does not
+enumerate all kd proofs, apply non-local features
+to all of them, and then return the top k. Instead,
+cube pruning uses a more efficient but approxi-
+mate solution that only calculates the non-local
+factors on O(k) proofs to obtain the approximate
+top k. This trick is only approximate if non-local
+features are involved.
+Approximation 2 makes it impossible to formu-
+late cube pruning using separate aggregation and
+combination operations, as the use of lazy com-
+putation causes these two operations to effectively
+be performed simultaneously. To more directly
+relate our summing algorithm (4) to cube prun-
+ing, we suggest a modified version of cube prun-
+ing that does not use lazy computation. We call
+this algorithm cube decoding. This algorithm can
+be written down in terms of separate aggregation
+</bodyText>
+<page confidence="0.98942">
+321
+</page>
+<bodyText confidence="0.9807455">
+\x0cand combination operations, though we will show
+it is not a semiring.
+</bodyText>
+<subsectionHeader confidence="0.998716">
+3.2 Cube Decoding
+</subsectionHeader>
+<bodyText confidence="0.996934636363637">
+We formally describe cube decoding, show that
+it does not instantiate a semiring, then describe
+a more general algebraic structure that it does in-
+stantiate.
+Consider the set G of non-local feature functions
+that map X L R0.4 Our definitions in 2.2
+for the k-best proof semiring can be expanded to
+accommodate these functions within the semiring
+value. Recall that values in the k-best proof semir-
+ing fall in Ak = (R0 L)k. For cube decoding,
+we use a different set Acd defined as
+</bodyText>
+<equation confidence="0.9900385">
+Acd = (R0 L)k
+ |{z }
+Ak
+G {0, 1}
+</equation>
+<bodyText confidence="0.9908434">
+where the binary variable indicates whether the
+value contains a k-best list (0, which we call an
+ordinary value) or a non-local feature function
+in G (1, which we call a function value). We
+denote a value u Acd by
+</bodyText>
+<equation confidence="0.941685666666667">
+u = hhhu1, U1i, hu2, U2i, ..., huk, Ukii
+ |{z }
+u
+, gu, usi
+where each ui R0 is a probability and each
+Ui L is a proof string.
+</equation>
+<bodyText confidence="0.909132125">
+We use k and k to denote the k-best proof
+semirings operators, defined in 2.2. We let g0 be
+such that g0(`) is undefined for all ` L. For two
+values u = hu, gu, usi, v = hv, gv, vsi Acd,
+cube decodings aggregation operator is:
+u cd v = hu k v, g0, 0i if us vs (8)
+Under standard models, only ordinary values will
+be operands of cd, so cd is undefined when us
+vs. We define the combination operator cd:
+u cd v = (9)
+hu k v, g0, 0i if us vs,
+hmax-k(exec(gv, u)), g0, 0i if us vs,
+hmax-k(exec(gu, v)), g0, 0i if us vs,
+hhi, z.(gu(z) gv(z)), 1i if us vs.
+where exec(g, u) executes the function g upon
+each proof in the proof list u, modifies the scores
+</bodyText>
+<page confidence="0.960636">
+4
+</page>
+<bodyText confidence="0.992744">
+In our setting, gm(x, `) will most commonly be defined
+as
+fm(x,`)
+m in the notation of 2.3. But functions in G could
+also be used to implement, e.g., hard constraints or other non-
+local score factors.
+in place by multiplying in the function result, and
+returns the modified proof list:
+</bodyText>
+<equation confidence="0.870531142857143">
+g0
+= `.g(x, `)
+exec(g, u) = hhu1g0
+(U1), U1i, hu2g0
+(U2), U2i,
+..., hukg0
+(Uk), Ukii
+</equation>
+<bodyText confidence="0.996375352941176">
+Here, max-k is simply used to re-sort the k-best
+proof list following function evaluation.
+The semiring properties fail to hold when in-
+troducing non-local features in this way. In par-
+ticular, cd is not associative when 1 &lt; k &lt; .
+For example, consider the probabilistic CKY algo-
+rithm as above, but using the cube decoding semir-
+ing with the non-local feature functions collec-
+tively known as NGramTree features (Huang,
+2008) that score the string of terminals and nonter-
+minals along the path from word j to word j + 1
+when two constituents CY,i,j and CZ,j,k are com-
+bined. The semiring value associated with such
+a feature is u = hhi, NGramTree(), 1i (for a
+specific path ), and we rewrite Eq. 1 as fol-
+lows (where ranges for summation are omitted for
+space):
+</bodyText>
+<equation confidence="0.945426333333333">
+CX,i,k =
+L
+cd pXY Z cd CY,i,j cd CZ,j,k cd u
+</equation>
+<bodyText confidence="0.9978955">
+The combination operator is not associative
+since the following will give different answers:5
+</bodyText>
+<equation confidence="0.9970875">
+(pXY Z cd CY,i,j) cd (CZ,j,k cd u) (10)
+((pXY Z cd CY,i,j) cd CZ,j,k) cd u (11)
+</equation>
+<bodyText confidence="0.997475333333333">
+In Eq. 10, the non-local feature function is ex-
+ecuted on the k-best proof list for Z, while in
+Eq. 11, NGramTree is called on the k-best proof
+list for the X constructed from Y and Z. Further-
+more, neither of the above gives the desired re-
+sult, since we actually wish to expand the full set
+of k2 proofs of X and then apply NGramTree
+to each of them (or a higher-dimensional cube
+if more operands are present) before selecting the
+k-best. The binary operations above retain only
+the top k proofs of X in Eq. 11 before applying
+NGramTree to each of them. We actually would
+like to redefine combination so that it can operate
+on arbitrarily-sized sets of values.
+We can understand cube decoding through an
+algebraic structure with two operations and ,
+where need not be associative and need not dis-
+tribute over , and furthermore where and are
+</bodyText>
+<page confidence="0.960231">
+5
+</page>
+<bodyText confidence="0.8608395">
+Distributivity of combination over aggregation fails for
+related reasons. We omit a full discussion due to space.
+</bodyText>
+<page confidence="0.99542">
+322
+</page>
+<bodyText confidence="0.9983413">
+\x0cdefined on arbitrarily many operands. We will re-
+fer here to such a structure as a generalized semir-
+ing.6 To define cd on a set of operands with N0
+ordinary operands and N function operands, we
+first compute the full O(kN0
+) cross-product of the
+ordinary operands, then apply each of the N func-
+tions from the remaining operands in turn upon the
+full N0-dimensional cube, finally calling max-k
+on the result.
+</bodyText>
+<sectionHeader confidence="0.973439" genericHeader="method">
+4 Cube Summing
+</sectionHeader>
+<bodyText confidence="0.999823571428571">
+We present an approximate solution to the sum-
+ming problem when non-local features are in-
+volved, which we call cube summing. It is an ex-
+tension of cube decoding, and so we will describe
+it as a generalized semiring. The key addition is to
+maintain in each value, in addition to the k-best list
+of proofs from Ak, a scalar corresponding to the
+residual probability (possibly unnormalized) of all
+proofs not among the k-best.7 The k-best proofs
+are still used for dynamically computing non-local
+features but the aggregation and combination op-
+erations are redefined to update the residual as ap-
+propriate.
+We define the set Acs for cube summing as
+</bodyText>
+<equation confidence="0.898128379310345">
+Acs = R0 (R0 L)k
+G {0, 1}
+A value u Acs is defined as
+u = hu0, hhu1, U1i, hu2, U2i, ..., huk, Ukii
+ |{z }
+u
+, gu, usi
+For a proof list u, we use kuk to denote the sum
+of all proof scores,
+P
+i:hui,Uiiu ui.
+The aggregation operator over operands
+{ui}N
+i=1, all such that uis = 0,8 is defined by:
+LN
+i=1 ui = (12)
+DPN
+i=1 ui0 +
+Res
+\x10SN
+i=1 ui
+\x11
+,
+max-k
+\x10SN
+i=1 ui
+\x11
+, g0, 0
+E
+</equation>
+<page confidence="0.848156">
+6
+</page>
+<bodyText confidence="0.998707666666667">
+Algebraic structures are typically defined with binary op-
+erators only, so we were unable to find a suitable term for this
+structure in the literature.
+</bodyText>
+<page confidence="0.994794">
+7
+</page>
+<bodyText confidence="0.996471">
+Blunsom and Osborne (2008) described a related ap-
+proach to approximate summing using the chart computed
+during cube pruning, but did not keep track of the residual
+terms as we do here.
+</bodyText>
+<page confidence="0.991909">
+8
+</page>
+<bodyText confidence="0.999190125">
+We assume that operands ui to cs will never be such
+that uis = 1 (non-local feature functions). This is reasonable
+in the widely used log-linear model setting we have adopted,
+where weights m are factors in a proofs product score.
+where Res returns the residual set of scored
+proofs not in the k-best among its arguments, pos-
+sibly the empty set.
+For a set of N+N0 operands {vi}N
+</bodyText>
+<equation confidence="0.98322">
+i=1{wj}N0
+j=1
+</equation>
+<bodyText confidence="0.88993475">
+such that vis = 1 (non-local feature functions) and
+wjs = 1 (ordinary values), the combination oper-
+ator is shown in Eq. 13 Fig. 1. Note that the
+case where N0 = 0 is not needed in this applica-
+tion; an ordinary value will always be included in
+combination.
+In the special case of two ordinary operands
+(where us = vs = 0), Eq. 13 reduces to
+</bodyText>
+<equation confidence="0.9098435">
+u v = (14)
+hu0v0 + u0 kvk + v0 kuk + kRes(u ? v)k ,
+</equation>
+<bodyText confidence="0.979151142857143">
+max-k(u ? v), g0, 0i
+We define 0 as h0, hi, g0, 0i; an appropriate def-
+inition for the combination identity element is less
+straightforward and of little practical importance;
+we leave it to future work.
+If we use this generalized semiring to solve a
+DP and achieve goal value of u, the approximate
+sum of all proof probabilities is given by u0 +kuk.
+If all features are local, the approach is exact. With
+non-local features, the k-best list may not contain
+the k-best proofs, and the residual score, while in-
+cluding all possible proofs, may not include all of
+the non-local features in all of those proofs prob-
+abilities.
+</bodyText>
+<sectionHeader confidence="0.993966" genericHeader="method">
+5 Implementation
+</sectionHeader>
+<bodyText confidence="0.998458571428571">
+We have so far viewed dynamic programming
+algorithms in terms of their declarative speci-
+fications as semiring-weighted logic programs.
+Solvers have been proposed by Goodman (1999),
+by Klein and Manning (2001) using a hypergraph
+representation, and by Eisner et al. (2005). Be-
+cause Goodmans and Eisner et al.s algorithms as-
+sume semirings, adapting them for cube summing
+is non-trivial.9
+To generalize Goodmans algorithm, we sug-
+gest using the directed-graph data structure known
+variously as an arithmetic circuit or computation
+graph.10 Arithmetic circuits have recently drawn
+interest in the graphical model community as a
+</bodyText>
+<page confidence="0.978591">
+9
+</page>
+<bodyText confidence="0.948815666666667">
+The bottom-up agenda algorithm in Eisner et al. (2005)
+might possibly be generalized so that associativity, distribu-
+tivity, and binary operators are not required (John Blatz, p.c.).
+</bodyText>
+<page confidence="0.995633">
+10
+</page>
+<bodyText confidence="0.994689">
+This data structure is not specific to any particular set of
+operations. We have also used it successfully with the inside
+semiring.
+</bodyText>
+<page confidence="0.993702">
+323
+</page>
+<equation confidence="0.859815761904762">
+\x0cN
+O
+i=1
+vi
+N0
+O
+j=1
+wj =
+*
+X
+BP(S)
+Y
+bB
+wb0
+Y
+cS\\B
+kwck
+(13)
++ kRes(exec(gv1 , . . . exec(gvN , w1 ? ? wN0 ) . . .))k ,
+max-k(exec(gv1 , . . . exec(gvN , w1 ? ? wN0 ) . . .)), g0, 0
+E
+</equation>
+<figureCaption confidence="0.998299">
+Figure 1: Combination operation for cube summing, where S = {1, 2, . . . , N0
+</figureCaption>
+<bodyText confidence="0.998942342857143">
+} and P(S) is the power set of S excluding .
+tool for performing probabilistic inference (Dar-
+wiche, 2003). In the directed graph, there are ver-
+tices corresponding to axioms (these are sinks in
+the graph), vertices corresponding to theorems,
+and vertices corresponding to summands in the
+dynamic programming equations. Directed edges
+point from each node to the nodes it depends on;
+vertices depend on vertices, which depend on
+and axiom vertices.
+Arithmetic circuits are amenable to automatic
+differentiation in the reverse mode (Griewank
+and Corliss, 1991), commonly used in back-
+propagation algorithms. Importantly, this permits
+us to calculate the exact gradient of the approx-
+imate summation with respect to axiom values,
+following Eisner et al. (2005). This is desirable
+when carrying out the optimization problems in-
+volved in parameter estimation. Another differen-
+tiation technique, implemented within the semir-
+ing, is given by Eisner (2002).
+Cube pruning is based on the k-best algorithms
+of Huang and Chiang (2005), which save time
+over generic semiring implementations through
+lazy computation in both the aggregation and com-
+bination operations. Their techniques are not as
+clearly applicable here, because our goal is to sum
+over all proofs instead of only finding a small sub-
+set of them. If computing non-local features is a
+computational bottleneck, they can be computed
+only for the O(k) proofs considered when choos-
+ing the best k as in cube pruning. Then, the com-
+putational requirements for approximate summing
+are nearly equivalent to cube pruning, but the ap-
+proximation is less accurate.
+</bodyText>
+<sectionHeader confidence="0.867061" genericHeader="method">
+6 Semirings Old and New
+</sectionHeader>
+<bodyText confidence="0.9960885">
+We now consider interesting special cases and
+variations of cube summing.
+</bodyText>
+<subsectionHeader confidence="0.999079">
+6.1 The k-best+residual Semiring
+</subsectionHeader>
+<bodyText confidence="0.9888865">
+When restricted to local features, cube pruning
+and cube summing can be seen as proper semir-
+</bodyText>
+<figure confidence="0.921464157894737">
+k-best proof
+(Goodman, 1999)
+k-best+residual
+Viterbi proof
+(Goodman, 1999)
+all proof
+(Goodman, 1999)
+Viterbi
+(Viterbi, 1967)
+ignore
+proof
+inside
+(Baum et al., 1970)
+ignore residual
+k =
+0
+k =
+k =
+1
+</figure>
+<figureCaption confidence="0.997454">
+Figure 2: Semirings generalized by k-best+residual.
+</figureCaption>
+<bodyText confidence="0.982623733333333">
+ings. Cube pruning reduces to an implementation
+of the k-best semiring (Goodman, 1998), and cube
+summing reduces to a novel semiring we call the
+k-best+residual semiring. Binary instantiations of
+and can be iteratively reapplied to give the
+equivalent formulations in Eqs. 12 and 13. We de-
+fine 0 as h0, hii and 1 as h1, h1, \x0fii. The opera-
+tor is easily shown to be commutative. That is
+associative follows from associativity of max-k,
+shown by Goodman (1998). Showing that is
+associative and that distributes over are less
+straightforward; proof sketches are provided in
+Appendix A. The k-best+residual semiring gen-
+eralizes many semirings previously introduced in
+the literature; see Fig. 2.
+</bodyText>
+<subsectionHeader confidence="0.996611">
+6.2 Variations
+</subsectionHeader>
+<bodyText confidence="0.999809625">
+Once we relax requirements about associativity
+and distributivity and permit aggregation and com-
+bination operators to operate on sets, several ex-
+tensions to cube summing become possible. First,
+when computing approximate summations with
+non-local features, we may not always be inter-
+ested in the best proofs for each item. Since the
+purpose of summing is often to calculate statistics
+</bodyText>
+<page confidence="0.993504">
+324
+</page>
+<bodyText confidence="0.9997705">
+\x0cunder a model distribution, we may wish instead
+to sample from that distribution. We can replace
+the max-k function with a sample-k function that
+samples k proofs from the scored list in its argu-
+ment, possibly using the scores or possibly uni-
+formly at random. This breaks associativity of .
+We conjecture that this approach can be used to
+simulate particle filtering for structured models.
+Another variation is to vary k for different theo-
+rems. This might be used to simulate beam search,
+or to reserve computation for theorems closer to
+goal, which have more proofs.
+</bodyText>
+<sectionHeader confidence="0.99723" genericHeader="conclusions">
+7 Conclusion
+</sectionHeader>
+<bodyText confidence="0.999901066666667">
+This paper has drawn a connection between cube
+pruning, a popular technique for approximately
+solving decoding problems, and the semiring-
+weighted logic programming view of dynamic
+programming. We have introduced a generaliza-
+tion called cube summing, to be used for solv-
+ing summing problems, and have argued that cube
+pruning and cube summing are both semirings that
+can be used generically, as long as the under-
+lying probability models only include local fea-
+tures. With non-local features, cube pruning and
+cube summing can be used for approximate decod-
+ing and summing, respectively, and although they
+no longer correspond to semirings, generic algo-
+rithms can still be used.
+</bodyText>
+<sectionHeader confidence="0.966919" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.997776214285714">
+We thank three anonymous EACL reviewers, John Blatz, Pe-
+dro Domingos, Jason Eisner, Joshua Goodman, and members
+of the ARK group for helpful comments and feedback that
+improved this paper. This research was supported by NSF
+IIS-0836431 and an IBM faculty award.
+A k-best+residual is a Semiring
+In showing that k-best+residual is a semiring, we will restrict
+our attention to the computation of the residuals. The com-
+putation over proof lists is identical to that performed in the
+k-best proof semiring, which was shown to be a semiring by
+Goodman (1998). We sketch the proofs that is associative
+and that distributes over ; associativity of is straight-
+forward.
+For a proof list a, kak denotes the sum of proof scores,
+</bodyText>
+<equation confidence="0.574621142857143">
+P
+i:hai,Aiia ai. Note that:
+kRes(a)k + kmax-k(a)k = kak (15)
+a ? b
+= kak
+b
+(16)
+</equation>
+<bodyText confidence="0.994854">
+Associativity. Given three semiring values u, v, and w, we
+need to show that (uv)w = u(vw). After expand-
+ing the expressions for the residuals using Eq. 14, there are
+10 terms on each side, five of which are identical and cancel
+out immediately. Three more cancel using Eq. 15, leaving:
+</bodyText>
+<equation confidence="0.689608">
+LHS = kRes(u ? v)k kwk + kRes(max-k(u ? v) ? w)k
+RHS = kuk kRes(v ? w)k + kRes(u ? max-k(v ? w))k
+</equation>
+<construct confidence="0.810645857142857">
+If LHS = RHS, associativity holds. Using Eq. 15 again, we
+can rewrite the second term in LHS to obtain
+LHS = kRes(u ? v)k kwk + kmax-k(u ? v) ? wk
+kmax-k(max-k(u ? v) ? w)k
+Using Eq. 16 and pulling out the common term kwk, we have
+LHS =(kRes(u ? v)k + kmax-k(u ? v)k) kwk
+kmax-k(max-k(u ? v) ? w)k
+</construct>
+<bodyText confidence="0.907847583333333">
+= k(u ? v) ? wk kmax-k(max-k(u ? v) ? w)k
+= k(u ? v) ? wk kmax-k((u ? v) ? w)k
+The resulting expression is intuitive: the residual of (uv)
+w is the difference between the sum of all proof scores and
+the sum of the k-best. RHS can be transformed into this same
+expression with a similar line of reasoning (and using asso-
+ciativity of ?). Therefore, LHS = RHS and is associative.
+Distributivity. To prove that distributes over , we must
+show left-distributivity, i.e., that u(vw) = (uv)(u
+w), and right-distributivity. We show left-distributivity here.
+As above, we expand the expressions, finding 8 terms on the
+LHS and 9 on the RHS. Six on each side cancel, leaving:
+</bodyText>
+<equation confidence="0.972588333333333">
+LHS = kRes(v w)k kuk + kRes(u ? max-k(v w))k
+RHS = kRes(u ? v)k + kRes(u ? w)k
++ kRes(max-k(u ? v) max-k(u ? w))k
+</equation>
+<bodyText confidence="0.955693333333333">
+We can rewrite LHS as:
+LHS = kRes(v w)k kuk + ku ? max-k(v w)k
+kmax-k(u ? max-k(v w))k
+= kuk (kRes(v w)k + kmax-k(v w)k)
+kmax-k(u ? max-k(v w))k
+= kuk kv wk kmax-k(u ? (v w))k
+= kuk kv wk kmax-k((u ? v) (u ? w))k
+where the last line follows because ? distributes over
+(Goodman, 1998). We now work with the RHS:
+</bodyText>
+<equation confidence="0.842116">
+RHS = kRes(u ? v)k + kRes(u ? w)k
++ kRes(max-k(u ? v) max-k(u ? w))k
+= kRes(u ? v)k + kRes(u ? w)k
++ kmax-k(u ? v) max-k(u ? w)k
+kmax-k(max-k(u ? v) max-k(u ? w))k
+</equation>
+<bodyText confidence="0.908938555555555">
+Since max-k(u ? v) and max-k(u ? w) are disjoint (we
+assume no duplicates; i.e., two different theorems can-
+not have exactly the same proof), the third term becomes
+kmax-k(u ? v)k + kmax-k(u ? w)k and we have
+= ku ? vk + ku ? wk
+kmax-k(max-k(u ? v) max-k(u ? w))k
+= kuk kvk + kuk kwk
+kmax-k((u ? v) (u ? w))k
+= kuk kv wk kmax-k((u ? v) (u ? w))k .
+</bodyText>
+<page confidence="0.991345">
+325
+</page>
+<reference confidence="0.996879138297873">
+\x0cReferences
+L. E. Baum, T. Petrie, G. Soules, and N. Weiss. 1970.
+A maximization technique occurring in the statis-
+tical analysis of probabilistic functions of Markov
+chains. Annals of Mathematical Statistics, 41(1).
+P. Blunsom and M. Osborne. 2008. Probabilistic infer-
+ence for machine translation. In Proc. of EMNLP.
+P. Blunsom, T. Cohn, and M. Osborne. 2008. A dis-
+criminative latent variable model for statistical ma-
+chine translation. In Proc. of ACL.
+D. Chiang. 2007. Hierarchical phrase-based transla-
+tion. Computational Linguistics, 33(2):201228.
+W. W. Cohen and V. Carvalho. 2005. Stacked sequen-
+tial learning. In Proc. of IJCAI.
+A. Darwiche. 2003. A differential approach to infer-
+ence in Bayesian networks. Journal of the ACM,
+50(3).
+J. Eisner, E. Goldlust, and N. A. Smith. 2005. Com-
+piling Comp Ling: Practical weighted dynamic pro-
+gramming and the Dyna language. In Proc. of HLT-
+EMNLP.
+J. Eisner. 2002. Parameter estimation for probabilistic
+finite-state transducers. In Proc. of ACL.
+J. R. Finkel, T. Grenager, and C. D. Manning. 2005.
+Incorporating non-local information into informa-
+tion extraction systems by gibbs sampling. In Proc.
+of ACL.
+J. Goodman. 1998. Parsing inside-out. Ph.D. thesis,
+Harvard University.
+J. Goodman. 1999. Semiring parsing. Computational
+Linguistics, 25(4):573605.
+A. Griewank and G. Corliss. 1991. Automatic Differ-
+entiation of Algorithms. SIAM.
+L. Huang and D. Chiang. 2005. Better k-best parsing.
+In Proc. of IWPT.
+L. Huang and D. Chiang. 2007. Forest rescoring:
+Faster decoding with integrated language models. In
+Proc. of ACL.
+L. Huang. 2008. Forest reranking: Discriminative
+parsing with non-local features. In Proc. of ACL.
+M. I. Jordan, Z. Ghahramani, T. Jaakkola, and L. Saul.
+1999. An introduction to variational methods for
+graphical models. Machine Learning, 37(2).
+D. Klein and C. Manning. 2001. Parsing and hyper-
+graphs. In Proc. of IWPT.
+T. Koo and M. Collins. 2005. Hidden-variable models
+for discriminative reranking. In Proc. of EMNLP.
+K. Kurihara and T. Sato. 2006. Variational Bayesian
+grammar induction for natural language. In Proc. of
+ICGI.
+J. Lafferty, A. McCallum, and F. Pereira. 2001. Con-
+ditional random fields: Probabilistic models for seg-
+menting and labeling sequence data. In Proc. of
+ICML.
+R. Levy, F. Reali, and T. Griffiths. 2008. Modeling the
+effects of memory on human online sentence pro-
+cessing with particle filters. In Advances in NIPS.
+B. T. Lowerre. 1976. The Harpy Speech Recognition
+System. Ph.D. thesis, Carnegie Mellon University.
+D. J. C. MacKay. 1997. Ensemble learning for hidden
+Markov models. Technical report, Cavendish Labo-
+ratory, Cambridge.
+A. F. T. Martins, D. Das, N. A. Smith, and E. P. Xing.
+2008. Stacking dependency parsers. In Proc. of
+EMNLP.
+R. McDonald and F. Pereira. 2006. Online learning
+of approximate dependency parsing algorithms. In
+Proc. of EACL.
+F. C. N. Pereira and Y. Schabes. 1992. Inside-outside
+reestimation from partially bracketed corpora. In
+Proc. of ACL, pages 128135.
+D. Roth and W. Yih. 2004. A linear programming
+formulation for global inference in natural language
+tasks. In Proc. of CoNLL.
+S. Shieber, Y. Schabes, and F. Pereira. 1995. Principles
+and implementation of deductive parsing. Journal of
+Logic Programming, 24(1-2):336.
+D. A. Smith and J. Eisner. 2008. Dependency parsing
+by belief propagation. In Proc. of EMNLP.
+N. A. Smith, D. L. Vail, and J. D. Lafferty. 2007. Com-
+putationally efficient M-estimation of log-linear
+structure models. In Proc. of ACL.
+C. Sutton and A. McCallum. 2004. Collective seg-
+mentation and labeling of distant entities in infor-
+mation extraction. In Proc. of ICML Workshop on
+Statistical Relational Learning and Its Connections
+to Other Fields.
+A. J. Viterbi. 1967. Error bounds for convolutional
+codes and an asymptotically optimal decoding algo-
+rithm. IEEE Transactions on Information Process-
+ing, 13(2).
+M. Wang, N. A. Smith, and T. Mitamura. 2007. What
+is the Jeopardy model? a quasi-synchronous gram-
+mar for QA. In Proc. of EMNLP-CoNLL.
+</reference>
+<page confidence="0.995936">
+326
+</page>
+<figure confidence="0.244722">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.595964">
+<note confidence="0.894429">b&amp;apos;Proceedings of the 12th Conference of the European Chapter of the ACL, pages 318326, Athens, Greece, 30 March 3 April 2009. c 2009 Association for Computational Linguistics Cube Summing, Approximate Inference with Non-Local Features,</note>
+<title confidence="0.995947">and Dynamic Programming without Semirings</title>
+<author confidence="0.999949">Kevin Gimpel</author>
+<author confidence="0.999949">Noah A Smith</author>
+<affiliation confidence="0.9985845">Language Technologies Institute Carnegie Mellon University</affiliation>
+<address confidence="0.970179">Pittsburgh, PA 15213, USA</address>
+<email confidence="0.999784">kgimpel@cs.cmu.edu</email>
+<email confidence="0.999784">nasmith@cs.cmu.edu</email>
+<abstract confidence="0.999173454545454">We introduce cube summing, a technique that permits dynamic programming algorithms for summing over structures (like the forward and inside algorithms) to be extended with non-local features that violate the classical structural independence assumptions. It is inspired by cube pruning (Chiang, 2007; Huang and Chiang, 2007) in its computation of non-local features dynamically using scored k-best lists, but also maintains additional residual quantities used in calculating approximate marginals. When restricted to local features, cube summing reduces to a novel semiring (k-best+residual) that generalizes many of the semirings of Goodman (1999). When non-local features are included, cube summing does not reduce to any semiring, but is compatible with generic techniques for solving dynamic programming equations.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>\x0cReferences L E Baum</author>
+<author>T Petrie</author>
+<author>G Soules</author>
+<author>N Weiss</author>
+</authors>
+<title>A maximization technique occurring in the statistical analysis of probabilistic functions of Markov chains.</title>
+<date>1970</date>
+<journal>Annals of Mathematical Statistics,</journal>
+<volume>41</volume>
+<issue>1</issue>
+<contexts>
+<context position="27312" citStr="Baum et al., 1970" startWordPosition="4682" endWordPosition="4685"> computed only for the O(k) proofs considered when choosing the best k as in cube pruning. Then, the computational requirements for approximate summing are nearly equivalent to cube pruning, but the approximation is less accurate. 6 Semirings Old and New We now consider interesting special cases and variations of cube summing. 6.1 The k-best+residual Semiring When restricted to local features, cube pruning and cube summing can be seen as proper semirk-best proof (Goodman, 1999) k-best+residual Viterbi proof (Goodman, 1999) all proof (Goodman, 1999) Viterbi (Viterbi, 1967) ignore proof inside (Baum et al., 1970) ignore residual k = 0 k = k = 1 Figure 2: Semirings generalized by k-best+residual. ings. Cube pruning reduces to an implementation of the k-best semiring (Goodman, 1998), and cube summing reduces to a novel semiring we call the k-best+residual semiring. Binary instantiations of and can be iteratively reapplied to give the equivalent formulations in Eqs. 12 and 13. We define 0 as h0, hii and 1 as h1, h1, \x0fii. The operator is easily shown to be commutative. That is associative follows from associativity of max-k, shown by Goodman (1998). Showing that is associative and that distributes over</context>
+</contexts>
+<marker>Baum, Petrie, Soules, Weiss, 1970</marker>
+<rawString>\x0cReferences L. E. Baum, T. Petrie, G. Soules, and N. Weiss. 1970. A maximization technique occurring in the statistical analysis of probabilistic functions of Markov chains. Annals of Mathematical Statistics, 41(1).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P Blunsom</author>
+<author>M Osborne</author>
+</authors>
+<title>Probabilistic inference for machine translation.</title>
+<date>2008</date>
+<booktitle>In Proc. of EMNLP.</booktitle>
+<contexts>
+<context position="22525" citStr="Blunsom and Osborne (2008)" startWordPosition="3860" endWordPosition="3863">al as appropriate. We define the set Acs for cube summing as Acs = R0 (R0 L)k G {0, 1} A value u Acs is defined as u = hu0, hhu1, U1i, hu2, U2i, ..., huk, Ukii |{z } u , gu, usi For a proof list u, we use kuk to denote the sum of all proof scores, P i:hui,Uiiu ui. The aggregation operator over operands {ui}N i=1, all such that uis = 0,8 is defined by: LN i=1 ui = (12) DPN i=1 ui0 + Res \x10SN i=1 ui \x11 , max-k \x10SN i=1 ui \x11 , g0, 0 E 6 Algebraic structures are typically defined with binary operators only, so we were unable to find a suitable term for this structure in the literature. 7 Blunsom and Osborne (2008) described a related approach to approximate summing using the chart computed during cube pruning, but did not keep track of the residual terms as we do here. 8 We assume that operands ui to cs will never be such that uis = 1 (non-local feature functions). This is reasonable in the widely used log-linear model setting we have adopted, where weights m are factors in a proofs product score. where Res returns the residual set of scored proofs not in the k-best among its arguments, possibly the empty set. For a set of N+N0 operands {vi}N i=1{wj}N0 j=1 such that vis = 1 (non-local feature functions</context>
+</contexts>
+<marker>Blunsom, Osborne, 2008</marker>
+<rawString>P. Blunsom and M. Osborne. 2008. Probabilistic inference for machine translation. In Proc. of EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P Blunsom</author>
+<author>T Cohn</author>
+<author>M Osborne</author>
+</authors>
+<title>A discriminative latent variable model for statistical machine translation.</title>
+<date>2008</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="2382" citStr="Blunsom et al., 2008" startWordPosition="336" endWordPosition="339">hiang, 2007; Huang and Chiang, 2007) was proposed as a way to leverage existing dynamic programming algorithms that find optimal-scoring derivations or structures when only local features are involved. Cube pruning permits approximate decoding with non-local features, but leaves open the question of how the feature weights or probabilities are learned. Meanwhile, some learning algorithms, like maximum likelihood for conditional log-linear models (Lafferty et al., 2001), unsupervised models (Pereira and Schabes, 1992), and models with hidden variables (Koo and Collins, 2005; Wang et al., 2007; Blunsom et al., 2008), require summing over the scores of many structures to calculate marginals. We first review the semiring-weighted logic programming view of dynamic programming algorithms (Shieber et al., 1995) and identify an intuitive property of a program called proof locality that follows from feature locality in the underlying probability model (2). We then provide an analysis of cube pruning as an approximation to the intractable problem of exact optimization over structures with non-local features and show how the use of non-local features with k-best lists breaks certain semiring properties (3). The p</context>
+</contexts>
+<marker>Blunsom, Cohn, Osborne, 2008</marker>
+<rawString>P. Blunsom, T. Cohn, and M. Osborne. 2008. A discriminative latent variable model for statistical machine translation. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Chiang</author>
+</authors>
+<title>Hierarchical phrase-based translation.</title>
+<date>2007</date>
+<journal>Computational Linguistics,</journal>
+<volume>33</volume>
+<issue>2</issue>
+<contexts>
+<context position="731" citStr="Chiang, 2007" startWordPosition="100" endWordPosition="101"> 2009. c 2009 Association for Computational Linguistics Cube Summing, Approximate Inference with Non-Local Features, and Dynamic Programming without Semirings Kevin Gimpel and Noah A. Smith Language Technologies Institute Carnegie Mellon University Pittsburgh, PA 15213, USA {kgimpel,nasmith}@cs.cmu.edu Abstract We introduce cube summing, a technique that permits dynamic programming algorithms for summing over structures (like the forward and inside algorithms) to be extended with non-local features that violate the classical structural independence assumptions. It is inspired by cube pruning (Chiang, 2007; Huang and Chiang, 2007) in its computation of non-local features dynamically using scored k-best lists, but also maintains additional residual quantities used in calculating approximate marginals. When restricted to local features, cube summing reduces to a novel semiring (k-best+residual) that generalizes many of the semirings of Goodman (1999). When non-local features are included, cube summing does not reduce to any semiring, but is compatible with generic techniques for solving dynamic programming equations. 1 Introduction Probabilistic NLP researchers frequently make independence assump</context>
+<context position="15043" citStr="Chiang, 2007" startWordPosition="2502" endWordPosition="2503">alues (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in 3, integer linear programming (Roth and Yih, 2004), in which arbitrary features can act as constraints on y, and approximate solutions like McDonald and Pereira (2006), in which an exact solution to a related decoding problem is found and then modified to fit the problem of interest. 3 Approximate Decoding Cube pruning (Chiang, 2007; Huang and Chiang, 2007) is an approximate technique for decoding (Eq. 4); it is used widely in machine translation. Given proof locality, it is essentially an efficient implementation of the k-best proof semiring. Cube pruning goes farther in that it permits nonlocal features to weigh in on the proof probabilities, at the expense of making the k-best operation approximate. We describe the two approximations cube pruning makes, then propose cube decoding, which removes the second approximation. Cube decoding cannot be represented as a semiring; we propose a more general algebraic structure th</context>
+</contexts>
+<marker>Chiang, 2007</marker>
+<rawString>D. Chiang. 2007. Hierarchical phrase-based translation. Computational Linguistics, 33(2):201228.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W W Cohen</author>
+<author>V Carvalho</author>
+</authors>
+<title>Stacked sequential learning.</title>
+<date>2005</date>
+<booktitle>In Proc. of IJCAI.</booktitle>
+<contexts>
+<context position="14376" citStr="Cohen and Carvalho, 2005" startWordPosition="2397" endWordPosition="2400">omputational cost. In general, it leads to exponential-time inference in the worst case. There have been many algorithms proposed for approximately solving instances of these decoding and summing problems with non-local features. Some stem from work on graphical models, including loopy belief propagation (Sutton and McCallum, 2004; Smith and Eisner, 2008), Gibbs sampling (Finkel et al., 2005), sequential Monte Carlo methods such as particle filtering (Levy et al., 2008), and variational inference (Jordan et al., 1999; MacKay, 1997; Kurihara and Sato, 2006). Also relevant are stacked learning (Cohen and Carvalho, 2005), interpretable as approximation of non-local feature values (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in 3, integer linear programming (Roth and Yih, 2004), in which arbitrary features can act as constraints on y, and approximate solutions like McDonald and Pereira (2006), in which an exact solution to a related decoding problem is found and then modified to fit the pro</context>
+</contexts>
+<marker>Cohen, Carvalho, 2005</marker>
+<rawString>W. W. Cohen and V. Carvalho. 2005. Stacked sequential learning. In Proc. of IJCAI.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Darwiche</author>
+</authors>
+<title>A differential approach to inference in Bayesian networks.</title>
+<date>2003</date>
+<journal>Journal of the ACM,</journal>
+<volume>50</volume>
+<issue>3</issue>
+<contexts>
+<context position="25428" citStr="Darwiche, 2003" startWordPosition="4391" endWordPosition="4393">lized so that associativity, distributivity, and binary operators are not required (John Blatz, p.c.). 10 This data structure is not specific to any particular set of operations. We have also used it successfully with the inside semiring. 323 \x0cN O i=1 vi N0 O j=1 wj = * X BP(S) Y bB wb0 Y cS\\B kwck (13) + kRes(exec(gv1 , . . . exec(gvN , w1 ? ? wN0 ) . . .))k , max-k(exec(gv1 , . . . exec(gvN , w1 ? ? wN0 ) . . .)), g0, 0 E Figure 1: Combination operation for cube summing, where S = {1, 2, . . . , N0 } and P(S) is the power set of S excluding . tool for performing probabilistic inference (Darwiche, 2003). In the directed graph, there are vertices corresponding to axioms (these are sinks in the graph), vertices corresponding to theorems, and vertices corresponding to summands in the dynamic programming equations. Directed edges point from each node to the nodes it depends on; vertices depend on vertices, which depend on and axiom vertices. Arithmetic circuits are amenable to automatic differentiation in the reverse mode (Griewank and Corliss, 1991), commonly used in backpropagation algorithms. Importantly, this permits us to calculate the exact gradient of the approximate summation with respec</context>
+</contexts>
+<marker>Darwiche, 2003</marker>
+<rawString>A. Darwiche. 2003. A differential approach to inference in Bayesian networks. Journal of the ACM, 50(3).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Eisner</author>
+<author>E Goldlust</author>
+<author>N A Smith</author>
+</authors>
+<title>Compiling Comp Ling: Practical weighted dynamic programming and the Dyna language.</title>
+<date>2005</date>
+<booktitle>In Proc. of HLTEMNLP.</booktitle>
+<contexts>
+<context position="4732" citStr="Eisner et al., 2005" startWordPosition="686" endWordPosition="689">999) augmented such logic programs with semiring weights, giving an algebraic explanation for the intuitive connections among classes of algorithms with the same logical structure. For example, in Goodmans framework, the forward algorithm and the Viterbi algorithm are comprised of the same logic program with different semirings. Goodman defined other semirings, including ones we will use here. This formal framework was the basis for the Dyna programming language, which permits a declarative specification of the logic program and compiles it into an efficient, agendabased, bottom-up procedure (Eisner et al., 2005). For our purposes, a DP consists of a set of recursive equations over a set of indexed variables. For example, the probabilistic CKY algorithm (run on sentence w1w2...wn) is written as CX,i1,i = pXwi (1) CX,i,k = max Y,ZN;j{i+1,...,k1} pXY Z CY,i,j CZ,j,k goal = CS,0,n where N is the nonterminal set and S N is the start symbol. Each CX,i,j variable corresponds to the chart value (probability of the most likely subtree) of an X-constituent spanning the substring wi+1...wj. goal is a special variable of greatest interest, though solving for goal correctly may (in general, but not in this exampl</context>
+<context position="24380" citStr="Eisner et al. (2005)" startWordPosition="4196" endWordPosition="4199">roximate sum of all proof probabilities is given by u0 +kuk. If all features are local, the approach is exact. With non-local features, the k-best list may not contain the k-best proofs, and the residual score, while including all possible proofs, may not include all of the non-local features in all of those proofs probabilities. 5 Implementation We have so far viewed dynamic programming algorithms in terms of their declarative specifications as semiring-weighted logic programs. Solvers have been proposed by Goodman (1999), by Klein and Manning (2001) using a hypergraph representation, and by Eisner et al. (2005). Because Goodmans and Eisner et al.s algorithms assume semirings, adapting them for cube summing is non-trivial.9 To generalize Goodmans algorithm, we suggest using the directed-graph data structure known variously as an arithmetic circuit or computation graph.10 Arithmetic circuits have recently drawn interest in the graphical model community as a 9 The bottom-up agenda algorithm in Eisner et al. (2005) might possibly be generalized so that associativity, distributivity, and binary operators are not required (John Blatz, p.c.). 10 This data structure is not specific to any particular set of </context>
+<context position="26077" citStr="Eisner et al. (2005)" startWordPosition="4488" endWordPosition="4491">e are vertices corresponding to axioms (these are sinks in the graph), vertices corresponding to theorems, and vertices corresponding to summands in the dynamic programming equations. Directed edges point from each node to the nodes it depends on; vertices depend on vertices, which depend on and axiom vertices. Arithmetic circuits are amenable to automatic differentiation in the reverse mode (Griewank and Corliss, 1991), commonly used in backpropagation algorithms. Importantly, this permits us to calculate the exact gradient of the approximate summation with respect to axiom values, following Eisner et al. (2005). This is desirable when carrying out the optimization problems involved in parameter estimation. Another differentiation technique, implemented within the semiring, is given by Eisner (2002). Cube pruning is based on the k-best algorithms of Huang and Chiang (2005), which save time over generic semiring implementations through lazy computation in both the aggregation and combination operations. Their techniques are not as clearly applicable here, because our goal is to sum over all proofs instead of only finding a small subset of them. If computing non-local features is a computational bottle</context>
+</contexts>
+<marker>Eisner, Goldlust, Smith, 2005</marker>
+<rawString>J. Eisner, E. Goldlust, and N. A. Smith. 2005. Compiling Comp Ling: Practical weighted dynamic programming and the Dyna language. In Proc. of HLTEMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Eisner</author>
+</authors>
+<title>Parameter estimation for probabilistic finite-state transducers.</title>
+<date>2002</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="26268" citStr="Eisner (2002)" startWordPosition="4518" endWordPosition="4519"> point from each node to the nodes it depends on; vertices depend on vertices, which depend on and axiom vertices. Arithmetic circuits are amenable to automatic differentiation in the reverse mode (Griewank and Corliss, 1991), commonly used in backpropagation algorithms. Importantly, this permits us to calculate the exact gradient of the approximate summation with respect to axiom values, following Eisner et al. (2005). This is desirable when carrying out the optimization problems involved in parameter estimation. Another differentiation technique, implemented within the semiring, is given by Eisner (2002). Cube pruning is based on the k-best algorithms of Huang and Chiang (2005), which save time over generic semiring implementations through lazy computation in both the aggregation and combination operations. Their techniques are not as clearly applicable here, because our goal is to sum over all proofs instead of only finding a small subset of them. If computing non-local features is a computational bottleneck, they can be computed only for the O(k) proofs considered when choosing the best k as in cube pruning. Then, the computational requirements for approximate summing are nearly equivalent </context>
+</contexts>
+<marker>Eisner, 2002</marker>
+<rawString>J. Eisner. 2002. Parameter estimation for probabilistic finite-state transducers. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J R Finkel</author>
+<author>T Grenager</author>
+<author>C D Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="14146" citStr="Finkel et al., 2005" startWordPosition="2363" endWordPosition="2366">imes, it is possible to achieve proof locality by adding more indices to the DP variables (for example, consider modifying the bigram HMM Viterbi algorithm for trigram HMMs). This increases the number of variables and hence computational cost. In general, it leads to exponential-time inference in the worst case. There have been many algorithms proposed for approximately solving instances of these decoding and summing problems with non-local features. Some stem from work on graphical models, including loopy belief propagation (Sutton and McCallum, 2004; Smith and Eisner, 2008), Gibbs sampling (Finkel et al., 2005), sequential Monte Carlo methods such as particle filtering (Levy et al., 2008), and variational inference (Jordan et al., 1999; MacKay, 1997; Kurihara and Sato, 2006). Also relevant are stacked learning (Cohen and Carvalho, 2005), interpretable as approximation of non-local feature values (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in 3, integer linear programming (Roth a</context>
+</contexts>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>J. R. Finkel, T. Grenager, and C. D. Manning. 2005. Incorporating non-local information into information extraction systems by gibbs sampling. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Goodman</author>
+</authors>
+<title>Parsing inside-out.</title>
+<date>1998</date>
+<tech>Ph.D. thesis,</tech>
+<institution>Harvard University.</institution>
+<contexts>
+<context position="27483" citStr="Goodman, 1998" startWordPosition="4713" endWordPosition="4714">o cube pruning, but the approximation is less accurate. 6 Semirings Old and New We now consider interesting special cases and variations of cube summing. 6.1 The k-best+residual Semiring When restricted to local features, cube pruning and cube summing can be seen as proper semirk-best proof (Goodman, 1999) k-best+residual Viterbi proof (Goodman, 1999) all proof (Goodman, 1999) Viterbi (Viterbi, 1967) ignore proof inside (Baum et al., 1970) ignore residual k = 0 k = k = 1 Figure 2: Semirings generalized by k-best+residual. ings. Cube pruning reduces to an implementation of the k-best semiring (Goodman, 1998), and cube summing reduces to a novel semiring we call the k-best+residual semiring. Binary instantiations of and can be iteratively reapplied to give the equivalent formulations in Eqs. 12 and 13. We define 0 as h0, hii and 1 as h1, h1, \x0fii. The operator is easily shown to be commutative. That is associative follows from associativity of max-k, shown by Goodman (1998). Showing that is associative and that distributes over are less straightforward; proof sketches are provided in Appendix A. The k-best+residual semiring generalizes many semirings previously introduced in the literature; see </context>
+<context position="30323" citStr="Goodman (1998)" startWordPosition="5170" endWordPosition="5171">irings, generic algorithms can still be used. Acknowledgments We thank three anonymous EACL reviewers, John Blatz, Pedro Domingos, Jason Eisner, Joshua Goodman, and members of the ARK group for helpful comments and feedback that improved this paper. This research was supported by NSF IIS-0836431 and an IBM faculty award. A k-best+residual is a Semiring In showing that k-best+residual is a semiring, we will restrict our attention to the computation of the residuals. The computation over proof lists is identical to that performed in the k-best proof semiring, which was shown to be a semiring by Goodman (1998). We sketch the proofs that is associative and that distributes over ; associativity of is straightforward. For a proof list a, kak denotes the sum of proof scores, P i:hai,Aiia ai. Note that: kRes(a)k + kmax-k(a)k = kak (15) a ? b = kak b (16) Associativity. Given three semiring values u, v, and w, we need to show that (uv)w = u(vw). After expanding the expressions for the residuals using Eq. 14, there are 10 terms on each side, five of which are identical and cancel out immediately. Three more cancel using Eq. 15, leaving: LHS = kRes(u ? v)k kwk + kRes(max-k(u ? v) ? w)k RHS = kuk kRes(v ? w</context>
+</contexts>
+<marker>Goodman, 1998</marker>
+<rawString>J. Goodman. 1998. Parsing inside-out. Ph.D. thesis, Harvard University.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Goodman</author>
+</authors>
+<title>Semiring parsing.</title>
+<date>1999</date>
+<journal>Computational Linguistics,</journal>
+<volume>25</volume>
+<issue>4</issue>
+<contexts>
+<context position="1080" citStr="Goodman (1999)" startWordPosition="152" endWordPosition="154">ique that permits dynamic programming algorithms for summing over structures (like the forward and inside algorithms) to be extended with non-local features that violate the classical structural independence assumptions. It is inspired by cube pruning (Chiang, 2007; Huang and Chiang, 2007) in its computation of non-local features dynamically using scored k-best lists, but also maintains additional residual quantities used in calculating approximate marginals. When restricted to local features, cube summing reduces to a novel semiring (k-best+residual) that generalizes many of the semirings of Goodman (1999). When non-local features are included, cube summing does not reduce to any semiring, but is compatible with generic techniques for solving dynamic programming equations. 1 Introduction Probabilistic NLP researchers frequently make independence assumptions to keep inference algorithms tractable. Doing so limits the features that are available to our models, requiring features to be structurally local. Yet many problems in NLPmachine translation, parsing, named-entity recognition, and othershave benefited from the addition of non-local features that break classical independence assumptions. Doi</context>
+<context position="4116" citStr="Goodman (1999)" startWordPosition="596" endWordPosition="597"> the definition of semirings and important examples. We discuss the relationship between locally-factored structure scores and proofs in logic programs. 2.1 Dynamic Programming Many algorithms in NLP involve dynamic programming (e.g., the Viterbi, forward-backward, 318 \x0cprobabilistic Earleys, and minimum edit distance algorithms). Dynamic programming (DP) involves solving certain kinds of recursive equations with shared substructure and a topological ordering of the variables. Shieber et al. (1995) showed a connection between DP (specifically, as used in parsing) and logic programming, and Goodman (1999) augmented such logic programs with semiring weights, giving an algebraic explanation for the intuitive connections among classes of algorithms with the same logical structure. For example, in Goodmans framework, the forward algorithm and the Viterbi algorithm are comprised of the same logic program with different semirings. Goodman defined other semirings, including ones we will use here. This formal framework was the basis for the Dyna programming language, which permits a declarative specification of the logic program and compiles it into an efficient, agendabased, bottom-up procedure (Eisn</context>
+<context position="7488" citStr="Goodman, 1999" startWordPosition="1199" endWordPosition="1200"> 0 for all a A.1 Examples include the inside semiring, hR0, +, , 0, 1i, and the Viterbi semiring, hR0, max, , 0, 1i. The former sums the probabilities of all proofs of each theorem. The latter (used in Eq. 1) calculates the probability of the most probable proof of each theorem. Two more examples follow. Viterbi proof semiring. We typically need to recover the steps in the most probable proof in addition to its probability. This is often done using backpointers, but can also be accomplished by representing the most probable proof for each theorem in its entirety as part of the semiring value (Goodman, 1999). For generality, we define a proof as a string that is constructed from strings associated with axioms, but the particular form of a proof is problem-dependent. The Viterbi proof semiring includes the probability of the most probable proof and the proof itself. Letting L be the proof language on some symbol set , this semiring is defined on the set R0 L with 0 element h0, \x0fi and 1 element h1, \x0fi. For two values hu1, U1i and hu2, U2i, the aggregation operator returns hmax(u1, u2), Uargmaxi{1,2} ui i. 1 When cycles are permitted, i.e., where the value of one variable depends on itself, in</context>
+<context position="9771" citStr="Goodman (1999)" startWordPosition="1599" endWordPosition="1600"> is (R0 L)k, i.e., sequences (up to length k) of sorted probability/proof pairs. The aggregation operator uses max-k, which chooses the k highest-scoring proofs from its argument (a set of scored proofs) and sorts them in decreasing order. To define the combination operator , we require a cross-product that pairs probabilities and proofs from two k-best lists. We call this ?, defined on two semiring values u = hhu1, U1i, ..., huk, Ukii and v = hhv1, V1i, ..., hvk, Vkii by: u ? v = {huivj, Ui.Vji |i, j {1, ..., k}} (2) Then, u v = max-k(u ? v). This is similar to the k-best semiring defined by Goodman (1999). These semirings are summarized in Table 1. 2.3 Features and Inference Let X be the space of inputs to our logic program, i.e., x X is a set of axioms. Let L denote the proof language and let Y L denote the set of proof strings that constitute full proofs, i.e., proofs of the special goal theorem. We assume an exponential probabilistic model such that p(y |x) QM m=1 hm(x,y) m (3) where each m 0 is a parameter of the model and each hm is a feature function. There is a bijection between Y and the space of discrete structures that our model predicts. Given such a model, DP is helpful for solving</context>
+<context position="24288" citStr="Goodman (1999)" startWordPosition="4183" endWordPosition="4184">If we use this generalized semiring to solve a DP and achieve goal value of u, the approximate sum of all proof probabilities is given by u0 +kuk. If all features are local, the approach is exact. With non-local features, the k-best list may not contain the k-best proofs, and the residual score, while including all possible proofs, may not include all of the non-local features in all of those proofs probabilities. 5 Implementation We have so far viewed dynamic programming algorithms in terms of their declarative specifications as semiring-weighted logic programs. Solvers have been proposed by Goodman (1999), by Klein and Manning (2001) using a hypergraph representation, and by Eisner et al. (2005). Because Goodmans and Eisner et al.s algorithms assume semirings, adapting them for cube summing is non-trivial.9 To generalize Goodmans algorithm, we suggest using the directed-graph data structure known variously as an arithmetic circuit or computation graph.10 Arithmetic circuits have recently drawn interest in the graphical model community as a 9 The bottom-up agenda algorithm in Eisner et al. (2005) might possibly be generalized so that associativity, distributivity, and binary operators are not r</context>
+<context position="27176" citStr="Goodman, 1999" startWordPosition="4665" endWordPosition="4666">ll proofs instead of only finding a small subset of them. If computing non-local features is a computational bottleneck, they can be computed only for the O(k) proofs considered when choosing the best k as in cube pruning. Then, the computational requirements for approximate summing are nearly equivalent to cube pruning, but the approximation is less accurate. 6 Semirings Old and New We now consider interesting special cases and variations of cube summing. 6.1 The k-best+residual Semiring When restricted to local features, cube pruning and cube summing can be seen as proper semirk-best proof (Goodman, 1999) k-best+residual Viterbi proof (Goodman, 1999) all proof (Goodman, 1999) Viterbi (Viterbi, 1967) ignore proof inside (Baum et al., 1970) ignore residual k = 0 k = k = 1 Figure 2: Semirings generalized by k-best+residual. ings. Cube pruning reduces to an implementation of the k-best semiring (Goodman, 1998), and cube summing reduces to a novel semiring we call the k-best+residual semiring. Binary instantiations of and can be iteratively reapplied to give the equivalent formulations in Eqs. 12 and 13. We define 0 as h0, hii and 1 as h1, h1, \x0fii. The operator is easily shown to be commutative.</context>
+</contexts>
+<marker>Goodman, 1999</marker>
+<rawString>J. Goodman. 1999. Semiring parsing. Computational Linguistics, 25(4):573605.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Griewank</author>
+<author>G Corliss</author>
+</authors>
+<title>Automatic Differentiation of Algorithms.</title>
+<date>1991</date>
+<publisher>SIAM.</publisher>
+<contexts>
+<context position="25880" citStr="Griewank and Corliss, 1991" startWordPosition="4458" endWordPosition="4461">: Combination operation for cube summing, where S = {1, 2, . . . , N0 } and P(S) is the power set of S excluding . tool for performing probabilistic inference (Darwiche, 2003). In the directed graph, there are vertices corresponding to axioms (these are sinks in the graph), vertices corresponding to theorems, and vertices corresponding to summands in the dynamic programming equations. Directed edges point from each node to the nodes it depends on; vertices depend on vertices, which depend on and axiom vertices. Arithmetic circuits are amenable to automatic differentiation in the reverse mode (Griewank and Corliss, 1991), commonly used in backpropagation algorithms. Importantly, this permits us to calculate the exact gradient of the approximate summation with respect to axiom values, following Eisner et al. (2005). This is desirable when carrying out the optimization problems involved in parameter estimation. Another differentiation technique, implemented within the semiring, is given by Eisner (2002). Cube pruning is based on the k-best algorithms of Huang and Chiang (2005), which save time over generic semiring implementations through lazy computation in both the aggregation and combination operations. Thei</context>
+</contexts>
+<marker>Griewank, Corliss, 1991</marker>
+<rawString>A. Griewank and G. Corliss. 1991. Automatic Differentiation of Algorithms. SIAM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Huang</author>
+<author>D Chiang</author>
+</authors>
+<title>Better k-best parsing.</title>
+<date>2005</date>
+<booktitle>In Proc. of IWPT.</booktitle>
+<contexts>
+<context position="26343" citStr="Huang and Chiang (2005)" startWordPosition="4529" endWordPosition="4532"> on vertices, which depend on and axiom vertices. Arithmetic circuits are amenable to automatic differentiation in the reverse mode (Griewank and Corliss, 1991), commonly used in backpropagation algorithms. Importantly, this permits us to calculate the exact gradient of the approximate summation with respect to axiom values, following Eisner et al. (2005). This is desirable when carrying out the optimization problems involved in parameter estimation. Another differentiation technique, implemented within the semiring, is given by Eisner (2002). Cube pruning is based on the k-best algorithms of Huang and Chiang (2005), which save time over generic semiring implementations through lazy computation in both the aggregation and combination operations. Their techniques are not as clearly applicable here, because our goal is to sum over all proofs instead of only finding a small subset of them. If computing non-local features is a computational bottleneck, they can be computed only for the O(k) proofs considered when choosing the best k as in cube pruning. Then, the computational requirements for approximate summing are nearly equivalent to cube pruning, but the approximation is less accurate. 6 Semirings Old an</context>
+</contexts>
+<marker>Huang, Chiang, 2005</marker>
+<rawString>L. Huang and D. Chiang. 2005. Better k-best parsing. In Proc. of IWPT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Huang</author>
+<author>D Chiang</author>
+</authors>
+<title>Forest rescoring: Faster decoding with integrated language models.</title>
+<date>2007</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="756" citStr="Huang and Chiang, 2007" startWordPosition="102" endWordPosition="105">Association for Computational Linguistics Cube Summing, Approximate Inference with Non-Local Features, and Dynamic Programming without Semirings Kevin Gimpel and Noah A. Smith Language Technologies Institute Carnegie Mellon University Pittsburgh, PA 15213, USA {kgimpel,nasmith}@cs.cmu.edu Abstract We introduce cube summing, a technique that permits dynamic programming algorithms for summing over structures (like the forward and inside algorithms) to be extended with non-local features that violate the classical structural independence assumptions. It is inspired by cube pruning (Chiang, 2007; Huang and Chiang, 2007) in its computation of non-local features dynamically using scored k-best lists, but also maintains additional residual quantities used in calculating approximate marginals. When restricted to local features, cube summing reduces to a novel semiring (k-best+residual) that generalizes many of the semirings of Goodman (1999). When non-local features are included, cube summing does not reduce to any semiring, but is compatible with generic techniques for solving dynamic programming equations. 1 Introduction Probabilistic NLP researchers frequently make independence assumptions to keep inference a</context>
+<context position="15068" citStr="Huang and Chiang, 2007" startWordPosition="2504" endWordPosition="2508"> et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in 3, integer linear programming (Roth and Yih, 2004), in which arbitrary features can act as constraints on y, and approximate solutions like McDonald and Pereira (2006), in which an exact solution to a related decoding problem is found and then modified to fit the problem of interest. 3 Approximate Decoding Cube pruning (Chiang, 2007; Huang and Chiang, 2007) is an approximate technique for decoding (Eq. 4); it is used widely in machine translation. Given proof locality, it is essentially an efficient implementation of the k-best proof semiring. Cube pruning goes farther in that it permits nonlocal features to weigh in on the proof probabilities, at the expense of making the k-best operation approximate. We describe the two approximations cube pruning makes, then propose cube decoding, which removes the second approximation. Cube decoding cannot be represented as a semiring; we propose a more general algebraic structure that accommodates it. 3.1 A</context>
+</contexts>
+<marker>Huang, Chiang, 2007</marker>
+<rawString>L. Huang and D. Chiang. 2007. Forest rescoring: Faster decoding with integrated language models. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Huang</author>
+</authors>
+<title>Forest reranking: Discriminative parsing with non-local features.</title>
+<date>2008</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="19377" citStr="Huang, 2008" startWordPosition="3277" endWordPosition="3278">local score factors. in place by multiplying in the function result, and returns the modified proof list: g0 = `.g(x, `) exec(g, u) = hhu1g0 (U1), U1i, hu2g0 (U2), U2i, ..., hukg0 (Uk), Ukii Here, max-k is simply used to re-sort the k-best proof list following function evaluation. The semiring properties fail to hold when introducing non-local features in this way. In particular, cd is not associative when 1 &lt; k &lt; . For example, consider the probabilistic CKY algorithm as above, but using the cube decoding semiring with the non-local feature functions collectively known as NGramTree features (Huang, 2008) that score the string of terminals and nonterminals along the path from word j to word j + 1 when two constituents CY,i,j and CZ,j,k are combined. The semiring value associated with such a feature is u = hhi, NGramTree(), 1i (for a specific path ), and we rewrite Eq. 1 as follows (where ranges for summation are omitted for space): CX,i,k = L cd pXY Z cd CY,i,j cd CZ,j,k cd u The combination operator is not associative since the following will give different answers:5 (pXY Z cd CY,i,j) cd (CZ,j,k cd u) (10) ((pXY Z cd CY,i,j) cd CZ,j,k) cd u (11) In Eq. 10, the non-local feature function is ex</context>
+</contexts>
+<marker>Huang, 2008</marker>
+<rawString>L. Huang. 2008. Forest reranking: Discriminative parsing with non-local features. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M I Jordan</author>
+<author>Z Ghahramani</author>
+<author>T Jaakkola</author>
+<author>L Saul</author>
+</authors>
+<title>An introduction to variational methods for graphical models.</title>
+<date>1999</date>
+<booktitle>Machine Learning,</booktitle>
+<volume>37</volume>
+<issue>2</issue>
+<contexts>
+<context position="14273" citStr="Jordan et al., 1999" startWordPosition="2382" endWordPosition="2385">igram HMM Viterbi algorithm for trigram HMMs). This increases the number of variables and hence computational cost. In general, it leads to exponential-time inference in the worst case. There have been many algorithms proposed for approximately solving instances of these decoding and summing problems with non-local features. Some stem from work on graphical models, including loopy belief propagation (Sutton and McCallum, 2004; Smith and Eisner, 2008), Gibbs sampling (Finkel et al., 2005), sequential Monte Carlo methods such as particle filtering (Levy et al., 2008), and variational inference (Jordan et al., 1999; MacKay, 1997; Kurihara and Sato, 2006). Also relevant are stacked learning (Cohen and Carvalho, 2005), interpretable as approximation of non-local feature values (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in 3, integer linear programming (Roth and Yih, 2004), in which arbitrary features can act as constraints on y, and approximate solutions like McDonald and Pereira (20</context>
+</contexts>
+<marker>Jordan, Ghahramani, Jaakkola, Saul, 1999</marker>
+<rawString>M. I. Jordan, Z. Ghahramani, T. Jaakkola, and L. Saul. 1999. An introduction to variational methods for graphical models. Machine Learning, 37(2).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Klein</author>
+<author>C Manning</author>
+</authors>
+<title>Parsing and hypergraphs.</title>
+<date>2001</date>
+<booktitle>In Proc. of IWPT.</booktitle>
+<contexts>
+<context position="24317" citStr="Klein and Manning (2001)" startWordPosition="4186" endWordPosition="4189">ralized semiring to solve a DP and achieve goal value of u, the approximate sum of all proof probabilities is given by u0 +kuk. If all features are local, the approach is exact. With non-local features, the k-best list may not contain the k-best proofs, and the residual score, while including all possible proofs, may not include all of the non-local features in all of those proofs probabilities. 5 Implementation We have so far viewed dynamic programming algorithms in terms of their declarative specifications as semiring-weighted logic programs. Solvers have been proposed by Goodman (1999), by Klein and Manning (2001) using a hypergraph representation, and by Eisner et al. (2005). Because Goodmans and Eisner et al.s algorithms assume semirings, adapting them for cube summing is non-trivial.9 To generalize Goodmans algorithm, we suggest using the directed-graph data structure known variously as an arithmetic circuit or computation graph.10 Arithmetic circuits have recently drawn interest in the graphical model community as a 9 The bottom-up agenda algorithm in Eisner et al. (2005) might possibly be generalized so that associativity, distributivity, and binary operators are not required (John Blatz, p.c.). 1</context>
+</contexts>
+<marker>Klein, Manning, 2001</marker>
+<rawString>D. Klein and C. Manning. 2001. Parsing and hypergraphs. In Proc. of IWPT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Koo</author>
+<author>M Collins</author>
+</authors>
+<title>Hidden-variable models for discriminative reranking.</title>
+<date>2005</date>
+<booktitle>In Proc. of EMNLP.</booktitle>
+<contexts>
+<context position="2340" citStr="Koo and Collins, 2005" startWordPosition="328" endWordPosition="331">ximate inference. Recently cube pruning (Chiang, 2007; Huang and Chiang, 2007) was proposed as a way to leverage existing dynamic programming algorithms that find optimal-scoring derivations or structures when only local features are involved. Cube pruning permits approximate decoding with non-local features, but leaves open the question of how the feature weights or probabilities are learned. Meanwhile, some learning algorithms, like maximum likelihood for conditional log-linear models (Lafferty et al., 2001), unsupervised models (Pereira and Schabes, 1992), and models with hidden variables (Koo and Collins, 2005; Wang et al., 2007; Blunsom et al., 2008), require summing over the scores of many structures to calculate marginals. We first review the semiring-weighted logic programming view of dynamic programming algorithms (Shieber et al., 1995) and identify an intuitive property of a program called proof locality that follows from feature locality in the underlying probability model (2). We then provide an analysis of cube pruning as an approximation to the intractable problem of exact optimization over structures with non-local features and show how the use of non-local features with k-best lists bre</context>
+</contexts>
+<marker>Koo, Collins, 2005</marker>
+<rawString>T. Koo and M. Collins. 2005. Hidden-variable models for discriminative reranking. In Proc. of EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K Kurihara</author>
+<author>T Sato</author>
+</authors>
+<title>Variational Bayesian grammar induction for natural language.</title>
+<date>2006</date>
+<booktitle>In Proc. of ICGI.</booktitle>
+<contexts>
+<context position="14313" citStr="Kurihara and Sato, 2006" startWordPosition="2388" endWordPosition="2391">gram HMMs). This increases the number of variables and hence computational cost. In general, it leads to exponential-time inference in the worst case. There have been many algorithms proposed for approximately solving instances of these decoding and summing problems with non-local features. Some stem from work on graphical models, including loopy belief propagation (Sutton and McCallum, 2004; Smith and Eisner, 2008), Gibbs sampling (Finkel et al., 2005), sequential Monte Carlo methods such as particle filtering (Levy et al., 2008), and variational inference (Jordan et al., 1999; MacKay, 1997; Kurihara and Sato, 2006). Also relevant are stacked learning (Cohen and Carvalho, 2005), interpretable as approximation of non-local feature values (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in 3, integer linear programming (Roth and Yih, 2004), in which arbitrary features can act as constraints on y, and approximate solutions like McDonald and Pereira (2006), in which an exact solution to a rel</context>
+</contexts>
+<marker>Kurihara, Sato, 2006</marker>
+<rawString>K. Kurihara and T. Sato. 2006. Variational Bayesian grammar induction for natural language. In Proc. of ICGI.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Lafferty</author>
+<author>A McCallum</author>
+<author>F Pereira</author>
+</authors>
+<title>Conditional random fields: Probabilistic models for segmenting and labeling sequence data.</title>
+<date>2001</date>
+<booktitle>In Proc. of ICML.</booktitle>
+<contexts>
+<context position="2234" citStr="Lafferty et al., 2001" startWordPosition="311" endWordPosition="315">on-local features that break classical independence assumptions. Doing so has required algorithms for approximate inference. Recently cube pruning (Chiang, 2007; Huang and Chiang, 2007) was proposed as a way to leverage existing dynamic programming algorithms that find optimal-scoring derivations or structures when only local features are involved. Cube pruning permits approximate decoding with non-local features, but leaves open the question of how the feature weights or probabilities are learned. Meanwhile, some learning algorithms, like maximum likelihood for conditional log-linear models (Lafferty et al., 2001), unsupervised models (Pereira and Schabes, 1992), and models with hidden variables (Koo and Collins, 2005; Wang et al., 2007; Blunsom et al., 2008), require summing over the scores of many structures to calculate marginals. We first review the semiring-weighted logic programming view of dynamic programming algorithms (Shieber et al., 1995) and identify an intuitive property of a program called proof locality that follows from feature locality in the underlying probability model (2). We then provide an analysis of cube pruning as an approximation to the intractable problem of exact optimizatio</context>
+</contexts>
+<marker>Lafferty, McCallum, Pereira, 2001</marker>
+<rawString>J. Lafferty, A. McCallum, and F. Pereira. 2001. Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In Proc. of ICML.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Levy</author>
+<author>F Reali</author>
+<author>T Griffiths</author>
+</authors>
+<title>Modeling the effects of memory on human online sentence processing with particle filters.</title>
+<date>2008</date>
+<booktitle>In Advances in NIPS.</booktitle>
+<contexts>
+<context position="14225" citStr="Levy et al., 2008" startWordPosition="2375" endWordPosition="2378">ariables (for example, consider modifying the bigram HMM Viterbi algorithm for trigram HMMs). This increases the number of variables and hence computational cost. In general, it leads to exponential-time inference in the worst case. There have been many algorithms proposed for approximately solving instances of these decoding and summing problems with non-local features. Some stem from work on graphical models, including loopy belief propagation (Sutton and McCallum, 2004; Smith and Eisner, 2008), Gibbs sampling (Finkel et al., 2005), sequential Monte Carlo methods such as particle filtering (Levy et al., 2008), and variational inference (Jordan et al., 1999; MacKay, 1997; Kurihara and Sato, 2006). Also relevant are stacked learning (Cohen and Carvalho, 2005), interpretable as approximation of non-local feature values (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in 3, integer linear programming (Roth and Yih, 2004), in which arbitrary features can act as constraints on y, and app</context>
+</contexts>
+<marker>Levy, Reali, Griffiths, 2008</marker>
+<rawString>R. Levy, F. Reali, and T. Griffiths. 2008. Modeling the effects of memory on human online sentence processing with particle filters. In Advances in NIPS.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>B T Lowerre</author>
+</authors>
+<title>The Harpy Speech Recognition System.</title>
+<date>1976</date>
+<tech>Ph.D. thesis,</tech>
+<institution>Carnegie Mellon University.</institution>
+<contexts>
+<context position="14673" citStr="Lowerre, 1976" startWordPosition="2442" endWordPosition="2443">utton and McCallum, 2004; Smith and Eisner, 2008), Gibbs sampling (Finkel et al., 2005), sequential Monte Carlo methods such as particle filtering (Levy et al., 2008), and variational inference (Jordan et al., 1999; MacKay, 1997; Kurihara and Sato, 2006). Also relevant are stacked learning (Cohen and Carvalho, 2005), interpretable as approximation of non-local feature values (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in 3, integer linear programming (Roth and Yih, 2004), in which arbitrary features can act as constraints on y, and approximate solutions like McDonald and Pereira (2006), in which an exact solution to a related decoding problem is found and then modified to fit the problem of interest. 3 Approximate Decoding Cube pruning (Chiang, 2007; Huang and Chiang, 2007) is an approximate technique for decoding (Eq. 4); it is used widely in machine translation. Given proof locality, it is essentially an efficient implementation of the k-best proof semiring. Cube pruning g</context>
+</contexts>
+<marker>Lowerre, 1976</marker>
+<rawString>B. T. Lowerre. 1976. The Harpy Speech Recognition System. Ph.D. thesis, Carnegie Mellon University.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D J C MacKay</author>
+</authors>
+<title>Ensemble learning for hidden Markov models.</title>
+<date>1997</date>
+<tech>Technical report,</tech>
+<institution>Cavendish Laboratory,</institution>
+<location>Cambridge.</location>
+<contexts>
+<context position="14287" citStr="MacKay, 1997" startWordPosition="2386" endWordPosition="2387">orithm for trigram HMMs). This increases the number of variables and hence computational cost. In general, it leads to exponential-time inference in the worst case. There have been many algorithms proposed for approximately solving instances of these decoding and summing problems with non-local features. Some stem from work on graphical models, including loopy belief propagation (Sutton and McCallum, 2004; Smith and Eisner, 2008), Gibbs sampling (Finkel et al., 2005), sequential Monte Carlo methods such as particle filtering (Levy et al., 2008), and variational inference (Jordan et al., 1999; MacKay, 1997; Kurihara and Sato, 2006). Also relevant are stacked learning (Cohen and Carvalho, 2005), interpretable as approximation of non-local feature values (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in 3, integer linear programming (Roth and Yih, 2004), in which arbitrary features can act as constraints on y, and approximate solutions like McDonald and Pereira (2006), in which </context>
+</contexts>
+<marker>MacKay, 1997</marker>
+<rawString>D. J. C. MacKay. 1997. Ensemble learning for hidden Markov models. Technical report, Cavendish Laboratory, Cambridge.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A F T Martins</author>
+<author>D Das</author>
+<author>N A Smith</author>
+<author>E P Xing</author>
+</authors>
+<title>Stacking dependency parsers.</title>
+<date>2008</date>
+<booktitle>In Proc. of EMNLP.</booktitle>
+<contexts>
+<context position="14459" citStr="Martins et al., 2008" startWordPosition="2408" endWordPosition="2411">. There have been many algorithms proposed for approximately solving instances of these decoding and summing problems with non-local features. Some stem from work on graphical models, including loopy belief propagation (Sutton and McCallum, 2004; Smith and Eisner, 2008), Gibbs sampling (Finkel et al., 2005), sequential Monte Carlo methods such as particle filtering (Levy et al., 2008), and variational inference (Jordan et al., 1999; MacKay, 1997; Kurihara and Sato, 2006). Also relevant are stacked learning (Cohen and Carvalho, 2005), interpretable as approximation of non-local feature values (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in 3, integer linear programming (Roth and Yih, 2004), in which arbitrary features can act as constraints on y, and approximate solutions like McDonald and Pereira (2006), in which an exact solution to a related decoding problem is found and then modified to fit the problem of interest. 3 Approximate Decoding Cube pruning (Chiang, 2007; Huang and Chia</context>
+</contexts>
+<marker>Martins, Das, Smith, Xing, 2008</marker>
+<rawString>A. F. T. Martins, D. Das, N. A. Smith, and E. P. Xing. 2008. Stacking dependency parsers. In Proc. of EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R McDonald</author>
+<author>F Pereira</author>
+</authors>
+<title>Online learning of approximate dependency parsing algorithms.</title>
+<date>2006</date>
+<booktitle>In Proc. of EACL.</booktitle>
+<contexts>
+<context position="14876" citStr="McDonald and Pereira (2006)" startWordPosition="2472" endWordPosition="2475">nce (Jordan et al., 1999; MacKay, 1997; Kurihara and Sato, 2006). Also relevant are stacked learning (Cohen and Carvalho, 2005), interpretable as approximation of non-local feature values (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in 3, integer linear programming (Roth and Yih, 2004), in which arbitrary features can act as constraints on y, and approximate solutions like McDonald and Pereira (2006), in which an exact solution to a related decoding problem is found and then modified to fit the problem of interest. 3 Approximate Decoding Cube pruning (Chiang, 2007; Huang and Chiang, 2007) is an approximate technique for decoding (Eq. 4); it is used widely in machine translation. Given proof locality, it is essentially an efficient implementation of the k-best proof semiring. Cube pruning goes farther in that it permits nonlocal features to weigh in on the proof probabilities, at the expense of making the k-best operation approximate. We describe the two approximations cube pruning makes, </context>
+</contexts>
+<marker>McDonald, Pereira, 2006</marker>
+<rawString>R. McDonald and F. Pereira. 2006. Online learning of approximate dependency parsing algorithms. In Proc. of EACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F C N Pereira</author>
+<author>Y Schabes</author>
+</authors>
+<title>Inside-outside reestimation from partially bracketed corpora.</title>
+<date>1992</date>
+<booktitle>In Proc. of ACL,</booktitle>
+<pages>128135</pages>
+<contexts>
+<context position="2283" citStr="Pereira and Schabes, 1992" startWordPosition="318" endWordPosition="321">ndence assumptions. Doing so has required algorithms for approximate inference. Recently cube pruning (Chiang, 2007; Huang and Chiang, 2007) was proposed as a way to leverage existing dynamic programming algorithms that find optimal-scoring derivations or structures when only local features are involved. Cube pruning permits approximate decoding with non-local features, but leaves open the question of how the feature weights or probabilities are learned. Meanwhile, some learning algorithms, like maximum likelihood for conditional log-linear models (Lafferty et al., 2001), unsupervised models (Pereira and Schabes, 1992), and models with hidden variables (Koo and Collins, 2005; Wang et al., 2007; Blunsom et al., 2008), require summing over the scores of many structures to calculate marginals. We first review the semiring-weighted logic programming view of dynamic programming algorithms (Shieber et al., 1995) and identify an intuitive property of a program called proof locality that follows from feature locality in the underlying probability model (2). We then provide an analysis of cube pruning as an approximation to the intractable problem of exact optimization over structures with non-local features and sho</context>
+</contexts>
+<marker>Pereira, Schabes, 1992</marker>
+<rawString>F. C. N. Pereira and Y. Schabes. 1992. Inside-outside reestimation from partially bracketed corpora. In Proc. of ACL, pages 128135.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Roth</author>
+<author>W Yih</author>
+</authors>
+<title>A linear programming formulation for global inference in natural language tasks.</title>
+<date>2004</date>
+<booktitle>In Proc. of CoNLL.</booktitle>
+<contexts>
+<context position="14759" citStr="Roth and Yih, 2004" startWordPosition="2454" endWordPosition="2457"> 2005), sequential Monte Carlo methods such as particle filtering (Levy et al., 2008), and variational inference (Jordan et al., 1999; MacKay, 1997; Kurihara and Sato, 2006). Also relevant are stacked learning (Cohen and Carvalho, 2005), interpretable as approximation of non-local feature values (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in 3, integer linear programming (Roth and Yih, 2004), in which arbitrary features can act as constraints on y, and approximate solutions like McDonald and Pereira (2006), in which an exact solution to a related decoding problem is found and then modified to fit the problem of interest. 3 Approximate Decoding Cube pruning (Chiang, 2007; Huang and Chiang, 2007) is an approximate technique for decoding (Eq. 4); it is used widely in machine translation. Given proof locality, it is essentially an efficient implementation of the k-best proof semiring. Cube pruning goes farther in that it permits nonlocal features to weigh in on the proof probabilitie</context>
+</contexts>
+<marker>Roth, Yih, 2004</marker>
+<rawString>D. Roth and W. Yih. 2004. A linear programming formulation for global inference in natural language tasks. In Proc. of CoNLL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Shieber</author>
+<author>Y Schabes</author>
+<author>F Pereira</author>
+</authors>
+<title>Principles and implementation of deductive parsing.</title>
+<date>1995</date>
+<journal>Journal of Logic Programming,</journal>
+<pages>24--1</pages>
+<contexts>
+<context position="2576" citStr="Shieber et al., 1995" startWordPosition="364" endWordPosition="367">volved. Cube pruning permits approximate decoding with non-local features, but leaves open the question of how the feature weights or probabilities are learned. Meanwhile, some learning algorithms, like maximum likelihood for conditional log-linear models (Lafferty et al., 2001), unsupervised models (Pereira and Schabes, 1992), and models with hidden variables (Koo and Collins, 2005; Wang et al., 2007; Blunsom et al., 2008), require summing over the scores of many structures to calculate marginals. We first review the semiring-weighted logic programming view of dynamic programming algorithms (Shieber et al., 1995) and identify an intuitive property of a program called proof locality that follows from feature locality in the underlying probability model (2). We then provide an analysis of cube pruning as an approximation to the intractable problem of exact optimization over structures with non-local features and show how the use of non-local features with k-best lists breaks certain semiring properties (3). The primary contribution of this paper is a novel technique cube summingfor approximate summing over discrete structures with non-local features, which we relate to cube pruning (4). We discuss imple</context>
+<context position="4008" citStr="Shieber et al. (1995)" startWordPosition="578" endWordPosition="581">ound In this section, we discuss dynamic programming algorithms as semiring-weighted logic programs. We then review the definition of semirings and important examples. We discuss the relationship between locally-factored structure scores and proofs in logic programs. 2.1 Dynamic Programming Many algorithms in NLP involve dynamic programming (e.g., the Viterbi, forward-backward, 318 \x0cprobabilistic Earleys, and minimum edit distance algorithms). Dynamic programming (DP) involves solving certain kinds of recursive equations with shared substructure and a topological ordering of the variables. Shieber et al. (1995) showed a connection between DP (specifically, as used in parsing) and logic programming, and Goodman (1999) augmented such logic programs with semiring weights, giving an algebraic explanation for the intuitive connections among classes of algorithms with the same logical structure. For example, in Goodmans framework, the forward algorithm and the Viterbi algorithm are comprised of the same logic program with different semirings. Goodman defined other semirings, including ones we will use here. This formal framework was the basis for the Dyna programming language, which permits a declarative </context>
+</contexts>
+<marker>Shieber, Schabes, Pereira, 1995</marker>
+<rawString>S. Shieber, Y. Schabes, and F. Pereira. 1995. Principles and implementation of deductive parsing. Journal of Logic Programming, 24(1-2):336.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D A Smith</author>
+<author>J Eisner</author>
+</authors>
+<title>Dependency parsing by belief propagation.</title>
+<date>2008</date>
+<booktitle>In Proc. of EMNLP.</booktitle>
+<contexts>
+<context position="14108" citStr="Smith and Eisner, 2008" startWordPosition="2357" endWordPosition="2360">a fully connected graphical model). Sometimes, it is possible to achieve proof locality by adding more indices to the DP variables (for example, consider modifying the bigram HMM Viterbi algorithm for trigram HMMs). This increases the number of variables and hence computational cost. In general, it leads to exponential-time inference in the worst case. There have been many algorithms proposed for approximately solving instances of these decoding and summing problems with non-local features. Some stem from work on graphical models, including loopy belief propagation (Sutton and McCallum, 2004; Smith and Eisner, 2008), Gibbs sampling (Finkel et al., 2005), sequential Monte Carlo methods such as particle filtering (Levy et al., 2008), and variational inference (Jordan et al., 1999; MacKay, 1997; Kurihara and Sato, 2006). Also relevant are stacked learning (Cohen and Carvalho, 2005), interpretable as approximation of non-local feature values (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in</context>
+</contexts>
+<marker>Smith, Eisner, 2008</marker>
+<rawString>D. A. Smith and J. Eisner. 2008. Dependency parsing by belief propagation. In Proc. of EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N A Smith</author>
+<author>D L Vail</author>
+<author>J D Lafferty</author>
+</authors>
+<title>Computationally efficient M-estimation of log-linear structure models.</title>
+<date>2007</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="14498" citStr="Smith et al., 2007" startWordPosition="2414" endWordPosition="2417">d for approximately solving instances of these decoding and summing problems with non-local features. Some stem from work on graphical models, including loopy belief propagation (Sutton and McCallum, 2004; Smith and Eisner, 2008), Gibbs sampling (Finkel et al., 2005), sequential Monte Carlo methods such as particle filtering (Levy et al., 2008), and variational inference (Jordan et al., 1999; MacKay, 1997; Kurihara and Sato, 2006). Also relevant are stacked learning (Cohen and Carvalho, 2005), interpretable as approximation of non-local feature values (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pruning, which we discuss in 3, integer linear programming (Roth and Yih, 2004), in which arbitrary features can act as constraints on y, and approximate solutions like McDonald and Pereira (2006), in which an exact solution to a related decoding problem is found and then modified to fit the problem of interest. 3 Approximate Decoding Cube pruning (Chiang, 2007; Huang and Chiang, 2007) is an approximate technique f</context>
+</contexts>
+<marker>Smith, Vail, Lafferty, 2007</marker>
+<rawString>N. A. Smith, D. L. Vail, and J. D. Lafferty. 2007. Computationally efficient M-estimation of log-linear structure models. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C Sutton</author>
+<author>A McCallum</author>
+</authors>
+<title>Collective segmentation and labeling of distant entities in information extraction.</title>
+<date>2004</date>
+<booktitle>In Proc. of ICML Workshop on Statistical Relational Learning and Its Connections to Other</booktitle>
+<location>Fields.</location>
+<contexts>
+<context position="14083" citStr="Sutton and McCallum, 2004" startWordPosition="2353" endWordPosition="2356">probabilistic inference in a fully connected graphical model). Sometimes, it is possible to achieve proof locality by adding more indices to the DP variables (for example, consider modifying the bigram HMM Viterbi algorithm for trigram HMMs). This increases the number of variables and hence computational cost. In general, it leads to exponential-time inference in the worst case. There have been many algorithms proposed for approximately solving instances of these decoding and summing problems with non-local features. Some stem from work on graphical models, including loopy belief propagation (Sutton and McCallum, 2004; Smith and Eisner, 2008), Gibbs sampling (Finkel et al., 2005), sequential Monte Carlo methods such as particle filtering (Levy et al., 2008), and variational inference (Jordan et al., 1999; MacKay, 1997; Kurihara and Sato, 2006). Also relevant are stacked learning (Cohen and Carvalho, 2005), interpretable as approximation of non-local feature values (Martins et al., 2008), and M-estimation (Smith et al., 2007), which allows training without inference. Several other approaches used frequently in NLP are approximate methods for decoding only. These include beam search (Lowerre, 1976), cube pru</context>
+</contexts>
+<marker>Sutton, McCallum, 2004</marker>
+<rawString>C. Sutton and A. McCallum. 2004. Collective segmentation and labeling of distant entities in information extraction. In Proc. of ICML Workshop on Statistical Relational Learning and Its Connections to Other Fields.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A J Viterbi</author>
+</authors>
+<title>Error bounds for convolutional codes and an asymptotically optimal decoding algorithm.</title>
+<date>1967</date>
+<journal>IEEE Transactions on Information Processing,</journal>
+<volume>13</volume>
+<issue>2</issue>
+<contexts>
+<context position="27272" citStr="Viterbi, 1967" startWordPosition="4677" endWordPosition="4678">omputational bottleneck, they can be computed only for the O(k) proofs considered when choosing the best k as in cube pruning. Then, the computational requirements for approximate summing are nearly equivalent to cube pruning, but the approximation is less accurate. 6 Semirings Old and New We now consider interesting special cases and variations of cube summing. 6.1 The k-best+residual Semiring When restricted to local features, cube pruning and cube summing can be seen as proper semirk-best proof (Goodman, 1999) k-best+residual Viterbi proof (Goodman, 1999) all proof (Goodman, 1999) Viterbi (Viterbi, 1967) ignore proof inside (Baum et al., 1970) ignore residual k = 0 k = k = 1 Figure 2: Semirings generalized by k-best+residual. ings. Cube pruning reduces to an implementation of the k-best semiring (Goodman, 1998), and cube summing reduces to a novel semiring we call the k-best+residual semiring. Binary instantiations of and can be iteratively reapplied to give the equivalent formulations in Eqs. 12 and 13. We define 0 as h0, hii and 1 as h1, h1, \x0fii. The operator is easily shown to be commutative. That is associative follows from associativity of max-k, shown by Goodman (1998). Showing that </context>
+</contexts>
+<marker>Viterbi, 1967</marker>
+<rawString>A. J. Viterbi. 1967. Error bounds for convolutional codes and an asymptotically optimal decoding algorithm. IEEE Transactions on Information Processing, 13(2).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Wang</author>
+<author>N A Smith</author>
+<author>T Mitamura</author>
+</authors>
+<title>What is the Jeopardy model? a quasi-synchronous grammar for QA.</title>
+<date>2007</date>
+<booktitle>In Proc. of EMNLP-CoNLL.</booktitle>
+<contexts>
+<context position="2359" citStr="Wang et al., 2007" startWordPosition="332" endWordPosition="335">tly cube pruning (Chiang, 2007; Huang and Chiang, 2007) was proposed as a way to leverage existing dynamic programming algorithms that find optimal-scoring derivations or structures when only local features are involved. Cube pruning permits approximate decoding with non-local features, but leaves open the question of how the feature weights or probabilities are learned. Meanwhile, some learning algorithms, like maximum likelihood for conditional log-linear models (Lafferty et al., 2001), unsupervised models (Pereira and Schabes, 1992), and models with hidden variables (Koo and Collins, 2005; Wang et al., 2007; Blunsom et al., 2008), require summing over the scores of many structures to calculate marginals. We first review the semiring-weighted logic programming view of dynamic programming algorithms (Shieber et al., 1995) and identify an intuitive property of a program called proof locality that follows from feature locality in the underlying probability model (2). We then provide an analysis of cube pruning as an approximation to the intractable problem of exact optimization over structures with non-local features and show how the use of non-local features with k-best lists breaks certain semirin</context>
+</contexts>
+<marker>Wang, Smith, Mitamura, 2007</marker>
+<rawString>M. Wang, N. A. Smith, and T. Mitamura. 2007. What is the Jeopardy model? a quasi-synchronous grammar for QA. In Proc. of EMNLP-CoNLL.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

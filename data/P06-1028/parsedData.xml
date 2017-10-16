@@ -1,0 +1,1618 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.7797605">
+b&apos;Proceedings of the 21st International Conference on Computational Linguistics and 44th Annual Meeting of the ACL, pages 217224,
+Sydney, July 2006. c
+</bodyText>
+<sectionHeader confidence="0.555651" genericHeader="abstract">
+2006 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.350002">
+Training Conditional Random Fields with Multivariate Evaluation
+Measures
+</title>
+<author confidence="0.914238">
+Jun Suzuki, Erik McDermott and Hideki Isozaki
+</author>
+<affiliation confidence="0.829459">
+NTT Communication Science Laboratories, NTT Corp.
+</affiliation>
+<address confidence="0.943021">
+2-4 Hikaridai, Seika-cho, Soraku-gun, Kyoto, 619-0237 Japan
+</address>
+<email confidence="0.932631">
+{jun, mcd, isozaki}@cslab.kecl.ntt.co.jp
+</email>
+<sectionHeader confidence="0.990529" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.998844375">
+This paper proposes a framework for train-
+ing Conditional Random Fields (CRFs)
+to optimize multivariate evaluation mea-
+sures, including non-linear measures such
+as F-score. Our proposed framework is
+derived from an error minimization ap-
+proach that provides a simple solution for
+directly optimizing any evaluation mea-
+sure. Specifically focusing on sequential
+segmentation tasks, i.e. text chunking and
+named entity recognition, we introduce a
+loss function that closely reflects the tar-
+get evaluation measure for these tasks,
+namely, segmentation F-score. Our ex-
+periments show that our method performs
+better than standard CRF training.
+</bodyText>
+<sectionHeader confidence="0.998282" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999286096774194">
+Conditional random fields (CRFs) are a recently
+introduced formalism (Lafferty et al., 2001) for
+representing a conditional model p(y|x), where
+both a set of inputs, x, and a set of outputs,
+y, display non-trivial interdependency. CRFs are
+basically defined as a discriminative model of
+Markov random fields conditioned on inputs (ob-
+servations) x. Unlike generative models, CRFs
+model only the output ys distribution over x. This
+allows CRFs to use flexible features such as com-
+plicated functions of multiple observations. The
+modeling power of CRFs has been of great ben-
+efit in several applications, such as shallow pars-
+ing (Sha and Pereira, 2003) and information ex-
+traction (McCallum and Li, 2003).
+Since the introduction of CRFs, intensive re-
+search has been undertaken to boost their effec-
+tiveness. The first approach to estimating CRF pa-
+rameters is the maximum likelihood (ML) criterion
+over conditional probability p(y|x) itself (Laf-
+ferty et al., 2001). The ML criterion, however,
+is prone to over-fitting the training data, espe-
+cially since CRFs are often trained with a very
+large number of correlated features. The maximum
+a posteriori (MAP) criterion over parameters, ,
+given x and y is the natural choice for reducing
+over-fitting (Sha and Pereira, 2003). Moreover,
+the Bayes approach, which optimizes both MAP
+and the prior distribution of the parameters, has
+also been proposed (Qi et al., 2005). Furthermore,
+large margin criteria have been employed to op-
+timize the model parameters (Taskar et al., 2004;
+Tsochantaridis et al., 2005).
+These training criteria have yielded excellent re-
+sults for various tasks. However, real world tasks
+are evaluated by task-specific evaluation mea-
+sures, including non-linear measures such as F-
+score, while all of the above criteria achieve op-
+timization based on the linear combination of av-
+erage accuracies, or error rates, rather than a given
+task-specific evaluation measure. For example, se-
+quential segmentation tasks (SSTs), such as text
+chunking and named entity recognition, are gener-
+ally evaluated with the segmentation F-score. This
+inconsistency between the objective function dur-
+ing training and the task evaluation measure might
+produce a suboptimal result.
+In fact, to overcome this inconsistency, an
+SVM-based multivariate optimization method has
+recently been proposed (Joachims, 2005). More-
+over, an F-score optimization method for logis-
+tic regression has also been proposed (Jansche,
+2005). In the same spirit as the above studies, we
+first propose a generalization framework for CRF
+training that allows us to optimize directly not
+only the error rate, but also any evaluation mea-
+sure. In other words, our framework can incor-
+porate any evaluation measure of interest into the
+loss function and then optimize this loss function
+as the training objective function. Our proposed
+framework is fundamentally derived from an ap-
+proach to (smoothed) error rate minimization well
+</bodyText>
+<page confidence="0.992069">
+217
+</page>
+<bodyText confidence="0.993576916666667">
+\x0cknown in the speech and pattern recognition com-
+munity, namely the Minimum Classification Er-
+ror (MCE) framework (Juang and Katagiri, 1992).
+The framework of MCE criterion training supports
+the theoretical background of our method. The ap-
+proach proposed here subsumes the conventional
+ML/MAP criteria training of CRFs, as described
+in the following.
+After describing the new framework, as an ex-
+ample of optimizing multivariate evaluation mea-
+sures, we focus on SSTs and introduce a segmen-
+tation F-score loss function for CRFs.
+</bodyText>
+<sectionHeader confidence="0.827747" genericHeader="method">
+2 CRFs and Training Criteria
+</sectionHeader>
+<bodyText confidence="0.983773714285714">
+Given an input (observation) xX and parameter
+vector = {1, . . . , M }, CRFs define the con-
+ditional probability p(y|x) of a particular output
+y Y as being proportional to a product of po-
+tential functions on the cliques of a graph, which
+represents the interdependency of y and x. That
+is:
+</bodyText>
+<equation confidence="0.935106166666667">
+p(y|x; ) =
+1
+Z(x)
+Y
+cC(y,x)
+c(y, x; )
+</equation>
+<bodyText confidence="0.899907">
+where c(y, x; ) is a non-negative real value po-
+tential function on a clique c C(y, x). Z(x)=
+</bodyText>
+<equation confidence="0.99340975">
+P
+yY
+Q
+cC(y,x) c(y, x; ) is a normalization
+</equation>
+<bodyText confidence="0.994372428571429">
+factor over all output values, Y.
+Following the definitions of (Sha and Pereira,
+2003), a log-linear combination of weighted fea-
+tures, c(y, x; ) = exp( fc(y, x)), is used
+as individual potential functions, where fc rep-
+resents a feature vector obtained from the corre-
+sponding clique c. That is,
+</bodyText>
+<equation confidence="0.9739406">
+Q
+cC(y,x) c(y, x) =
+exp(F(y, x)), where F(y, x)=
+P
+c fc(y, x) is
+</equation>
+<bodyText confidence="0.999094">
+the CRFs global feature vector for x and y.
+The most probable output y is given by y =
+arg maxyY p(y|x; ). However Z(x) never af-
+fects the decision of y since Z(x) does not de-
+pend on y. Thus, we can obtain the following dis-
+criminant function for CRFs:
+</bodyText>
+<equation confidence="0.878013333333333">
+y = arg max
+yY
+F(y, x). (1)
+</equation>
+<bodyText confidence="0.962361">
+The maximum (log-)likelihood (ML) of the
+conditional probability p(y|x; ) of training
+data {(xk, yk)}N
+k=1 w.r.t. parameters is
+the most basic CRF training criterion, that is,
+arg max
+</bodyText>
+<equation confidence="0.513894">
+P
+k log p(yk|xk; ), where yk is the
+</equation>
+<bodyText confidence="0.990317">
+correct output for the given xk. Maximizing
+the conditional log-likelihood given by CRFs is
+equivalent to minimizing the log-loss function,
+</bodyText>
+<equation confidence="0.485475">
+P
+k log p(yk|xk; ). We minimize the follow-
+</equation>
+<bodyText confidence="0.9270465">
+ing loss function for the ML criterion training of
+CRFs:
+</bodyText>
+<equation confidence="0.968564235294118">
+LML
+=
+X
+k
+h
+F(yk
+, xk
+) + log Z(xk
+)
+i
+.
+To reduce over-fitting, the Maximum a
+Posteriori (MAP) criterion of parameters
+, that is, arg max
+P
+k log p(|yk, xk)
+P
+</equation>
+<bodyText confidence="0.941104">
+k log p(yk|xk; )p(), is now the most widely
+used CRF training criterion. Therefore, we
+minimize the following loss function for the MAP
+criterion training of CRFs:
+</bodyText>
+<sectionHeader confidence="0.902162" genericHeader="method">
+LMAP
+= LML
+</sectionHeader>
+<bodyText confidence="0.995863545454545">
+log p(). (2)
+There are several possible choices when selecting
+a prior distribution p(). This paper only con-
+siders L-norm prior, p() exp( |/C),
+which becomes a Gaussian prior when =2. The
+essential difference between ML and MAP is sim-
+ply that MAP has this prior term in the objective
+function. This paper sometimes refers to the ML
+and MAP criterion training of CRFs as ML/MAP.
+In order to estimate the parameters , we seek a
+zero of the gradient over the parameters :
+</bodyText>
+<equation confidence="0.98959552631579">
+LMAP
+= log p() +
+X
+k
+\x14
+F(yk
+, xk
+)
++
+X
+yYk
+exp(F(y, xk
+))
+Z(xk)
+F(y, xk
+)
+\x15
+.
+(3)
+</equation>
+<bodyText confidence="0.9930535">
+The gradient of ML is Eq. 3 without the gradient
+term of the prior, log p().
+The details of actual optimization procedures
+for linear chain CRFs, which are typical CRF ap-
+plications, have already been reported (Sha and
+Pereira, 2003).
+</bodyText>
+<sectionHeader confidence="0.984865" genericHeader="method">
+3 MCE Criterion Training for CRFs
+</sectionHeader>
+<bodyText confidence="0.987389307692307">
+The Minimum Classification Error (MCE) frame-
+work first arose out of a broader family of ap-
+proaches to pattern classifier design known as
+Generalized Probabilistic Descent (GPD) (Kata-
+giri et al., 1991). The MCE criterion minimizes
+an empirical loss corresponding to a smooth ap-
+proximation of the classification error. This MCE
+loss is itself defined in terms of a misclassifica-
+tion measure derived from the discriminant func-
+tions of a given task. Via the smoothing parame-
+ters, the MCE loss function can be made arbitrarily
+close to the binary classification error. An impor-
+tant property of this framework is that it makes it
+</bodyText>
+<page confidence="0.994811">
+218
+</page>
+<bodyText confidence="0.995356384615385">
+\x0cpossible in principle to achieve the optimal Bayes
+error even under incorrect modeling assumptions.
+It is easy to extend the MCE framework to use
+evaluation measures other than the classification
+error, namely the linear combination of error rates.
+Thus, it is possible to optimize directly a variety of
+(smoothed) evaluation measures. This is the ap-
+proach proposed in this article.
+We first introduce a framework for MCE crite-
+rion training, focusing only on error rate optimiza-
+tion. Sec. 4 then describes an example of mini-
+mizing a different multivariate evaluation measure
+using MCE criterion training.
+</bodyText>
+<subsectionHeader confidence="0.999884">
+3.1 Brief Overview of MCE
+</subsectionHeader>
+<bodyText confidence="0.902700333333333">
+Let x X be an input, and y Y be an output.
+The Bayes decision rule decides the most probable
+output y for x, by using the maximum a posteriori
+probability, y = arg maxyY p(y|x; ). In gen-
+eral, p(y|x; ) can be replaced by a more general
+discriminant function, that is,
+</bodyText>
+<equation confidence="0.979987">
+y = arg max
+yY
+g(y, x, ). (4)
+</equation>
+<bodyText confidence="0.993166333333333">
+Using the discriminant functions for the possi-
+ble output of the task, the misclassification mea-
+sure d() is defined as follows:
+</bodyText>
+<equation confidence="0.904429">
+d(y
+,x, )=g(y
+,x, ) + max
+yY\\y
+g(y, x, ). (5)
+</equation>
+<bodyText confidence="0.9530115">
+where y is the correct output for x. Here it can
+be noted that, for a given x, d()0 indicates mis-
+classification. By using d(), the minimization of
+the error rate can be rewritten as the minimization
+of the sum of 0-1 (step) losses of the given training
+data. That is, arg min L where
+</bodyText>
+<equation confidence="0.9902005">
+L=
+X
+k
+(d(yk
+, xk
+, )). (6)
+</equation>
+<bodyText confidence="0.9930174">
+(r) is a step function returning 0 if r&amp;lt;0 and 1 oth-
+erwise. That is, is 0 if the value of the discrimi-
+nant function of the correct output g(yk, xk, ) is
+greater than that of the maximum incorrect output
+g(yk, xk, ), and is 1 otherwise.
+Eq. 5 is not an appropriate function for op-
+timization since it is a discontinuous function
+w.r.t. the parameters . One choice of contin-
+uous misclassification measure consists of sub-
+stituting max with soft-max, maxk rk
+</bodyText>
+<equation confidence="0.8674175625">
+log
+P
+k exp(rk). As a result
+d(y
+, x, )=g
++log
+&quot;
+A
+X
+yY\\y
+exp(g)
+# 1
+, (7)
+where g = g(y, x, ), g = g(y, x, ), and A =
+1
+|Y|1 . is a positive constant that represents L-
+</equation>
+<bodyText confidence="0.997477952380952">
+norm. When approaches , Eq. 7 converges to
+Eq. 5. Note that we can design any misclassifi-
+cation measure, including non-linear measures for
+d(). Some examples are shown in the Appendices.
+Of even greater concern is the fact that the step
+function is discontinuous; minimization of Eq.
+6 is therefore NP-complete. In the MCE formal-
+ism, () is replaced with an approximated 0-1 loss
+function, l(), which we refer to as a smoothing
+function. A typical choice for l() is the sigmoid
+function, lsig
+(), which is differentiable and pro-
+vides a good approximation of the 0-1 loss when
+the hyper-parameter is large (see Eq. 8). An-
+other choice is the (regularized) logistic function,
+llog
+(), that gives the upper bound of the 0-1 loss.
+Logistic loss is used as a conventional CRF loss
+function and provides convexity while the sigmoid
+function does not. These two smoothing functions
+can be written as follows:
+</bodyText>
+<equation confidence="0.977210111111111">
+lsig
+= (1 + exp( d(y
+, x, ) ))
+1
+llog
+= 1
+log(1 + exp( d(y
+, x, ) + )),
+(8)
+</equation>
+<bodyText confidence="0.996931428571429">
+where and are the hyper-parameters of the
+training.
+We can introduce a regularization term to re-
+duce over-fitting, which is derived using the same
+sense as in MAP, Eq. 2. Finally, the objective func-
+tion of the MCE criterion with the regularization
+term can be rewritten in the following form:
+</bodyText>
+<equation confidence="0.99306075">
+LMCE
+= Fl,d,g,
+h
+{(xk
+, yk
+)}N
+k=1
+i
++
+ |
+C
+. (9)
+</equation>
+<bodyText confidence="0.9990805">
+Then, the objective function of the MCE criterion
+that minimizes the error rate is Eq. 9 and
+</bodyText>
+<equation confidence="0.9862627">
+FMCE
+l,d,g, =
+1
+N
+N
+X
+k=1
+l(d(yk
+, xk
+, )) (10)
+</equation>
+<bodyText confidence="0.9745575">
+is substituted for Fl,d,g,. Since N is constant, we
+can eliminate the term 1/N in actual use.
+</bodyText>
+<subsectionHeader confidence="0.994522">
+3.2 Formalization
+</subsectionHeader>
+<bodyText confidence="0.919417">
+We simply substitute the discriminant function of
+the CRFs into that of the MCE criterion:
+g(y, x, ) = log p(y|x; ) F(y, x) (11)
+Basically, CRF training with the MCE criterion
+optimizes Eq. 9 with Eq. 11 after the selection of
+an appropriate misclassification measure, d(), and
+</bodyText>
+<page confidence="0.992671">
+219
+</page>
+<bodyText confidence="0.9923545">
+\x0csmoothing function, l(). Although there is no re-
+striction on the choice of d() and l(), in this work
+we select sigmoid or logistic functions for l() and
+Eq. 7 for d().
+The gradient of the loss function Eq. 9 can be
+decomposed by the following chain rule:
+</bodyText>
+<figure confidence="0.869453">
+LMCE
+=
+F()
+l()
+l()
+d()
+d()
++
+ |1
+C
+.
+The derivatives of l() w.r.t. d() given in Eq.
+8 are written as: lsig
+/d = lsig
+(1lsig
+) and
+llog
+/d=lsig
+.
+The derivative of d() of Eq. 7 w.r.t. parameters
+is written in this form:
+d()
+=
+Z(x, )
+Z(x, )exp(g)
+F(y
+</figure>
+<equation confidence="0.966512857142857">
+, x)
++
+X
+yY
+\x14
+exp(g)
+Z(x, )exp(g)
+F(y, x)
+\x15
+(12)
+where g = F(y, x), g = F(y, x), and
+Z(x, )=
+P
+yY exp(g).
+</equation>
+<bodyText confidence="0.995581285714286">
+Note that we can obtain exactly the same loss
+function as ML/MAP with appropriate choices of
+F(), l() and d(). The details are provided in the
+Appendices. Therefore, ML/MAP can be seen as
+one special case of the framework proposed here.
+In other words, our method provides a generalized
+framework of CRF training.
+</bodyText>
+<subsectionHeader confidence="0.99607">
+3.3 Optimization Procedure
+</subsectionHeader>
+<bodyText confidence="0.988473035714286">
+With linear chain CRFs, we can calculate the ob-
+jective function, Eq. 9 combined with Eq. 10,
+and the gradient, Eq. 12, by using the variant of
+the forward-backward and Viterbi algorithm de-
+scribed in (Sha and Pereira, 2003). Moreover, for
+the parameter optimization process, we can simply
+exploit gradient descent or quasi-Newton methods
+such as L-BFGS (Liu and Nocedal, 1989) as well
+as ML/MAP optimization.
+If we select = for Eq. 7, we only need
+to evaluate the correct and the maximum incor-
+rect output. As we know, the maximum output
+can be efficiently calculated with the Viterbi al-
+gorithm, which is the same as calculating Eq. 1.
+Therefore, we can find the maximum incorrect
+output by using the A* algorithm (Hart et al.,
+1968), if the maximum output is the correct out-
+put, and by using the Viterbi algorithm otherwise.
+It may be feared that since the objective func-
+tion is not differentiable everywhere for = ,
+problems for optimization would occur. How-
+ever, it has been shown (Le Roux and McDer-
+mott, 2005) that even simple gradient-based (first-
+order) optimization methods such as GPD and (ap-
+proximated) second-order methods such as Quick-
+Prop (Fahlman, 1988) and BFGS-based methods
+have yielded good experimental optimization re-
+sults.
+</bodyText>
+<sectionHeader confidence="0.981607" genericHeader="method">
+4 Multivariate Evaluation Measures
+</sectionHeader>
+<bodyText confidence="0.999329333333333">
+Thus far, we have discussed the error rate ver-
+sion of MCE. Unlike ML/MAP, the framework of
+MCE criterion training allows the embedding of
+not only a linear combination of error rates, but
+also any evaluation measure, including non-linear
+measures.
+Several non-linear objective functions, such as
+F-score for text classification (Gao et al., 2003),
+and BLEU-score and some other evaluation mea-
+sures for statistical machine translation (Och,
+2003), have been introduced with reference to the
+framework of MCE criterion training.
+</bodyText>
+<subsectionHeader confidence="0.996952">
+4.1 Sequential Segmentation Tasks (SSTs)
+</subsectionHeader>
+<bodyText confidence="0.999216173913044">
+Hereafter, we focus solely on CRFs in sequences,
+namely the linear chain CRF. We assume that x
+and y have the same length: x=(x1, . . . , xn) and
+y=(y1, . . . , yn). In a linear chain CRF, yi depends
+only on yi1.
+Sequential segmentation tasks (SSTs), such as
+text chunking (Chunking) and named entity recog-
+nition (NER), which constitute the shared tasks
+of the Conference of Natural Language Learn-
+ing (CoNLL) 2000, 2002 and 2003, are typical
+CRF applications. These tasks require the extrac-
+tion of pre-defined segments, referred to as tar-
+get segments, from given texts. Fig. 1 shows typ-
+ical examples of SSTs. These tasks are gener-
+ally treated as sequential labeling problems incor-
+porating the IOB tagging scheme (Ramshaw and
+Marcus, 1995). The IOB tagging scheme, where
+we only consider the IOB2 scheme, is also shown
+in Fig. 1. B-X, I-X and O indicate that the word
+in question is the beginning of the tag X, inside
+the tag X, and outside any target segment, re-
+spectively. Therefore, a segment is defined as a
+sequence of a few outputs.
+</bodyText>
+<subsectionHeader confidence="0.99108">
+4.2 Segmentation F-score Loss for SSTs
+</subsectionHeader>
+<bodyText confidence="0.906627">
+The standard evaluation measure of SSTs is the
+</bodyText>
+<figure confidence="0.5448315">
+segmentation F-score (Sang and Buchholz, 2000):
+F =
+(2
++ 1) TP
+2 FN + FP + (2 + 1) TP
+(13)
+220
+\x0cHe reckons the current account deficit will narrow to only # 1.8 billion .
+NP VP NP VP PP NP
+B-NP B-VP B-NP I-NP I-NP I-NP B-VP I-VP B-PP B-NP I-NP I-NP I-NP O
+x:
+y:
+Seg.:
+United Nation official Ekeus Smith heads for Baghdad .
+B-ORG I-ORG O O
+O
+B-PER I-PER B-LOC O
+x:
+y:
+Seg.: ORG PER LOC
+Text Chunking Named Entity Recognition
+y1 y2 y3 y4 y5 y6 y7 y8 y9 y10 y11 y12 y13 y14
+Dep.: y1 y2 y3 y4 y5 y6 y7 y8 y9
+Dep.:
+</figure>
+<figureCaption confidence="0.842508">
+Figure 1: Examples of sequential segmentation tasks (SSTs): text chunking (Chunking) and named entity
+recognition (NER).
+</figureCaption>
+<bodyText confidence="0.985852818181818">
+where TP, FP and FN represent true positive,
+false positive and false negative counts, respec-
+tively.
+The individual evaluation units used to calcu-
+late TP, FN and PN, are not individual outputs
+yi or output sequences y, but rather segments. We
+need to define a segment-wise loss, in contrast to
+the standard CRF loss, which is sometimes re-
+ferred to as an (entire) sequential loss (Kakade
+et al., 2002; Altun et al., 2003). First, we con-
+sider the point-wise decision w.r.t. Eq. 1, that is,
+</bodyText>
+<equation confidence="0.828858">
+yi = arg maxyiY1 g(y, x, i, ). The point-wise
+</equation>
+<bodyText confidence="0.913087">
+discriminant function can be written as follows:
+</bodyText>
+<equation confidence="0.9828755">
+g(y, x, i, ) = max
+y0Y|y|[yi]
+F(y0
+, x) (14)
+</equation>
+<bodyText confidence="0.947369777777778">
+where Yj represents a set of all y whose length
+is j, and Y[yi] represents a set of all y that con-
+tain yi in the ith position. Note that the same
+output y can be obtained with Eqs. 1 and 14,
+that is, y = (y1, . . . , yn). This point-wise dis-
+criminant function is different from that described
+in (Kakade et al., 2002; Altun et al., 2003), which
+is calculated based on marginals.
+Let ysj
+be an output sequence correspond-
+ing to the j-th segment of y, where sj repre-
+sents a sequence of indices of y, that is, sj =
+(sj,1, . . . , sj,|sj|). An example of the Chunk-
+ing data shown in Fig. 1, ys4
+is (B-VP, I-VP)
+where s4 = (7, 8). Let Y[ysj
+] be a set of all
+outputs whose positions from sj,1 to sj,|sj |are
+</bodyText>
+<equation confidence="0.8986825">
+ysj
+= (ysj,1 , . . . , ysj,|sj|
+</equation>
+<bodyText confidence="0.6721095">
+). Then, we can define a
+segment-wise discriminant function w.r.t. Eq. 1.
+</bodyText>
+<equation confidence="0.963570666666667">
+That is,
+g(y, x, sj, ) = max
+y0Y|y|[ysj
+]
+F(y0
+, x). (15)
+</equation>
+<bodyText confidence="0.974380055555556">
+Note again that the same output y can be obtained
+using Eqs. 1 and 15, as with the piece-wise dis-
+criminant function described above. This property
+is needed for evaluating segments since we do not
+know the correct segments of the test data; we can
+maintain consistency even if we use Eq. 1 for test-
+ing and Eq. 15 for training. Moreover, Eq. 15 ob-
+viously reduces to Eq. 14 if the length of all seg-
+ments is 1. Then, the segment-wise misclassifica-
+tion measure d(y, x, sj, ) can be obtained sim-
+ply by replacing the discriminant function of the
+entire sequence g(y, x, ) with that of segment-
+wise g(y, x, sj, ) in Eq. 7.
+Let sk be a segment sequence corresponding to
+the correct output yk for a given xk, and S(xk)
+be all possible segments for a given xk. Then, ap-
+proximated evaluation functions of TP, FP and
+FN can be defined as follows:
+</bodyText>
+<equation confidence="0.998153256410256">
+TPl =
+X
+k
+X
+s
+j
+sk
+h
+1l(d(yk
+, xk
+, s
+j , ))
+i
+(s
+j )
+FPl =
+X
+k
+X
+s0
+j
+S(xk)\\sk
+l(d(yk
+, xk
+, s0
+j, ))(s0
+j)
+FNl =
+X
+k
+X
+s
+j
+sk
+l(d(yk
+, xk
+, s
+j , ))(s
+j )
+</equation>
+<bodyText confidence="0.971573">
+where (sj) returns 1 if segment sj is a target seg-
+ment, and returns 0 otherwise. For the NER data
+shown in Fig. 1, ORG, PER and LOC are the
+target segments, while segments that are labeled
+O in y are not. Since TPl should not have a
+value of less than zero, we select sigmoid loss as
+the smoothing function l().
+The second summation of TPl and FNl per-
+forms a summation over correct segments s. In
+contrast, the second summation in FPl takes all
+possible segments into account, but excludes the
+correct segments s. Although an efficient way to
+evaluate all possible segments has been proposed
+in the context of semi-Markov CRFs (Sarawagi
+and Cohen, 2004), we introduce a simple alter-
+native method. If we select = for d() in
+Eq. 7, we only need to evaluate the segments cor-
+responding to the maximum incorrect output y to
+calculate FPl. That is, s0
+j S(xk)\\sk can be
+reduced to s0
+j sk
+, where sk
+represents segments
+corresponding to the maximum incorrect output y.
+In practice, this reduces the calculation cost and so
+we used this method for our experiments described
+in the next section.
+Maximizing the segmentation F-score, Eq. 13,
+</bodyText>
+<page confidence="0.963458">
+221
+</page>
+<listItem confidence="0.467712428571429">
+\x0cis equivalent to minimizing 2FN+FP
+(2+1)TP
+, since Eq.
+13 can also be written as F = 1
+1+ 2F N+F P
+(2+1)T P
+. Thus,
+</listItem>
+<bodyText confidence="0.764548">
+an objective function closely reflecting the seg-
+mentation F-score based on the MCE criterion
+can be written as Eq. 9 while replacing Fl,d,g,
+with:
+</bodyText>
+<equation confidence="0.806123833333333">
+FMCE-F
+l,d,g, =
+2
+FNl + FPl
+(2 + 1) TPl
+. (16)
+</equation>
+<bodyText confidence="0.834085">
+The derivative of Eq. 16 w.r.t. l() is given by the
+following equation:
+</bodyText>
+<figure confidence="0.979447625">
+FMCE-F
+l,d,g,
+l()
+=
+(
+2
+ZD
++ (2
++1)ZN
+Z2
+D
+, if (s
+j ) = 1
+1
+ZD
+, otherwise
+</figure>
+<bodyText confidence="0.9974752">
+where ZN and ZD represent the numerator and de-
+nominator of Eq. 16, respectively.
+In the optimization process of the segmentation
+F-score objective function, we can efficiently cal-
+culate Eq. 15 by using the forward and backward
+Viterbi algorithm, which is almost the same as
+calculating Eq. 3 with a variant of the forward-
+backward algorithm (Sha and Pereira, 2003). The
+same numerical optimization methods described
+in Sec. 3.3 can be employed for this optimization.
+</bodyText>
+<sectionHeader confidence="0.999319" genericHeader="evaluation">
+5 Experiments
+</sectionHeader>
+<bodyText confidence="0.994434444444444">
+We used the same Chunking and English NER
+task data used for the shared tasks of CoNLL-
+2000 (Sang and Buchholz, 2000) and CoNLL-
+2003 (Sang and De Meulder, 2003), respectively.
+Chunking data was obtained from the Wall
+Street Journal (WSJ) corpus: sections 15-18 as
+training data (8,936 sentences and 211,727 to-
+kens), and section 20 as test data (2,012 sentences
+and 47,377 tokens), with 11 different chunk-tags,
+such as NP and VP plus the O tag, which repre-
+sents the outside of any target chunk (segment).
+The English NER data was taken from the
+Reuters Corpus21. The data consists of 203,621,
+51,362 and 46,435 tokens from 14,987, 3,466
+and 3,684 sentences in training, development and
+test data, respectively, with four named entity
+tags, PERSON, LOCATION, ORGANIZATION
+and MISC, plus the O tag.
+</bodyText>
+<subsectionHeader confidence="0.998967">
+5.1 Comparison Methods and Parameters
+</subsectionHeader>
+<bodyText confidence="0.957154666666667">
+For ML and MAP, we performed exactly the same
+training procedure described in (Sha and Pereira,
+2003) with L-BFGS optimization. For MCE, we
+</bodyText>
+<page confidence="0.650783">
+1
+</page>
+<bodyText confidence="0.97218975">
+http://trec.nist.gov/data/reuters/reuters.html
+only considered d() with = as described in
+Sec. 4.2, and used QuickProp optimization2.
+For MAP, MCE and MCE-F, we used the L2-
+norm regularization. We selected a value of C
+from 1.0 10n where n takes a value from -5 to 5
+in intervals 1 by development data3. The tuning of
+smoothing function hyper-parameters is not con-
+sidered in this paper; that is, =1 and =0 were
+used for all the experiments.
+We evaluated the performance by Eq. 13 with
+= 1, which is the evaluation measure used in
+CoNLL-2000 and 2003. Moreover, we evaluated
+the performance by using the average sentence ac-
+curacy, since the conventional ML/MAP objective
+function reflects this sequential accuracy.
+</bodyText>
+<subsectionHeader confidence="0.948131">
+5.2 Features
+</subsectionHeader>
+<bodyText confidence="0.99975275">
+As regards the basic feature set for Chunking, we
+followed (Kudo and Matsumoto, 2001), which is
+the same feature set that provided the best result
+in CoNLL-2000. We expanded the basic features
+by using bigram combinations of the same types
+of features, such as words and part-of-speech tags,
+within window size 5.
+In contrast to the above, we used the original
+feature set for NER. We used features derived only
+from the data provided by CoNLL-2003 with the
+addition of character-level regular expressions of
+uppercases [A-Z], lowercases [a-z], digits [0-9] or
+others, and prefixes and suffixes of one to four let-
+ters. We also expanded the above basic features by
+using bigram combinations within window size 5.
+Note that we never used features derived from ex-
+ternal information such as the Web, or a dictionary,
+which have been used in many previous studies but
+which are difficult to employ for validating the ex-
+periments.
+</bodyText>
+<subsectionHeader confidence="0.56673">
+5.3 Results and Discussion
+</subsectionHeader>
+<bodyText confidence="0.998093">
+Our experiments were designed to investigate the
+impact of eliminating the inconsistency between
+objective functions and evaluation measures, that
+is, to compare ML/MAP and MCE-F.
+Table 1 shows the results of Chunking and NER.
+The F=1 and Sent columns show the perfor-
+mance evaluated using segmentation F-score and
+</bodyText>
+<page confidence="0.891362">
+2
+</page>
+<bodyText confidence="0.987802">
+In order to realize faster convergence, we applied online
+GPD optimization for the first ten iterations.
+</bodyText>
+<page confidence="0.946603">
+3
+</page>
+<bodyText confidence="0.999439">
+Chunking has no common development set. We first
+train the systems with all but the last 2000 sentences in the
+training data as a development set to obtain C, and then re-
+train them with all the training data.
+</bodyText>
+<page confidence="0.996727">
+222
+</page>
+<tableCaption confidence="0.922345">
+\x0cTable 1: Performance of text chunking and named
+</tableCaption>
+<table confidence="0.980616">
+entity recognition data (CoNLL-2000 and 2003)
+Chunking NER
+l() n F=1 Sent n F=1 Sent
+MCE-F (sig) 5 93.96 60.44 4 84.72 78.72
+MCE (log) 3 93.92 60.19 3 84.30 78.02
+MCE (sig) 3 93.85 60.14 3 83.82 77.52
+MAP 0 93.71 59.15 0 83.79 77.39
+ML - 93.19 56.26 - 82.39 75.71
+</table>
+<bodyText confidence="0.996305694444444">
+sentence accuracy, respectively. MCE-F refers to
+the results obtained from optimizing Eq. 9 based
+on Eq. 16. In addition, we evaluated the error
+rate version of MCE. MCE(log) and MCE(sig)
+indicate that logistic and sigmoid functions are
+selected for l(), respectively, when optimizing
+Eq. 9 based on Eq. 10. Moreover, MCE(log) and
+MCE(sig) used d() based on =, and were op-
+timized using QuickProp; these are the same con-
+ditions as used for MCE-F. We found that MCE-F
+exhibited the best results for both Chunking and
+NER. There is a significant difference (p&amp;lt;0.01)
+between MCE-F and ML/MAP with the McNemar
+test, in terms of the correctness of both individual
+outputs, yk
+i , and sentences, yk.
+NER data has 83.3% (170524/204567) and
+82.6% (38554/46666) of O tags in the training
+and test data, respectively while the correspond-
+ing values of the Chunking data are only 13.1%
+(27902/211727) and 13.0% (6180/47377). In gen-
+eral, such an imbalanced data set is unsuitable for
+accuracy-based evaluation. This may be one rea-
+son why MCE-F improved the NER results much
+more than the Chunking results.
+The only difference between MCE(sig) and
+MCE-F is the objective function. The correspond-
+ing results reveal the effectiveness of using an ob-
+jective function that is consistent as the evalua-
+tion measure for the target task. These results
+show that minimizing the error rate is not opti-
+mal for improving the segmentation F-score eval-
+uation measure. Eliminating the inconsistency be-
+tween the task evaluation measure and the objec-
+tive function during the training can improve the
+overall performance.
+</bodyText>
+<subsubsectionHeader confidence="0.444718">
+5.3.1 Influence of Initial Parameters
+</subsubsectionHeader>
+<bodyText confidence="0.988643">
+While ML/MAP and MCE(log) is convex w.r.t.
+the parameters, neither the objective function of
+MCE-F, nor that of MCE(sig), is convex. There-
+fore, initial parameters can affect the optimization
+</bodyText>
+<tableCaption confidence="0.789045">
+Table 2: Performance when initial parameters are
+derived from MAP
+</tableCaption>
+<table confidence="0.95960025">
+Chunking NER
+l() n F=1 Sent n F=1 Sent
+MCE-F (sig) 5 94.03 60.74 4 85.29 79.26
+MCE (sig) 3 93.97 60.59 3 84.57 77.71
+</table>
+<bodyText confidence="0.977561785714286">
+results, since QuickProp as well as L-BFGS can
+only find local optima.
+The previous experiments were only performed
+with all parameters initialized at zero. In this ex-
+periment, the parameters obtained by the MAP-
+trained model were used as the initial values of
+MCE-F and MCE(sig). This evaluation setting ap-
+pears to be similar to reranking, although we used
+exactly the same model and feature set.
+Table 2 shows the results of Chunking and NER
+obtained with this parameter initialization setting.
+When we compare Tables 1 and 2, we find that
+the initialization with the MAP parameter values
+further improves performance.
+</bodyText>
+<sectionHeader confidence="0.99974" genericHeader="related work">
+6 Related Work
+</sectionHeader>
+<bodyText confidence="0.99965408">
+Various loss functions have been proposed for de-
+signing CRFs (Kakade et al., 2002; Altun et al.,
+2003). This work also takes the design of the loss
+functions for CRFs into consideration. However,
+we proposed a general framework for designing
+these loss function that included non-linear loss
+functions, which has not been considered in pre-
+vious work.
+With Chunking, (Kudo and Matsumoto, 2001)
+reported the best F-score of 93.91 with the vot-
+ing of several models trained by Support Vec-
+tor Machine in the same experimental settings
+and with the same feature set. MCE-F with the
+MAP parameter initialization achieved an F-score
+of 94.03, which surpasses the above result without
+manual parameter tuning.
+With NER, we cannot make a direct compari-
+son with previous work in the same experimental
+settings because of the different feature set, as de-
+scribed in Sec. 5.2. However, MCE-F showed the
+better performance of 85.29 compared with (Mc-
+Callum and Li, 2003) of 84.04, which used the
+MAP training of CRFs with a feature selection ar-
+chitecture, yielding similar results to the MAP re-
+sults described here.
+</bodyText>
+<page confidence="0.994354">
+223
+</page>
+<sectionHeader confidence="0.950077" genericHeader="conclusions">
+\x0c7 Conclusions
+</sectionHeader>
+<bodyText confidence="0.990756">
+We proposed a framework for training CRFs based
+on optimization criteria directly related to target
+multivariate evaluation measures. We first pro-
+vided a general framework of CRF training based
+on MCE criterion. Then, specifically focusing
+on SSTs, we introduced an approximate segmen-
+tation F-score objective function. Experimental
+results showed that eliminating the inconsistency
+between the task evaluation measure and the ob-
+jective function used during training improves the
+overall performance in the target task without any
+change in feature set or model.
+</bodyText>
+<figure confidence="0.98130485">
+Appendices
+Misclassification measures
+Another type of misclassification measure using
+soft-max is (Katagiri et al., 1991):
+d(y, x, ) = g
++
+\x14
+A
+X
+yY\\y
+g
+\x15 1
+.
+Another d(), for g in the range [0, ):
+d(y, x, ) =
+h
+A
+P
+yY\\y g
+i 1
+/g
+.
+Comparison of ML/MAP and MCE
+If we select llog
+() with =1 and =0, and use Eq.
+7 with = 1 and without the term A for d(). We
+can obtain the same loss function as ML/MAP:
+log (1 + exp(g
++ log(Z exp(g
+))))
+= log
+\x12
+exp(g
+) + (Z exp(g
+))
+exp(g)
+\x13
+= g
++ log(Z).
+References
+</figure>
+<reference confidence="0.999702219178082">
+Y. Altun, M. Johnson, and T. Hofmann. 2003. Investigating
+Loss Functions and Optimization Methods for Discrimi-
+native Learning of Label Sequences. In Proc. of EMNLP-
+2003, pages 145152.
+S. E. Fahlman. 1988. An Empirical Study of Learning
+Speech in Backpropagation Networks. In Technical Re-
+port CMU-CS-88-162, Carnegie Mellon University.
+S. Gao, W. Wu, C.-H. Lee, and T.-S. Chua. 2003. A Maxi-
+mal Figure-of-Merit Approach to Text Categorization. In
+Proc. of SIGIR03, pages 174181.
+P. E. Hart, N. J. Nilsson, and B. Raphael. 1968. A Formal
+Basis for the Heuristic Determination of Minimum Cost
+Paths. IEEE Trans. on Systems Science and Cybernetics,
+SSC-4(2):100107.
+M. Jansche. 2005. Maximum Expected F-Measure Training
+of Logistic Regression Models. In Proc. of HLT/EMNLP-
+2005, pages 692699.
+T. Joachims. 2005. A Support Vector Method for Multivari-
+ate Performance Measures. In Proc. of ICML-2005, pages
+377384.
+B. H. Juang and S. Katagiri. 1992. Discriminative Learning
+for Minimum Error Classification. IEEE Trans. on Signal
+Processing, 40(12):30433053.
+S. Kakade, Y. W. Teh, and S. Roweis. 2002. An Alterna-
+tive Objective Function for Markovian Fields. In Proc. of
+ICML-2002, pages 275282.
+S. Katagiri, C. H. Lee, and B.-H. Juang. 1991. New Dis-
+criminative Training Algorithms based on the Generalized
+Descent Method. In Proc. of IEEE Workshop on Neural
+Networks for Signal Processing, pages 299308.
+T. Kudo and Y. Matsumoto. 2001. Chunking with Support
+Vector Machines. In Proc. of NAACL-2001, pages 192
+199.
+J. Lafferty, A. McCallum, and F. Pereira. 2001. Conditional
+Random Fields: Probabilistic Models for Segmenting and
+Labeling Sequence Data. In Proc. of ICML-2001, pages
+282289.
+D. C. Liu and J. Nocedal. 1989. On the Limited Memory
+BFGS Method for Large-scale Optimization. Mathematic
+Programming, (45):503528.
+A. McCallum and W. Li. 2003. Early Results for Named
+Entity Recognition with Conditional Random Fields Fea-
+ture Induction and Web-Enhanced Lexicons. In Proc. of
+CoNLL-2003, pages 188191.
+F. J. Och. 2003. Minimum Error Rate Training in Statistical
+Machine Translation. In Proc. of ACL-2003, pages 160
+167.
+Y. Qi, M. Szummer, and T. P. Minka. 2005. Bayesian Con-
+ditional Random Fields. In Proc. of AI &amp; Statistics 2005.
+L. A. Ramshaw and M. P. Marcus. 1995. Text Chunking
+using Transformation-based Learning. In Proc. of VLC-
+1995, pages 8894.
+J. Le Roux and E. McDermott. 2005. Optimization Methods
+for Discriminative Training. In Proc. of Eurospeech 2005,
+pages 33413344.
+E. F. Tjong Kim Sang and S. Buchholz. 2000. Introduction
+to the CoNLL-2000 Shared Task: Chunking. In Proc. of
+CoNLL/LLL-2000, pages 127132.
+E. F. Tjong Kim Sang and F. De Meulder. 2003. Introduction
+to the CoNLL-2003 Shared Task: Language-Independent
+Named Entity Recognition. In Proc. of CoNLL-2003,
+pages 142147.
+S. Sarawagi and W. W. Cohen. 2004. Semi-Markov Condi-
+tional Random Fields for Information Extraction. In Proc
+of NIPS-2004.
+F. Sha and F. Pereira. 2003. Shallow Parsing with Con-
+ditional Random Fields. In Proc. of HLT/NAACL-2003,
+pages 213220.
+B. Taskar, C. Guestrin, and D. Koller. 2004. Max-Margin
+Markov Networks. In Proc. of NIPS-2004.
+I. Tsochantaridis, T. Joachims and T. Hofmann, and Y. Altun.
+2005. Large Margin Methods for Structured and Interde-
+pendent Output Variables. JMLR, 6:14531484.
+</reference>
+<page confidence="0.993154">
+224
+</page>
+<figure confidence="0.244589">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.753004">
+<note confidence="0.901831333333333">b&apos;Proceedings of the 21st International Conference on Computational Linguistics and 44th Annual Meeting of the ACL, pages 217224, Sydney, July 2006. c 2006 Association for Computational Linguistics</note>
+<title confidence="0.995033">Training Conditional Random Fields with Multivariate Evaluation Measures</title>
+<author confidence="0.998701">Jun Suzuki</author>
+<author confidence="0.998701">Erik McDermott</author>
+<author confidence="0.998701">Hideki Isozaki</author>
+<affiliation confidence="0.99798">NTT Communication Science Laboratories, NTT Corp.</affiliation>
+<address confidence="0.971796">2-4 Hikaridai, Seika-cho, Soraku-gun, Kyoto, 619-0237 Japan</address>
+<email confidence="0.988395">jun@cslab.kecl.ntt.co.jp</email>
+<email confidence="0.988395">mcd@cslab.kecl.ntt.co.jp</email>
+<email confidence="0.988395">isozaki@cslab.kecl.ntt.co.jp</email>
+<abstract confidence="0.999443705882353">This paper proposes a framework for training Conditional Random Fields (CRFs) to optimize multivariate evaluation measures, including non-linear measures such as F-score. Our proposed framework is derived from an error minimization approach that provides a simple solution for directly optimizing any evaluation measure. Specifically focusing on sequential segmentation tasks, i.e. text chunking and named entity recognition, we introduce a loss function that closely reflects the target evaluation measure for these tasks, namely, segmentation F-score. Our experiments show that our method performs better than standard CRF training.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Y Altun</author>
+<author>M Johnson</author>
+<author>T Hofmann</author>
+</authors>
+<title>Investigating Loss Functions and Optimization Methods for Discriminative Learning of Label Sequences.</title>
+<date>2003</date>
+<booktitle>In Proc. of EMNLP2003,</booktitle>
+<pages>145152</pages>
+<contexts>
+<context position="16844" citStr="Altun et al., 2003" startWordPosition="2928" endWordPosition="2931"> y4 y5 y6 y7 y8 y9 y10 y11 y12 y13 y14 Dep.: y1 y2 y3 y4 y5 y6 y7 y8 y9 Dep.: Figure 1: Examples of sequential segmentation tasks (SSTs): text chunking (Chunking) and named entity recognition (NER). where TP, FP and FN represent true positive, false positive and false negative counts, respectively. The individual evaluation units used to calculate TP, FN and PN, are not individual outputs yi or output sequences y, but rather segments. We need to define a segment-wise loss, in contrast to the standard CRF loss, which is sometimes referred to as an (entire) sequential loss (Kakade et al., 2002; Altun et al., 2003). First, we consider the point-wise decision w.r.t. Eq. 1, that is, yi = arg maxyiY1 g(y, x, i, ). The point-wise discriminant function can be written as follows: g(y, x, i, ) = max y0Y|y|[yi] F(y0 , x) (14) where Yj represents a set of all y whose length is j, and Y[yi] represents a set of all y that contain yi in the ith position. Note that the same output y can be obtained with Eqs. 1 and 14, that is, y = (y1, . . . , yn). This point-wise discriminant function is different from that described in (Kakade et al., 2002; Altun et al., 2003), which is calculated based on marginals. Let ysj be an</context>
+<context position="27358" citStr="Altun et al., 2003" startWordPosition="4799" endWordPosition="4802">th all parameters initialized at zero. In this experiment, the parameters obtained by the MAPtrained model were used as the initial values of MCE-F and MCE(sig). This evaluation setting appears to be similar to reranking, although we used exactly the same model and feature set. Table 2 shows the results of Chunking and NER obtained with this parameter initialization setting. When we compare Tables 1 and 2, we find that the initialization with the MAP parameter values further improves performance. 6 Related Work Various loss functions have been proposed for designing CRFs (Kakade et al., 2002; Altun et al., 2003). This work also takes the design of the loss functions for CRFs into consideration. However, we proposed a general framework for designing these loss function that included non-linear loss functions, which has not been considered in previous work. With Chunking, (Kudo and Matsumoto, 2001) reported the best F-score of 93.91 with the voting of several models trained by Support Vector Machine in the same experimental settings and with the same feature set. MCE-F with the MAP parameter initialization achieved an F-score of 94.03, which surpasses the above result without manual parameter tuning. W</context>
+</contexts>
+<marker>Altun, Johnson, Hofmann, 2003</marker>
+<rawString>Y. Altun, M. Johnson, and T. Hofmann. 2003. Investigating Loss Functions and Optimization Methods for Discriminative Learning of Label Sequences. In Proc. of EMNLP2003, pages 145152.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S E Fahlman</author>
+</authors>
+<title>An Empirical Study of Learning Speech in Backpropagation Networks. In</title>
+<date>1988</date>
+<tech>Technical Report CMU-CS-88-162,</tech>
+<institution>Carnegie Mellon University.</institution>
+<contexts>
+<context position="13986" citStr="Fahlman, 1988" startWordPosition="2428" endWordPosition="2429">ently calculated with the Viterbi algorithm, which is the same as calculating Eq. 1. Therefore, we can find the maximum incorrect output by using the A* algorithm (Hart et al., 1968), if the maximum output is the correct output, and by using the Viterbi algorithm otherwise. It may be feared that since the objective function is not differentiable everywhere for = , problems for optimization would occur. However, it has been shown (Le Roux and McDermott, 2005) that even simple gradient-based (firstorder) optimization methods such as GPD and (approximated) second-order methods such as QuickProp (Fahlman, 1988) and BFGS-based methods have yielded good experimental optimization results. 4 Multivariate Evaluation Measures Thus far, we have discussed the error rate version of MCE. Unlike ML/MAP, the framework of MCE criterion training allows the embedding of not only a linear combination of error rates, but also any evaluation measure, including non-linear measures. Several non-linear objective functions, such as F-score for text classification (Gao et al., 2003), and BLEU-score and some other evaluation measures for statistical machine translation (Och, 2003), have been introduced with reference to th</context>
+</contexts>
+<marker>Fahlman, 1988</marker>
+<rawString>S. E. Fahlman. 1988. An Empirical Study of Learning Speech in Backpropagation Networks. In Technical Report CMU-CS-88-162, Carnegie Mellon University.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Gao</author>
+<author>W Wu</author>
+<author>C-H Lee</author>
+<author>T-S Chua</author>
+</authors>
+<title>A Maximal Figure-of-Merit Approach to Text Categorization.</title>
+<date>2003</date>
+<booktitle>In Proc. of SIGIR03,</booktitle>
+<pages>174181</pages>
+<contexts>
+<context position="14444" citStr="Gao et al., 2003" startWordPosition="2494" endWordPosition="2497">, 2005) that even simple gradient-based (firstorder) optimization methods such as GPD and (approximated) second-order methods such as QuickProp (Fahlman, 1988) and BFGS-based methods have yielded good experimental optimization results. 4 Multivariate Evaluation Measures Thus far, we have discussed the error rate version of MCE. Unlike ML/MAP, the framework of MCE criterion training allows the embedding of not only a linear combination of error rates, but also any evaluation measure, including non-linear measures. Several non-linear objective functions, such as F-score for text classification (Gao et al., 2003), and BLEU-score and some other evaluation measures for statistical machine translation (Och, 2003), have been introduced with reference to the framework of MCE criterion training. 4.1 Sequential Segmentation Tasks (SSTs) Hereafter, we focus solely on CRFs in sequences, namely the linear chain CRF. We assume that x and y have the same length: x=(x1, . . . , xn) and y=(y1, . . . , yn). In a linear chain CRF, yi depends only on yi1. Sequential segmentation tasks (SSTs), such as text chunking (Chunking) and named entity recognition (NER), which constitute the shared tasks of the Conference of Nat</context>
+</contexts>
+<marker>Gao, Wu, Lee, Chua, 2003</marker>
+<rawString>S. Gao, W. Wu, C.-H. Lee, and T.-S. Chua. 2003. A Maximal Figure-of-Merit Approach to Text Categorization. In Proc. of SIGIR03, pages 174181.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P E Hart</author>
+<author>N J Nilsson</author>
+<author>B Raphael</author>
+</authors>
+<title>A Formal Basis for the Heuristic Determination of Minimum Cost Paths.</title>
+<date>1968</date>
+<booktitle>IEEE Trans. on Systems Science and Cybernetics,</booktitle>
+<volume>4</volume>
+<issue>2</issue>
+<contexts>
+<context position="13554" citStr="Hart et al., 1968" startWordPosition="2354" endWordPosition="2357">. 12, by using the variant of the forward-backward and Viterbi algorithm described in (Sha and Pereira, 2003). Moreover, for the parameter optimization process, we can simply exploit gradient descent or quasi-Newton methods such as L-BFGS (Liu and Nocedal, 1989) as well as ML/MAP optimization. If we select = for Eq. 7, we only need to evaluate the correct and the maximum incorrect output. As we know, the maximum output can be efficiently calculated with the Viterbi algorithm, which is the same as calculating Eq. 1. Therefore, we can find the maximum incorrect output by using the A* algorithm (Hart et al., 1968), if the maximum output is the correct output, and by using the Viterbi algorithm otherwise. It may be feared that since the objective function is not differentiable everywhere for = , problems for optimization would occur. However, it has been shown (Le Roux and McDermott, 2005) that even simple gradient-based (firstorder) optimization methods such as GPD and (approximated) second-order methods such as QuickProp (Fahlman, 1988) and BFGS-based methods have yielded good experimental optimization results. 4 Multivariate Evaluation Measures Thus far, we have discussed the error rate version of MC</context>
+</contexts>
+<marker>Hart, Nilsson, Raphael, 1968</marker>
+<rawString>P. E. Hart, N. J. Nilsson, and B. Raphael. 1968. A Formal Basis for the Heuristic Determination of Minimum Cost Paths. IEEE Trans. on Systems Science and Cybernetics, SSC-4(2):100107.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Jansche</author>
+</authors>
+<title>Maximum Expected F-Measure Training of Logistic Regression Models.</title>
+<date>2005</date>
+<booktitle>In Proc. of HLT/EMNLP2005,</booktitle>
+<pages>692699</pages>
+<contexts>
+<context position="3577" citStr="Jansche, 2005" startWordPosition="528" endWordPosition="529">erage accuracies, or error rates, rather than a given task-specific evaluation measure. For example, sequential segmentation tasks (SSTs), such as text chunking and named entity recognition, are generally evaluated with the segmentation F-score. This inconsistency between the objective function during training and the task evaluation measure might produce a suboptimal result. In fact, to overcome this inconsistency, an SVM-based multivariate optimization method has recently been proposed (Joachims, 2005). Moreover, an F-score optimization method for logistic regression has also been proposed (Jansche, 2005). In the same spirit as the above studies, we first propose a generalization framework for CRF training that allows us to optimize directly not only the error rate, but also any evaluation measure. In other words, our framework can incorporate any evaluation measure of interest into the loss function and then optimize this loss function as the training objective function. Our proposed framework is fundamentally derived from an approach to (smoothed) error rate minimization well 217 \x0cknown in the speech and pattern recognition community, namely the Minimum Classification Error (MCE) framewor</context>
+</contexts>
+<marker>Jansche, 2005</marker>
+<rawString>M. Jansche. 2005. Maximum Expected F-Measure Training of Logistic Regression Models. In Proc. of HLT/EMNLP2005, pages 692699.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Joachims</author>
+</authors>
+<title>A Support Vector Method for Multivariate Performance Measures.</title>
+<date>2005</date>
+<booktitle>In Proc. of ICML-2005,</booktitle>
+<pages>377384</pages>
+<contexts>
+<context position="3472" citStr="Joachims, 2005" startWordPosition="512" endWordPosition="513">such as Fscore, while all of the above criteria achieve optimization based on the linear combination of average accuracies, or error rates, rather than a given task-specific evaluation measure. For example, sequential segmentation tasks (SSTs), such as text chunking and named entity recognition, are generally evaluated with the segmentation F-score. This inconsistency between the objective function during training and the task evaluation measure might produce a suboptimal result. In fact, to overcome this inconsistency, an SVM-based multivariate optimization method has recently been proposed (Joachims, 2005). Moreover, an F-score optimization method for logistic regression has also been proposed (Jansche, 2005). In the same spirit as the above studies, we first propose a generalization framework for CRF training that allows us to optimize directly not only the error rate, but also any evaluation measure. In other words, our framework can incorporate any evaluation measure of interest into the loss function and then optimize this loss function as the training objective function. Our proposed framework is fundamentally derived from an approach to (smoothed) error rate minimization well 217 \x0cknow</context>
+</contexts>
+<marker>Joachims, 2005</marker>
+<rawString>T. Joachims. 2005. A Support Vector Method for Multivariate Performance Measures. In Proc. of ICML-2005, pages 377384.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>B H Juang</author>
+<author>S Katagiri</author>
+</authors>
+<title>Discriminative Learning for Minimum Error Classification.</title>
+<date>1992</date>
+<journal>IEEE Trans. on Signal Processing,</journal>
+<volume>40</volume>
+<issue>12</issue>
+<contexts>
+<context position="4205" citStr="Juang and Katagiri, 1992" startWordPosition="626" endWordPosition="629">n the same spirit as the above studies, we first propose a generalization framework for CRF training that allows us to optimize directly not only the error rate, but also any evaluation measure. In other words, our framework can incorporate any evaluation measure of interest into the loss function and then optimize this loss function as the training objective function. Our proposed framework is fundamentally derived from an approach to (smoothed) error rate minimization well 217 \x0cknown in the speech and pattern recognition community, namely the Minimum Classification Error (MCE) framework (Juang and Katagiri, 1992). The framework of MCE criterion training supports the theoretical background of our method. The approach proposed here subsumes the conventional ML/MAP criteria training of CRFs, as described in the following. After describing the new framework, as an example of optimizing multivariate evaluation measures, we focus on SSTs and introduce a segmentation F-score loss function for CRFs. 2 CRFs and Training Criteria Given an input (observation) xX and parameter vector = {1, . . . , M }, CRFs define the conditional probability p(y|x) of a particular output y Y as being proportional to a product of </context>
+</contexts>
+<marker>Juang, Katagiri, 1992</marker>
+<rawString>B. H. Juang and S. Katagiri. 1992. Discriminative Learning for Minimum Error Classification. IEEE Trans. on Signal Processing, 40(12):30433053.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Kakade</author>
+<author>Y W Teh</author>
+<author>S Roweis</author>
+</authors>
+<title>An Alternative Objective Function for Markovian Fields.</title>
+<date>2002</date>
+<booktitle>In Proc. of ICML-2002,</booktitle>
+<pages>275282</pages>
+<contexts>
+<context position="16823" citStr="Kakade et al., 2002" startWordPosition="2924" endWordPosition="2927"> Recognition y1 y2 y3 y4 y5 y6 y7 y8 y9 y10 y11 y12 y13 y14 Dep.: y1 y2 y3 y4 y5 y6 y7 y8 y9 Dep.: Figure 1: Examples of sequential segmentation tasks (SSTs): text chunking (Chunking) and named entity recognition (NER). where TP, FP and FN represent true positive, false positive and false negative counts, respectively. The individual evaluation units used to calculate TP, FN and PN, are not individual outputs yi or output sequences y, but rather segments. We need to define a segment-wise loss, in contrast to the standard CRF loss, which is sometimes referred to as an (entire) sequential loss (Kakade et al., 2002; Altun et al., 2003). First, we consider the point-wise decision w.r.t. Eq. 1, that is, yi = arg maxyiY1 g(y, x, i, ). The point-wise discriminant function can be written as follows: g(y, x, i, ) = max y0Y|y|[yi] F(y0 , x) (14) where Yj represents a set of all y whose length is j, and Y[yi] represents a set of all y that contain yi in the ith position. Note that the same output y can be obtained with Eqs. 1 and 14, that is, y = (y1, . . . , yn). This point-wise discriminant function is different from that described in (Kakade et al., 2002; Altun et al., 2003), which is calculated based on mar</context>
+<context position="27337" citStr="Kakade et al., 2002" startWordPosition="4795" endWordPosition="4798">ere only performed with all parameters initialized at zero. In this experiment, the parameters obtained by the MAPtrained model were used as the initial values of MCE-F and MCE(sig). This evaluation setting appears to be similar to reranking, although we used exactly the same model and feature set. Table 2 shows the results of Chunking and NER obtained with this parameter initialization setting. When we compare Tables 1 and 2, we find that the initialization with the MAP parameter values further improves performance. 6 Related Work Various loss functions have been proposed for designing CRFs (Kakade et al., 2002; Altun et al., 2003). This work also takes the design of the loss functions for CRFs into consideration. However, we proposed a general framework for designing these loss function that included non-linear loss functions, which has not been considered in previous work. With Chunking, (Kudo and Matsumoto, 2001) reported the best F-score of 93.91 with the voting of several models trained by Support Vector Machine in the same experimental settings and with the same feature set. MCE-F with the MAP parameter initialization achieved an F-score of 94.03, which surpasses the above result without manua</context>
+</contexts>
+<marker>Kakade, Teh, Roweis, 2002</marker>
+<rawString>S. Kakade, Y. W. Teh, and S. Roweis. 2002. An Alternative Objective Function for Markovian Fields. In Proc. of ICML-2002, pages 275282.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Katagiri</author>
+<author>C H Lee</author>
+<author>B-H Juang</author>
+</authors>
+<title>New Discriminative Training Algorithms based on the Generalized Descent Method.</title>
+<date>1991</date>
+<booktitle>In Proc. of IEEE Workshop on Neural Networks for Signal Processing,</booktitle>
+<pages>299308</pages>
+<contexts>
+<context position="7542" citStr="Katagiri et al., 1991" startWordPosition="1239" endWordPosition="1243">parameters , we seek a zero of the gradient over the parameters : LMAP = log p() + X k \x14 F(yk , xk ) + X yYk exp(F(y, xk )) Z(xk) F(y, xk ) \x15 . (3) The gradient of ML is Eq. 3 without the gradient term of the prior, log p(). The details of actual optimization procedures for linear chain CRFs, which are typical CRF applications, have already been reported (Sha and Pereira, 2003). 3 MCE Criterion Training for CRFs The Minimum Classification Error (MCE) framework first arose out of a broader family of approaches to pattern classifier design known as Generalized Probabilistic Descent (GPD) (Katagiri et al., 1991). The MCE criterion minimizes an empirical loss corresponding to a smooth approximation of the classification error. This MCE loss is itself defined in terms of a misclassification measure derived from the discriminant functions of a given task. Via the smoothing parameters, the MCE loss function can be made arbitrarily close to the binary classification error. An important property of this framework is that it makes it 218 \x0cpossible in principle to achieve the optimal Bayes error even under incorrect modeling assumptions. It is easy to extend the MCE framework to use evaluation measures ot</context>
+</contexts>
+<marker>Katagiri, Lee, Juang, 1991</marker>
+<rawString>S. Katagiri, C. H. Lee, and B.-H. Juang. 1991. New Discriminative Training Algorithms based on the Generalized Descent Method. In Proc. of IEEE Workshop on Neural Networks for Signal Processing, pages 299308.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Kudo</author>
+<author>Y Matsumoto</author>
+</authors>
+<title>Chunking with Support Vector Machines.</title>
+<date>2001</date>
+<booktitle>In Proc. of NAACL-2001,</booktitle>
+<pages>192--199</pages>
+<contexts>
+<context position="22777" citStr="Kudo and Matsumoto, 2001" startWordPosition="4038" endWordPosition="4041">ation. We selected a value of C from 1.0 10n where n takes a value from -5 to 5 in intervals 1 by development data3. The tuning of smoothing function hyper-parameters is not considered in this paper; that is, =1 and =0 were used for all the experiments. We evaluated the performance by Eq. 13 with = 1, which is the evaluation measure used in CoNLL-2000 and 2003. Moreover, we evaluated the performance by using the average sentence accuracy, since the conventional ML/MAP objective function reflects this sequential accuracy. 5.2 Features As regards the basic feature set for Chunking, we followed (Kudo and Matsumoto, 2001), which is the same feature set that provided the best result in CoNLL-2000. We expanded the basic features by using bigram combinations of the same types of features, such as words and part-of-speech tags, within window size 5. In contrast to the above, we used the original feature set for NER. We used features derived only from the data provided by CoNLL-2003 with the addition of character-level regular expressions of uppercases [A-Z], lowercases [a-z], digits [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] or others, and prefixes and suffixes of one to four letters. We also expanded the above basic features</context>
+<context position="27648" citStr="Kudo and Matsumoto, 2001" startWordPosition="4844" endWordPosition="4847"> 2 shows the results of Chunking and NER obtained with this parameter initialization setting. When we compare Tables 1 and 2, we find that the initialization with the MAP parameter values further improves performance. 6 Related Work Various loss functions have been proposed for designing CRFs (Kakade et al., 2002; Altun et al., 2003). This work also takes the design of the loss functions for CRFs into consideration. However, we proposed a general framework for designing these loss function that included non-linear loss functions, which has not been considered in previous work. With Chunking, (Kudo and Matsumoto, 2001) reported the best F-score of 93.91 with the voting of several models trained by Support Vector Machine in the same experimental settings and with the same feature set. MCE-F with the MAP parameter initialization achieved an F-score of 94.03, which surpasses the above result without manual parameter tuning. With NER, we cannot make a direct comparison with previous work in the same experimental settings because of the different feature set, as described in Sec. 5.2. However, MCE-F showed the better performance of 85.29 compared with (McCallum and Li, 2003) of 84.04, which used the MAP training</context>
+</contexts>
+<marker>Kudo, Matsumoto, 2001</marker>
+<rawString>T. Kudo and Y. Matsumoto. 2001. Chunking with Support Vector Machines. In Proc. of NAACL-2001, pages 192 199.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Lafferty</author>
+<author>A McCallum</author>
+<author>F Pereira</author>
+</authors>
+<title>Conditional Random Fields: Probabilistic Models for Segmenting and Labeling Sequence Data.</title>
+<date>2001</date>
+<booktitle>In Proc. of ICML-2001,</booktitle>
+<pages>282289</pages>
+<contexts>
+<context position="1219" citStr="Lafferty et al., 2001" startWordPosition="162" endWordPosition="165">es, including non-linear measures such as F-score. Our proposed framework is derived from an error minimization approach that provides a simple solution for directly optimizing any evaluation measure. Specifically focusing on sequential segmentation tasks, i.e. text chunking and named entity recognition, we introduce a loss function that closely reflects the target evaluation measure for these tasks, namely, segmentation F-score. Our experiments show that our method performs better than standard CRF training. 1 Introduction Conditional random fields (CRFs) are a recently introduced formalism (Lafferty et al., 2001) for representing a conditional model p(y|x), where both a set of inputs, x, and a set of outputs, y, display non-trivial interdependency. CRFs are basically defined as a discriminative model of Markov random fields conditioned on inputs (observations) x. Unlike generative models, CRFs model only the output ys distribution over x. This allows CRFs to use flexible features such as complicated functions of multiple observations. The modeling power of CRFs has been of great benefit in several applications, such as shallow parsing (Sha and Pereira, 2003) and information extraction (McCallum and Li</context>
+</contexts>
+<marker>Lafferty, McCallum, Pereira, 2001</marker>
+<rawString>J. Lafferty, A. McCallum, and F. Pereira. 2001. Conditional Random Fields: Probabilistic Models for Segmenting and Labeling Sequence Data. In Proc. of ICML-2001, pages 282289.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D C Liu</author>
+<author>J Nocedal</author>
+</authors>
+<date>1989</date>
+<booktitle>On the Limited Memory BFGS Method for Large-scale Optimization. Mathematic Programming,</booktitle>
+<pages>45--503528</pages>
+<contexts>
+<context position="13198" citStr="Liu and Nocedal, 1989" startWordPosition="2289" endWordPosition="2292">(), l() and d(). The details are provided in the Appendices. Therefore, ML/MAP can be seen as one special case of the framework proposed here. In other words, our method provides a generalized framework of CRF training. 3.3 Optimization Procedure With linear chain CRFs, we can calculate the objective function, Eq. 9 combined with Eq. 10, and the gradient, Eq. 12, by using the variant of the forward-backward and Viterbi algorithm described in (Sha and Pereira, 2003). Moreover, for the parameter optimization process, we can simply exploit gradient descent or quasi-Newton methods such as L-BFGS (Liu and Nocedal, 1989) as well as ML/MAP optimization. If we select = for Eq. 7, we only need to evaluate the correct and the maximum incorrect output. As we know, the maximum output can be efficiently calculated with the Viterbi algorithm, which is the same as calculating Eq. 1. Therefore, we can find the maximum incorrect output by using the A* algorithm (Hart et al., 1968), if the maximum output is the correct output, and by using the Viterbi algorithm otherwise. It may be feared that since the objective function is not differentiable everywhere for = , problems for optimization would occur. However, it has been</context>
+</contexts>
+<marker>Liu, Nocedal, 1989</marker>
+<rawString>D. C. Liu and J. Nocedal. 1989. On the Limited Memory BFGS Method for Large-scale Optimization. Mathematic Programming, (45):503528.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A McCallum</author>
+<author>W Li</author>
+</authors>
+<title>Early Results for Named Entity Recognition with Conditional Random Fields Feature Induction and Web-Enhanced Lexicons.</title>
+<date>2003</date>
+<booktitle>In Proc. of CoNLL-2003,</booktitle>
+<pages>188191</pages>
+<contexts>
+<context position="1826" citStr="McCallum and Li, 2003" startWordPosition="260" endWordPosition="263">y et al., 2001) for representing a conditional model p(y|x), where both a set of inputs, x, and a set of outputs, y, display non-trivial interdependency. CRFs are basically defined as a discriminative model of Markov random fields conditioned on inputs (observations) x. Unlike generative models, CRFs model only the output ys distribution over x. This allows CRFs to use flexible features such as complicated functions of multiple observations. The modeling power of CRFs has been of great benefit in several applications, such as shallow parsing (Sha and Pereira, 2003) and information extraction (McCallum and Li, 2003). Since the introduction of CRFs, intensive research has been undertaken to boost their effectiveness. The first approach to estimating CRF parameters is the maximum likelihood (ML) criterion over conditional probability p(y|x) itself (Lafferty et al., 2001). The ML criterion, however, is prone to over-fitting the training data, especially since CRFs are often trained with a very large number of correlated features. The maximum a posteriori (MAP) criterion over parameters, , given x and y is the natural choice for reducing over-fitting (Sha and Pereira, 2003). Moreover, the Bayes approach, whi</context>
+<context position="28210" citStr="McCallum and Li, 2003" startWordPosition="4937" endWordPosition="4941"> in previous work. With Chunking, (Kudo and Matsumoto, 2001) reported the best F-score of 93.91 with the voting of several models trained by Support Vector Machine in the same experimental settings and with the same feature set. MCE-F with the MAP parameter initialization achieved an F-score of 94.03, which surpasses the above result without manual parameter tuning. With NER, we cannot make a direct comparison with previous work in the same experimental settings because of the different feature set, as described in Sec. 5.2. However, MCE-F showed the better performance of 85.29 compared with (McCallum and Li, 2003) of 84.04, which used the MAP training of CRFs with a feature selection architecture, yielding similar results to the MAP results described here. 223 \x0c7 Conclusions We proposed a framework for training CRFs based on optimization criteria directly related to target multivariate evaluation measures. We first provided a general framework of CRF training based on MCE criterion. Then, specifically focusing on SSTs, we introduced an approximate segmentation F-score objective function. Experimental results showed that eliminating the inconsistency between the task evaluation measure and the object</context>
+</contexts>
+<marker>McCallum, Li, 2003</marker>
+<rawString>A. McCallum and W. Li. 2003. Early Results for Named Entity Recognition with Conditional Random Fields Feature Induction and Web-Enhanced Lexicons. In Proc. of CoNLL-2003, pages 188191.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F J Och</author>
+</authors>
+<title>Minimum Error Rate Training in Statistical Machine Translation.</title>
+<date>2003</date>
+<booktitle>In Proc. of ACL-2003,</booktitle>
+<pages>160--167</pages>
+<contexts>
+<context position="14543" citStr="Och, 2003" startWordPosition="2510" endWordPosition="2511">econd-order methods such as QuickProp (Fahlman, 1988) and BFGS-based methods have yielded good experimental optimization results. 4 Multivariate Evaluation Measures Thus far, we have discussed the error rate version of MCE. Unlike ML/MAP, the framework of MCE criterion training allows the embedding of not only a linear combination of error rates, but also any evaluation measure, including non-linear measures. Several non-linear objective functions, such as F-score for text classification (Gao et al., 2003), and BLEU-score and some other evaluation measures for statistical machine translation (Och, 2003), have been introduced with reference to the framework of MCE criterion training. 4.1 Sequential Segmentation Tasks (SSTs) Hereafter, we focus solely on CRFs in sequences, namely the linear chain CRF. We assume that x and y have the same length: x=(x1, . . . , xn) and y=(y1, . . . , yn). In a linear chain CRF, yi depends only on yi1. Sequential segmentation tasks (SSTs), such as text chunking (Chunking) and named entity recognition (NER), which constitute the shared tasks of the Conference of Natural Language Learning (CoNLL) 2000, 2002 and 2003, are typical CRF applications. These tasks requi</context>
+</contexts>
+<marker>Och, 2003</marker>
+<rawString>F. J. Och. 2003. Minimum Error Rate Training in Statistical Machine Translation. In Proc. of ACL-2003, pages 160 167.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y Qi</author>
+<author>M Szummer</author>
+<author>T P Minka</author>
+</authors>
+<title>Bayesian Conditional Random Fields.</title>
+<date>2005</date>
+<booktitle>In Proc. of AI &amp; Statistics</booktitle>
+<contexts>
+<context position="2534" citStr="Qi et al., 2005" startWordPosition="373" endWordPosition="376">ctiveness. The first approach to estimating CRF parameters is the maximum likelihood (ML) criterion over conditional probability p(y|x) itself (Lafferty et al., 2001). The ML criterion, however, is prone to over-fitting the training data, especially since CRFs are often trained with a very large number of correlated features. The maximum a posteriori (MAP) criterion over parameters, , given x and y is the natural choice for reducing over-fitting (Sha and Pereira, 2003). Moreover, the Bayes approach, which optimizes both MAP and the prior distribution of the parameters, has also been proposed (Qi et al., 2005). Furthermore, large margin criteria have been employed to optimize the model parameters (Taskar et al., 2004; Tsochantaridis et al., 2005). These training criteria have yielded excellent results for various tasks. However, real world tasks are evaluated by task-specific evaluation measures, including non-linear measures such as Fscore, while all of the above criteria achieve optimization based on the linear combination of average accuracies, or error rates, rather than a given task-specific evaluation measure. For example, sequential segmentation tasks (SSTs), such as text chunking and named </context>
+</contexts>
+<marker>Qi, Szummer, Minka, 2005</marker>
+<rawString>Y. Qi, M. Szummer, and T. P. Minka. 2005. Bayesian Conditional Random Fields. In Proc. of AI &amp; Statistics 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L A Ramshaw</author>
+<author>M P Marcus</author>
+</authors>
+<title>Text Chunking using Transformation-based Learning.</title>
+<date>1995</date>
+<booktitle>In Proc. of VLC1995,</booktitle>
+<pages>8894</pages>
+<contexts>
+<context position="15404" citStr="Ramshaw and Marcus, 1995" startWordPosition="2654" endWordPosition="2657">e length: x=(x1, . . . , xn) and y=(y1, . . . , yn). In a linear chain CRF, yi depends only on yi1. Sequential segmentation tasks (SSTs), such as text chunking (Chunking) and named entity recognition (NER), which constitute the shared tasks of the Conference of Natural Language Learning (CoNLL) 2000, 2002 and 2003, are typical CRF applications. These tasks require the extraction of pre-defined segments, referred to as target segments, from given texts. Fig. 1 shows typical examples of SSTs. These tasks are generally treated as sequential labeling problems incorporating the IOB tagging scheme (Ramshaw and Marcus, 1995). The IOB tagging scheme, where we only consider the IOB2 scheme, is also shown in Fig. 1. B-X, I-X and O indicate that the word in question is the beginning of the tag X, inside the tag X, and outside any target segment, respectively. Therefore, a segment is defined as a sequence of a few outputs. 4.2 Segmentation F-score Loss for SSTs The standard evaluation measure of SSTs is the segmentation F-score (Sang and Buchholz, 2000): F = (2 + 1) TP 2 FN + FP + (2 + 1) TP (13) 220 \x0cHe reckons the current account deficit will narrow to only # 1.8 billion . NP VP NP VP PP NP B-NP B-VP B-NP I-NP I-</context>
+</contexts>
+<marker>Ramshaw, Marcus, 1995</marker>
+<rawString>L. A. Ramshaw and M. P. Marcus. 1995. Text Chunking using Transformation-based Learning. In Proc. of VLC1995, pages 8894.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Le Roux</author>
+<author>E McDermott</author>
+</authors>
+<title>Optimization Methods for Discriminative Training.</title>
+<date>2005</date>
+<booktitle>In Proc. of Eurospeech</booktitle>
+<pages>33413344</pages>
+<marker>Le Roux, McDermott, 2005</marker>
+<rawString>J. Le Roux and E. McDermott. 2005. Optimization Methods for Discriminative Training. In Proc. of Eurospeech 2005, pages 33413344.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E F Tjong Kim Sang</author>
+<author>S Buchholz</author>
+</authors>
+<title>Introduction to the CoNLL-2000 Shared Task: Chunking.</title>
+<date>2000</date>
+<booktitle>In Proc. of CoNLL/LLL-2000,</booktitle>
+<pages>127132</pages>
+<contexts>
+<context position="15836" citStr="Sang and Buchholz, 2000" startWordPosition="2731" endWordPosition="2734">ents, from given texts. Fig. 1 shows typical examples of SSTs. These tasks are generally treated as sequential labeling problems incorporating the IOB tagging scheme (Ramshaw and Marcus, 1995). The IOB tagging scheme, where we only consider the IOB2 scheme, is also shown in Fig. 1. B-X, I-X and O indicate that the word in question is the beginning of the tag X, inside the tag X, and outside any target segment, respectively. Therefore, a segment is defined as a sequence of a few outputs. 4.2 Segmentation F-score Loss for SSTs The standard evaluation measure of SSTs is the segmentation F-score (Sang and Buchholz, 2000): F = (2 + 1) TP 2 FN + FP + (2 + 1) TP (13) 220 \x0cHe reckons the current account deficit will narrow to only # 1.8 billion . NP VP NP VP PP NP B-NP B-VP B-NP I-NP I-NP I-NP B-VP I-VP B-PP B-NP I-NP I-NP I-NP O x: y: Seg.: United Nation official Ekeus Smith heads for Baghdad . B-ORG I-ORG O O O B-PER I-PER B-LOC O x: y: Seg.: ORG PER LOC Text Chunking Named Entity Recognition y1 y2 y3 y4 y5 y6 y7 y8 y9 y10 y11 y12 y13 y14 Dep.: y1 y2 y3 y4 y5 y6 y7 y8 y9 Dep.: Figure 1: Examples of sequential segmentation tasks (SSTs): text chunking (Chunking) and named entity recognition (NER). where TP, FP</context>
+<context position="21105" citStr="Sang and Buchholz, 2000" startWordPosition="3766" endWordPosition="3769">(s j ) = 1 1 ZD , otherwise where ZN and ZD represent the numerator and denominator of Eq. 16, respectively. In the optimization process of the segmentation F-score objective function, we can efficiently calculate Eq. 15 by using the forward and backward Viterbi algorithm, which is almost the same as calculating Eq. 3 with a variant of the forwardbackward algorithm (Sha and Pereira, 2003). The same numerical optimization methods described in Sec. 3.3 can be employed for this optimization. 5 Experiments We used the same Chunking and English NER task data used for the shared tasks of CoNLL2000 (Sang and Buchholz, 2000) and CoNLL2003 (Sang and De Meulder, 2003), respectively. Chunking data was obtained from the Wall Street Journal (WSJ) corpus: sections 15-18 as training data (8,936 sentences and 211,727 tokens), and section 20 as test data (2,012 sentences and 47,377 tokens), with 11 different chunk-tags, such as NP and VP plus the O tag, which represents the outside of any target chunk (segment). The English NER data was taken from the Reuters Corpus21. The data consists of 203,621, 51,362 and 46,435 tokens from 14,987, 3,466 and 3,684 sentences in training, development and test data, respectively, with fo</context>
+</contexts>
+<marker>Sang, Buchholz, 2000</marker>
+<rawString>E. F. Tjong Kim Sang and S. Buchholz. 2000. Introduction to the CoNLL-2000 Shared Task: Chunking. In Proc. of CoNLL/LLL-2000, pages 127132.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E F Tjong Kim Sang</author>
+<author>F De Meulder</author>
+</authors>
+<title>Introduction to the CoNLL-2003 Shared Task: Language-Independent Named Entity Recognition.</title>
+<date>2003</date>
+<booktitle>In Proc. of CoNLL-2003,</booktitle>
+<pages>142147</pages>
+<marker>Sang, De Meulder, 2003</marker>
+<rawString>E. F. Tjong Kim Sang and F. De Meulder. 2003. Introduction to the CoNLL-2003 Shared Task: Language-Independent Named Entity Recognition. In Proc. of CoNLL-2003, pages 142147.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Sarawagi</author>
+<author>W W Cohen</author>
+</authors>
+<title>Semi-Markov Conditional Random Fields for Information Extraction.</title>
+<date>2004</date>
+<booktitle>In Proc of NIPS-2004.</booktitle>
+<contexts>
+<context position="19562" citStr="Sarawagi and Cohen, 2004" startWordPosition="3482" endWordPosition="3485">ent sj is a target segment, and returns 0 otherwise. For the NER data shown in Fig. 1, ORG, PER and LOC are the target segments, while segments that are labeled O in y are not. Since TPl should not have a value of less than zero, we select sigmoid loss as the smoothing function l(). The second summation of TPl and FNl performs a summation over correct segments s. In contrast, the second summation in FPl takes all possible segments into account, but excludes the correct segments s. Although an efficient way to evaluate all possible segments has been proposed in the context of semi-Markov CRFs (Sarawagi and Cohen, 2004), we introduce a simple alternative method. If we select = for d() in Eq. 7, we only need to evaluate the segments corresponding to the maximum incorrect output y to calculate FPl. That is, s0 j S(xk)\\sk can be reduced to s0 j sk , where sk represents segments corresponding to the maximum incorrect output y. In practice, this reduces the calculation cost and so we used this method for our experiments described in the next section. Maximizing the segmentation F-score, Eq. 13, 221 \x0cis equivalent to minimizing 2FN+FP (2+1)TP , since Eq. 13 can also be written as F = 1 1+ 2F N+F P (2+1)T P . T</context>
+</contexts>
+<marker>Sarawagi, Cohen, 2004</marker>
+<rawString>S. Sarawagi and W. W. Cohen. 2004. Semi-Markov Conditional Random Fields for Information Extraction. In Proc of NIPS-2004.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Sha</author>
+<author>F Pereira</author>
+</authors>
+<title>Shallow Parsing with Conditional Random Fields.</title>
+<date>2003</date>
+<booktitle>In Proc. of HLT/NAACL-2003,</booktitle>
+<pages>213220</pages>
+<contexts>
+<context position="1775" citStr="Sha and Pereira, 2003" startWordPosition="252" endWordPosition="255">(CRFs) are a recently introduced formalism (Lafferty et al., 2001) for representing a conditional model p(y|x), where both a set of inputs, x, and a set of outputs, y, display non-trivial interdependency. CRFs are basically defined as a discriminative model of Markov random fields conditioned on inputs (observations) x. Unlike generative models, CRFs model only the output ys distribution over x. This allows CRFs to use flexible features such as complicated functions of multiple observations. The modeling power of CRFs has been of great benefit in several applications, such as shallow parsing (Sha and Pereira, 2003) and information extraction (McCallum and Li, 2003). Since the introduction of CRFs, intensive research has been undertaken to boost their effectiveness. The first approach to estimating CRF parameters is the maximum likelihood (ML) criterion over conditional probability p(y|x) itself (Lafferty et al., 2001). The ML criterion, however, is prone to over-fitting the training data, especially since CRFs are often trained with a very large number of correlated features. The maximum a posteriori (MAP) criterion over parameters, , given x and y is the natural choice for reducing over-fitting (Sha an</context>
+<context position="5171" citStr="Sha and Pereira, 2003" startWordPosition="799" endWordPosition="802">gmentation F-score loss function for CRFs. 2 CRFs and Training Criteria Given an input (observation) xX and parameter vector = {1, . . . , M }, CRFs define the conditional probability p(y|x) of a particular output y Y as being proportional to a product of potential functions on the cliques of a graph, which represents the interdependency of y and x. That is: p(y|x; ) = 1 Z(x) Y cC(y,x) c(y, x; ) where c(y, x; ) is a non-negative real value potential function on a clique c C(y, x). Z(x)= P yY Q cC(y,x) c(y, x; ) is a normalization factor over all output values, Y. Following the definitions of (Sha and Pereira, 2003), a log-linear combination of weighted features, c(y, x; ) = exp( fc(y, x)), is used as individual potential functions, where fc represents a feature vector obtained from the corresponding clique c. That is, Q cC(y,x) c(y, x) = exp(F(y, x)), where F(y, x)= P c fc(y, x) is the CRFs global feature vector for x and y. The most probable output y is given by y = arg maxyY p(y|x; ). However Z(x) never affects the decision of y since Z(x) does not depend on y. Thus, we can obtain the following discriminant function for CRFs: y = arg max yY F(y, x). (1) The maximum (log-)likelihood (ML) of the conditi</context>
+<context position="7306" citStr="Sha and Pereira, 2003" startWordPosition="1202" endWordPosition="1205">n prior when =2. The essential difference between ML and MAP is simply that MAP has this prior term in the objective function. This paper sometimes refers to the ML and MAP criterion training of CRFs as ML/MAP. In order to estimate the parameters , we seek a zero of the gradient over the parameters : LMAP = log p() + X k \x14 F(yk , xk ) + X yYk exp(F(y, xk )) Z(xk) F(y, xk ) \x15 . (3) The gradient of ML is Eq. 3 without the gradient term of the prior, log p(). The details of actual optimization procedures for linear chain CRFs, which are typical CRF applications, have already been reported (Sha and Pereira, 2003). 3 MCE Criterion Training for CRFs The Minimum Classification Error (MCE) framework first arose out of a broader family of approaches to pattern classifier design known as Generalized Probabilistic Descent (GPD) (Katagiri et al., 1991). The MCE criterion minimizes an empirical loss corresponding to a smooth approximation of the classification error. This MCE loss is itself defined in terms of a misclassification measure derived from the discriminant functions of a given task. Via the smoothing parameters, the MCE loss function can be made arbitrarily close to the binary classification error. </context>
+<context position="13045" citStr="Sha and Pereira, 2003" startWordPosition="2267" endWordPosition="2270">) where g = F(y, x), g = F(y, x), and Z(x, )= P yY exp(g). Note that we can obtain exactly the same loss function as ML/MAP with appropriate choices of F(), l() and d(). The details are provided in the Appendices. Therefore, ML/MAP can be seen as one special case of the framework proposed here. In other words, our method provides a generalized framework of CRF training. 3.3 Optimization Procedure With linear chain CRFs, we can calculate the objective function, Eq. 9 combined with Eq. 10, and the gradient, Eq. 12, by using the variant of the forward-backward and Viterbi algorithm described in (Sha and Pereira, 2003). Moreover, for the parameter optimization process, we can simply exploit gradient descent or quasi-Newton methods such as L-BFGS (Liu and Nocedal, 1989) as well as ML/MAP optimization. If we select = for Eq. 7, we only need to evaluate the correct and the maximum incorrect output. As we know, the maximum output can be efficiently calculated with the Viterbi algorithm, which is the same as calculating Eq. 1. Therefore, we can find the maximum incorrect output by using the A* algorithm (Hart et al., 1968), if the maximum output is the correct output, and by using the Viterbi algorithm otherwise</context>
+<context position="20872" citStr="Sha and Pereira, 2003" startWordPosition="3727" endWordPosition="3730">criterion can be written as Eq. 9 while replacing Fl,d,g, with: FMCE-F l,d,g, = 2 FNl + FPl (2 + 1) TPl . (16) The derivative of Eq. 16 w.r.t. l() is given by the following equation: FMCE-F l,d,g, l() = ( 2 ZD + (2 +1)ZN Z2 D , if (s j ) = 1 1 ZD , otherwise where ZN and ZD represent the numerator and denominator of Eq. 16, respectively. In the optimization process of the segmentation F-score objective function, we can efficiently calculate Eq. 15 by using the forward and backward Viterbi algorithm, which is almost the same as calculating Eq. 3 with a variant of the forwardbackward algorithm (Sha and Pereira, 2003). The same numerical optimization methods described in Sec. 3.3 can be employed for this optimization. 5 Experiments We used the same Chunking and English NER task data used for the shared tasks of CoNLL2000 (Sang and Buchholz, 2000) and CoNLL2003 (Sang and De Meulder, 2003), respectively. Chunking data was obtained from the Wall Street Journal (WSJ) corpus: sections 15-18 as training data (8,936 sentences and 211,727 tokens), and section 20 as test data (2,012 sentences and 47,377 tokens), with 11 different chunk-tags, such as NP and VP plus the O tag, which represents the outside of any targ</context>
+</contexts>
+<marker>Sha, Pereira, 2003</marker>
+<rawString>F. Sha and F. Pereira. 2003. Shallow Parsing with Conditional Random Fields. In Proc. of HLT/NAACL-2003, pages 213220.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>B Taskar</author>
+<author>C Guestrin</author>
+<author>D Koller</author>
+</authors>
+<title>Max-Margin Markov Networks.</title>
+<date>2004</date>
+<booktitle>In Proc. of NIPS-2004.</booktitle>
+<contexts>
+<context position="2643" citStr="Taskar et al., 2004" startWordPosition="390" endWordPosition="393">onditional probability p(y|x) itself (Lafferty et al., 2001). The ML criterion, however, is prone to over-fitting the training data, especially since CRFs are often trained with a very large number of correlated features. The maximum a posteriori (MAP) criterion over parameters, , given x and y is the natural choice for reducing over-fitting (Sha and Pereira, 2003). Moreover, the Bayes approach, which optimizes both MAP and the prior distribution of the parameters, has also been proposed (Qi et al., 2005). Furthermore, large margin criteria have been employed to optimize the model parameters (Taskar et al., 2004; Tsochantaridis et al., 2005). These training criteria have yielded excellent results for various tasks. However, real world tasks are evaluated by task-specific evaluation measures, including non-linear measures such as Fscore, while all of the above criteria achieve optimization based on the linear combination of average accuracies, or error rates, rather than a given task-specific evaluation measure. For example, sequential segmentation tasks (SSTs), such as text chunking and named entity recognition, are generally evaluated with the segmentation F-score. This inconsistency between the obj</context>
+</contexts>
+<marker>Taskar, Guestrin, Koller, 2004</marker>
+<rawString>B. Taskar, C. Guestrin, and D. Koller. 2004. Max-Margin Markov Networks. In Proc. of NIPS-2004.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>I Tsochantaridis</author>
+<author>T Joachims</author>
+<author>T Hofmann</author>
+<author>Y Altun</author>
+</authors>
+<title>Large Margin Methods for Structured and Interdependent Output Variables.</title>
+<date>2005</date>
+<pages>6--14531484</pages>
+<publisher>JMLR,</publisher>
+<contexts>
+<context position="2673" citStr="Tsochantaridis et al., 2005" startWordPosition="394" endWordPosition="397">y p(y|x) itself (Lafferty et al., 2001). The ML criterion, however, is prone to over-fitting the training data, especially since CRFs are often trained with a very large number of correlated features. The maximum a posteriori (MAP) criterion over parameters, , given x and y is the natural choice for reducing over-fitting (Sha and Pereira, 2003). Moreover, the Bayes approach, which optimizes both MAP and the prior distribution of the parameters, has also been proposed (Qi et al., 2005). Furthermore, large margin criteria have been employed to optimize the model parameters (Taskar et al., 2004; Tsochantaridis et al., 2005). These training criteria have yielded excellent results for various tasks. However, real world tasks are evaluated by task-specific evaluation measures, including non-linear measures such as Fscore, while all of the above criteria achieve optimization based on the linear combination of average accuracies, or error rates, rather than a given task-specific evaluation measure. For example, sequential segmentation tasks (SSTs), such as text chunking and named entity recognition, are generally evaluated with the segmentation F-score. This inconsistency between the objective function during trainin</context>
+</contexts>
+<marker>Tsochantaridis, Joachims, Hofmann, Altun, 2005</marker>
+<rawString>I. Tsochantaridis, T. Joachims and T. Hofmann, and Y. Altun. 2005. Large Margin Methods for Structured and Interdependent Output Variables. JMLR, 6:14531484.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

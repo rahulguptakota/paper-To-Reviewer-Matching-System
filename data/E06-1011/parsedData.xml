@@ -1,0 +1,1354 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<title confidence="0.933854">
+b&apos;Online Learning of Approximate Dependency Parsing Algorithms
+</title>
+<author confidence="0.998811">
+Ryan McDonald Fernando Pereira
+</author>
+<affiliation confidence="0.9965755">
+Department of Computer and Information Science
+University of Pennsylvania
+</affiliation>
+<address confidence="0.968319">
+Philadelphia, PA 19104
+</address>
+<email confidence="0.998679">
+{ryantm,pereira}@cis.upenn.edu
+</email>
+<sectionHeader confidence="0.988799" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.993591533333333">
+In this paper we extend the maximum
+spanning tree (MST) dependency parsing
+framework of McDonald et al. (2005c)
+to incorporate higher-order feature rep-
+resentations and allow dependency struc-
+tures with multiple parents per word.
+We show that those extensions can make
+the MST framework computationally in-
+tractable, but that the intractability can be
+circumvented with new approximate pars-
+ing algorithms. We conclude with ex-
+periments showing that discriminative on-
+line learning using those approximate al-
+gorithms achieves the best reported pars-
+ing accuracy for Czech and Danish.
+</bodyText>
+<sectionHeader confidence="0.996485" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.995969470588235">
+Dependency representations of sentences (Hud-
+son, 1984; Melcuk, 1988) model head-dependent
+syntactic relations as edges in a directed graph.
+Figure 1 displays a dependency representation for
+the sentence John hit the ball with the bat. This
+sentence is an example of a projective (or nested)
+tree representation, in which all edges can be
+drawn in the plane with none crossing. Sometimes
+a non-projective representations are preferred, as
+in the sentence in Figure 2.1 In particular, for
+freer-word order languages, non-projectivity is a
+common phenomenon since the relative positional
+constraints on dependents is much less rigid. The
+dependency structures in Figures 1 and 2 satisfy
+the tree constraint: they are weakly connected
+graphs with a unique root node, and each non-root
+node has a exactly one parent. Though trees are
+</bodyText>
+<page confidence="0.918305">
+1
+</page>
+<bodyText confidence="0.991630914285714">
+Examples are drawn from McDonald et al. (2005c).
+more common, some formalisms allow for words
+to modify multiple parents (Hudson, 1984).
+Recently, McDonald et al. (2005c) have shown
+that treating dependency parsing as the search
+for the highest scoring maximum spanning tree
+(MST) in a graph yields efficient algorithms for
+both projective and non-projective trees. When
+combined with a discriminative online learning al-
+gorithm and a rich feature set, these models pro-
+vide state-of-the-art performance across multiple
+languages. However, the parsing algorithms re-
+quire that the score of a dependency tree factors
+as a sum of the scores of its edges. This first-order
+factorization is very restrictive since it only allows
+for features to be defined over single attachment
+decisions. Previous work has shown that condi-
+tioning on neighboring decisions can lead to sig-
+nificant improvements in accuracy (Yamada and
+Matsumoto, 2003; Charniak, 2000).
+In this paper we extend the MST parsing frame-
+work to incorporate higher-order feature represen-
+tations of bounded-size connected subgraphs. We
+also present an algorithm for acyclic dependency
+graphs, that is, dependency graphs in which a
+word may depend on multiple heads. In both cases
+parsing is in general intractable and we provide
+novel approximate algorithms to make these cases
+tractable. We evaluate these algorithms within
+an online learning framework, which has been
+shown to be robust with respect approximate in-
+ference, and describe experiments displaying that
+these new models lead to state-of-the-art accuracy
+for English and the best accuracy we know of for
+Czech and Danish.
+</bodyText>
+<sectionHeader confidence="0.914489" genericHeader="method">
+2 Maximum Spanning Tree Parsing
+</sectionHeader>
+<bodyText confidence="0.9950925">
+Dependency-tree parsing as the search for the
+maximum spanning tree (MST) in a graph was
+</bodyText>
+<page confidence="0.988023">
+81
+</page>
+<figure confidence="0.438398">
+\x0croot John saw a dog yesterday which was a Yorkshire Terrier
+</figure>
+<figureCaption confidence="0.838007">
+Figure 2: An example non-projective dependency structure.
+</figureCaption>
+<figure confidence="0.961024">
+root
+hit
+John ball with
+the bat
+the
+root0 John1 hit2 the3 ball4 with5 the6 bat7
+</figure>
+<figureCaption confidence="0.999722">
+Figure 1: An example dependency structure.
+</figureCaption>
+<bodyText confidence="0.992211625">
+proposed by McDonald et al. (2005c). This formu-
+lation leads to efficient parsing algorithms for both
+projective and non-projective dependency trees
+with the Eisner algorithm (Eisner, 1996) and the
+Chu-Liu-Edmonds algorithm (Chu and Liu, 1965;
+Edmonds, 1967) respectively. The formulation
+works by defining the score of a dependency tree
+to be the sum of edge scores,
+</bodyText>
+<equation confidence="0.8994335">
+s(x, y) =
+X
+(i,j)y
+s(i, j)
+</equation>
+<bodyText confidence="0.952666142857143">
+where x = x1 xn is an input sentence and y
+a dependency tree for x. We can view y as a set
+of tree edges and write (i, j) y to indicate an
+edge in y from word xi to word xj. Consider the
+example from Figure 1, where the subscripts index
+the nodes of the tree. The score of this tree would
+then be,
+</bodyText>
+<equation confidence="0.992573">
+s(0, 2) + s(2, 1) + s(2, 4) + s(2, 5)
++ s(4, 3) + s(5, 7) + s(7, 6)
+</equation>
+<bodyText confidence="0.999445448275862">
+We call this first-order dependency parsing since
+scores are restricted to a single edge in the depen-
+dency tree. The score of an edge is in turn com-
+puted as the inner product of a high-dimensional
+feature representation of the edge with a corre-
+sponding weight vector,
+s(i, j) = w f(i, j)
+This is a standard linear classifier in which the
+weight vector w are the parameters to be learned
+during training. We should note that f(i, j) can be
+based on arbitrary features of the edge and the in-
+put sequence x.
+Given a directed graph G = (V, E), the maxi-
+mum spanning tree (MST) problem is to find the
+highest scoring subgraph of G that satisfies the
+tree constraint over the vertices V . By defining
+a graph in which the words in a sentence are the
+vertices and there is a directed edge between all
+words with a score as calculated above, McDon-
+ald et al. (2005c) showed that dependency pars-
+ing is equivalent to finding the MST in this graph.
+Furthermore, it was shown that this formulation
+can lead to state-of-the-art results when combined
+with discriminative learning algorithms.
+Although the MST formulation applies to any
+directed graph, our feature representations and one
+of the parsing algorithms (Eisners) rely on a linear
+ordering of the vertices, namely the order of the
+words in the sentence.
+</bodyText>
+<subsectionHeader confidence="0.948198">
+2.1 Second-Order MST Parsing
+</subsectionHeader>
+<bodyText confidence="0.96893152">
+Restricting scores to a single edge in a depen-
+dency tree gives a very impoverished view of de-
+pendency parsing. Yamada and Matsumoto (2003)
+showed that keeping a small amount of parsing
+history was crucial to improving parsing perfor-
+mance for their locally-trained shift-reduce SVM
+parser. It is reasonable to assume that other pars-
+ing models might benefit from features over previ-
+ous decisions.
+Here we will focus on methods for parsing
+second-order spanning trees. These models fac-
+tor the score of the tree into the sum of adjacent
+edge pair scores. To quantify this, consider again
+the example from Figure 1. In the second-order
+spanning tree model, the score would be,
+s(0, , 2) + s(2, , 1) + s(2, , 4) + s(2, 4, 5)
++ s(4, , 3) + s(5, , 7) + s(7, , 6)
+Here we use the second-order score function
+s(i, k, j), which is the score of creating a pair of
+adjacent edges, from word xi to words xk and xj.
+For instance, s(2, 4, 5) is the score of creating the
+edges from hit to with and from hit to ball. The
+score functions are relative to the left or right of
+the parent and we never score adjacent edges that
+are on different sides of the parent (for instance,
+</bodyText>
+<page confidence="0.995462">
+82
+</page>
+<bodyText confidence="0.9969664">
+\x0cthere is no s(2, 1, 4) for the adjacent edges from
+hit to John and ball). This independence between
+left and right descendants allow us to use a O(n3)
+second-order projective parsing algorithm, as we
+will see later. We write s(xi, , xj) when xj is
+the first left or first right dependent of word xi.
+For example, s(2, , 4) is the score of creating a
+dependency from hit to ball, since ball is the first
+child to the right of hit. More formally, if the word
+xi0 has the children shown in this picture,
+</bodyText>
+<equation confidence="0.9252235">
+xi0
+xi1 . . . xij xij+1 . . . xim
+</equation>
+<bodyText confidence="0.914288">
+the score factors as follows:
+</bodyText>
+<equation confidence="0.9911384">
+Pj1
+k=1 s(i0, ik+1, ik) + s(i0, , ij)
++ s(i0, , ij+1) +
+Pm1
+k=j+1 s(i0, ik, ik+1)
+</equation>
+<bodyText confidence="0.9160486">
+This second-order factorization subsumes the
+first-order factorization, since the score function
+could just ignore the middle argument to simulate
+first-order scoring. The score of a tree for second-
+order parsing is now
+</bodyText>
+<equation confidence="0.940894">
+s(x, y) =
+X
+(i,k,j)y
+s(i, k, j)
+</equation>
+<bodyText confidence="0.975207857142857">
+where k and j are adjacent, same-side children of
+i in the tree y.
+The second-order model allows us to condition
+on the most recent parsing decision, that is, the last
+dependent picked up by a particular word, which
+is analogous to the the Markov conditioning of in
+the Charniak parser (Charniak, 2000).
+</bodyText>
+<subsectionHeader confidence="0.997474">
+2.2 Exact Projective Parsing
+</subsectionHeader>
+<bodyText confidence="0.994212866666667">
+For projective MST parsing, the first-order algo-
+rithm can be extended to the second-order case, as
+was noted by Eisner (1996). The intuition behind
+the algorithm is shown graphically in Figure 3,
+which displays both the first-order and second-
+order algorithms. In the first-order algorithm, a
+word will gather its left and right dependents in-
+dependently by gathering each half of the subtree
+rooted by its dependent in separate stages. By
+splitting up chart items into left and right com-
+ponents, the Eisner algorithm only requires 3 in-
+dices to be maintained at each step, as discussed in
+detail elsewhere (Eisner, 1996; McDonald et al.,
+2005b). For the second-order algorithm, the key
+insight is to delay the scoring of edges until pairs
+</bodyText>
+<figure confidence="0.353249">
+2-order-non-proj-approx(x, s)
+Sentence x = x0 . . . xn, x0 = root
+Weight function s : (i, k, j) R
+</figure>
+<listItem confidence="0.977996789473684">
+1. Let y = 2-order-proj(x, s)
+2. while true
+3. m = , c = 1, p = 1
+4. for j : 1 n
+5. for i : 0 n
+6. y0
+= y[i j]
+7. if tree(y0
+) or k : (i, k, j) y continue
+8. = s(x, y0
+) s(x, y)
+9. if &amp;gt; m
+10. m = , c = j, p = i
+11. end for
+12. end for
+13. if m &amp;gt; 0
+14. y = y[p c]
+15. else return y
+16. end while
+</listItem>
+<figureCaption confidence="0.996581">
+Figure 4: Approximate second-order non-
+</figureCaption>
+<bodyText confidence="0.990907076923077">
+projective parsing algorithm.
+of dependents have been gathered. This allows for
+the collection of pairs of adjacent dependents in
+a single stage, which allows for the incorporation
+of second-order scores, while maintaining cubic-
+time parsing.
+The Eisner algorithm can be extended to an
+arbitrary mth-order model with a complexity of
+O(nm+1), for m &amp;gt; 1. An mth-order parsing al-
+gorithm will work similarly to the second-order al-
+gorithm, except that we collect m pairs of adjacent
+dependents in succession before attaching them to
+their parent.
+</bodyText>
+<subsectionHeader confidence="0.99795">
+2.3 Approximate Non-projective Parsing
+</subsectionHeader>
+<bodyText confidence="0.9994094">
+Unfortunately, second-order non-projective MST
+parsing is NP-hard, as shown in appendix A. To
+circumvent this, we designed an approximate al-
+gorithm based on the exact O(n3) second-order
+projective Eisner algorithm. The approximation
+works by first finding the highest scoring projec-
+tive parse. It then rearranges edges in the tree,
+one at a time, as long as such rearrangements in-
+crease the overall score and do not violate the tree
+constraint. We can easily motivate this approxi-
+mation by observing that even in non-projective
+languages like Czech and Danish, most trees are
+primarily projective with just a few non-projective
+edges (Nivre and Nilsson, 2005). Thus, by start-
+ing with the highest scoring projective tree, we are
+typically only a small number of transformations
+away from the highest scoring non-projective tree.
+The algorithm is shown in Figure 4. The ex-
+pression y[i j] denotes the dependency graph
+identical to y except that xis parent is xi instead
+</bodyText>
+<page confidence="0.978572">
+83
+</page>
+<equation confidence="0.987590136363637">
+\x0cFIRST-ORDER
+h1
+h3
+h1 r r+1 h3
+(A)
+h1
+h3
+h1 h3
+(B)
+SECOND-ORDER
+h1
+h2 h2 h3
+h1 h2 h2 r r+1 h3
+(A)
+h1
+h2 h2 h3
+h1 h2 h2 h3
+(B)
+h1
+h3
+h1 h3
+(C)
+</equation>
+<figureCaption confidence="0.880373">
+Figure 3: A O(n3) extension of the Eisner algorithm to second-order dependency parsing. This figure
+</figureCaption>
+<bodyText confidence="0.996538666666667">
+shows how h1 creates a dependency to h3 with the second-order knowledge that the last dependent of
+h1 was h2. This is done through the creation of a sibling item in part (B). In the first-order model, the
+dependency to h3 is created after the algorithm has forgotten that h2 was the last dependent.
+of what it was in y. The test tree(y) is true iff the
+dependency graph y satisfies the tree constraint.
+In more detail, line 1 of the algorithm sets y to
+the highest scoring second-order projective tree.
+The loop of lines 216 exits only when no fur-
+ther score improvement is possible. Each iteration
+seeks the single highest-scoring parent change to
+y that does not break the tree constraint. To that
+effect, the nested loops starting in lines 4 and 5
+enumerate all (i, j) pairs. Line 6 sets y0 to the de-
+pendency graph obtained from y by changing xjs
+parent to xi. Line 7 checks that the move from y
+to y0 is valid by testing that xjs parent was not al-
+ready xi and that y0 is a tree. Line 8 computes the
+score change from y to y0. If this change is larger
+than the previous best change, we record how this
+new tree was created (lines 9-10). After consid-
+ering all possible valid edge changes to the tree,
+the algorithm checks to see that the best new tree
+does have a higher score. If that is the case, we
+change the tree permanently and re-enter the loop.
+Otherwise we exit since there are no single edge
+switches that can improve the score.
+This algorithm allows for the introduction of
+non-projective edges because we do not restrict
+any of the edge changes except to maintain the
+tree property. In fact, if any edge change is ever
+made, the resulting tree is guaranteed to be non-
+projective, otherwise there would have been a
+higher scoring projective tree that would have al-
+ready been found by the exact projective parsing
+algorithm. It is not difficult to find examples for
+which this approximation will terminate without
+returning the highest-scoring non-projective parse.
+It is clear that this approximation will always
+terminate there are only a finite number of de-
+pendency trees for any given sentence and each it-
+eration of the loop requires an increase in score
+to continue. However, the loop could potentially
+take exponential time, so we will bound the num-
+ber of edge transformations to a fixed value M.
+It is easy to argue that this will not hurt perfor-
+mance. Even in freer-word order languages such
+as Czech, almost all non-projective dependency
+trees are primarily projective, modulo a few non-
+projective edges. Thus, if our inference algorithm
+starts with the highest scoring projective parse, the
+best non-projective parse only differs by a small
+number of edge transformations. Furthermore, it
+is easy to show that each iteration of the loop takes
+O(n2) time, resulting in a O(n3 + Mn2) runtime
+algorithm. In practice, the approximation termi-
+nates after a small number of transformations and
+we do not need to bound the number of iterations
+in our experiments.
+We should note that this is one of many possible
+approximations we could have made. Another rea-
+sonable approach would be to first find the highest
+scoring first-order non-projective parse, and then
+re-arrange edges based on second order scores in
+a similar manner to the algorithm we described.
+We implemented this method and found that the
+results were slightly worse.
+</bodyText>
+<sectionHeader confidence="0.960022" genericHeader="method">
+3 Danish: Parsing Secondary Parents
+</sectionHeader>
+<bodyText confidence="0.9843726">
+Kromann (2001) argued for a dependency formal-
+ism called Discontinuous Grammar and annotated
+a large set of Danish sentences using this formal-
+ism to create the Danish Dependency Treebank
+(Kromann, 2003). The formalism allows for a
+</bodyText>
+<page confidence="0.977241">
+84
+</page>
+<bodyText confidence="0.65666">
+\x0croot Han spejder efter og ser elefanterne
+He looks for and sees elephants
+</bodyText>
+<figureCaption confidence="0.9263705">
+Figure 5: An example dependency tree from
+the Danish Dependency Treebank (from Kromann
+</figureCaption>
+<bodyText confidence="0.985425702702703">
+(2003)).
+word to have multiple parents. Examples include
+verb coordination in which the subject or object is
+an argument of several verbs, and relative clauses
+in which words must satisfy dependencies both in-
+side and outside the clause. An example is shown
+in Figure 5 for the sentence He looks for and sees
+elephants. Here, the pronoun He is the subject for
+both verbs in the sentence, and the noun elephants
+the corresponding object. In the Danish Depen-
+dency Treebank, roughly 5% of words have more
+than one parent, which breaks the single parent
+(or tree) constraint we have previously required
+on dependency structures. Kromann also allows
+for cyclic dependencies, though we deal only with
+acyclic dependency graphs here. Though less
+common than trees, dependency graphs involving
+multiple parents are well established in the litera-
+ture (Hudson, 1984). Unfortunately, the problem
+of finding the dependency structure with highest
+score in this setting is intractable (Chickering et
+al., 1994).
+To create an approximate parsing algorithm
+for dependency structures with multiple parents,
+we start with our approximate second-order non-
+projective algorithm outlined in Figure 4. We use
+the non-projective algorithm since the Danish De-
+pendency Treebank contains a small number of
+non-projective arcs. We then modify lines 7-10
+of this algorithm so that it looks for the change in
+parent or the addition of a new parent that causes
+the highest change in overall score and does not
+create a cycle2. Like before, we make one change
+per iteration and that change will depend on the
+resulting score of the new tree. Using this sim-
+ple new approximate parsing algorithm, we train a
+new parser that can produce multiple parents.
+</bodyText>
+<sectionHeader confidence="0.977352" genericHeader="method">
+4 Online Learning and Approximate
+</sectionHeader>
+<subsectionHeader confidence="0.726245">
+Inference
+</subsectionHeader>
+<bodyText confidence="0.997922">
+In this section, we review the work of McDonald
+et al. (2005b) for online large-margin dependency
+</bodyText>
+<page confidence="0.965149">
+2
+</page>
+<bodyText confidence="0.996655509433962">
+We are not concerned with violating the tree constraint.
+parsing. As usual for supervised learning, we as-
+sume a training set T = {(xt, yt)}T
+t=1, consist-
+ing of pairs of a sentence xt and its correct depen-
+dency representation yt.
+The algorithm is an extension of the Margin In-
+fused Relaxed Algorithm (MIRA) (Crammer and
+Singer, 2003) to learning with structured outputs,
+in the present case dependency structures. Fig-
+ure 6 gives pseudo-code for the algorithm. An on-
+line learning algorithm considers a single training
+instance for each update to the weight vector w.
+We use the common method of setting the final
+weight vector as the average of the weight vec-
+tors after each iteration (Collins, 2002), which has
+been shown to alleviate overfitting.
+On each iteration, the algorithm considers a
+single training instance. We parse this instance
+to obtain a predicted dependency graph, and find
+the smallest-norm update to the weight vector w
+that ensures that the training graph outscores the
+predicted graph by a margin proportional to the
+loss of the predicted graph relative to the training
+graph, which is the number of words with incor-
+rect parents in the predicted tree (McDonald et al.,
+2005b). Note that we only impose margin con-
+straints between the single highest-scoring graph
+and the correct graph relative to the current weight
+setting. Past work on tree-structured outputs has
+used constraints for the k-best scoring tree (Mc-
+Donald et al., 2005b) or even all possible trees by
+using factored representations (Taskar et al., 2004;
+McDonald et al., 2005c). However, we have found
+that a single margin constraint per example leads
+to much faster training with a negligible degrada-
+tion in performance. Furthermore, this formula-
+tion relates learning directly to inference, which is
+important, since we want the model to set weights
+relative to the errors made by an approximate in-
+ference algorithm. This algorithm can thus be
+viewed as a large-margin version of the perceptron
+algorithm for structured outputs Collins (2002).
+Online learning algorithms have been shown
+to be robust even with approximate rather than
+exact inference in problems such as word align-
+ment (Moore, 2005), sequence analysis (Daume
+and Marcu, 2005; McDonald et al., 2005a)
+and phrase-structure parsing (Collins and Roark,
+2004). This robustness to approximations comes
+from the fact that the online framework sets
+weights with respect to inference. In other words,
+the learning method sees common errors due to
+</bodyText>
+<page confidence="0.87101">
+85
+</page>
+<equation confidence="0.99582125">
+\x0cTraining data: T = {(xt, yt)}T
+t=1
+1. w(0)
+= 0; v = 0; i = 0
+</equation>
+<listItem confidence="0.967787333333333">
+2. for n : 1..N
+3. for t : 1..T
+4. min
+</listItem>
+<equation confidence="0.989817">
+w(i+1)
+w(i)
+s.t. s(xt, yt; w(i+1)
+)
+s(xt, y0
+; w(i+1)
+) L(yt, y0
+)
+where y0
+= arg maxy0 s(xt, y0
+; w(i)
+)
+</equation>
+<listItem confidence="0.419399333333333">
+5. v = v + w(i+1)
+6. i = i + 1
+7. w = v/(N T)
+</listItem>
+<figureCaption confidence="0.76522375">
+Figure 6: MIRA learning algorithm. We write
+s(x, y; w(i)) to mean the score of tree y using
+weight vector w(i).
+approximate inference and adjusts weights to cor-
+</figureCaption>
+<bodyText confidence="0.995415714285714">
+rect for them. The work of Daume and Marcu
+(2005) formalizes this intuition by presenting an
+online learning framework in which parameter up-
+dates are made directly with respect to errors in the
+inference algorithm. We show in the next section
+that this robustness extends to approximate depen-
+dency parsing.
+</bodyText>
+<sectionHeader confidence="0.999318" genericHeader="evaluation">
+5 Experiments
+</sectionHeader>
+<bodyText confidence="0.9992505">
+The score of adjacent edges relies on the defini-
+tion of a feature representation f(i, k, j). As noted
+earlier, this representation subsumes the first-order
+representation of McDonald et al. (2005b), so we
+can incorporate all of their features as well as the
+new second-order features we now describe. The
+old first-order features are built from the parent
+and child words, their POS tags, and the POS tags
+of surrounding words and those of words between
+the child and the parent, as well as the direction
+and distance from the parent to the child. The
+second-order features are built from the following
+conjunctions of word and POS identity predicates
+xi-pos, xk-pos, xj-pos
+xk-pos, xj-pos
+xk-word, xj-word
+xk-word, xj-pos
+xk-pos, xj-word
+where xi-pos is the part-of-speech of the ith word
+in the sentence. We also include conjunctions be-
+tween these features and the direction and distance
+from sibling j to sibling k. We determined the use-
+fulness of these features on the development set,
+which also helped us find out that features such as
+the POS tags of words between the two siblings
+would not improve accuracy. We also ignored fea-
+</bodyText>
+<table confidence="0.531205">
+English
+Accuracy Complete
+1st-order-projective 90.7 36.7
+2nd-order-projective 91.5 42.1
+</table>
+<tableCaption confidence="0.920554">
+Table 1: Dependency parsing results for English.
+</tableCaption>
+<table confidence="0.888865333333333">
+Czech
+Accuracy Complete
+1st-order-projective 83.0 30.6
+2nd-order-projective 84.2 33.1
+1st-order-non-projective 84.1 32.2
+2nd-order-non-projective 85.2 35.9
+</table>
+<tableCaption confidence="0.990866">
+Table 2: Dependency parsing results for Czech.
+</tableCaption>
+<bodyText confidence="0.949570375">
+tures over triples of words since this would ex-
+plode the size of the feature space.
+We evaluate dependencies on per word accu-
+racy, which is the percentage of words in the sen-
+tence with the correct parent in the tree, and on
+complete dependency analysis. In our evaluation
+we exclude punctuation for English and include it
+for Czech and Danish, which is the standard.
+</bodyText>
+<subsectionHeader confidence="0.985093">
+5.1 English Results
+</subsectionHeader>
+<bodyText confidence="0.999729166666667">
+To create data sets for English, we used the Ya-
+mada and Matsumoto (2003) head rules to ex-
+tract dependency trees from the WSJ, setting sec-
+tions 2-21 as training, section 22 for development
+and section 23 for evaluation. The models rely
+on part-of-speech tags as input and we used the
+Ratnaparkhi (1996) tagger to provide these for
+the development and evaluation set. These data
+sets are exclusively projective so we only com-
+pare the projective parsers using the exact projec-
+tive parsing algorithms. The purpose of these ex-
+periments is to gauge the overall benefit from in-
+cluding second-order features with exact parsing
+algorithms, which can be attained in the projective
+setting. Results are shown in Table 1. We can see
+that there is clearly an advantage in introducing
+second-order features. In particular, the complete
+tree metric is improved considerably.
+</bodyText>
+<subsectionHeader confidence="0.999398">
+5.2 Czech Results
+</subsectionHeader>
+<bodyText confidence="0.998836777777778">
+For the Czech data, we used the predefined train-
+ing, development and testing split of the Prague
+Dependency Treebank (Hajic et al., 2001), and the
+automatically generated POS tags supplied with
+the data, which we reduce to the POS tag set
+from Collins et al. (1999). On average, 23% of
+the sentences in the training, development and
+test sets have at least one non-projective depen-
+dency, though, less than 2% of total edges are ac-
+</bodyText>
+<page confidence="0.991154">
+86
+</page>
+<table confidence="0.973015">
+\x0cDanish
+Precision Recall F-measure
+2nd-order-projective 86.4 81.7 83.9
+2nd-order-non-projective 86.9 82.2 84.4
+2nd-order-non-projective w/ multiple parents 86.2 84.9 85.6
+</table>
+<tableCaption confidence="0.998953">
+Table 3: Dependency parsing results for Danish.
+</tableCaption>
+<bodyText confidence="0.988946961538462">
+tually non-projective. Results are shown in Ta-
+ble 2. McDonald et al. (2005c) showed a substan-
+tial improvement in accuracy by modeling non-
+projective edges in Czech, shown by the difference
+between two first-order models. Table 2 shows
+that a second-order model provides a compara-
+ble accuracy boost, even using an approximate
+non-projective algorithm. The second-order non-
+projective model accuracy of 85.2% is the highest
+reported accuracy for a single parser for these data.
+Similar results were obtained by Hall and Novak
+(2005) (85.1% accuracy) who take the best out-
+put of the Charniak parser extended to Czech and
+rerank slight variations on this output that intro-
+duce non-projective edges. However, this system
+relies on a much slower phrase-structure parser
+as its base model as well as an auxiliary rerank-
+ing module. Indeed, our second-order projective
+parser analyzes the test set in 16m32s, and the
+non-projective approximate parser needs 17m03s
+to parse the entire evaluation set, showing that run-
+time for the approximation is completely domi-
+nated by the initial call to the second-order pro-
+jective algorithm and that the post-process edge
+transformation loop typically only iterates a few
+times per sentence.
+</bodyText>
+<subsectionHeader confidence="0.985217">
+5.3 Danish Results
+</subsectionHeader>
+<bodyText confidence="0.999773583333333">
+For our experiments we used the Danish Depen-
+dency Treebank v1.0. The treebank contains a
+small number of inter-sentence and cyclic depen-
+dencies and we removed all sentences that con-
+tained such structures. The resulting data set con-
+tained 5384 sentences. We partitioned the data
+into contiguous 80/20 training/testing splits. We
+held out a subset of the training data for develop-
+ment purposes.
+We compared three systems, the standard
+second-order projective and non-projective pars-
+ing models, as well as our modified second-order
+non-projective model that allows for the introduc-
+tion of multiple parents (Section 3). All systems
+use gold-standard part-of-speech since no trained
+tagger is readily available for Danish. Results are
+shown in Figure 3. As might be expected, the non-
+projective parser does slightly better than the pro-
+jective parser because around 1% of the edges are
+non-projective. Since each word may have an ar-
+bitrary number of parents, we must use precision
+and recall rather than accuracy to measure perfor-
+mance. This also means that the correct training
+loss is no longer the Hamming loss. Instead, we
+use false positives plus false negatives over edge
+decisions, which balances precision and recall as
+our ultimate performance metric.
+As expected, for the basic projective and non-
+projective parsers, recall is roughly 5% lower than
+precision since these models can only pick up at
+most one parent per word. For the parser that can
+introduce multiple parents, we see an increase in
+recall of nearly 3% absolute with a slight drop in
+precision. These results are very promising and
+further show the robustness of discriminative on-
+line learning with approximate parsing algorithms.
+</bodyText>
+<sectionHeader confidence="0.998343" genericHeader="conclusions">
+6 Discussion
+</sectionHeader>
+<bodyText confidence="0.999829958333333">
+We described approximate dependency parsing al-
+gorithms that support higher-order features and
+multiple parents. We showed that these approxi-
+mations can be combined with online learning to
+achieve fast parsing with competitive parsing ac-
+curacy. These results show that the gain from al-
+lowing richer representations outweighs the loss
+from approximate parsing and further shows the
+robustness of online learning algorithms with ap-
+proximate inference.
+The approximations we have presented are very
+simple. They start with a reasonably good baseline
+and make small transformations until the score
+of the structure converges. These approximations
+work because freer-word order languages we stud-
+ied are still primarily projective, making the ap-
+proximate starting point close to the goal parse.
+However, we would like to investigate the benefits
+for parsing of more principled approaches to ap-
+proximate learning and inference techniques such
+as the learning as search optimization framework
+of (Daume and Marcu, 2005). This framework
+will possibly allow us to include effectively more
+global features over the dependency structure than
+</bodyText>
+<page confidence="0.984632">
+87
+</page>
+<bodyText confidence="0.895865">
+\x0cthose in our current second-order model.
+</bodyText>
+<sectionHeader confidence="0.952898" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.97133">
+This work was supported by NSF ITR grants
+0205448.
+</bodyText>
+<sectionHeader confidence="0.977658" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.966704015384616">
+E. Charniak. 2000. A maximum-entropy-inspired
+parser. In Proc. NAACL.
+D.M. Chickering, D. Geiger, and D. Heckerman. 1994.
+Learning bayesian networks: The combination of
+knowledge and statistical data. Technical Report
+MSR-TR-94-09, Microsoft Research.
+Y.J. Chu and T.H. Liu. 1965. On the shortest arbores-
+cence of a directed graph. Science Sinica, 14:1396
+1400.
+M. Collins and B. Roark. 2004. Incremental parsing
+with the perceptron algorithm. In Proc. ACL.
+M. Collins, J. Hajic, L. Ramshaw, and C. Tillmann.
+1999. A statistical parser for Czech. In Proc. ACL.
+M. Collins. 2002. Discriminative training methods
+for hidden Markov models: Theory and experiments
+with perceptron algorithms. In Proc. EMNLP.
+K. Crammer and Y. Singer. 2003. Ultraconservative
+online algorithms for multiclass problems. JMLR.
+H. Daum e and D. Marcu. 2005. Learning as search op-
+timization: Approximate large margin methods for
+structured prediction. In Proc. ICML.
+J. Edmonds. 1967. Optimum branchings. Journal
+of Research of the National Bureau of Standards,
+71B:233240.
+J. Eisner. 1996. Three new probabilistic models for
+dependency parsing: An exploration. In Proc. COL-
+ING.
+J. Hajic, E. Hajicova, P. Pajas, J. Panevova, P. Sgall, and
+B. Vidova Hladka. 2001. The Prague Dependency
+Treebank 1.0 CDROM. Linguistics Data Consor-
+tium Cat. No. LDC2001T10.
+K. Hall and V. N ov ak. 2005. Corrective modeling for
+non-projective dependency parsing. In Proc. IWPT.
+R. Hudson. 1984. Word Grammar. Blackwell.
+M. T. Kromann. 2001. Optimaility parsing and local
+cost functions in discontinuous grammars. In Proc.
+FG-MOL.
+M. T. Kromann. 2003. The danish dependency tree-
+bank and the dtag treebank tool. In Proc. TLT.
+R. McDonald, K. Crammer, and F. Pereira. 2005a.
+Flexible text segmentation with structured multil-
+abel classifi cation. In Proc. HLT-EMNLP.
+R. McDonald, K. Crammer, and F. Pereira. 2005b. On-
+line large-margin training of dependency parsers. In
+Proc. ACL.
+R. McDonald, F. Pereira, K. Ribarov, and J. Hajic.
+2005c. Non-projective dependency parsing using
+spanning tree algorithms. In Proc. HLT-EMNLP.
+I.A. Melcuk. 1988. Dependency Syntax: Theory and
+Practice. State University of New York Press.
+R. Moore. 2005. A discriminative framework for bilin-
+gual word alignment. In Proc. HLT-EMNLP.
+J. Nivre and J. Nilsson. 2005. Pseudo-projective de-
+pendency parsing. In Proc. ACL.
+A. Ratnaparkhi. 1996. A maximum entropy model for
+part-of-speech tagging. In Proc. EMNLP.
+B. Taskar, D. Klein, M. Collins, D. Koller, and C. Man-
+ning. 2004. Max-margin parsing. In Proc. EMNLP.
+H. Yamada and Y. Matsumoto. 2003. Statistical de-
+pendency analysis with support vector machines. In
+Proc. IWPT.
+A 2nd-Order Non-projective MST
+Parsing is NP-hard
+Proof by a reduction from 3-D matching (3DM).
+3DM: Disjoint sets X, Y, Z each with m distinct elements
+</reference>
+<bodyText confidence="0.997483571428571">
+and a set T X Y Z. Question: is there a subset S T
+such that |S |= m and each v X Y Z occurs in exactly
+one element of S.
+Reduction: Given an instance of 3DM we defi ne a graph
+in which the vertices are the elements from X Y Z as
+well as an artifi cial root node. We insert edges from root to
+all xi X as well as edges from all xi X to all yi Y
+and zi Z. We order the words s.t. the root is on the left
+followed by all elements of X, then Y , and fi nally Z. We
+then defi ne the second-order score function as follows,
+s(root, xi, xj) = 0, xi, xj X
+s(xi, , yj) = 0, xi X, yj Y
+s(xi, yj, zk) = 1, (xi, yj , zk) T
+All other scores are defi ned to be , including for edges
+pairs that were not defi ned in the original graph.
+Theorem: There is a 3D matching iff the second-order
+MST has a score of m. Proof: First we observe that no tree
+can have a score greater than m since that would require more
+than m pairs of edges of the form (xi, yj , zk). This can only
+happen when some xi has multiple yj Y children or mul-
+tiple zk Z children. But if this were true then we would
+introduce a scored edge pair (e.g. s(xi, yj, y0
+j )). Now, if
+the highest scoring second-order MST has a score of m, that
+means that every xi must have found a unique pair of chil-
+dren yj and zk which represents the 3D matching, since there
+would be m such triples. Furthermore, yj and zk could not
+match with any other x0
+i since they can only have one incom-
+ing edge in the tree. On the other hand, if there is a 3DM, then
+there must be a tree of weight m consisting of second-order
+edges (xi, yj, zk) for each element of the matching S. Since
+no tree can have a weight greater than m, this must be the
+highest scoring second-order MST. Thus if we can fi nd the
+highest scoring second-order MST in polynomial time, then
+</bodyText>
+<footnote confidence="0.666176">
+3DM would also be solvable. \x04
+</footnote>
+<page confidence="0.833967">
+88
+</page>
+<figure confidence="0.342261">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.901448">
+<title confidence="0.999978">b&apos;Online Learning of Approximate Dependency Parsing Algorithms</title>
+<author confidence="0.99996">Ryan McDonald Fernando Pereira</author>
+<affiliation confidence="0.999904">Department of Computer and Information Science University of Pennsylvania</affiliation>
+<address confidence="0.999339">Philadelphia, PA 19104</address>
+<email confidence="0.999484">ryantm@cis.upenn.edu</email>
+<email confidence="0.999484">pereira@cis.upenn.edu</email>
+<abstract confidence="0.993679875">In this paper we extend the maximum spanning tree (MST) dependency parsing framework of McDonald et al. (2005c) to incorporate higher-order feature representations and allow dependency structures with multiple parents per word. We show that those extensions can make the MST framework computationally intractable, but that the intractability can be circumvented with new approximate parsing algorithms. We conclude with experiments showing that discriminative online learning using those approximate algorithms achieves the best reported parsing accuracy for Czech and Danish.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>E Charniak</author>
+</authors>
+<title>A maximum-entropy-inspired parser.</title>
+<date>2000</date>
+<booktitle>In Proc. NAACL.</booktitle>
+<contexts>
+<context position="2597" citStr="Charniak, 2000" startWordPosition="386" endWordPosition="387"> projective and non-projective trees. When combined with a discriminative online learning algorithm and a rich feature set, these models provide state-of-the-art performance across multiple languages. However, the parsing algorithms require that the score of a dependency tree factors as a sum of the scores of its edges. This first-order factorization is very restrictive since it only allows for features to be defined over single attachment decisions. Previous work has shown that conditioning on neighboring decisions can lead to significant improvements in accuracy (Yamada and Matsumoto, 2003; Charniak, 2000). In this paper we extend the MST parsing framework to incorporate higher-order feature representations of bounded-size connected subgraphs. We also present an algorithm for acyclic dependency graphs, that is, dependency graphs in which a word may depend on multiple heads. In both cases parsing is in general intractable and we provide novel approximate algorithms to make these cases tractable. We evaluate these algorithms within an online learning framework, which has been shown to be robust with respect approximate inference, and describe experiments displaying that these new models lead to s</context>
+<context position="8111" citStr="Charniak, 2000" startWordPosition="1380" endWordPosition="1381">ik) + s(i0, , ij) + s(i0, , ij+1) + Pm1 k=j+1 s(i0, ik, ik+1) This second-order factorization subsumes the first-order factorization, since the score function could just ignore the middle argument to simulate first-order scoring. The score of a tree for secondorder parsing is now s(x, y) = X (i,k,j)y s(i, k, j) where k and j are adjacent, same-side children of i in the tree y. The second-order model allows us to condition on the most recent parsing decision, that is, the last dependent picked up by a particular word, which is analogous to the the Markov conditioning of in the Charniak parser (Charniak, 2000). 2.2 Exact Projective Parsing For projective MST parsing, the first-order algorithm can be extended to the second-order case, as was noted by Eisner (1996). The intuition behind the algorithm is shown graphically in Figure 3, which displays both the first-order and secondorder algorithms. In the first-order algorithm, a word will gather its left and right dependents independently by gathering each half of the subtree rooted by its dependent in separate stages. By splitting up chart items into left and right components, the Eisner algorithm only requires 3 indices to be maintained at each step</context>
+</contexts>
+<marker>Charniak, 2000</marker>
+<rawString>E. Charniak. 2000. A maximum-entropy-inspired parser. In Proc. NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D M Chickering</author>
+<author>D Geiger</author>
+<author>D Heckerman</author>
+</authors>
+<title>Learning bayesian networks: The combination of knowledge and statistical data.</title>
+<date>1994</date>
+<tech>Technical Report MSR-TR-94-09, Microsoft Research.</tech>
+<contexts>
+<context position="15879" citStr="Chickering et al., 1994" startWordPosition="2731" endWordPosition="2734">n the sentence, and the noun elephants the corresponding object. In the Danish Dependency Treebank, roughly 5% of words have more than one parent, which breaks the single parent (or tree) constraint we have previously required on dependency structures. Kromann also allows for cyclic dependencies, though we deal only with acyclic dependency graphs here. Though less common than trees, dependency graphs involving multiple parents are well established in the literature (Hudson, 1984). Unfortunately, the problem of finding the dependency structure with highest score in this setting is intractable (Chickering et al., 1994). To create an approximate parsing algorithm for dependency structures with multiple parents, we start with our approximate second-order nonprojective algorithm outlined in Figure 4. We use the non-projective algorithm since the Danish Dependency Treebank contains a small number of non-projective arcs. We then modify lines 7-10 of this algorithm so that it looks for the change in parent or the addition of a new parent that causes the highest change in overall score and does not create a cycle2. Like before, we make one change per iteration and that change will depend on the resulting score of </context>
+</contexts>
+<marker>Chickering, Geiger, Heckerman, 1994</marker>
+<rawString>D.M. Chickering, D. Geiger, and D. Heckerman. 1994. Learning bayesian networks: The combination of knowledge and statistical data. Technical Report MSR-TR-94-09, Microsoft Research.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y J Chu</author>
+<author>T H Liu</author>
+</authors>
+<title>On the shortest arborescence of a directed graph.</title>
+<date>1965</date>
+<journal>Science Sinica,</journal>
+<volume>14</volume>
+<pages>1400</pages>
+<contexts>
+<context position="3899" citStr="Chu and Liu, 1965" startWordPosition="587" endWordPosition="590">anish. 2 Maximum Spanning Tree Parsing Dependency-tree parsing as the search for the maximum spanning tree (MST) in a graph was 81 \x0croot John saw a dog yesterday which was a Yorkshire Terrier Figure 2: An example non-projective dependency structure. root hit John ball with the bat the root0 John1 hit2 the3 ball4 with5 the6 bat7 Figure 1: An example dependency structure. proposed by McDonald et al. (2005c). This formulation leads to efficient parsing algorithms for both projective and non-projective dependency trees with the Eisner algorithm (Eisner, 1996) and the Chu-Liu-Edmonds algorithm (Chu and Liu, 1965; Edmonds, 1967) respectively. The formulation works by defining the score of a dependency tree to be the sum of edge scores, s(x, y) = X (i,j)y s(i, j) where x = x1 xn is an input sentence and y a dependency tree for x. We can view y as a set of tree edges and write (i, j) y to indicate an edge in y from word xi to word xj. Consider the example from Figure 1, where the subscripts index the nodes of the tree. The score of this tree would then be, s(0, 2) + s(2, 1) + s(2, 4) + s(2, 5) + s(4, 3) + s(5, 7) + s(7, 6) We call this first-order dependency parsing since scores are restricted to a sing</context>
+</contexts>
+<marker>Chu, Liu, 1965</marker>
+<rawString>Y.J. Chu and T.H. Liu. 1965. On the shortest arborescence of a directed graph. Science Sinica, 14:1396 1400.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+<author>B Roark</author>
+</authors>
+<title>Incremental parsing with the perceptron algorithm.</title>
+<date>2004</date>
+<booktitle>In Proc. ACL.</booktitle>
+<contexts>
+<context position="19052" citStr="Collins and Roark, 2004" startWordPosition="3247" endWordPosition="3250">radation in performance. Furthermore, this formulation relates learning directly to inference, which is important, since we want the model to set weights relative to the errors made by an approximate inference algorithm. This algorithm can thus be viewed as a large-margin version of the perceptron algorithm for structured outputs Collins (2002). Online learning algorithms have been shown to be robust even with approximate rather than exact inference in problems such as word alignment (Moore, 2005), sequence analysis (Daume and Marcu, 2005; McDonald et al., 2005a) and phrase-structure parsing (Collins and Roark, 2004). This robustness to approximations comes from the fact that the online framework sets weights with respect to inference. In other words, the learning method sees common errors due to 85 \x0cTraining data: T = {(xt, yt)}T t=1 1. w(0) = 0; v = 0; i = 0 2. for n : 1..N 3. for t : 1..T 4. min w(i+1) w(i) s.t. s(xt, yt; w(i+1) ) s(xt, y0 ; w(i+1) ) L(yt, y0 ) where y0 = arg maxy0 s(xt, y0 ; w(i) ) 5. v = v + w(i+1) 6. i = i + 1 7. w = v/(N T) Figure 6: MIRA learning algorithm. We write s(x, y; w(i)) to mean the score of tree y using weight vector w(i). approximate inference and adjusts weights to </context>
+</contexts>
+<marker>Collins, Roark, 2004</marker>
+<rawString>M. Collins and B. Roark. 2004. Incremental parsing with the perceptron algorithm. In Proc. ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+<author>J Hajic</author>
+<author>L Ramshaw</author>
+<author>C Tillmann</author>
+</authors>
+<title>A statistical parser for Czech. In</title>
+<date>1999</date>
+<booktitle>Proc. ACL.</booktitle>
+<contexts>
+<context position="22982" citStr="Collins et al. (1999)" startWordPosition="3914" endWordPosition="3917">eriments is to gauge the overall benefit from including second-order features with exact parsing algorithms, which can be attained in the projective setting. Results are shown in Table 1. We can see that there is clearly an advantage in introducing second-order features. In particular, the complete tree metric is improved considerably. 5.2 Czech Results For the Czech data, we used the predefined training, development and testing split of the Prague Dependency Treebank (Hajic et al., 2001), and the automatically generated POS tags supplied with the data, which we reduce to the POS tag set from Collins et al. (1999). On average, 23% of the sentences in the training, development and test sets have at least one non-projective dependency, though, less than 2% of total edges are ac86 \x0cDanish Precision Recall F-measure 2nd-order-projective 86.4 81.7 83.9 2nd-order-non-projective 86.9 82.2 84.4 2nd-order-non-projective w/ multiple parents 86.2 84.9 85.6 Table 3: Dependency parsing results for Danish. tually non-projective. Results are shown in Table 2. McDonald et al. (2005c) showed a substantial improvement in accuracy by modeling nonprojective edges in Czech, shown by the difference between two first-orde</context>
+</contexts>
+<marker>Collins, Hajic, Ramshaw, Tillmann, 1999</marker>
+<rawString>M. Collins, J. Hajic, L. Ramshaw, and C. Tillmann. 1999. A statistical parser for Czech. In Proc. ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+</authors>
+<title>Discriminative training methods for hidden Markov models: Theory and experiments with perceptron algorithms.</title>
+<date>2002</date>
+<booktitle>In Proc. EMNLP.</booktitle>
+<contexts>
+<context position="17445" citStr="Collins, 2002" startWordPosition="2995" endWordPosition="2996">vised learning, we assume a training set T = {(xt, yt)}T t=1, consisting of pairs of a sentence xt and its correct dependency representation yt. The algorithm is an extension of the Margin Infused Relaxed Algorithm (MIRA) (Crammer and Singer, 2003) to learning with structured outputs, in the present case dependency structures. Figure 6 gives pseudo-code for the algorithm. An online learning algorithm considers a single training instance for each update to the weight vector w. We use the common method of setting the final weight vector as the average of the weight vectors after each iteration (Collins, 2002), which has been shown to alleviate overfitting. On each iteration, the algorithm considers a single training instance. We parse this instance to obtain a predicted dependency graph, and find the smallest-norm update to the weight vector w that ensures that the training graph outscores the predicted graph by a margin proportional to the loss of the predicted graph relative to the training graph, which is the number of words with incorrect parents in the predicted tree (McDonald et al., 2005b). Note that we only impose margin constraints between the single highest-scoring graph and the correct </context>
+<context position="18774" citStr="Collins (2002)" startWordPosition="3207" endWordPosition="3208">est scoring tree (McDonald et al., 2005b) or even all possible trees by using factored representations (Taskar et al., 2004; McDonald et al., 2005c). However, we have found that a single margin constraint per example leads to much faster training with a negligible degradation in performance. Furthermore, this formulation relates learning directly to inference, which is important, since we want the model to set weights relative to the errors made by an approximate inference algorithm. This algorithm can thus be viewed as a large-margin version of the perceptron algorithm for structured outputs Collins (2002). Online learning algorithms have been shown to be robust even with approximate rather than exact inference in problems such as word alignment (Moore, 2005), sequence analysis (Daume and Marcu, 2005; McDonald et al., 2005a) and phrase-structure parsing (Collins and Roark, 2004). This robustness to approximations comes from the fact that the online framework sets weights with respect to inference. In other words, the learning method sees common errors due to 85 \x0cTraining data: T = {(xt, yt)}T t=1 1. w(0) = 0; v = 0; i = 0 2. for n : 1..N 3. for t : 1..T 4. min w(i+1) w(i) s.t. s(xt, yt; w(i+</context>
+</contexts>
+<marker>Collins, 2002</marker>
+<rawString>M. Collins. 2002. Discriminative training methods for hidden Markov models: Theory and experiments with perceptron algorithms. In Proc. EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K Crammer</author>
+<author>Y Singer</author>
+</authors>
+<title>Ultraconservative online algorithms for multiclass problems.</title>
+<date>2003</date>
+<publisher>JMLR.</publisher>
+<contexts>
+<context position="17079" citStr="Crammer and Singer, 2003" startWordPosition="2932" endWordPosition="2935">n the resulting score of the new tree. Using this simple new approximate parsing algorithm, we train a new parser that can produce multiple parents. 4 Online Learning and Approximate Inference In this section, we review the work of McDonald et al. (2005b) for online large-margin dependency 2 We are not concerned with violating the tree constraint. parsing. As usual for supervised learning, we assume a training set T = {(xt, yt)}T t=1, consisting of pairs of a sentence xt and its correct dependency representation yt. The algorithm is an extension of the Margin Infused Relaxed Algorithm (MIRA) (Crammer and Singer, 2003) to learning with structured outputs, in the present case dependency structures. Figure 6 gives pseudo-code for the algorithm. An online learning algorithm considers a single training instance for each update to the weight vector w. We use the common method of setting the final weight vector as the average of the weight vectors after each iteration (Collins, 2002), which has been shown to alleviate overfitting. On each iteration, the algorithm considers a single training instance. We parse this instance to obtain a predicted dependency graph, and find the smallest-norm update to the weight vec</context>
+</contexts>
+<marker>Crammer, Singer, 2003</marker>
+<rawString>K. Crammer and Y. Singer. 2003. Ultraconservative online algorithms for multiclass problems. JMLR.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H Daum e</author>
+<author>D Marcu</author>
+</authors>
+<title>Learning as search optimization: Approximate large margin methods for structured prediction. In</title>
+<date>2005</date>
+<booktitle>Proc. ICML.</booktitle>
+<contexts>
+<context position="18972" citStr="e and Marcu, 2005" startWordPosition="3236" endWordPosition="3239">onstraint per example leads to much faster training with a negligible degradation in performance. Furthermore, this formulation relates learning directly to inference, which is important, since we want the model to set weights relative to the errors made by an approximate inference algorithm. This algorithm can thus be viewed as a large-margin version of the perceptron algorithm for structured outputs Collins (2002). Online learning algorithms have been shown to be robust even with approximate rather than exact inference in problems such as word alignment (Moore, 2005), sequence analysis (Daume and Marcu, 2005; McDonald et al., 2005a) and phrase-structure parsing (Collins and Roark, 2004). This robustness to approximations comes from the fact that the online framework sets weights with respect to inference. In other words, the learning method sees common errors due to 85 \x0cTraining data: T = {(xt, yt)}T t=1 1. w(0) = 0; v = 0; i = 0 2. for n : 1..N 3. for t : 1..T 4. min w(i+1) w(i) s.t. s(xt, yt; w(i+1) ) s(xt, y0 ; w(i+1) ) L(yt, y0 ) where y0 = arg maxy0 s(xt, y0 ; w(i) ) 5. v = v + w(i+1) 6. i = i + 1 7. w = v/(N T) Figure 6: MIRA learning algorithm. We write s(x, y; w(i)) to mean the score o</context>
+</contexts>
+<marker>e, Marcu, 2005</marker>
+<rawString>H. Daum e and D. Marcu. 2005. Learning as search optimization: Approximate large margin methods for structured prediction. In Proc. ICML.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Edmonds</author>
+</authors>
+<title>Optimum branchings.</title>
+<date>1967</date>
+<journal>Journal of Research of the National Bureau of Standards,</journal>
+<pages>71--233240</pages>
+<contexts>
+<context position="3915" citStr="Edmonds, 1967" startWordPosition="591" endWordPosition="592">anning Tree Parsing Dependency-tree parsing as the search for the maximum spanning tree (MST) in a graph was 81 \x0croot John saw a dog yesterday which was a Yorkshire Terrier Figure 2: An example non-projective dependency structure. root hit John ball with the bat the root0 John1 hit2 the3 ball4 with5 the6 bat7 Figure 1: An example dependency structure. proposed by McDonald et al. (2005c). This formulation leads to efficient parsing algorithms for both projective and non-projective dependency trees with the Eisner algorithm (Eisner, 1996) and the Chu-Liu-Edmonds algorithm (Chu and Liu, 1965; Edmonds, 1967) respectively. The formulation works by defining the score of a dependency tree to be the sum of edge scores, s(x, y) = X (i,j)y s(i, j) where x = x1 xn is an input sentence and y a dependency tree for x. We can view y as a set of tree edges and write (i, j) y to indicate an edge in y from word xi to word xj. Consider the example from Figure 1, where the subscripts index the nodes of the tree. The score of this tree would then be, s(0, 2) + s(2, 1) + s(2, 4) + s(2, 5) + s(4, 3) + s(5, 7) + s(7, 6) We call this first-order dependency parsing since scores are restricted to a single edge in the d</context>
+</contexts>
+<marker>Edmonds, 1967</marker>
+<rawString>J. Edmonds. 1967. Optimum branchings. Journal of Research of the National Bureau of Standards, 71B:233240.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Eisner</author>
+</authors>
+<title>Three new probabilistic models for dependency parsing: An exploration.</title>
+<date>1996</date>
+<booktitle>In Proc. COLING.</booktitle>
+<contexts>
+<context position="3846" citStr="Eisner, 1996" startWordPosition="581" endWordPosition="582"> and the best accuracy we know of for Czech and Danish. 2 Maximum Spanning Tree Parsing Dependency-tree parsing as the search for the maximum spanning tree (MST) in a graph was 81 \x0croot John saw a dog yesterday which was a Yorkshire Terrier Figure 2: An example non-projective dependency structure. root hit John ball with the bat the root0 John1 hit2 the3 ball4 with5 the6 bat7 Figure 1: An example dependency structure. proposed by McDonald et al. (2005c). This formulation leads to efficient parsing algorithms for both projective and non-projective dependency trees with the Eisner algorithm (Eisner, 1996) and the Chu-Liu-Edmonds algorithm (Chu and Liu, 1965; Edmonds, 1967) respectively. The formulation works by defining the score of a dependency tree to be the sum of edge scores, s(x, y) = X (i,j)y s(i, j) where x = x1 xn is an input sentence and y a dependency tree for x. We can view y as a set of tree edges and write (i, j) y to indicate an edge in y from word xi to word xj. Consider the example from Figure 1, where the subscripts index the nodes of the tree. The score of this tree would then be, s(0, 2) + s(2, 1) + s(2, 4) + s(2, 5) + s(4, 3) + s(5, 7) + s(7, 6) We call this first-order dep</context>
+<context position="8267" citStr="Eisner (1996)" startWordPosition="1405" endWordPosition="1406"> could just ignore the middle argument to simulate first-order scoring. The score of a tree for secondorder parsing is now s(x, y) = X (i,k,j)y s(i, k, j) where k and j are adjacent, same-side children of i in the tree y. The second-order model allows us to condition on the most recent parsing decision, that is, the last dependent picked up by a particular word, which is analogous to the the Markov conditioning of in the Charniak parser (Charniak, 2000). 2.2 Exact Projective Parsing For projective MST parsing, the first-order algorithm can be extended to the second-order case, as was noted by Eisner (1996). The intuition behind the algorithm is shown graphically in Figure 3, which displays both the first-order and secondorder algorithms. In the first-order algorithm, a word will gather its left and right dependents independently by gathering each half of the subtree rooted by its dependent in separate stages. By splitting up chart items into left and right components, the Eisner algorithm only requires 3 indices to be maintained at each step, as discussed in detail elsewhere (Eisner, 1996; McDonald et al., 2005b). For the second-order algorithm, the key insight is to delay the scoring of edges </context>
+</contexts>
+<marker>Eisner, 1996</marker>
+<rawString>J. Eisner. 1996. Three new probabilistic models for dependency parsing: An exploration. In Proc. COLING.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Hajic</author>
+<author>E Hajicova</author>
+<author>P Pajas</author>
+<author>J Panevova</author>
+<author>P Sgall</author>
+<author>B Vidova Hladka</author>
+</authors>
+<date>2001</date>
+<booktitle>The Prague Dependency Treebank 1.0 CDROM. Linguistics Data Consortium Cat. No. LDC2001T10.</booktitle>
+<contexts>
+<context position="22854" citStr="Hajic et al., 2001" startWordPosition="3891" endWordPosition="3894">y projective so we only compare the projective parsers using the exact projective parsing algorithms. The purpose of these experiments is to gauge the overall benefit from including second-order features with exact parsing algorithms, which can be attained in the projective setting. Results are shown in Table 1. We can see that there is clearly an advantage in introducing second-order features. In particular, the complete tree metric is improved considerably. 5.2 Czech Results For the Czech data, we used the predefined training, development and testing split of the Prague Dependency Treebank (Hajic et al., 2001), and the automatically generated POS tags supplied with the data, which we reduce to the POS tag set from Collins et al. (1999). On average, 23% of the sentences in the training, development and test sets have at least one non-projective dependency, though, less than 2% of total edges are ac86 \x0cDanish Precision Recall F-measure 2nd-order-projective 86.4 81.7 83.9 2nd-order-non-projective 86.9 82.2 84.4 2nd-order-non-projective w/ multiple parents 86.2 84.9 85.6 Table 3: Dependency parsing results for Danish. tually non-projective. Results are shown in Table 2. McDonald et al. (2005c) showe</context>
+</contexts>
+<marker>Hajic, Hajicova, Pajas, Panevova, Sgall, Hladka, 2001</marker>
+<rawString>J. Hajic, E. Hajicova, P. Pajas, J. Panevova, P. Sgall, and B. Vidova Hladka. 2001. The Prague Dependency Treebank 1.0 CDROM. Linguistics Data Consortium Cat. No. LDC2001T10.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K Hall</author>
+<author>V N ov ak</author>
+</authors>
+<title>Corrective modeling for non-projective dependency parsing.</title>
+<date>2005</date>
+<booktitle>In Proc. IWPT.</booktitle>
+<marker>Hall, ak, 2005</marker>
+<rawString>K. Hall and V. N ov ak. 2005. Corrective modeling for non-projective dependency parsing. In Proc. IWPT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Hudson</author>
+</authors>
+<date>1984</date>
+<publisher>Word Grammar. Blackwell.</publisher>
+<contexts>
+<context position="876" citStr="Hudson, 1984" startWordPosition="118" endWordPosition="120">um spanning tree (MST) dependency parsing framework of McDonald et al. (2005c) to incorporate higher-order feature representations and allow dependency structures with multiple parents per word. We show that those extensions can make the MST framework computationally intractable, but that the intractability can be circumvented with new approximate parsing algorithms. We conclude with experiments showing that discriminative online learning using those approximate algorithms achieves the best reported parsing accuracy for Czech and Danish. 1 Introduction Dependency representations of sentences (Hudson, 1984; Melcuk, 1988) model head-dependent syntactic relations as edges in a directed graph. Figure 1 displays a dependency representation for the sentence John hit the ball with the bat. This sentence is an example of a projective (or nested) tree representation, in which all edges can be drawn in the plane with none crossing. Sometimes a non-projective representations are preferred, as in the sentence in Figure 2.1 In particular, for freer-word order languages, non-projectivity is a common phenomenon since the relative positional constraints on dependents is much less rigid. The dependency structu</context>
+<context position="15739" citStr="Hudson, 1984" startWordPosition="2713" endWordPosition="2714">ample is shown in Figure 5 for the sentence He looks for and sees elephants. Here, the pronoun He is the subject for both verbs in the sentence, and the noun elephants the corresponding object. In the Danish Dependency Treebank, roughly 5% of words have more than one parent, which breaks the single parent (or tree) constraint we have previously required on dependency structures. Kromann also allows for cyclic dependencies, though we deal only with acyclic dependency graphs here. Though less common than trees, dependency graphs involving multiple parents are well established in the literature (Hudson, 1984). Unfortunately, the problem of finding the dependency structure with highest score in this setting is intractable (Chickering et al., 1994). To create an approximate parsing algorithm for dependency structures with multiple parents, we start with our approximate second-order nonprojective algorithm outlined in Figure 4. We use the non-projective algorithm since the Danish Dependency Treebank contains a small number of non-projective arcs. We then modify lines 7-10 of this algorithm so that it looks for the change in parent or the addition of a new parent that causes the highest change in over</context>
+</contexts>
+<marker>Hudson, 1984</marker>
+<rawString>R. Hudson. 1984. Word Grammar. Blackwell.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M T Kromann</author>
+</authors>
+<title>Optimaility parsing and local cost functions in discontinuous grammars.</title>
+<date>2001</date>
+<booktitle>In Proc. FG-MOL.</booktitle>
+<contexts>
+<context position="14500" citStr="Kromann (2001)" startWordPosition="2514" endWordPosition="2515">ng in a O(n3 + Mn2) runtime algorithm. In practice, the approximation terminates after a small number of transformations and we do not need to bound the number of iterations in our experiments. We should note that this is one of many possible approximations we could have made. Another reasonable approach would be to first find the highest scoring first-order non-projective parse, and then re-arrange edges based on second order scores in a similar manner to the algorithm we described. We implemented this method and found that the results were slightly worse. 3 Danish: Parsing Secondary Parents Kromann (2001) argued for a dependency formalism called Discontinuous Grammar and annotated a large set of Danish sentences using this formalism to create the Danish Dependency Treebank (Kromann, 2003). The formalism allows for a 84 \x0croot Han spejder efter og ser elefanterne He looks for and sees elephants Figure 5: An example dependency tree from the Danish Dependency Treebank (from Kromann (2003)). word to have multiple parents. Examples include verb coordination in which the subject or object is an argument of several verbs, and relative clauses in which words must satisfy dependencies both inside and</context>
+</contexts>
+<marker>Kromann, 2001</marker>
+<rawString>M. T. Kromann. 2001. Optimaility parsing and local cost functions in discontinuous grammars. In Proc. FG-MOL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M T Kromann</author>
+</authors>
+<title>The danish dependency treebank and the dtag treebank tool.</title>
+<date>2003</date>
+<booktitle>In Proc. TLT.</booktitle>
+<contexts>
+<context position="14687" citStr="Kromann, 2003" startWordPosition="2543" endWordPosition="2544">ments. We should note that this is one of many possible approximations we could have made. Another reasonable approach would be to first find the highest scoring first-order non-projective parse, and then re-arrange edges based on second order scores in a similar manner to the algorithm we described. We implemented this method and found that the results were slightly worse. 3 Danish: Parsing Secondary Parents Kromann (2001) argued for a dependency formalism called Discontinuous Grammar and annotated a large set of Danish sentences using this formalism to create the Danish Dependency Treebank (Kromann, 2003). The formalism allows for a 84 \x0croot Han spejder efter og ser elefanterne He looks for and sees elephants Figure 5: An example dependency tree from the Danish Dependency Treebank (from Kromann (2003)). word to have multiple parents. Examples include verb coordination in which the subject or object is an argument of several verbs, and relative clauses in which words must satisfy dependencies both inside and outside the clause. An example is shown in Figure 5 for the sentence He looks for and sees elephants. Here, the pronoun He is the subject for both verbs in the sentence, and the noun ele</context>
+</contexts>
+<marker>Kromann, 2003</marker>
+<rawString>M. T. Kromann. 2003. The danish dependency treebank and the dtag treebank tool. In Proc. TLT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R McDonald</author>
+<author>K Crammer</author>
+<author>F Pereira</author>
+</authors>
+<title>Flexible text segmentation with structured multilabel classifi cation.</title>
+<date>2005</date>
+<booktitle>In Proc. HLT-EMNLP.</booktitle>
+<contexts>
+<context position="1699" citStr="McDonald et al. (2005" startWordPosition="248" endWordPosition="251">example of a projective (or nested) tree representation, in which all edges can be drawn in the plane with none crossing. Sometimes a non-projective representations are preferred, as in the sentence in Figure 2.1 In particular, for freer-word order languages, non-projectivity is a common phenomenon since the relative positional constraints on dependents is much less rigid. The dependency structures in Figures 1 and 2 satisfy the tree constraint: they are weakly connected graphs with a unique root node, and each non-root node has a exactly one parent. Though trees are 1 Examples are drawn from McDonald et al. (2005c). more common, some formalisms allow for words to modify multiple parents (Hudson, 1984). Recently, McDonald et al. (2005c) have shown that treating dependency parsing as the search for the highest scoring maximum spanning tree (MST) in a graph yields efficient algorithms for both projective and non-projective trees. When combined with a discriminative online learning algorithm and a rich feature set, these models provide state-of-the-art performance across multiple languages. However, the parsing algorithms require that the score of a dependency tree factors as a sum of the scores of its ed</context>
+<context position="3691" citStr="McDonald et al. (2005" startWordPosition="558" endWordPosition="561">been shown to be robust with respect approximate inference, and describe experiments displaying that these new models lead to state-of-the-art accuracy for English and the best accuracy we know of for Czech and Danish. 2 Maximum Spanning Tree Parsing Dependency-tree parsing as the search for the maximum spanning tree (MST) in a graph was 81 \x0croot John saw a dog yesterday which was a Yorkshire Terrier Figure 2: An example non-projective dependency structure. root hit John ball with the bat the root0 John1 hit2 the3 ball4 with5 the6 bat7 Figure 1: An example dependency structure. proposed by McDonald et al. (2005c). This formulation leads to efficient parsing algorithms for both projective and non-projective dependency trees with the Eisner algorithm (Eisner, 1996) and the Chu-Liu-Edmonds algorithm (Chu and Liu, 1965; Edmonds, 1967) respectively. The formulation works by defining the score of a dependency tree to be the sum of edge scores, s(x, y) = X (i,j)y s(i, j) where x = x1 xn is an input sentence and y a dependency tree for x. We can view y as a set of tree edges and write (i, j) y to indicate an edge in y from word xi to word xj. Consider the example from Figure 1, where the subscripts index th</context>
+<context position="5272" citStr="McDonald et al. (2005" startWordPosition="862" endWordPosition="866">ith a corresponding weight vector, s(i, j) = w f(i, j) This is a standard linear classifier in which the weight vector w are the parameters to be learned during training. We should note that f(i, j) can be based on arbitrary features of the edge and the input sequence x. Given a directed graph G = (V, E), the maximum spanning tree (MST) problem is to find the highest scoring subgraph of G that satisfies the tree constraint over the vertices V . By defining a graph in which the words in a sentence are the vertices and there is a directed edge between all words with a score as calculated above, McDonald et al. (2005c) showed that dependency parsing is equivalent to finding the MST in this graph. Furthermore, it was shown that this formulation can lead to state-of-the-art results when combined with discriminative learning algorithms. Although the MST formulation applies to any directed graph, our feature representations and one of the parsing algorithms (Eisners) rely on a linear ordering of the vertices, namely the order of the words in the sentence. 2.1 Second-Order MST Parsing Restricting scores to a single edge in a dependency tree gives a very impoverished view of dependency parsing. Yamada and Matsu</context>
+<context position="8782" citStr="McDonald et al., 2005" startWordPosition="1488" endWordPosition="1491">parsing, the first-order algorithm can be extended to the second-order case, as was noted by Eisner (1996). The intuition behind the algorithm is shown graphically in Figure 3, which displays both the first-order and secondorder algorithms. In the first-order algorithm, a word will gather its left and right dependents independently by gathering each half of the subtree rooted by its dependent in separate stages. By splitting up chart items into left and right components, the Eisner algorithm only requires 3 indices to be maintained at each step, as discussed in detail elsewhere (Eisner, 1996; McDonald et al., 2005b). For the second-order algorithm, the key insight is to delay the scoring of edges until pairs 2-order-non-proj-approx(x, s) Sentence x = x0 . . . xn, x0 = root Weight function s : (i, k, j) R 1. Let y = 2-order-proj(x, s) 2. while true 3. m = , c = 1, p = 1 4. for j : 1 n 5. for i : 0 n 6. y0 = y[i j] 7. if tree(y0 ) or k : (i, k, j) y continue 8. = s(x, y0 ) s(x, y) 9. if &amp;gt; m 10. m = , c = j, p = i 11. end for 12. end for 13. if m &amp;gt; 0 14. y = y[p c] 15. else return y 16. end while Figure 4: Approximate second-order nonprojective parsing algorithm. of dependents have been gathered. This all</context>
+<context position="16707" citStr="McDonald et al. (2005" startWordPosition="2869" endWordPosition="2872">e algorithm since the Danish Dependency Treebank contains a small number of non-projective arcs. We then modify lines 7-10 of this algorithm so that it looks for the change in parent or the addition of a new parent that causes the highest change in overall score and does not create a cycle2. Like before, we make one change per iteration and that change will depend on the resulting score of the new tree. Using this simple new approximate parsing algorithm, we train a new parser that can produce multiple parents. 4 Online Learning and Approximate Inference In this section, we review the work of McDonald et al. (2005b) for online large-margin dependency 2 We are not concerned with violating the tree constraint. parsing. As usual for supervised learning, we assume a training set T = {(xt, yt)}T t=1, consisting of pairs of a sentence xt and its correct dependency representation yt. The algorithm is an extension of the Margin Infused Relaxed Algorithm (MIRA) (Crammer and Singer, 2003) to learning with structured outputs, in the present case dependency structures. Figure 6 gives pseudo-code for the algorithm. An online learning algorithm considers a single training instance for each update to the weight vecto</context>
+<context position="17940" citStr="McDonald et al., 2005" startWordPosition="3074" endWordPosition="3077">the common method of setting the final weight vector as the average of the weight vectors after each iteration (Collins, 2002), which has been shown to alleviate overfitting. On each iteration, the algorithm considers a single training instance. We parse this instance to obtain a predicted dependency graph, and find the smallest-norm update to the weight vector w that ensures that the training graph outscores the predicted graph by a margin proportional to the loss of the predicted graph relative to the training graph, which is the number of words with incorrect parents in the predicted tree (McDonald et al., 2005b). Note that we only impose margin constraints between the single highest-scoring graph and the correct graph relative to the current weight setting. Past work on tree-structured outputs has used constraints for the k-best scoring tree (McDonald et al., 2005b) or even all possible trees by using factored representations (Taskar et al., 2004; McDonald et al., 2005c). However, we have found that a single margin constraint per example leads to much faster training with a negligible degradation in performance. Furthermore, this formulation relates learning directly to inference, which is importan</context>
+<context position="20171" citStr="McDonald et al. (2005" startWordPosition="3459" endWordPosition="3462">)) to mean the score of tree y using weight vector w(i). approximate inference and adjusts weights to correct for them. The work of Daume and Marcu (2005) formalizes this intuition by presenting an online learning framework in which parameter updates are made directly with respect to errors in the inference algorithm. We show in the next section that this robustness extends to approximate dependency parsing. 5 Experiments The score of adjacent edges relies on the definition of a feature representation f(i, k, j). As noted earlier, this representation subsumes the first-order representation of McDonald et al. (2005b), so we can incorporate all of their features as well as the new second-order features we now describe. The old first-order features are built from the parent and child words, their POS tags, and the POS tags of surrounding words and those of words between the child and the parent, as well as the direction and distance from the parent to the child. The second-order features are built from the following conjunctions of word and POS identity predicates xi-pos, xk-pos, xj-pos xk-pos, xj-pos xk-word, xj-word xk-word, xj-pos xk-pos, xj-word where xi-pos is the part-of-speech of the ith word in th</context>
+<context position="23446" citStr="McDonald et al. (2005" startWordPosition="3983" endWordPosition="3986">Treebank (Hajic et al., 2001), and the automatically generated POS tags supplied with the data, which we reduce to the POS tag set from Collins et al. (1999). On average, 23% of the sentences in the training, development and test sets have at least one non-projective dependency, though, less than 2% of total edges are ac86 \x0cDanish Precision Recall F-measure 2nd-order-projective 86.4 81.7 83.9 2nd-order-non-projective 86.9 82.2 84.4 2nd-order-non-projective w/ multiple parents 86.2 84.9 85.6 Table 3: Dependency parsing results for Danish. tually non-projective. Results are shown in Table 2. McDonald et al. (2005c) showed a substantial improvement in accuracy by modeling nonprojective edges in Czech, shown by the difference between two first-order models. Table 2 shows that a second-order model provides a comparable accuracy boost, even using an approximate non-projective algorithm. The second-order nonprojective model accuracy of 85.2% is the highest reported accuracy for a single parser for these data. Similar results were obtained by Hall and Novak (2005) (85.1% accuracy) who take the best output of the Charniak parser extended to Czech and rerank slight variations on this output that introduce non</context>
+</contexts>
+<marker>McDonald, Crammer, Pereira, 2005</marker>
+<rawString>R. McDonald, K. Crammer, and F. Pereira. 2005a. Flexible text segmentation with structured multilabel classifi cation. In Proc. HLT-EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R McDonald</author>
+<author>K Crammer</author>
+<author>F Pereira</author>
+</authors>
+<title>Online large-margin training of dependency parsers.</title>
+<date>2005</date>
+<booktitle>In Proc. ACL.</booktitle>
+<contexts>
+<context position="1699" citStr="McDonald et al. (2005" startWordPosition="248" endWordPosition="251">example of a projective (or nested) tree representation, in which all edges can be drawn in the plane with none crossing. Sometimes a non-projective representations are preferred, as in the sentence in Figure 2.1 In particular, for freer-word order languages, non-projectivity is a common phenomenon since the relative positional constraints on dependents is much less rigid. The dependency structures in Figures 1 and 2 satisfy the tree constraint: they are weakly connected graphs with a unique root node, and each non-root node has a exactly one parent. Though trees are 1 Examples are drawn from McDonald et al. (2005c). more common, some formalisms allow for words to modify multiple parents (Hudson, 1984). Recently, McDonald et al. (2005c) have shown that treating dependency parsing as the search for the highest scoring maximum spanning tree (MST) in a graph yields efficient algorithms for both projective and non-projective trees. When combined with a discriminative online learning algorithm and a rich feature set, these models provide state-of-the-art performance across multiple languages. However, the parsing algorithms require that the score of a dependency tree factors as a sum of the scores of its ed</context>
+<context position="3691" citStr="McDonald et al. (2005" startWordPosition="558" endWordPosition="561">been shown to be robust with respect approximate inference, and describe experiments displaying that these new models lead to state-of-the-art accuracy for English and the best accuracy we know of for Czech and Danish. 2 Maximum Spanning Tree Parsing Dependency-tree parsing as the search for the maximum spanning tree (MST) in a graph was 81 \x0croot John saw a dog yesterday which was a Yorkshire Terrier Figure 2: An example non-projective dependency structure. root hit John ball with the bat the root0 John1 hit2 the3 ball4 with5 the6 bat7 Figure 1: An example dependency structure. proposed by McDonald et al. (2005c). This formulation leads to efficient parsing algorithms for both projective and non-projective dependency trees with the Eisner algorithm (Eisner, 1996) and the Chu-Liu-Edmonds algorithm (Chu and Liu, 1965; Edmonds, 1967) respectively. The formulation works by defining the score of a dependency tree to be the sum of edge scores, s(x, y) = X (i,j)y s(i, j) where x = x1 xn is an input sentence and y a dependency tree for x. We can view y as a set of tree edges and write (i, j) y to indicate an edge in y from word xi to word xj. Consider the example from Figure 1, where the subscripts index th</context>
+<context position="5272" citStr="McDonald et al. (2005" startWordPosition="862" endWordPosition="866">ith a corresponding weight vector, s(i, j) = w f(i, j) This is a standard linear classifier in which the weight vector w are the parameters to be learned during training. We should note that f(i, j) can be based on arbitrary features of the edge and the input sequence x. Given a directed graph G = (V, E), the maximum spanning tree (MST) problem is to find the highest scoring subgraph of G that satisfies the tree constraint over the vertices V . By defining a graph in which the words in a sentence are the vertices and there is a directed edge between all words with a score as calculated above, McDonald et al. (2005c) showed that dependency parsing is equivalent to finding the MST in this graph. Furthermore, it was shown that this formulation can lead to state-of-the-art results when combined with discriminative learning algorithms. Although the MST formulation applies to any directed graph, our feature representations and one of the parsing algorithms (Eisners) rely on a linear ordering of the vertices, namely the order of the words in the sentence. 2.1 Second-Order MST Parsing Restricting scores to a single edge in a dependency tree gives a very impoverished view of dependency parsing. Yamada and Matsu</context>
+<context position="8782" citStr="McDonald et al., 2005" startWordPosition="1488" endWordPosition="1491">parsing, the first-order algorithm can be extended to the second-order case, as was noted by Eisner (1996). The intuition behind the algorithm is shown graphically in Figure 3, which displays both the first-order and secondorder algorithms. In the first-order algorithm, a word will gather its left and right dependents independently by gathering each half of the subtree rooted by its dependent in separate stages. By splitting up chart items into left and right components, the Eisner algorithm only requires 3 indices to be maintained at each step, as discussed in detail elsewhere (Eisner, 1996; McDonald et al., 2005b). For the second-order algorithm, the key insight is to delay the scoring of edges until pairs 2-order-non-proj-approx(x, s) Sentence x = x0 . . . xn, x0 = root Weight function s : (i, k, j) R 1. Let y = 2-order-proj(x, s) 2. while true 3. m = , c = 1, p = 1 4. for j : 1 n 5. for i : 0 n 6. y0 = y[i j] 7. if tree(y0 ) or k : (i, k, j) y continue 8. = s(x, y0 ) s(x, y) 9. if &amp;gt; m 10. m = , c = j, p = i 11. end for 12. end for 13. if m &amp;gt; 0 14. y = y[p c] 15. else return y 16. end while Figure 4: Approximate second-order nonprojective parsing algorithm. of dependents have been gathered. This all</context>
+<context position="16707" citStr="McDonald et al. (2005" startWordPosition="2869" endWordPosition="2872">e algorithm since the Danish Dependency Treebank contains a small number of non-projective arcs. We then modify lines 7-10 of this algorithm so that it looks for the change in parent or the addition of a new parent that causes the highest change in overall score and does not create a cycle2. Like before, we make one change per iteration and that change will depend on the resulting score of the new tree. Using this simple new approximate parsing algorithm, we train a new parser that can produce multiple parents. 4 Online Learning and Approximate Inference In this section, we review the work of McDonald et al. (2005b) for online large-margin dependency 2 We are not concerned with violating the tree constraint. parsing. As usual for supervised learning, we assume a training set T = {(xt, yt)}T t=1, consisting of pairs of a sentence xt and its correct dependency representation yt. The algorithm is an extension of the Margin Infused Relaxed Algorithm (MIRA) (Crammer and Singer, 2003) to learning with structured outputs, in the present case dependency structures. Figure 6 gives pseudo-code for the algorithm. An online learning algorithm considers a single training instance for each update to the weight vecto</context>
+<context position="17940" citStr="McDonald et al., 2005" startWordPosition="3074" endWordPosition="3077">the common method of setting the final weight vector as the average of the weight vectors after each iteration (Collins, 2002), which has been shown to alleviate overfitting. On each iteration, the algorithm considers a single training instance. We parse this instance to obtain a predicted dependency graph, and find the smallest-norm update to the weight vector w that ensures that the training graph outscores the predicted graph by a margin proportional to the loss of the predicted graph relative to the training graph, which is the number of words with incorrect parents in the predicted tree (McDonald et al., 2005b). Note that we only impose margin constraints between the single highest-scoring graph and the correct graph relative to the current weight setting. Past work on tree-structured outputs has used constraints for the k-best scoring tree (McDonald et al., 2005b) or even all possible trees by using factored representations (Taskar et al., 2004; McDonald et al., 2005c). However, we have found that a single margin constraint per example leads to much faster training with a negligible degradation in performance. Furthermore, this formulation relates learning directly to inference, which is importan</context>
+<context position="20171" citStr="McDonald et al. (2005" startWordPosition="3459" endWordPosition="3462">)) to mean the score of tree y using weight vector w(i). approximate inference and adjusts weights to correct for them. The work of Daume and Marcu (2005) formalizes this intuition by presenting an online learning framework in which parameter updates are made directly with respect to errors in the inference algorithm. We show in the next section that this robustness extends to approximate dependency parsing. 5 Experiments The score of adjacent edges relies on the definition of a feature representation f(i, k, j). As noted earlier, this representation subsumes the first-order representation of McDonald et al. (2005b), so we can incorporate all of their features as well as the new second-order features we now describe. The old first-order features are built from the parent and child words, their POS tags, and the POS tags of surrounding words and those of words between the child and the parent, as well as the direction and distance from the parent to the child. The second-order features are built from the following conjunctions of word and POS identity predicates xi-pos, xk-pos, xj-pos xk-pos, xj-pos xk-word, xj-word xk-word, xj-pos xk-pos, xj-word where xi-pos is the part-of-speech of the ith word in th</context>
+<context position="23446" citStr="McDonald et al. (2005" startWordPosition="3983" endWordPosition="3986">Treebank (Hajic et al., 2001), and the automatically generated POS tags supplied with the data, which we reduce to the POS tag set from Collins et al. (1999). On average, 23% of the sentences in the training, development and test sets have at least one non-projective dependency, though, less than 2% of total edges are ac86 \x0cDanish Precision Recall F-measure 2nd-order-projective 86.4 81.7 83.9 2nd-order-non-projective 86.9 82.2 84.4 2nd-order-non-projective w/ multiple parents 86.2 84.9 85.6 Table 3: Dependency parsing results for Danish. tually non-projective. Results are shown in Table 2. McDonald et al. (2005c) showed a substantial improvement in accuracy by modeling nonprojective edges in Czech, shown by the difference between two first-order models. Table 2 shows that a second-order model provides a comparable accuracy boost, even using an approximate non-projective algorithm. The second-order nonprojective model accuracy of 85.2% is the highest reported accuracy for a single parser for these data. Similar results were obtained by Hall and Novak (2005) (85.1% accuracy) who take the best output of the Charniak parser extended to Czech and rerank slight variations on this output that introduce non</context>
+</contexts>
+<marker>McDonald, Crammer, Pereira, 2005</marker>
+<rawString>R. McDonald, K. Crammer, and F. Pereira. 2005b. Online large-margin training of dependency parsers. In Proc. ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R McDonald</author>
+<author>F Pereira</author>
+<author>K Ribarov</author>
+<author>J Hajic</author>
+</authors>
+<title>Non-projective dependency parsing using spanning tree algorithms.</title>
+<date>2005</date>
+<booktitle>In Proc. HLT-EMNLP.</booktitle>
+<contexts>
+<context position="1699" citStr="McDonald et al. (2005" startWordPosition="248" endWordPosition="251">example of a projective (or nested) tree representation, in which all edges can be drawn in the plane with none crossing. Sometimes a non-projective representations are preferred, as in the sentence in Figure 2.1 In particular, for freer-word order languages, non-projectivity is a common phenomenon since the relative positional constraints on dependents is much less rigid. The dependency structures in Figures 1 and 2 satisfy the tree constraint: they are weakly connected graphs with a unique root node, and each non-root node has a exactly one parent. Though trees are 1 Examples are drawn from McDonald et al. (2005c). more common, some formalisms allow for words to modify multiple parents (Hudson, 1984). Recently, McDonald et al. (2005c) have shown that treating dependency parsing as the search for the highest scoring maximum spanning tree (MST) in a graph yields efficient algorithms for both projective and non-projective trees. When combined with a discriminative online learning algorithm and a rich feature set, these models provide state-of-the-art performance across multiple languages. However, the parsing algorithms require that the score of a dependency tree factors as a sum of the scores of its ed</context>
+<context position="3691" citStr="McDonald et al. (2005" startWordPosition="558" endWordPosition="561">been shown to be robust with respect approximate inference, and describe experiments displaying that these new models lead to state-of-the-art accuracy for English and the best accuracy we know of for Czech and Danish. 2 Maximum Spanning Tree Parsing Dependency-tree parsing as the search for the maximum spanning tree (MST) in a graph was 81 \x0croot John saw a dog yesterday which was a Yorkshire Terrier Figure 2: An example non-projective dependency structure. root hit John ball with the bat the root0 John1 hit2 the3 ball4 with5 the6 bat7 Figure 1: An example dependency structure. proposed by McDonald et al. (2005c). This formulation leads to efficient parsing algorithms for both projective and non-projective dependency trees with the Eisner algorithm (Eisner, 1996) and the Chu-Liu-Edmonds algorithm (Chu and Liu, 1965; Edmonds, 1967) respectively. The formulation works by defining the score of a dependency tree to be the sum of edge scores, s(x, y) = X (i,j)y s(i, j) where x = x1 xn is an input sentence and y a dependency tree for x. We can view y as a set of tree edges and write (i, j) y to indicate an edge in y from word xi to word xj. Consider the example from Figure 1, where the subscripts index th</context>
+<context position="5272" citStr="McDonald et al. (2005" startWordPosition="862" endWordPosition="866">ith a corresponding weight vector, s(i, j) = w f(i, j) This is a standard linear classifier in which the weight vector w are the parameters to be learned during training. We should note that f(i, j) can be based on arbitrary features of the edge and the input sequence x. Given a directed graph G = (V, E), the maximum spanning tree (MST) problem is to find the highest scoring subgraph of G that satisfies the tree constraint over the vertices V . By defining a graph in which the words in a sentence are the vertices and there is a directed edge between all words with a score as calculated above, McDonald et al. (2005c) showed that dependency parsing is equivalent to finding the MST in this graph. Furthermore, it was shown that this formulation can lead to state-of-the-art results when combined with discriminative learning algorithms. Although the MST formulation applies to any directed graph, our feature representations and one of the parsing algorithms (Eisners) rely on a linear ordering of the vertices, namely the order of the words in the sentence. 2.1 Second-Order MST Parsing Restricting scores to a single edge in a dependency tree gives a very impoverished view of dependency parsing. Yamada and Matsu</context>
+<context position="8782" citStr="McDonald et al., 2005" startWordPosition="1488" endWordPosition="1491">parsing, the first-order algorithm can be extended to the second-order case, as was noted by Eisner (1996). The intuition behind the algorithm is shown graphically in Figure 3, which displays both the first-order and secondorder algorithms. In the first-order algorithm, a word will gather its left and right dependents independently by gathering each half of the subtree rooted by its dependent in separate stages. By splitting up chart items into left and right components, the Eisner algorithm only requires 3 indices to be maintained at each step, as discussed in detail elsewhere (Eisner, 1996; McDonald et al., 2005b). For the second-order algorithm, the key insight is to delay the scoring of edges until pairs 2-order-non-proj-approx(x, s) Sentence x = x0 . . . xn, x0 = root Weight function s : (i, k, j) R 1. Let y = 2-order-proj(x, s) 2. while true 3. m = , c = 1, p = 1 4. for j : 1 n 5. for i : 0 n 6. y0 = y[i j] 7. if tree(y0 ) or k : (i, k, j) y continue 8. = s(x, y0 ) s(x, y) 9. if &amp;gt; m 10. m = , c = j, p = i 11. end for 12. end for 13. if m &amp;gt; 0 14. y = y[p c] 15. else return y 16. end while Figure 4: Approximate second-order nonprojective parsing algorithm. of dependents have been gathered. This all</context>
+<context position="16707" citStr="McDonald et al. (2005" startWordPosition="2869" endWordPosition="2872">e algorithm since the Danish Dependency Treebank contains a small number of non-projective arcs. We then modify lines 7-10 of this algorithm so that it looks for the change in parent or the addition of a new parent that causes the highest change in overall score and does not create a cycle2. Like before, we make one change per iteration and that change will depend on the resulting score of the new tree. Using this simple new approximate parsing algorithm, we train a new parser that can produce multiple parents. 4 Online Learning and Approximate Inference In this section, we review the work of McDonald et al. (2005b) for online large-margin dependency 2 We are not concerned with violating the tree constraint. parsing. As usual for supervised learning, we assume a training set T = {(xt, yt)}T t=1, consisting of pairs of a sentence xt and its correct dependency representation yt. The algorithm is an extension of the Margin Infused Relaxed Algorithm (MIRA) (Crammer and Singer, 2003) to learning with structured outputs, in the present case dependency structures. Figure 6 gives pseudo-code for the algorithm. An online learning algorithm considers a single training instance for each update to the weight vecto</context>
+<context position="17940" citStr="McDonald et al., 2005" startWordPosition="3074" endWordPosition="3077">the common method of setting the final weight vector as the average of the weight vectors after each iteration (Collins, 2002), which has been shown to alleviate overfitting. On each iteration, the algorithm considers a single training instance. We parse this instance to obtain a predicted dependency graph, and find the smallest-norm update to the weight vector w that ensures that the training graph outscores the predicted graph by a margin proportional to the loss of the predicted graph relative to the training graph, which is the number of words with incorrect parents in the predicted tree (McDonald et al., 2005b). Note that we only impose margin constraints between the single highest-scoring graph and the correct graph relative to the current weight setting. Past work on tree-structured outputs has used constraints for the k-best scoring tree (McDonald et al., 2005b) or even all possible trees by using factored representations (Taskar et al., 2004; McDonald et al., 2005c). However, we have found that a single margin constraint per example leads to much faster training with a negligible degradation in performance. Furthermore, this formulation relates learning directly to inference, which is importan</context>
+<context position="20171" citStr="McDonald et al. (2005" startWordPosition="3459" endWordPosition="3462">)) to mean the score of tree y using weight vector w(i). approximate inference and adjusts weights to correct for them. The work of Daume and Marcu (2005) formalizes this intuition by presenting an online learning framework in which parameter updates are made directly with respect to errors in the inference algorithm. We show in the next section that this robustness extends to approximate dependency parsing. 5 Experiments The score of adjacent edges relies on the definition of a feature representation f(i, k, j). As noted earlier, this representation subsumes the first-order representation of McDonald et al. (2005b), so we can incorporate all of their features as well as the new second-order features we now describe. The old first-order features are built from the parent and child words, their POS tags, and the POS tags of surrounding words and those of words between the child and the parent, as well as the direction and distance from the parent to the child. The second-order features are built from the following conjunctions of word and POS identity predicates xi-pos, xk-pos, xj-pos xk-pos, xj-pos xk-word, xj-word xk-word, xj-pos xk-pos, xj-word where xi-pos is the part-of-speech of the ith word in th</context>
+<context position="23446" citStr="McDonald et al. (2005" startWordPosition="3983" endWordPosition="3986">Treebank (Hajic et al., 2001), and the automatically generated POS tags supplied with the data, which we reduce to the POS tag set from Collins et al. (1999). On average, 23% of the sentences in the training, development and test sets have at least one non-projective dependency, though, less than 2% of total edges are ac86 \x0cDanish Precision Recall F-measure 2nd-order-projective 86.4 81.7 83.9 2nd-order-non-projective 86.9 82.2 84.4 2nd-order-non-projective w/ multiple parents 86.2 84.9 85.6 Table 3: Dependency parsing results for Danish. tually non-projective. Results are shown in Table 2. McDonald et al. (2005c) showed a substantial improvement in accuracy by modeling nonprojective edges in Czech, shown by the difference between two first-order models. Table 2 shows that a second-order model provides a comparable accuracy boost, even using an approximate non-projective algorithm. The second-order nonprojective model accuracy of 85.2% is the highest reported accuracy for a single parser for these data. Similar results were obtained by Hall and Novak (2005) (85.1% accuracy) who take the best output of the Charniak parser extended to Czech and rerank slight variations on this output that introduce non</context>
+</contexts>
+<marker>McDonald, Pereira, Ribarov, Hajic, 2005</marker>
+<rawString>R. McDonald, F. Pereira, K. Ribarov, and J. Hajic. 2005c. Non-projective dependency parsing using spanning tree algorithms. In Proc. HLT-EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>I A Melcuk</author>
+</authors>
+<title>Dependency Syntax: Theory and Practice.</title>
+<date>1988</date>
+<publisher>State University of New York Press.</publisher>
+<contexts>
+<context position="891" citStr="Melcuk, 1988" startWordPosition="121" endWordPosition="122">ee (MST) dependency parsing framework of McDonald et al. (2005c) to incorporate higher-order feature representations and allow dependency structures with multiple parents per word. We show that those extensions can make the MST framework computationally intractable, but that the intractability can be circumvented with new approximate parsing algorithms. We conclude with experiments showing that discriminative online learning using those approximate algorithms achieves the best reported parsing accuracy for Czech and Danish. 1 Introduction Dependency representations of sentences (Hudson, 1984; Melcuk, 1988) model head-dependent syntactic relations as edges in a directed graph. Figure 1 displays a dependency representation for the sentence John hit the ball with the bat. This sentence is an example of a projective (or nested) tree representation, in which all edges can be drawn in the plane with none crossing. Sometimes a non-projective representations are preferred, as in the sentence in Figure 2.1 In particular, for freer-word order languages, non-projectivity is a common phenomenon since the relative positional constraints on dependents is much less rigid. The dependency structures in Figures </context>
+</contexts>
+<marker>Melcuk, 1988</marker>
+<rawString>I.A. Melcuk. 1988. Dependency Syntax: Theory and Practice. State University of New York Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Moore</author>
+</authors>
+<title>A discriminative framework for bilingual word alignment.</title>
+<date>2005</date>
+<booktitle>In Proc. HLT-EMNLP.</booktitle>
+<contexts>
+<context position="18930" citStr="Moore, 2005" startWordPosition="3232" endWordPosition="3233"> we have found that a single margin constraint per example leads to much faster training with a negligible degradation in performance. Furthermore, this formulation relates learning directly to inference, which is important, since we want the model to set weights relative to the errors made by an approximate inference algorithm. This algorithm can thus be viewed as a large-margin version of the perceptron algorithm for structured outputs Collins (2002). Online learning algorithms have been shown to be robust even with approximate rather than exact inference in problems such as word alignment (Moore, 2005), sequence analysis (Daume and Marcu, 2005; McDonald et al., 2005a) and phrase-structure parsing (Collins and Roark, 2004). This robustness to approximations comes from the fact that the online framework sets weights with respect to inference. In other words, the learning method sees common errors due to 85 \x0cTraining data: T = {(xt, yt)}T t=1 1. w(0) = 0; v = 0; i = 0 2. for n : 1..N 3. for t : 1..T 4. min w(i+1) w(i) s.t. s(xt, yt; w(i+1) ) s(xt, y0 ; w(i+1) ) L(yt, y0 ) where y0 = arg maxy0 s(xt, y0 ; w(i) ) 5. v = v + w(i+1) 6. i = i + 1 7. w = v/(N T) Figure 6: MIRA learning algorithm. </context>
+</contexts>
+<marker>Moore, 2005</marker>
+<rawString>R. Moore. 2005. A discriminative framework for bilingual word alignment. In Proc. HLT-EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Nivre</author>
+<author>J Nilsson</author>
+</authors>
+<title>Pseudo-projective dependency parsing.</title>
+<date>2005</date>
+<booktitle>In Proc. ACL.</booktitle>
+<contexts>
+<context position="10549" citStr="Nivre and Nilsson, 2005" startWordPosition="1814" endWordPosition="1817">jective MST parsing is NP-hard, as shown in appendix A. To circumvent this, we designed an approximate algorithm based on the exact O(n3) second-order projective Eisner algorithm. The approximation works by first finding the highest scoring projective parse. It then rearranges edges in the tree, one at a time, as long as such rearrangements increase the overall score and do not violate the tree constraint. We can easily motivate this approximation by observing that even in non-projective languages like Czech and Danish, most trees are primarily projective with just a few non-projective edges (Nivre and Nilsson, 2005). Thus, by starting with the highest scoring projective tree, we are typically only a small number of transformations away from the highest scoring non-projective tree. The algorithm is shown in Figure 4. The expression y[i j] denotes the dependency graph identical to y except that xis parent is xi instead 83 \x0cFIRST-ORDER h1 h3 h1 r r+1 h3 (A) h1 h3 h1 h3 (B) SECOND-ORDER h1 h2 h2 h3 h1 h2 h2 r r+1 h3 (A) h1 h2 h2 h3 h1 h2 h2 h3 (B) h1 h3 h1 h3 (C) Figure 3: A O(n3) extension of the Eisner algorithm to second-order dependency parsing. This figure shows how h1 creates a dependency to h3 with</context>
+</contexts>
+<marker>Nivre, Nilsson, 2005</marker>
+<rawString>J. Nivre and J. Nilsson. 2005. Pseudo-projective dependency parsing. In Proc. ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Ratnaparkhi</author>
+</authors>
+<title>A maximum entropy model for part-of-speech tagging.</title>
+<date>1996</date>
+<booktitle>In Proc. EMNLP.</booktitle>
+<contexts>
+<context position="22140" citStr="Ratnaparkhi (1996)" startWordPosition="3779" endWordPosition="3780">eature space. We evaluate dependencies on per word accuracy, which is the percentage of words in the sentence with the correct parent in the tree, and on complete dependency analysis. In our evaluation we exclude punctuation for English and include it for Czech and Danish, which is the standard. 5.1 English Results To create data sets for English, we used the Yamada and Matsumoto (2003) head rules to extract dependency trees from the WSJ, setting sections 2-21 as training, section 22 for development and section 23 for evaluation. The models rely on part-of-speech tags as input and we used the Ratnaparkhi (1996) tagger to provide these for the development and evaluation set. These data sets are exclusively projective so we only compare the projective parsers using the exact projective parsing algorithms. The purpose of these experiments is to gauge the overall benefit from including second-order features with exact parsing algorithms, which can be attained in the projective setting. Results are shown in Table 1. We can see that there is clearly an advantage in introducing second-order features. In particular, the complete tree metric is improved considerably. 5.2 Czech Results For the Czech data, we </context>
+</contexts>
+<marker>Ratnaparkhi, 1996</marker>
+<rawString>A. Ratnaparkhi. 1996. A maximum entropy model for part-of-speech tagging. In Proc. EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>B Taskar</author>
+<author>D Klein</author>
+<author>M Collins</author>
+<author>D Koller</author>
+<author>C Manning</author>
+</authors>
+<title>Max-margin parsing.</title>
+<date>2004</date>
+<booktitle>In Proc. EMNLP.</booktitle>
+<contexts>
+<context position="18283" citStr="Taskar et al., 2004" startWordPosition="3128" endWordPosition="3131"> the weight vector w that ensures that the training graph outscores the predicted graph by a margin proportional to the loss of the predicted graph relative to the training graph, which is the number of words with incorrect parents in the predicted tree (McDonald et al., 2005b). Note that we only impose margin constraints between the single highest-scoring graph and the correct graph relative to the current weight setting. Past work on tree-structured outputs has used constraints for the k-best scoring tree (McDonald et al., 2005b) or even all possible trees by using factored representations (Taskar et al., 2004; McDonald et al., 2005c). However, we have found that a single margin constraint per example leads to much faster training with a negligible degradation in performance. Furthermore, this formulation relates learning directly to inference, which is important, since we want the model to set weights relative to the errors made by an approximate inference algorithm. This algorithm can thus be viewed as a large-margin version of the perceptron algorithm for structured outputs Collins (2002). Online learning algorithms have been shown to be robust even with approximate rather than exact inference i</context>
+</contexts>
+<marker>Taskar, Klein, Collins, Koller, Manning, 2004</marker>
+<rawString>B. Taskar, D. Klein, M. Collins, D. Koller, and C. Manning. 2004. Max-margin parsing. In Proc. EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H Yamada</author>
+<author>Y Matsumoto</author>
+</authors>
+<title>Statistical dependency analysis with support vector machines.</title>
+<date>2003</date>
+<booktitle>In Proc. IWPT. A 2nd-Order Non-projective MST Parsing is NP-hard Proof by</booktitle>
+<contexts>
+<context position="2580" citStr="Yamada and Matsumoto, 2003" startWordPosition="382" endWordPosition="385">fficient algorithms for both projective and non-projective trees. When combined with a discriminative online learning algorithm and a rich feature set, these models provide state-of-the-art performance across multiple languages. However, the parsing algorithms require that the score of a dependency tree factors as a sum of the scores of its edges. This first-order factorization is very restrictive since it only allows for features to be defined over single attachment decisions. Previous work has shown that conditioning on neighboring decisions can lead to significant improvements in accuracy (Yamada and Matsumoto, 2003; Charniak, 2000). In this paper we extend the MST parsing framework to incorporate higher-order feature representations of bounded-size connected subgraphs. We also present an algorithm for acyclic dependency graphs, that is, dependency graphs in which a word may depend on multiple heads. In both cases parsing is in general intractable and we provide novel approximate algorithms to make these cases tractable. We evaluate these algorithms within an online learning framework, which has been shown to be robust with respect approximate inference, and describe experiments displaying that these new</context>
+<context position="5883" citStr="Yamada and Matsumoto (2003)" startWordPosition="959" endWordPosition="962">ald et al. (2005c) showed that dependency parsing is equivalent to finding the MST in this graph. Furthermore, it was shown that this formulation can lead to state-of-the-art results when combined with discriminative learning algorithms. Although the MST formulation applies to any directed graph, our feature representations and one of the parsing algorithms (Eisners) rely on a linear ordering of the vertices, namely the order of the words in the sentence. 2.1 Second-Order MST Parsing Restricting scores to a single edge in a dependency tree gives a very impoverished view of dependency parsing. Yamada and Matsumoto (2003) showed that keeping a small amount of parsing history was crucial to improving parsing performance for their locally-trained shift-reduce SVM parser. It is reasonable to assume that other parsing models might benefit from features over previous decisions. Here we will focus on methods for parsing second-order spanning trees. These models factor the score of the tree into the sum of adjacent edge pair scores. To quantify this, consider again the example from Figure 1. In the second-order spanning tree model, the score would be, s(0, , 2) + s(2, , 1) + s(2, , 4) + s(2, 4, 5) + s(4, , 3) + s(5, </context>
+<context position="21911" citStr="Yamada and Matsumoto (2003)" startWordPosition="3737" endWordPosition="3741">rojective 83.0 30.6 2nd-order-projective 84.2 33.1 1st-order-non-projective 84.1 32.2 2nd-order-non-projective 85.2 35.9 Table 2: Dependency parsing results for Czech. tures over triples of words since this would explode the size of the feature space. We evaluate dependencies on per word accuracy, which is the percentage of words in the sentence with the correct parent in the tree, and on complete dependency analysis. In our evaluation we exclude punctuation for English and include it for Czech and Danish, which is the standard. 5.1 English Results To create data sets for English, we used the Yamada and Matsumoto (2003) head rules to extract dependency trees from the WSJ, setting sections 2-21 as training, section 22 for development and section 23 for evaluation. The models rely on part-of-speech tags as input and we used the Ratnaparkhi (1996) tagger to provide these for the development and evaluation set. These data sets are exclusively projective so we only compare the projective parsers using the exact projective parsing algorithms. The purpose of these experiments is to gauge the overall benefit from including second-order features with exact parsing algorithms, which can be attained in the projective s</context>
+</contexts>
+<marker>Yamada, Matsumoto, 2003</marker>
+<rawString>H. Yamada and Y. Matsumoto. 2003. Statistical dependency analysis with support vector machines. In Proc. IWPT. A 2nd-Order Non-projective MST Parsing is NP-hard Proof by a reduction from 3-D matching (3DM). 3DM: Disjoint sets X, Y, Z each with m distinct elements</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

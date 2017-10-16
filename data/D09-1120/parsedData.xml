@@ -1,0 +1,1704 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000001">
+<bodyText confidence="0.8701915">
+b&apos;Proceedings of the 2009 Conference on Empirical Methods in Natural Language Processing, pages 11521161,
+Singapore, 6-7 August 2009. c
+</bodyText>
+<sectionHeader confidence="0.651932" genericHeader="abstract">
+2009 ACL and AFNLP
+</sectionHeader>
+<title confidence="0.53317">
+Simple Coreference Resolution with Rich Syntactic and Semantic Features
+</title>
+<author confidence="0.907253">
+Aria Haghighi and Dan Klein
+</author>
+<affiliation confidence="0.989327">
+Computer Science Division
+</affiliation>
+<address confidence="0.928371">
+UC Berkeley
+</address>
+<email confidence="0.983057">
+{aria42, klein}@cs.berkeley.edu
+</email>
+<sectionHeader confidence="0.990458" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.997638647058824">
+Coreference systems are driven by syntactic, se-
+mantic, and discourse constraints. We present
+a simple approach which completely modularizes
+these three aspects. In contrast to much current
+work, which focuses on learning and on the dis-
+course component, our system is deterministic and
+is driven entirely by syntactic and semantic com-
+patibility as learned from a large, unlabeled corpus.
+Despite its simplicity and discourse naivete, our
+system substantially outperforms all unsupervised
+systems and most supervised ones. Primary con-
+tributions include (1) the presentation of a simple-
+to-reproduce, high-performing baseline and (2) the
+demonstration that most remaining errors can be at-
+tributed to syntactic and semantic factors external
+to the coreference phenomenon (and perhaps best
+addressed by non-coreference systems).
+</bodyText>
+<sectionHeader confidence="0.99784" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999521016129032">
+The resolution of entity reference is influenced by
+a variety of constraints. Syntactic constraints like
+the binding theory, the i-within-i filter, and appos-
+itive constructions restrict reference by configura-
+tion. Semantic constraints like selectional compat-
+ibility (e.g. a spokesperson can announce things)
+and subsumption (e.g. Microsoft is a company)
+rule out many possible referents. Finally, dis-
+course phenomena such as salience and centering
+theory are assumed to heavily influence reference
+preferences. As these varied factors have given
+rise to a multitude of weak features, recent work
+has focused on how best to learn to combine them
+using models over reference structures (Culotta et
+al., 2007; Denis and Baldridge, 2007; Klenner and
+Ailloud, 2007).
+In this work, we break from the standard view.
+Instead, we consider a vastly more modular system
+in which coreference is predicted from a determin-
+istic function of a few rich features. In particu-
+lar, we assume a three-step process. First, a self-
+contained syntactic module carefully represents
+syntactic structures using an augmented parser and
+extracts syntactic paths from mentions to potential
+antecedents. Some of these paths can be ruled in
+or out by deterministic but conservative syntactic
+constraints. Importantly, the bulk of the work in
+the syntactic module is in making sure the parses
+are correctly constructed and used, and this mod-
+ules most important training data is a treebank.
+Second, a self-contained semantic module evalu-
+ates the semantic compatibility of headwords and
+individual names. These decisions are made from
+compatibility lists extracted from unlabeled data
+sources such as newswire and web data. Finally,
+of the antecedents which remain after rich syntac-
+tic and semantic filtering, reference is chosen to
+minimize tree distance.
+This procedure is trivial where most systems are
+rich, and so does not need any supervised corefer-
+ence data. However, it is rich in important ways
+which we argue are marginalized in recent coref-
+erence work. Interestingly, error analysis from our
+final system shows that its failures are far more
+often due to syntactic failures (e.g. parsing mis-
+takes) and semantic failures (e.g. missing knowl-
+edge) than failure to model discourse phenomena
+or appropriately weigh conflicting evidence.
+One contribution of this paper is the exploration
+of strong modularity, including the result that our
+system beats all unsupervised systems and ap-
+proaches the state of the art in supervised ones.
+Another contribution is the error analysis result
+that, even with substantial syntactic and semantic
+richness, the path to greatest improvement appears
+to be to further improve the syntactic and semantic
+modules. Finally, we offer our approach as a very
+strong, yet easy to implement, baseline. We make
+no claim that learning to reconcile disparate fea-
+tures in a joint model offers no benefit, only that it
+must not be pursued to the exclusion of rich, non-
+reference analysis.
+</bodyText>
+<sectionHeader confidence="0.986055" genericHeader="method">
+2 Coreference Resolution
+</sectionHeader>
+<bodyText confidence="0.950174">
+In coreference resolution, we are given a docu-
+ment which consists of a set of mentions; each
+</bodyText>
+<page confidence="0.968401">
+1152
+</page>
+<bodyText confidence="0.9988826">
+\x0cmention is a phrase in the document (typically
+an NP) and we are asked to cluster mentions ac-
+cording to the underlying referent entity. There
+are three basic mention types: proper (Barack
+Obama), nominal (president), and pronominal
+(he).1 For comparison to previous work, we eval-
+uate in the setting where mention boundaries are
+given at test time; however our system can easily
+annotate reference on all noun phrase nodes in a
+parse tree (see Section 3.1.1).
+</bodyText>
+<subsectionHeader confidence="0.968525">
+2.1 Data Sets
+</subsectionHeader>
+<bodyText confidence="0.992010821428571">
+In this work we use the following data sets:
+Development: (see Section 3)
+ACE2004-ROTH-DEV: Dev set split of the ACE
+2004 training set utilized in Bengston and
+Roth (2008). The ACE data also annotates
+pre-nominal mentions which we map onto
+nominals. 68 documents and 4,536 mentions.
+Testing: (see Section 4)
+ACE2004-CULOTTA-TEST: Test set split of the
+ACE 2004 training set utilized in Culotta et
+al. (2007) and Bengston and Roth (2008).
+Consists of 107 documents.2
+ACE2004-NWIRE: ACE 2004 Newswire set to
+compare against Poon and Domingos (2008).
+Consists of 128 documents and 11,413 men-
+tions; intersects with the other ACE data sets.
+MUC-6-TEST: MUC6 formal evaluation set
+consisting of 30 documents and 2,068 men-
+tions.
+Unlabeled: (see Section 3.2)
+BLIPP: 1.8 million sentences of newswire
+parsed with the Charniak (2000) parser. No
+labeled coreference data; used for mining se-
+mantic information.
+WIKI: 25k articles of English Wikipedia ab-
+stracts parsed by the Klein and Manning
+(2003) parser.3 No labeled coreference data;
+used for mining semantic information.
+</bodyText>
+<page confidence="0.917236">
+1
+</page>
+<bodyText confidence="0.9990595">
+Other mention types exist and are annotated (such as pre-
+nominal), which are treated as nominals in this work.
+</bodyText>
+<page confidence="0.966347">
+2
+</page>
+<bodyText confidence="0.9964555">
+The evaluation set was not made available to non-
+participants.
+</bodyText>
+<page confidence="0.981716">
+3
+</page>
+<bodyText confidence="0.9912085">
+Wikipedia abstracts consist of roughly the first paragraph
+of the corresponding article
+</bodyText>
+<subsectionHeader confidence="0.996798">
+2.2 Evaluation
+</subsectionHeader>
+<bodyText confidence="0.991207678571429">
+We will present evaluations on multiple corefer-
+ence resolution metrics, as no single one is clearly
+superior:
+Pairwise F1: precision, recall, and F1 over
+all pairs of mentions in the same entity clus-
+ter. Note that this over-penalizes the merger
+or separation of clusters quadratically in the
+size of the cluster.
+b3 (Amit and Baldwin, 1998): For each men-
+tion, form the intersection between the pre-
+dicted cluster and the true cluster for that
+mention. The precision is the ratio of the in-
+tersection and the true cluster sizes and recall
+the ratio of the intersection to the predicted
+sizes; F1 is given by the harmonic mean over
+precision and recall from all mentions.
+MUC (Vilain et al., 1995): For each true clus-
+ter, compute the number of predicted clusters
+which need to be merged to cover the true
+cluster. Divide this quantity by true cluster
+size minus one. Recall is given by the same
+procedure with predicated and true clusters
+reversed.4
+CEAF (Luo, 2005): For a similarity function
+between predicted and true clusters, CEAF
+scores the best match between true and pre-
+dicted clusters using this function. We use
+the 3 similarity function from Luo (2005).
+</bodyText>
+<sectionHeader confidence="0.988741" genericHeader="method">
+3 System Description
+</sectionHeader>
+<bodyText confidence="0.999346214285714">
+In this section we develop our system and re-
+port developmental results on ACE2004-ROTH-
+DEV (see Section 2.1); we report pairwise F1 fig-
+ures here, but report on many more evaluation
+metrics in Section 4. At a high level, our system
+resembles a pairwise coreference model (Soon et
+al., 1999; Ng and Cardie, 2002; Bengston and
+Roth, 2008); for each mention mi, we select ei-
+ther a single-best antecedent amongst the previ-
+ous mentions m1, . . . , mi1, or the NULL men-
+tion to indicate the underlying entity has not yet
+been evoked. Mentions are linearly ordered ac-
+cording to the position of the mention head with
+ties being broken by the larger node coming first.
+</bodyText>
+<page confidence="0.988041">
+4
+</page>
+<bodyText confidence="0.99126575">
+The MUC measure is problematic when the system pre-
+dicts many more clusters than actually exist (Luo, 2005;
+Finkel and Manning, 2008); also, singleton clusters do not
+contribute to evaluation.
+</bodyText>
+<page confidence="0.939342">
+1153
+</page>
+<bodyText confidence="0.996552795918367">
+\x0cWhile much research (Ng and Cardie, 2002; Cu-
+lotta et al., 2007; Haghighi and Klein, 2007; Poon
+and Domingos, 2008; Finkel and Manning, 2008)
+has explored how to reconcile pairwise decisions
+to form coherent clusters, we simply take the tran-
+sitive closure of our pairwise decision (as in Ng
+and Cardie (2002) and Bengston and Roth (2008))
+which can and does cause system errors.
+In contrast to most recent research, our pair-
+wise decisions are not made with a learned model
+which outputs a probability or confidence, but in-
+stead for each mention mi, we select an antecedent
+amongst m1, . . . , mi1 or the NULL mention as
+follows:
+Syntactic Constraint: Based on syntac-
+tic configurations, either force or disallow
+coreference between the mention and an an-
+tecedent. Propagate this constraint (see Fig-
+ure 4).
+Semantic/Syntactic Filter: Filter the re-
+maining possible antecedents based upon
+compatibility with the mention (see Fig-
+ure 2).
+Selection: Select the closest mention from
+the set of remaining possible antecedents (see
+Figure 1) or the NULL antecedent if empty.
+Initially, there is no syntactic constraint (im-
+proved in Section 3.1.3), the antecedent com-
+patibility filter allows proper and nominal men-
+tions to corefer only with mentions that have the
+same head (improved in Section 3.2), and pro-
+nouns have no compatibility constraints (improved
+in Section 3.1.2). Mention heads are determined
+by parsing the given mention span with the Stan-
+ford parser (Klein and Manning, 2003) and us-
+ing the Collins head rules (Collins, 1999); Poon
+and Domingos (2008) showed that using syntactic
+heads strongly outperformed a simple rightmost
+headword rule. The mention type is determined
+by the head POS tag: proper if the head tag is NNP
+or NNPS, pronoun if the head tag is PRP, PRP$, WP,
+or WP$, and nominal otherwise.
+For the selection phase, we order mentions
+m1, . . . , mi1 according to the position of the
+head word and select the closest mention that re-
+mains after constraint and filtering are applied.
+This choice reflects the intuition of Grosz et al.
+(1995) that speakers only use pronominal men-
+tions when there are not intervening compatible
+</bodyText>
+<figure confidence="0.997284166666667">
+S
+!!!!!!!
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+NP#1
+###
+$
+$
+$
+NP
+NNP
+Nintendo
+PP
+%
+%
+&amp;
+&amp;
+IN
+of
+NP#2
+NNP
+America
+VP
+\&apos;\&apos;\&apos;
+\&apos;
+(
+(
+(
+(
+VBD
+announced
+NP#3
+))
+)
+*
+*
+*
+NP#1
+PRP$
+its
+NP
+%
+%
+&amp;
+&amp;
+JJ
+new
+NN
+console
+</figure>
+<figureCaption confidence="0.99995">
+Figure 1: Example sentence where closest tree dis-
+</figureCaption>
+<bodyText confidence="0.981562">
+tance between mentions outperforms raw distance.
+For clarity, each mention NP is labeled with the
+underlying entity id.
+mentions. This system yields a rather low 48.9
+pairwise F1 (see BASE-FLAT in Table 2). There
+are many, primarily recall, errors made choos-
+ing antecedents for all mention types which we
+will address by adding syntactic and semantic con-
+straints.
+</bodyText>
+<subsectionHeader confidence="0.99985">
+3.1 Adding Syntactic Information
+</subsectionHeader>
+<bodyText confidence="0.998754">
+In this section, we enrich the syntactic represen-
+tation and information in our system to improve
+results.
+</bodyText>
+<subsubsectionHeader confidence="0.96834">
+3.1.1 Syntactic Salience
+</subsubsectionHeader>
+<bodyText confidence="0.999154636363636">
+We first focus on fixing the pronoun antecedent
+choices. A common error arose from the use of
+mention head distance as a poor proxy for dis-
+course salience. For instance consider the exam-
+ple in Figure 1, the mention America is closest
+to its in flat mention distance, but syntactically
+Nintendo of America holds a more prominent syn-
+tactic position relative to the pronoun which, as
+Hobbs (1977) argues, is key to discourse salience.
+Mapping Mentions to Parse Nodes: In order to
+use the syntactic position of mentions to determine
+anaphoricity, we must associate each mention in
+the document with a parse tree node. We parse
+all document sentences with the Stanford parser,
+and then for each evaluation mention, we find the
+largest-span NP which has the previously deter-
+mined mention head as its head.5 Often, this re-
+sults in a different, typically larger, mention span
+than annotated in the data.
+Now that each mention is situated in a parse
+tree, we utilize the length of the shortest tree path
+between mentions as our notion of distance. In
+</bodyText>
+<page confidence="0.928664">
+5
+</page>
+<bodyText confidence="0.895855">
+If there is no NP headed by a given mention head, we
+add an NP over just that word.
+</bodyText>
+<page confidence="0.757894">
+1154
+</page>
+<figure confidence="0.999642662921348">
+\x0cS
+!!!!!!!!
+!
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+NP-ORG#1
+##
+#
+$
+$
+$
+The Israelis
+VP
+!!!!!!!!!!!
+%
+%
+%
+%
+%
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+VBP
+regard
+NP#2
+##
+#
+$
+$
+$
+NP
+the site
+PP
+&amp;
+&amp;
+\&apos;
+\&apos;
+IN
+as
+NP#2
+&amp;
+&amp;
+\&apos;
+\&apos;
+a shrine
+SBAR
+((((((
+)
+)
+*
+*
+*
+*
+*
+*
+IN
+because
+PP
++
++
+,
+,
+TO
+to
+NP#1
+PRP
+them
+S
+#
+#
+#
+$
+$
+$
+</figure>
+<figureCaption confidence="0.807114">
+it is sacred
+Figure 2: Example of a coreference decision fixed
+</figureCaption>
+<bodyText confidence="0.997176916666667">
+by agreement constraints (see Section 3.1.2). The
+pronoun them is closest to the site mention, but has
+an incompatible number feature with it. The clos-
+est (in tree distance, see Section 3.1.1) compatible
+mention is The Israelis, which is correct
+particular, this fixes examples such as those in
+Figure 1 where the true antecedent has many em-
+bedded mentions between itself and the pronoun.
+This change by itself yields 51.7 pairwise F1 (see
+BASE-TREE in Table 2), which is small overall, but
+reduces pairwise pronoun antecedent selection er-
+ror from 51.3% to 42.5%.
+</bodyText>
+<subsubsectionHeader confidence="0.983639">
+3.1.2 Agreement Constraints
+</subsubsectionHeader>
+<bodyText confidence="0.996957875">
+We now refine our compatibility filtering to in-
+corporate simple agreement constraints between
+coreferent mentions. Since we currently allow
+proper and nominal mentions to corefer only with
+matching head mentions, agreement is only a con-
+cern for pronouns. Traditional linguistic theory
+stipulates that coreferent mentions must agree in
+number, person, gender, and entity type (e.g. an-
+imacy). Here, we implement person, number and
+entity type agreement.6
+A number feature is assigned to each mention
+deterministically based on the head and its POS
+tag. For entity type, we use NER labels. Ideally,
+we would like to have information about the en-
+tity type of each referential NP, however this in-
+formation is not easily obtainable. Instead, we opt
+to utilize the Stanford NER tagger (Finkel et al.,
+2005) over the sentences in a document and anno-
+tate each NP with the NER label assigned to that
+mention head. For each mention, when its NP is
+assigned an NER label we allow it to only be com-
+patible with that NER label.7 For pronouns, we
+deterministically assign a set of compatible NER
+values (e.g. personal pronouns can only be a PER-
+</bodyText>
+<page confidence="0.973346">
+6
+</page>
+<bodyText confidence="0.915275">
+Gender agreement, while important for general corefer-
+ence resolution, did not contribute to the errors in our largely
+newswire data sets.
+</bodyText>
+<page confidence="0.978884">
+7
+</page>
+<table confidence="0.291908">
+Or allow it to be compatible with all NER labels if the
+NER tagger doesnt predict a label.
+gore president florida state
+bush governor lebanese territory
+nation people arafat leader
+</table>
+<figureCaption confidence="0.652802428571429">
+inc. company aol company
+nation country assad president
+Table 1: Most common recall (missed-link) errors
+amongst non-pronoun mention heads on our de-
+velopment set. Detecting compatibility requires
+semantic knowledge which we obtain from a large
+corpus (see Section 3.2).
+</figureCaption>
+<figure confidence="0.99438616">
+S
+```
+`
+NP#1
+NNP
+Wal-Mart
+VP
+hhhh
+(
+(
+(
+(
+VBZ
+says
+S
+hhh
+h
+(
+(
+(
+(
+NP#2
+XX
+X
+\x18
+\x18
+\x18
+NP
+NNP
+Gitano
+,
+,
+NP-APPOS#2
+P
+P
+\x10
+\x10
+NP#1
+PRP
+its
+JJ
+top
+NNS
+brand
+VP
+P
+P
+\x10
+\x10
+is underselling
+</figure>
+<figureCaption confidence="0.999986">
+Figure 4: Example of interaction between the ap-
+</figureCaption>
+<bodyText confidence="0.9835641875">
+positive and i-within-i constraint. The i-within-
+i constraint disallows coreference between parent
+and child NPs unless the child is an appositive.
+Hashed numbers indicate ground truth but are not
+in the actual trees.
+SON, but its can be an ORGANIZATION or LOCA-
+TION). Since the NER tagger typically does not
+label non-proper NP heads, we have no NER com-
+patibility information for nominals.
+We incorporate agreement constraints by filter-
+ing the set of possible antecedents to those which
+have compatible number and NER types with the
+target mention. This yields 53.4 pairwise F1, and
+reduces pronoun antecedent errors to 42.5% from
+34.4%. An example of the type of error fixed by
+these agreement constraints is given by Figure 2.
+</bodyText>
+<subsubsectionHeader confidence="0.965929">
+3.1.3 Syntactic Configuration Constraints
+</subsubsectionHeader>
+<bodyText confidence="0.9845194">
+Our system has so far focused only on improving
+pronoun anaphora resolution. However, a plurality
+of the errors made by our system are amongst non-
+pronominal mentions.8 We take the approach that
+in order to align a non-pronominal mention to an
+antecedent without an identical head, we require
+evidence that the mentions are compatible.
+Judging compatibility of mentions generally re-
+quires semantic knowledge, to which we return
+later. However, some syntactic configurations
+</bodyText>
+<page confidence="0.98419">
+8
+</page>
+<bodyText confidence="0.937361">
+There are over twice as many nominal mentions in our
+development data as pronouns.
+</bodyText>
+<page confidence="0.518254">
+1155
+</page>
+<figure confidence="0.99942493902439">
+\x0cNP#1
+!!!!!!!
+!
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+&amp;quot;
+NP
+####
+#
+$
+$
+$
+$
+$
+NN#1
+painter
+NNP
+Pablo
+NNP
+Picasso
+,
+,
+NP#1
+%%%%%%
+&amp;
+&amp;
+&amp;
+&amp;
+&amp;
+&amp;
+subject of the [exhibition]2
+NP-PERS#1
+!!!!!!!!
+!
+&amp;quot;
+&amp;quot;
+#
+#
+#
+#
+#
+#
+#
+#
+#
+NP
+$$$$
+%
+%
+%
+%
+NP-APPOS#1
+NN
+painter
+NP-PERS
+&amp;
+&amp;
+&amp;
+\&apos;
+\&apos;
+\&apos;
+NNP
+Pablo
+NNP
+Picasso
+,
+,
+NP-APPOS#1
+((((((
+)
+)
+)
+)
+)
+)
+subject of the [exhibition]2
+(a) (b)
+</figure>
+<figureCaption confidence="0.999669">
+Figure 3: NP structure annotation: In (a) we have the raw parse from the Klein and Manning (2003)
+</figureCaption>
+<bodyText confidence="0.981826786666667">
+parser with the mentions annotated by entity. In (b), we demonstrate the annotation we have added. NER
+labels are added to all NP according to the NER label given to the head (see Section 3.1.1). Appositive
+NPs are also annotated. Hashes indicate forced coreferent nodes
+guarantee coreference. The one exploited most
+in coreference work (Soon et al., 1999; Ng and
+Cardie, 2002; Luo et al., 2004; Culotta et al., 2007;
+Poon and Domingos, 2008; Bengston and Roth,
+2008) is the appositive construction. Here, we rep-
+resent apposition as a syntactic feature of an NP
+indicating that it is coreferent with its parent NP
+(e.g. it is an exception to the i-within-i constraint
+that parent and child NPs cannot be coreferent).
+We deterministically mark a node as NP-APPOS
+(see Figure 3) when it is the third child in of a par-
+ent NP whose expansion begins with (NP , NP),
+and there is not a conjunction in the expansion (to
+avoid marking elements in a list as appositive).
+Role Appositives: During development, we dis-
+covered many errors which involved a variant of
+appositives which we call role appositives (see
+painter in Figure 3), where an NP modifying the
+head NP describes the role of that entity (typi-
+cally a person entity). There are several challenges
+to correctly labeling these role NPs as being ap-
+positives. First, the NPs produced by Treebank
+parsers are flat and do not have the required inter-
+nal structure (see Figure 3(a)). While fully solving
+this problem is difficult, we can heuristically fix
+many instances of the problem by placing an NP
+around maximum length sequences of NNP tags
+or NN (and JJ) tags within an NP; note that this
+will fail for many constructions such as U.S. Pres-
+ident Barack Obama, which is analyzed as a flat
+sequence of proper nouns. Once this internal NP
+structure has been added, whether the NP immedi-
+ately to the left of the head NP is an appositive de-
+pends on the entity type. For instance, Rabbi Ashi
+is an apposition but Iranian army is not. Again, a
+full solution would require its own model, here we
+mark as appositions any NPs immediately to the
+left of a head child NP where the head child NP is
+identified as a person by the NER tagger.9
+We incorporate NP appositive annotation as a
+constraint during filtering. Any mention which
+corresponds to an appositive node has its set of
+possible antecedents limited to its parent. Along
+with the appositive constraint, we implement the
+i-within-i constraint that any non-appositive NP
+cannot be be coreferent with its parent; this con-
+straint is then propagated to any node its parent
+is forced to agree with. The order in which these
+constraints are applied is important, as illustrated
+by the example in Figure 4: First the list of pos-
+sible antecedents for the appositive NP is con-
+strained to only its parent. Now that all apposi-
+tives have been constrained, we apply the i-within-
+i constraint, which prevents its from having the NP
+headed by brand in the set of possible antecedents,
+and by propagation, also removes the NP headed
+by Gitano. This leaves the NP Wal-Mart as the
+closest compatible mention.
+Adding these syntactic constraints to our system
+yields 55.4 F1, a fairly substantial improvement,
+but many recall errors remain between mentions
+with differing heads. Resolving such cases will
+require external semantic information, which we
+will automatically acquire (see Section 3.2).
+Predicate Nominatives: Another syntactic con-
+straint exploited in Poon and Domingos (2008) is
+the predicate nominative construction, where the
+object of a copular verb (forms of the verb be) is
+constrained to corefer with its subject (e.g. Mi-
+crosoft is a company in Redmond). While much
+less frequent than appositive configurations (there
+are only 17 predicate nominatives in our devel-
+</bodyText>
+<page confidence="0.978332">
+9
+</page>
+<bodyText confidence="0.996779666666667">
+Arguably, we could also consider right modifying NPs
+(e.g., [Microsoft [Company]1]1) to be role appositive, but we
+do not do so here.
+</bodyText>
+<page confidence="0.76626">
+1156
+</page>
+<figure confidence="0.998454307692308">
+\x0cPath Example
+NP
+!!
+!
+&amp;quot;
+&amp;quot;
+&amp;quot;
+NP-NNP PRN-NNP
+NP
+####
+#
+$
+$
+%
+%
+%
+%
+%
+NP-president CC NP-NNP
+America Online Inc. (AOL)
+NP
+!!
+!
+&amp;quot;
+&amp;quot;
+&amp;quot;
+NP-NNP PRN-NNP
+NP
+####
+#
+$
+$
+%
+%
+%
+%
+%
+NP-president CC NP-NNP
+[President and C.E.O] Bill Gates
+</figure>
+<figureCaption confidence="0.999959">
+Figure 5: Example paths extracted via semantic compatibility mining (see Section 3.2) along with exam-
+</figureCaption>
+<bodyText confidence="0.9949725">
+ple instantiations. In both examples the left child NP is coreferent with the rightmost NP. Each category
+in the interior of the tree path is annotated with the head word as well as its subcategorization. The
+examples given here collapse multiple instances of extracted paths.
+opment set), predicate nominatives are another
+highly reliable coreference pattern which we will
+leverage in Section 3.2 to mine semantic knowl-
+edge. As with appositives, we annotate object
+predicate-nominative NPs and constrain corefer-
+ence as before. This yields a minor improvement
+to 55.5 F1.
+</bodyText>
+<subsectionHeader confidence="0.999562">
+3.2 Semantic Knowledge
+</subsectionHeader>
+<bodyText confidence="0.99400662962963">
+While appositives and related syntactic construc-
+tions can resolve some cases of non-pronominal
+reference, most cases require semantic knowledge
+about the various entities as well as the verbs used
+in conjunction with those entities to disambiguate
+references (Kehler et al., 2008).
+However, given a semantically compatible men-
+tion head pair, say AOL and company, one
+might expect to observe a reliable appositive
+or predicative-nominative construction involving
+these mentions somewhere in a large corpus.
+In fact, the Wikipedia page for AOL10 has a
+predicate-nominative construction which supports
+the compatibility of this head pair: AOL LLC (for-
+merly America Online) is an American global In-
+ternet services and media company operated by
+Time Warner.
+In order to harvest compatible head pairs, we
+utilize our BLIPP and WIKI data sets (see Sec-
+tion 2), and for each noun (proper or common) and
+pronoun, we assign a maximal NP mention node
+for each nominal head as in Section 3.1.1; we then
+annotate appositive and predicate-nominative NPs
+as in Section 3.1.3. For any NP which is annotated
+as an appositive or predicate-nominative, we ex-
+tract the head pair of that node and its constrained
+antecedent.
+</bodyText>
+<page confidence="0.981832">
+10
+</page>
+<bodyText confidence="0.979120729729729">
+http://en.wikipedia.org/wiki/AOL
+The resulting set of compatible head words,
+while large, covers a little more than half of the
+examples given in Table 1. The problem is that
+these highly-reliable syntactic configurations are
+too sparse and cannot capture all the entity infor-
+mation present. For instance, the first sentence of
+Wikipedia abstract for Al Gore is:
+Albert Arnold Al Gore, Jr. is an
+American environmental activist who
+served as the 45th Vice President of the
+United States from 1993 to 2001 under
+President Bill Clinton.
+The required lexical pattern X who served as Y is
+a general appositive-like pattern that almost surely
+indicates coreference. Rather than opt to manu-
+ally create a set of these coreference patterns as in
+Hearst (1992), we instead opt to automatically ex-
+tract these patterns from large corpora as in Snow
+et al. (2004) and Phillips and Riloff (2007). We
+take a simple bootstrapping technique: given a
+set of mention pairs extracted from appositives
+and predicate-nominative configurations, we ex-
+tract counts over tree fragments between nodes
+which have occurred in this set of head pairs (see
+Figure 5); the tree fragments are formed by an-
+notating the internal nodes in the tree path with
+the head word and POS along with the subcatego-
+rization. We limit the paths extracted in this way
+in several ways: paths are only allowed to go be-
+tween adjacent sentences and have a length of at
+most 10. We then filter the set of paths to those
+which occur more than a hundred times and with
+at least 10 distinct seed head word pairs.
+The vast majority of the extracted fragments are
+variants of traditional appositives and predicate-
+nominatives with some of the structure of the NPs
+</bodyText>
+<page confidence="0.95434">
+1157
+</page>
+<table confidence="0.996552925925926">
+\x0cMUC b3 Pairwise CEAF
+System P R F1 P R F1 P R F1 P R F1
+ACE2004-ROTH-DEV
+BASIC-FLAT 73.5 66.8 70.0 80.6 68.6 74.1 63.6 39.7 48.9 68.4 68.4 68.4
+BASIC-TREE 75.8 68.9 72.2 81.9 69.9 75.4 65.6 42.7 51.7 69.8 69.8 69.8
++SYN-COMPAT 77.8 68.5 72.9 84.1 69.7 76.2 71.0 43.1 53.4 69.8 69.8 69.8
++SYN-CONSTR 78.3 70.5 74.2 84.0 71.0 76.9 71.3 45.4 55.5 70.8 70.8 70.8
++SEM-COMPAT 77.9 74.1 75.9 81.8 74.3 77.9 68.2 51.2 58.5 72.5 72.5 72.5
+ACE2004-CULOTTA-TEST
+BASIC-FLAT 68.6 60.9 64.5 80.3 68.0 73.6 57.1 30.5 39.8 66.5 66.5 66.5
+BASIC-TREE 71.2 63.2 67.0 81.6 69.3 75.0 60.1 34.5 43.9 67.9 67.9 67.9
++SYN-COMPAT 74.6 65.2 69.6 84.2 70.3 76.6 66.7 37.2 47.8 69.2 69.2 69.2
++SYN-CONSTR 74.3 66.4 70.2 83.6 71.0 76.8 66.4 38.0 48.3 69.6 69.6 69.6
++SEM-COMPAT 74.8 77.7 79.6 79.6 78.5 79.0 57.5 57.6 57.5 73.3 73.3 73.3
+Supervised Results
+Culotta et al. (2007) - - - 86.7 73.2 79.3 - - - - - -
+Bengston and Roth (2008) 82.7 69.9 75.8 88.3 74.5 80.8 55.4 63.7 59.2 - - -
+MUC6-TEST
++SEM-COMPAT 87.2 77.3 81.9 84.7 67.3 75.0 80.5 57.8 67.3 72.0 72.0 72.0
+Unsupervised Results
+Poon and Domingos (2008) 83.0 75.8 79.2 - - - 63.0 57.0 60.0 - - -
+Supervised Results
+Finkel and Manning (2008) 89.7 55.1 68.3 90.9 49.7 64.3 74.1 37.1 49.5 - - -
+ACE2004-NWIRE
++SEM-COMPAT 77.0 75.9 76.5 79.4 74.5 76.9 66.9 49.2 56.7 71.5 71.5 71.5
+Unsupervised Results
+Poon and Domingos (2008) 71.3 70.5 70.9 - - - 62.6 38.9 48.0 - - -
+</table>
+<tableCaption confidence="0.993891">
+Table 2: Experimental Results (See Section 4): When comparisons between systems are presented, the
+</tableCaption>
+<bodyText confidence="0.997119230769231">
+largest result is bolded. The CEAF measure has equal values for precision, recall, and F1.
+specified. However there are some tree fragments
+which correspond to the novel coreference pat-
+terns (see Figure 5) of parenthetical alias as well
+as conjunctions of roles in NPs.
+We apply our extracted tree fragments to our
+BLIPP and WIKI data sets and extract a set of com-
+patible word pairs which match these fragments;
+these words pairs will be used to relax the seman-
+tic compatibility filter (see the start of the section);
+mentions are compatible with prior mentions with
+the same head or with a semantically compatible
+head word. This yields 58.5 pairwise F1 (see SEM-
+COMPAT in Table 2) as well as similar improve-
+ments across other metrics.
+By and large the word pairs extracted in this
+way are correct (in particular we now have cov-
+erage for over two-thirds of the head pair recall
+errors from Table 1.) There are however word-
+pairs which introduce errors. In particular city-
+state constructions (e.g. Los Angeles, California)
+appears to be an appositive and incorrectly allows
+our system to have angeles as an antecedent for
+california. Another common error is that the %
+symbol is made compatible with a wide variety of
+common nouns in the financial domain.
+</bodyText>
+<sectionHeader confidence="0.999272" genericHeader="method">
+4 Experimental Results
+</sectionHeader>
+<bodyText confidence="0.973265842105263">
+We present formal experimental results here
+(see Table 2). We first evaluate our model
+on the ACE2004-CULOTTA-TEST dataset used in
+the state-of-the-art systems from Culotta et al.
+(2007) and Bengston and Roth (2008). Both of
+these systems were supervised systems discrimi-
+natively trained to maximize b3 and used features
+from many different structured resources includ-
+ing WordNet, as well as domain-specific features
+(Culotta et al., 2007). Our best b3 result of 79.0
+is broadly in the range of these results. We should
+note that in our work we use neither the gold men-
+tion types (we do not model pre-nominals sepa-
+rately) nor do we use the gold NER tags which
+Bengston and Roth (2008) does. Across metrics,
+the syntactic constraints and semantic compatibil-
+ity components contribute most to the overall final
+result.
+On the MUC6-TEST dataset, our system outper-
+</bodyText>
+<figure confidence="0.77788">
+1158
+\x0cPROPER
+NOMINAL
+PRONOUN
+NULL
+TOTAL
+PROPER 21/451 8/20 - 72/288 101/759
+NOMINAL 16/150 99/432 - 158/351 323/933
+PRONOUN 29/149 60/128 15/97 1/2 105/376
+</figure>
+<tableCaption confidence="0.981508">
+Table 3: Errors for each type of antecedent deci-
+</tableCaption>
+<bodyText confidence="0.960365294117647">
+sion made by the system. Each row is a mention
+type and the column the predicted mention type
+antecedent. The majority of errors are made in the
+NOMINAL category.
+forms both Poon and Domingos (2008) (an un-
+supervised Markov Logic Network system which
+uses explicit constraints) and Finkel and Manning
+(2008) (a supervised system which uses ILP in-
+ference to reconcile the predictions of a pairwise
+classifier) on all comparable measures.11 Simi-
+larly, on the ACE2004-NWIRE dataset, we also out-
+perform the state-of-the-art unsupervised system
+of Poon and Domingos (2008).
+Overall, we conclude that our system outper-
+forms state-of-the-art unsupervised systems12 and
+is in the range of the state-of-the art systems of Cu-
+lotta et al. (2007) and Bengston and Roth (2008).
+</bodyText>
+<sectionHeader confidence="0.999473" genericHeader="method">
+5 Error Analysis
+</sectionHeader>
+<bodyText confidence="0.999838684210526">
+There are several general trends to the errors made
+by our system. Table 3 shows the number of
+pairwise errors made on MUC6-TEST dataset by
+mention type; note these errors are not equally
+weighted in the final evaluations because of the
+transitive closure taken at the end. The most er-
+rors are made on nominal mentions with pronouns
+coming in a distant second. In particular, we most
+frequently say a nominal is NULL when it has an
+antecedent; this is typically due to not having the
+necessary semantic knowledge to link a nominal
+to a prior expression.
+In order to get a more thorough view of the
+cause of pairwise errors, we examined 20 random
+errors made in aligning each mention type to an
+antecedent. We categorized the errors as follows:
+SEM. COMPAT: Missing information about
+the compatibility of two words e.g. pay and
+wage. For pronouns, this is used to mean that
+</bodyText>
+<page confidence="0.996187">
+11
+</page>
+<bodyText confidence="0.9654245">
+Klenner and Ailloud (2007) took essentially the same ap-
+proach but did so on non-comparable data.
+</bodyText>
+<page confidence="0.985405">
+12
+</page>
+<bodyText confidence="0.9967845">
+Poon and Domingos (2008) outperformed Haghighi and
+Klein (2007). Unfortunately, we cannot compare against Ng
+(2008) since we do not have access to the version of the ACE
+data used in their evaluation.
+we incorrectly aligned a pronoun to a men-
+tion with which it is not semantically com-
+patible (e.g. he aligned to board).
+SYN. COMPAT: Error in assigning linguistic
+features of nouns for compatibility with pro-
+nouns (e.g. disallowing they to refer to team).
+HEAD: Errors involving the assumption that
+mentions with the same head are always com-
+patible. Includes modifier and specificity er-
+rors such as allowing Lebanon and Southern
+Lebanon to corefer. This also includes errors
+of definiteness in nominals (e.g. the people
+in the room and Chinese people). Typically,
+these errors involve a combination of missing
+syntactic and semantic information.
+INTERNAL NP: Errors involving lack of inter-
+nal NP structure to mark role appositives (see
+Section 3.1.3).
+PRAG. / DISC.: Errors where discourse salience
+or pragmatics are needed to disambiguate
+mention antecedents.
+PROCESS ERROR: Errors which involved a tok-
+enization, parse, or NER error.
+The result of this error analysis is given in Ta-
+ble 4; note that a single error may be attributed to
+more than one cause. Despite our efforts in Sec-
+tion 3 to add syntactic and semantic information
+to our system, the largest source of error is still
+a combination of missing semantic information or
+annotated syntactic structure rather than the lack
+of discourse or salience modeling.
+Our error analysis suggests that in order to im-
+prove the state-of-the-art in coreference resolu-
+tion, future research should consider richer syntac-
+tic and semantic information than typically used in
+current systems.
+</bodyText>
+<sectionHeader confidence="0.998649" genericHeader="conclusions">
+6 Conclusion
+</sectionHeader>
+<bodyText confidence="0.999676444444444">
+Our approach is not intended as an argument
+against the more complex, discourse-focused ap-
+proaches that typify recent work. Instead, we note
+that rich syntactic and semantic processing vastly
+reduces the need to rely on discourse effects or ev-
+idence reconciliation for reference resolution. In-
+deed, we suspect that further improving the syn-
+tactic and semantic modules in our system may
+produce greater error reductions than any other
+</bodyText>
+<page confidence="0.979619">
+1159
+</page>
+<table confidence="0.9698275">
+\x0cMention Type SEM. COMPAT SYN. COMPAT HEAD INTENAL NP PRAG / DISC. PROCESS ERROR OTHER Comment
+NOMINAL 7 - 5 6 2 2 1 2 general appos. patterns
+PRONOUN 6 3 - 6 3 3 3 2 cataphora
+PROPER 6 - 3 4 4 4 1
+</table>
+<tableCaption confidence="0.991629">
+Table 4: Error analysis on ACE2004-CULOTTA-TEST data by mention type. The dominant errors are in
+</tableCaption>
+<bodyText confidence="0.979544909090909">
+either semantic or syntactic compatibility of mentions rather than discourse phenomena. See Section 5.
+route forward. Of course, a system which is rich
+in all axes will find some advantage over any sim-
+plified approach.
+Nonetheless, our coreference system, despite
+being relatively simple and having no tunable pa-
+rameters or complexity beyond the non-reference
+complexity of its component modules, manages
+to outperform state-of-the-art unsupervised coref-
+erence resolution and be broadly comparable to
+state-of-the-art supervised systems.
+</bodyText>
+<sectionHeader confidence="0.991083" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.99270385">
+B. Amit and B. Baldwin. 1998. Algorithms for scoring
+coreference chains. In MUC7.
+Eric Bengston and Dan Roth. 2008. Understanding the
+value of features for corefernce resolution. In Em-
+pirical Methods in Natural Language Processing.
+E. Charniak. 2000. Maximum entropy inspired parser.
+In North American Chapter of the Association of
+Computational Linguistics (NAACL).
+Mike Collins. 1999. Head-driven statistical models for
+natural language parsing.
+A Culotta, M Wick, R Hall, and A McCallum. 2007.
+First-order probabilistic models for coreference res-
+olution. In NAACL-HLT.
+Pascal Denis and Jason Baldridge. 2007. Global,
+Joint Determination of Anaphoricity and Corefer-
+ence Resolution using Integer Programming. In
+HLT-NAACL.
+Jenny Finkel and Christopher Manning. 2008. Enforc-
+ing transitivity in coreference resolution. In Associ-
+ation of Computational Linguists (ACL).
+Jenny Finkel, Trond Grenager, and Christopher Man-
+ning. 2005. Incorporating non-local information
+into information extraction systems by gibbs sam-
+pling. In ACL.
+Barbara J. Grosz, Aravind K. Joshi, and Scott Wein-
+stein. 1995. Centering: A framework for modelling
+the local coherence of discourse.
+Aria Haghighi and Dan Klein. 2007. Unsupervised
+coreference resolution in a nonparametric bayesian
+model. In Proceedings of the 45th Annual Meeting
+of the Association of Computational Linguistics. As-
+sociation for Computational Linguistics.
+Marti Hearst. 1992. Automatic acquisition of hy-
+ponyms from large text corpora. In Conference on
+Natural Language Learning (COLING).
+J. R. Hobbs. 1977. Resolving pronoun references.
+Lingua.
+Andrew Kehler, Laura Kertz, Hannah Rohde, and Jef-
+frey Elman. 2008. Coherence and coreference re-
+visited.
+D. Klein and C. Manning. 2003. Accurate unlexical-
+ized parsing. In Association of Computational Lin-
+guists (ACL).
+Manfred Klenner and Etienne Ailloud. 2007. Op-
+timization in coreference resolution is not needed:
+A nearly-optimal algorithm with intensional con-
+straints. In Recent Advances in Natural Language
+Processing.
+Xiaoqiang Luo, Abe Ittycheriah, Hongyan Jing, Nanda
+Kambhatla, and Salim Roukos. 2004. A
+Mention-Synchronous Coreference Resolution Al-
+gorithm Based on the Bell Tree. In Association of
+Computational Linguists.
+X Luo. 2005. On coreference resolution performance
+metrics. In Proceedings of the conference on Hu-
+man Language Technology and Empirical Methods
+in Natural Language Processing.
+Vincent Ng and Claire Cardie. 2002. Improving Ma-
+chine Learning Approaches to Coreference Resolu-
+tion. In Association of Computational Linguists.
+Vincent Ng. 2008. Unsupervised models of corefer-
+ence resolution. In EMNLP.
+W. Phillips and E. Riloff. 2007. Exploiting role-
+identifying nouns and expressions for information
+extraction. In Recent Advances in Natural Language
+Processing (RANLP).
+Hoifung Poon and Pedro Domingos. 2008. Joint unsu-
+pervised coreference resolution with Markov Logic.
+In Proceedings of the 2008 Conference on Empirical
+Methods in Natural Language Processing.
+R. Snow, D. Jurafsky, and A. Ng. 2004. Learning syn-
+tactic patterns for automatic hypernym discovery. In
+Neural Information Processing Systems (NIPS).
+W.H. Soon, H. T. Ng, and D. C. Y. Lim. 1999. A
+machine learning approach to coreference resolution
+of noun phrases.
+1160
+\x0cMarc Vilain, John Burger, John Aberdeen, Dennis Con-
+nolly, and Lynette Hirschman. 1995. A model-
+theoretic coreference scoring scheme. In MUC-6.
+</reference>
+<page confidence="0.724048">
+1161
+</page>
+<figure confidence="0.293322">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.696064">
+<note confidence="0.858447333333333">b&apos;Proceedings of the 2009 Conference on Empirical Methods in Natural Language Processing, pages 11521161, Singapore, 6-7 August 2009. c 2009 ACL and AFNLP</note>
+<title confidence="0.992106">Simple Coreference Resolution with Rich Syntactic and Semantic Features</title>
+<author confidence="0.999955">Aria Haghighi</author>
+<author confidence="0.999955">Dan Klein</author>
+<affiliation confidence="0.9963825">Computer Science Division UC Berkeley</affiliation>
+<email confidence="0.998173">aria42@cs.berkeley.edu</email>
+<email confidence="0.998173">klein@cs.berkeley.edu</email>
+<abstract confidence="0.997707611111111">Coreference systems are driven by syntactic, semantic, and discourse constraints. We present a simple approach which completely modularizes these three aspects. In contrast to much current work, which focuses on learning and on the discourse component, our system is deterministic and is driven entirely by syntactic and semantic compatibility as learned from a large, unlabeled corpus. Despite its simplicity and discourse naivete, our system substantially outperforms all unsupervised systems and most supervised ones. Primary contributions include (1) the presentation of a simpleto-reproduce, high-performing baseline and (2) the demonstration that most remaining errors can be attributed to syntactic and semantic factors external to the coreference phenomenon (and perhaps best addressed by non-coreference systems).</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>B Amit</author>
+<author>B Baldwin</author>
+</authors>
+<title>Algorithms for scoring coreference chains.</title>
+<date>1998</date>
+<booktitle>In MUC7.</booktitle>
+<contexts>
+<context position="6435" citStr="Amit and Baldwin, 1998" startWordPosition="993" endWordPosition="996">. 1 Other mention types exist and are annotated (such as prenominal), which are treated as nominals in this work. 2 The evaluation set was not made available to nonparticipants. 3 Wikipedia abstracts consist of roughly the first paragraph of the corresponding article 2.2 Evaluation We will present evaluations on multiple coreference resolution metrics, as no single one is clearly superior: Pairwise F1: precision, recall, and F1 over all pairs of mentions in the same entity cluster. Note that this over-penalizes the merger or separation of clusters quadratically in the size of the cluster. b3 (Amit and Baldwin, 1998): For each mention, form the intersection between the predicted cluster and the true cluster for that mention. The precision is the ratio of the intersection and the true cluster sizes and recall the ratio of the intersection to the predicted sizes; F1 is given by the harmonic mean over precision and recall from all mentions. MUC (Vilain et al., 1995): For each true cluster, compute the number of predicted clusters which need to be merged to cover the true cluster. Divide this quantity by true cluster size minus one. Recall is given by the same procedure with predicated and true clusters rever</context>
+</contexts>
+<marker>Amit, Baldwin, 1998</marker>
+<rawString>B. Amit and B. Baldwin. 1998. Algorithms for scoring coreference chains. In MUC7.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eric Bengston</author>
+<author>Dan Roth</author>
+</authors>
+<title>Understanding the value of features for corefernce resolution.</title>
+<date>2008</date>
+<booktitle>In Empirical Methods in Natural Language Processing.</booktitle>
+<contexts>
+<context position="4921" citStr="Bengston and Roth (2008)" startWordPosition="754" endWordPosition="757">in the document (typically an NP) and we are asked to cluster mentions according to the underlying referent entity. There are three basic mention types: proper (Barack Obama), nominal (president), and pronominal (he).1 For comparison to previous work, we evaluate in the setting where mention boundaries are given at test time; however our system can easily annotate reference on all noun phrase nodes in a parse tree (see Section 3.1.1). 2.1 Data Sets In this work we use the following data sets: Development: (see Section 3) ACE2004-ROTH-DEV: Dev set split of the ACE 2004 training set utilized in Bengston and Roth (2008). The ACE data also annotates pre-nominal mentions which we map onto nominals. 68 documents and 4,536 mentions. Testing: (see Section 4) ACE2004-CULOTTA-TEST: Test set split of the ACE 2004 training set utilized in Culotta et al. (2007) and Bengston and Roth (2008). Consists of 107 documents.2 ACE2004-NWIRE: ACE 2004 Newswire set to compare against Poon and Domingos (2008). Consists of 128 documents and 11,413 mentions; intersects with the other ACE data sets. MUC-6-TEST: MUC6 formal evaluation set consisting of 30 documents and 2,068 mentions. Unlabeled: (see Section 3.2) BLIPP: 1.8 million s</context>
+<context position="7611" citStr="Bengston and Roth, 2008" startWordPosition="1195" endWordPosition="1198">rocedure with predicated and true clusters reversed.4 CEAF (Luo, 2005): For a similarity function between predicted and true clusters, CEAF scores the best match between true and predicted clusters using this function. We use the 3 similarity function from Luo (2005). 3 System Description In this section we develop our system and report developmental results on ACE2004-ROTHDEV (see Section 2.1); we report pairwise F1 figures here, but report on many more evaluation metrics in Section 4. At a high level, our system resembles a pairwise coreference model (Soon et al., 1999; Ng and Cardie, 2002; Bengston and Roth, 2008); for each mention mi, we select either a single-best antecedent amongst the previous mentions m1, . . . , mi1, or the NULL mention to indicate the underlying entity has not yet been evoked. Mentions are linearly ordered according to the position of the mention head with ties being broken by the larger node coming first. 4 The MUC measure is problematic when the system predicts many more clusters than actually exist (Luo, 2005; Finkel and Manning, 2008); also, singleton clusters do not contribute to evaluation. 1153 \x0cWhile much research (Ng and Cardie, 2002; Culotta et al., 2007; Haghighi a</context>
+<context position="17315" citStr="Bengston and Roth, 2008" startWordPosition="2923" endWordPosition="2926">#1 (((((( ) ) ) ) ) ) subject of the [exhibition]2 (a) (b) Figure 3: NP structure annotation: In (a) we have the raw parse from the Klein and Manning (2003) parser with the mentions annotated by entity. In (b), we demonstrate the annotation we have added. NER labels are added to all NP according to the NER label given to the head (see Section 3.1.1). Appositive NPs are also annotated. Hashes indicate forced coreferent nodes guarantee coreference. The one exploited most in coreference work (Soon et al., 1999; Ng and Cardie, 2002; Luo et al., 2004; Culotta et al., 2007; Poon and Domingos, 2008; Bengston and Roth, 2008) is the appositive construction. Here, we represent apposition as a syntactic feature of an NP indicating that it is coreferent with its parent NP (e.g. it is an exception to the i-within-i constraint that parent and child NPs cannot be coreferent). We deterministically mark a node as NP-APPOS (see Figure 3) when it is the third child in of a parent NP whose expansion begins with (NP , NP), and there is not a conjunction in the expansion (to avoid marking elements in a list as appositive). Role Appositives: During development, we discovered many errors which involved a variant of appositives w</context>
+<context position="25500" citStr="Bengston and Roth (2008)" startWordPosition="4314" endWordPosition="4317">.8 +SYN-CONSTR 78.3 70.5 74.2 84.0 71.0 76.9 71.3 45.4 55.5 70.8 70.8 70.8 +SEM-COMPAT 77.9 74.1 75.9 81.8 74.3 77.9 68.2 51.2 58.5 72.5 72.5 72.5 ACE2004-CULOTTA-TEST BASIC-FLAT 68.6 60.9 64.5 80.3 68.0 73.6 57.1 30.5 39.8 66.5 66.5 66.5 BASIC-TREE 71.2 63.2 67.0 81.6 69.3 75.0 60.1 34.5 43.9 67.9 67.9 67.9 +SYN-COMPAT 74.6 65.2 69.6 84.2 70.3 76.6 66.7 37.2 47.8 69.2 69.2 69.2 +SYN-CONSTR 74.3 66.4 70.2 83.6 71.0 76.8 66.4 38.0 48.3 69.6 69.6 69.6 +SEM-COMPAT 74.8 77.7 79.6 79.6 78.5 79.0 57.5 57.6 57.5 73.3 73.3 73.3 Supervised Results Culotta et al. (2007) - - - 86.7 73.2 79.3 - - - - - - Bengston and Roth (2008) 82.7 69.9 75.8 88.3 74.5 80.8 55.4 63.7 59.2 - - - MUC6-TEST +SEM-COMPAT 87.2 77.3 81.9 84.7 67.3 75.0 80.5 57.8 67.3 72.0 72.0 72.0 Unsupervised Results Poon and Domingos (2008) 83.0 75.8 79.2 - - - 63.0 57.0 60.0 - - - Supervised Results Finkel and Manning (2008) 89.7 55.1 68.3 90.9 49.7 64.3 74.1 37.1 49.5 - - - ACE2004-NWIRE +SEM-COMPAT 77.0 75.9 76.5 79.4 74.5 76.9 66.9 49.2 56.7 71.5 71.5 71.5 Unsupervised Results Poon and Domingos (2008) 71.3 70.5 70.9 - - - 62.6 38.9 48.0 - - - Table 2: Experimental Results (See Section 4): When comparisons between systems are presented, the largest r</context>
+<context position="27583" citStr="Bengston and Roth (2008)" startWordPosition="4672" endWordPosition="4675">ir recall errors from Table 1.) There are however wordpairs which introduce errors. In particular citystate constructions (e.g. Los Angeles, California) appears to be an appositive and incorrectly allows our system to have angeles as an antecedent for california. Another common error is that the % symbol is made compatible with a wide variety of common nouns in the financial domain. 4 Experimental Results We present formal experimental results here (see Table 2). We first evaluate our model on the ACE2004-CULOTTA-TEST dataset used in the state-of-the-art systems from Culotta et al. (2007) and Bengston and Roth (2008). Both of these systems were supervised systems discriminatively trained to maximize b3 and used features from many different structured resources including WordNet, as well as domain-specific features (Culotta et al., 2007). Our best b3 result of 79.0 is broadly in the range of these results. We should note that in our work we use neither the gold mention types (we do not model pre-nominals separately) nor do we use the gold NER tags which Bengston and Roth (2008) does. Across metrics, the syntactic constraints and semantic compatibility components contribute most to the overall final result.</context>
+<context position="29196" citStr="Bengston and Roth (2008)" startWordPosition="4934" endWordPosition="4937">in the NOMINAL category. forms both Poon and Domingos (2008) (an unsupervised Markov Logic Network system which uses explicit constraints) and Finkel and Manning (2008) (a supervised system which uses ILP inference to reconcile the predictions of a pairwise classifier) on all comparable measures.11 Similarly, on the ACE2004-NWIRE dataset, we also outperform the state-of-the-art unsupervised system of Poon and Domingos (2008). Overall, we conclude that our system outperforms state-of-the-art unsupervised systems12 and is in the range of the state-of-the art systems of Culotta et al. (2007) and Bengston and Roth (2008). 5 Error Analysis There are several general trends to the errors made by our system. Table 3 shows the number of pairwise errors made on MUC6-TEST dataset by mention type; note these errors are not equally weighted in the final evaluations because of the transitive closure taken at the end. The most errors are made on nominal mentions with pronouns coming in a distant second. In particular, we most frequently say a nominal is NULL when it has an antecedent; this is typically due to not having the necessary semantic knowledge to link a nominal to a prior expression. In order to get a more thor</context>
+</contexts>
+<marker>Bengston, Roth, 2008</marker>
+<rawString>Eric Bengston and Dan Roth. 2008. Understanding the value of features for corefernce resolution. In Empirical Methods in Natural Language Processing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Charniak</author>
+</authors>
+<title>Maximum entropy inspired parser.</title>
+<date>2000</date>
+<booktitle>In North American Chapter of the Association of Computational Linguistics (NAACL).</booktitle>
+<contexts>
+<context position="5573" citStr="Charniak (2000)" startWordPosition="857" endWordPosition="858">inal mentions which we map onto nominals. 68 documents and 4,536 mentions. Testing: (see Section 4) ACE2004-CULOTTA-TEST: Test set split of the ACE 2004 training set utilized in Culotta et al. (2007) and Bengston and Roth (2008). Consists of 107 documents.2 ACE2004-NWIRE: ACE 2004 Newswire set to compare against Poon and Domingos (2008). Consists of 128 documents and 11,413 mentions; intersects with the other ACE data sets. MUC-6-TEST: MUC6 formal evaluation set consisting of 30 documents and 2,068 mentions. Unlabeled: (see Section 3.2) BLIPP: 1.8 million sentences of newswire parsed with the Charniak (2000) parser. No labeled coreference data; used for mining semantic information. WIKI: 25k articles of English Wikipedia abstracts parsed by the Klein and Manning (2003) parser.3 No labeled coreference data; used for mining semantic information. 1 Other mention types exist and are annotated (such as prenominal), which are treated as nominals in this work. 2 The evaluation set was not made available to nonparticipants. 3 Wikipedia abstracts consist of roughly the first paragraph of the corresponding article 2.2 Evaluation We will present evaluations on multiple coreference resolution metrics, as no </context>
+</contexts>
+<marker>Charniak, 2000</marker>
+<rawString>E. Charniak. 2000. Maximum entropy inspired parser. In North American Chapter of the Association of Computational Linguistics (NAACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mike Collins</author>
+</authors>
+<title>Head-driven statistical models for natural language parsing.</title>
+<date>1999</date>
+<contexts>
+<context position="9663" citStr="Collins, 1999" startWordPosition="1540" endWordPosition="1541">n (see Figure 2). Selection: Select the closest mention from the set of remaining possible antecedents (see Figure 1) or the NULL antecedent if empty. Initially, there is no syntactic constraint (improved in Section 3.1.3), the antecedent compatibility filter allows proper and nominal mentions to corefer only with mentions that have the same head (improved in Section 3.2), and pronouns have no compatibility constraints (improved in Section 3.1.2). Mention heads are determined by parsing the given mention span with the Stanford parser (Klein and Manning, 2003) and using the Collins head rules (Collins, 1999); Poon and Domingos (2008) showed that using syntactic heads strongly outperformed a simple rightmost headword rule. The mention type is determined by the head POS tag: proper if the head tag is NNP or NNPS, pronoun if the head tag is PRP, PRP$, WP, or WP$, and nominal otherwise. For the selection phase, we order mentions m1, . . . , mi1 according to the position of the head word and select the closest mention that remains after constraint and filtering are applied. This choice reflects the intuition of Grosz et al. (1995) that speakers only use pronominal mentions when there are not interveni</context>
+</contexts>
+<marker>Collins, 1999</marker>
+<rawString>Mike Collins. 1999. Head-driven statistical models for natural language parsing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Culotta</author>
+<author>M Wick</author>
+<author>R Hall</author>
+<author>A McCallum</author>
+</authors>
+<title>First-order probabilistic models for coreference resolution.</title>
+<date>2007</date>
+<booktitle>In NAACL-HLT.</booktitle>
+<contexts>
+<context position="1877" citStr="Culotta et al., 2007" startWordPosition="266" endWordPosition="269">ic constraints like the binding theory, the i-within-i filter, and appositive constructions restrict reference by configuration. Semantic constraints like selectional compatibility (e.g. a spokesperson can announce things) and subsumption (e.g. Microsoft is a company) rule out many possible referents. Finally, discourse phenomena such as salience and centering theory are assumed to heavily influence reference preferences. As these varied factors have given rise to a multitude of weak features, recent work has focused on how best to learn to combine them using models over reference structures (Culotta et al., 2007; Denis and Baldridge, 2007; Klenner and Ailloud, 2007). In this work, we break from the standard view. Instead, we consider a vastly more modular system in which coreference is predicted from a deterministic function of a few rich features. In particular, we assume a three-step process. First, a selfcontained syntactic module carefully represents syntactic structures using an augmented parser and extracts syntactic paths from mentions to potential antecedents. Some of these paths can be ruled in or out by deterministic but conservative syntactic constraints. Importantly, the bulk of the work </context>
+<context position="5157" citStr="Culotta et al. (2007)" startWordPosition="791" endWordPosition="794">evious work, we evaluate in the setting where mention boundaries are given at test time; however our system can easily annotate reference on all noun phrase nodes in a parse tree (see Section 3.1.1). 2.1 Data Sets In this work we use the following data sets: Development: (see Section 3) ACE2004-ROTH-DEV: Dev set split of the ACE 2004 training set utilized in Bengston and Roth (2008). The ACE data also annotates pre-nominal mentions which we map onto nominals. 68 documents and 4,536 mentions. Testing: (see Section 4) ACE2004-CULOTTA-TEST: Test set split of the ACE 2004 training set utilized in Culotta et al. (2007) and Bengston and Roth (2008). Consists of 107 documents.2 ACE2004-NWIRE: ACE 2004 Newswire set to compare against Poon and Domingos (2008). Consists of 128 documents and 11,413 mentions; intersects with the other ACE data sets. MUC-6-TEST: MUC6 formal evaluation set consisting of 30 documents and 2,068 mentions. Unlabeled: (see Section 3.2) BLIPP: 1.8 million sentences of newswire parsed with the Charniak (2000) parser. No labeled coreference data; used for mining semantic information. WIKI: 25k articles of English Wikipedia abstracts parsed by the Klein and Manning (2003) parser.3 No labeled</context>
+<context position="8199" citStr="Culotta et al., 2007" startWordPosition="1298" endWordPosition="1302">, 2002; Bengston and Roth, 2008); for each mention mi, we select either a single-best antecedent amongst the previous mentions m1, . . . , mi1, or the NULL mention to indicate the underlying entity has not yet been evoked. Mentions are linearly ordered according to the position of the mention head with ties being broken by the larger node coming first. 4 The MUC measure is problematic when the system predicts many more clusters than actually exist (Luo, 2005; Finkel and Manning, 2008); also, singleton clusters do not contribute to evaluation. 1153 \x0cWhile much research (Ng and Cardie, 2002; Culotta et al., 2007; Haghighi and Klein, 2007; Poon and Domingos, 2008; Finkel and Manning, 2008) has explored how to reconcile pairwise decisions to form coherent clusters, we simply take the transitive closure of our pairwise decision (as in Ng and Cardie (2002) and Bengston and Roth (2008)) which can and does cause system errors. In contrast to most recent research, our pairwise decisions are not made with a learned model which outputs a probability or confidence, but instead for each mention mi, we select an antecedent amongst m1, . . . , mi1 or the NULL mention as follows: Syntactic Constraint: Based on syn</context>
+<context position="17264" citStr="Culotta et al., 2007" startWordPosition="2915" endWordPosition="2918">&amp; &amp; \&apos; \&apos; \&apos; NNP Pablo NNP Picasso , , NP-APPOS#1 (((((( ) ) ) ) ) ) subject of the [exhibition]2 (a) (b) Figure 3: NP structure annotation: In (a) we have the raw parse from the Klein and Manning (2003) parser with the mentions annotated by entity. In (b), we demonstrate the annotation we have added. NER labels are added to all NP according to the NER label given to the head (see Section 3.1.1). Appositive NPs are also annotated. Hashes indicate forced coreferent nodes guarantee coreference. The one exploited most in coreference work (Soon et al., 1999; Ng and Cardie, 2002; Luo et al., 2004; Culotta et al., 2007; Poon and Domingos, 2008; Bengston and Roth, 2008) is the appositive construction. Here, we represent apposition as a syntactic feature of an NP indicating that it is coreferent with its parent NP (e.g. it is an exception to the i-within-i constraint that parent and child NPs cannot be coreferent). We deterministically mark a node as NP-APPOS (see Figure 3) when it is the third child in of a parent NP whose expansion begins with (NP , NP), and there is not a conjunction in the expansion (to avoid marking elements in a list as appositive). Role Appositives: During development, we discovered ma</context>
+<context position="25442" citStr="Culotta et al. (2007)" startWordPosition="4298" endWordPosition="4301">.8 68.5 72.9 84.1 69.7 76.2 71.0 43.1 53.4 69.8 69.8 69.8 +SYN-CONSTR 78.3 70.5 74.2 84.0 71.0 76.9 71.3 45.4 55.5 70.8 70.8 70.8 +SEM-COMPAT 77.9 74.1 75.9 81.8 74.3 77.9 68.2 51.2 58.5 72.5 72.5 72.5 ACE2004-CULOTTA-TEST BASIC-FLAT 68.6 60.9 64.5 80.3 68.0 73.6 57.1 30.5 39.8 66.5 66.5 66.5 BASIC-TREE 71.2 63.2 67.0 81.6 69.3 75.0 60.1 34.5 43.9 67.9 67.9 67.9 +SYN-COMPAT 74.6 65.2 69.6 84.2 70.3 76.6 66.7 37.2 47.8 69.2 69.2 69.2 +SYN-CONSTR 74.3 66.4 70.2 83.6 71.0 76.8 66.4 38.0 48.3 69.6 69.6 69.6 +SEM-COMPAT 74.8 77.7 79.6 79.6 78.5 79.0 57.5 57.6 57.5 73.3 73.3 73.3 Supervised Results Culotta et al. (2007) - - - 86.7 73.2 79.3 - - - - - - Bengston and Roth (2008) 82.7 69.9 75.8 88.3 74.5 80.8 55.4 63.7 59.2 - - - MUC6-TEST +SEM-COMPAT 87.2 77.3 81.9 84.7 67.3 75.0 80.5 57.8 67.3 72.0 72.0 72.0 Unsupervised Results Poon and Domingos (2008) 83.0 75.8 79.2 - - - 63.0 57.0 60.0 - - - Supervised Results Finkel and Manning (2008) 89.7 55.1 68.3 90.9 49.7 64.3 74.1 37.1 49.5 - - - ACE2004-NWIRE +SEM-COMPAT 77.0 75.9 76.5 79.4 74.5 76.9 66.9 49.2 56.7 71.5 71.5 71.5 Unsupervised Results Poon and Domingos (2008) 71.3 70.5 70.9 - - - 62.6 38.9 48.0 - - - Table 2: Experimental Results (See Section 4): Whe</context>
+<context position="27554" citStr="Culotta et al. (2007)" startWordPosition="4667" endWordPosition="4670"> two-thirds of the head pair recall errors from Table 1.) There are however wordpairs which introduce errors. In particular citystate constructions (e.g. Los Angeles, California) appears to be an appositive and incorrectly allows our system to have angeles as an antecedent for california. Another common error is that the % symbol is made compatible with a wide variety of common nouns in the financial domain. 4 Experimental Results We present formal experimental results here (see Table 2). We first evaluate our model on the ACE2004-CULOTTA-TEST dataset used in the state-of-the-art systems from Culotta et al. (2007) and Bengston and Roth (2008). Both of these systems were supervised systems discriminatively trained to maximize b3 and used features from many different structured resources including WordNet, as well as domain-specific features (Culotta et al., 2007). Our best b3 result of 79.0 is broadly in the range of these results. We should note that in our work we use neither the gold mention types (we do not model pre-nominals separately) nor do we use the gold NER tags which Bengston and Roth (2008) does. Across metrics, the syntactic constraints and semantic compatibility components contribute most</context>
+<context position="29167" citStr="Culotta et al. (2007)" startWordPosition="4928" endWordPosition="4932">jority of errors are made in the NOMINAL category. forms both Poon and Domingos (2008) (an unsupervised Markov Logic Network system which uses explicit constraints) and Finkel and Manning (2008) (a supervised system which uses ILP inference to reconcile the predictions of a pairwise classifier) on all comparable measures.11 Similarly, on the ACE2004-NWIRE dataset, we also outperform the state-of-the-art unsupervised system of Poon and Domingos (2008). Overall, we conclude that our system outperforms state-of-the-art unsupervised systems12 and is in the range of the state-of-the art systems of Culotta et al. (2007) and Bengston and Roth (2008). 5 Error Analysis There are several general trends to the errors made by our system. Table 3 shows the number of pairwise errors made on MUC6-TEST dataset by mention type; note these errors are not equally weighted in the final evaluations because of the transitive closure taken at the end. The most errors are made on nominal mentions with pronouns coming in a distant second. In particular, we most frequently say a nominal is NULL when it has an antecedent; this is typically due to not having the necessary semantic knowledge to link a nominal to a prior expression</context>
+</contexts>
+<marker>Culotta, Wick, Hall, McCallum, 2007</marker>
+<rawString>A Culotta, M Wick, R Hall, and A McCallum. 2007. First-order probabilistic models for coreference resolution. In NAACL-HLT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Pascal Denis</author>
+<author>Jason Baldridge</author>
+</authors>
+<title>Global, Joint Determination of Anaphoricity and Coreference Resolution using Integer Programming.</title>
+<date>2007</date>
+<booktitle>In HLT-NAACL.</booktitle>
+<contexts>
+<context position="1904" citStr="Denis and Baldridge, 2007" startWordPosition="270" endWordPosition="273">e binding theory, the i-within-i filter, and appositive constructions restrict reference by configuration. Semantic constraints like selectional compatibility (e.g. a spokesperson can announce things) and subsumption (e.g. Microsoft is a company) rule out many possible referents. Finally, discourse phenomena such as salience and centering theory are assumed to heavily influence reference preferences. As these varied factors have given rise to a multitude of weak features, recent work has focused on how best to learn to combine them using models over reference structures (Culotta et al., 2007; Denis and Baldridge, 2007; Klenner and Ailloud, 2007). In this work, we break from the standard view. Instead, we consider a vastly more modular system in which coreference is predicted from a deterministic function of a few rich features. In particular, we assume a three-step process. First, a selfcontained syntactic module carefully represents syntactic structures using an augmented parser and extracts syntactic paths from mentions to potential antecedents. Some of these paths can be ruled in or out by deterministic but conservative syntactic constraints. Importantly, the bulk of the work in the syntactic module is </context>
+</contexts>
+<marker>Denis, Baldridge, 2007</marker>
+<rawString>Pascal Denis and Jason Baldridge. 2007. Global, Joint Determination of Anaphoricity and Coreference Resolution using Integer Programming. In HLT-NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Finkel</author>
+<author>Christopher Manning</author>
+</authors>
+<title>Enforcing transitivity in coreference resolution.</title>
+<date>2008</date>
+<booktitle>In Association of Computational Linguists (ACL).</booktitle>
+<contexts>
+<context position="8068" citStr="Finkel and Manning, 2008" startWordPosition="1278" endWordPosition="1281">re evaluation metrics in Section 4. At a high level, our system resembles a pairwise coreference model (Soon et al., 1999; Ng and Cardie, 2002; Bengston and Roth, 2008); for each mention mi, we select either a single-best antecedent amongst the previous mentions m1, . . . , mi1, or the NULL mention to indicate the underlying entity has not yet been evoked. Mentions are linearly ordered according to the position of the mention head with ties being broken by the larger node coming first. 4 The MUC measure is problematic when the system predicts many more clusters than actually exist (Luo, 2005; Finkel and Manning, 2008); also, singleton clusters do not contribute to evaluation. 1153 \x0cWhile much research (Ng and Cardie, 2002; Culotta et al., 2007; Haghighi and Klein, 2007; Poon and Domingos, 2008; Finkel and Manning, 2008) has explored how to reconcile pairwise decisions to form coherent clusters, we simply take the transitive closure of our pairwise decision (as in Ng and Cardie (2002) and Bengston and Roth (2008)) which can and does cause system errors. In contrast to most recent research, our pairwise decisions are not made with a learned model which outputs a probability or confidence, but instead for </context>
+<context position="25766" citStr="Finkel and Manning (2008)" startWordPosition="4364" endWordPosition="4367">81.6 69.3 75.0 60.1 34.5 43.9 67.9 67.9 67.9 +SYN-COMPAT 74.6 65.2 69.6 84.2 70.3 76.6 66.7 37.2 47.8 69.2 69.2 69.2 +SYN-CONSTR 74.3 66.4 70.2 83.6 71.0 76.8 66.4 38.0 48.3 69.6 69.6 69.6 +SEM-COMPAT 74.8 77.7 79.6 79.6 78.5 79.0 57.5 57.6 57.5 73.3 73.3 73.3 Supervised Results Culotta et al. (2007) - - - 86.7 73.2 79.3 - - - - - - Bengston and Roth (2008) 82.7 69.9 75.8 88.3 74.5 80.8 55.4 63.7 59.2 - - - MUC6-TEST +SEM-COMPAT 87.2 77.3 81.9 84.7 67.3 75.0 80.5 57.8 67.3 72.0 72.0 72.0 Unsupervised Results Poon and Domingos (2008) 83.0 75.8 79.2 - - - 63.0 57.0 60.0 - - - Supervised Results Finkel and Manning (2008) 89.7 55.1 68.3 90.9 49.7 64.3 74.1 37.1 49.5 - - - ACE2004-NWIRE +SEM-COMPAT 77.0 75.9 76.5 79.4 74.5 76.9 66.9 49.2 56.7 71.5 71.5 71.5 Unsupervised Results Poon and Domingos (2008) 71.3 70.5 70.9 - - - 62.6 38.9 48.0 - - - Table 2: Experimental Results (See Section 4): When comparisons between systems are presented, the largest result is bolded. The CEAF measure has equal values for precision, recall, and F1. specified. However there are some tree fragments which correspond to the novel coreference patterns (see Figure 5) of parenthetical alias as well as conjunctions of roles in NPs. We ap</context>
+<context position="28740" citStr="Finkel and Manning (2008)" startWordPosition="4863" endWordPosition="4866">ompatibility components contribute most to the overall final result. On the MUC6-TEST dataset, our system outper1158 \x0cPROPER NOMINAL PRONOUN NULL TOTAL PROPER 21/451 8/20 - 72/288 101/759 NOMINAL 16/150 99/432 - 158/351 323/933 PRONOUN 29/149 60/128 15/97 1/2 105/376 Table 3: Errors for each type of antecedent decision made by the system. Each row is a mention type and the column the predicted mention type antecedent. The majority of errors are made in the NOMINAL category. forms both Poon and Domingos (2008) (an unsupervised Markov Logic Network system which uses explicit constraints) and Finkel and Manning (2008) (a supervised system which uses ILP inference to reconcile the predictions of a pairwise classifier) on all comparable measures.11 Similarly, on the ACE2004-NWIRE dataset, we also outperform the state-of-the-art unsupervised system of Poon and Domingos (2008). Overall, we conclude that our system outperforms state-of-the-art unsupervised systems12 and is in the range of the state-of-the art systems of Culotta et al. (2007) and Bengston and Roth (2008). 5 Error Analysis There are several general trends to the errors made by our system. Table 3 shows the number of pairwise errors made on MUC6-T</context>
+</contexts>
+<marker>Finkel, Manning, 2008</marker>
+<rawString>Jenny Finkel and Christopher Manning. 2008. Enforcing transitivity in coreference resolution. In Association of Computational Linguists (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Finkel</author>
+<author>Trond Grenager</author>
+<author>Christopher Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="13905" citStr="Finkel et al., 2005" startWordPosition="2314" endWordPosition="2317">only with matching head mentions, agreement is only a concern for pronouns. Traditional linguistic theory stipulates that coreferent mentions must agree in number, person, gender, and entity type (e.g. animacy). Here, we implement person, number and entity type agreement.6 A number feature is assigned to each mention deterministically based on the head and its POS tag. For entity type, we use NER labels. Ideally, we would like to have information about the entity type of each referential NP, however this information is not easily obtainable. Instead, we opt to utilize the Stanford NER tagger (Finkel et al., 2005) over the sentences in a document and annotate each NP with the NER label assigned to that mention head. For each mention, when its NP is assigned an NER label we allow it to only be compatible with that NER label.7 For pronouns, we deterministically assign a set of compatible NER values (e.g. personal pronouns can only be a PER6 Gender agreement, while important for general coreference resolution, did not contribute to the errors in our largely newswire data sets. 7 Or allow it to be compatible with all NER labels if the NER tagger doesnt predict a label. gore president florida state bush gov</context>
+</contexts>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>Jenny Finkel, Trond Grenager, and Christopher Manning. 2005. Incorporating non-local information into information extraction systems by gibbs sampling. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Barbara J Grosz</author>
+<author>Aravind K Joshi</author>
+<author>Scott Weinstein</author>
+</authors>
+<title>Centering: A framework for modelling the local coherence of discourse.</title>
+<date>1995</date>
+<contexts>
+<context position="10191" citStr="Grosz et al. (1995)" startWordPosition="1632" endWordPosition="1635"> Stanford parser (Klein and Manning, 2003) and using the Collins head rules (Collins, 1999); Poon and Domingos (2008) showed that using syntactic heads strongly outperformed a simple rightmost headword rule. The mention type is determined by the head POS tag: proper if the head tag is NNP or NNPS, pronoun if the head tag is PRP, PRP$, WP, or WP$, and nominal otherwise. For the selection phase, we order mentions m1, . . . , mi1 according to the position of the head word and select the closest mention that remains after constraint and filtering are applied. This choice reflects the intuition of Grosz et al. (1995) that speakers only use pronominal mentions when there are not intervening compatible S !!!!!!! &amp;quot; &amp;quot; &amp;quot; &amp;quot; &amp;quot; &amp;quot; &amp;quot; NP#1 ### $ $ $ NP NNP Nintendo PP % % &amp; &amp; IN of NP#2 NNP America VP \&apos;\&apos;\&apos; \&apos; ( ( ( ( VBD announced NP#3 )) ) * * * NP#1 PRP$ its NP % % &amp; &amp; JJ new NN console Figure 1: Example sentence where closest tree distance between mentions outperforms raw distance. For clarity, each mention NP is labeled with the underlying entity id. mentions. This system yields a rather low 48.9 pairwise F1 (see BASE-FLAT in Table 2). There are many, primarily recall, errors made choosing antecedents for all </context>
+</contexts>
+<marker>Grosz, Joshi, Weinstein, 1995</marker>
+<rawString>Barbara J. Grosz, Aravind K. Joshi, and Scott Weinstein. 1995. Centering: A framework for modelling the local coherence of discourse.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Aria Haghighi</author>
+<author>Dan Klein</author>
+</authors>
+<title>Unsupervised coreference resolution in a nonparametric bayesian model.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the 45th Annual Meeting of the Association of Computational Linguistics. Association for Computational Linguistics.</booktitle>
+<contexts>
+<context position="8225" citStr="Haghighi and Klein, 2007" startWordPosition="1303" endWordPosition="1306">oth, 2008); for each mention mi, we select either a single-best antecedent amongst the previous mentions m1, . . . , mi1, or the NULL mention to indicate the underlying entity has not yet been evoked. Mentions are linearly ordered according to the position of the mention head with ties being broken by the larger node coming first. 4 The MUC measure is problematic when the system predicts many more clusters than actually exist (Luo, 2005; Finkel and Manning, 2008); also, singleton clusters do not contribute to evaluation. 1153 \x0cWhile much research (Ng and Cardie, 2002; Culotta et al., 2007; Haghighi and Klein, 2007; Poon and Domingos, 2008; Finkel and Manning, 2008) has explored how to reconcile pairwise decisions to form coherent clusters, we simply take the transitive closure of our pairwise decision (as in Ng and Cardie (2002) and Bengston and Roth (2008)) which can and does cause system errors. In contrast to most recent research, our pairwise decisions are not made with a learned model which outputs a probability or confidence, but instead for each mention mi, we select an antecedent amongst m1, . . . , mi1 or the NULL mention as follows: Syntactic Constraint: Based on syntactic configurations, eit</context>
+<context position="30254" citStr="Haghighi and Klein (2007)" startWordPosition="5117" endWordPosition="5120">LL when it has an antecedent; this is typically due to not having the necessary semantic knowledge to link a nominal to a prior expression. In order to get a more thorough view of the cause of pairwise errors, we examined 20 random errors made in aligning each mention type to an antecedent. We categorized the errors as follows: SEM. COMPAT: Missing information about the compatibility of two words e.g. pay and wage. For pronouns, this is used to mean that 11 Klenner and Ailloud (2007) took essentially the same approach but did so on non-comparable data. 12 Poon and Domingos (2008) outperformed Haghighi and Klein (2007). Unfortunately, we cannot compare against Ng (2008) since we do not have access to the version of the ACE data used in their evaluation. we incorrectly aligned a pronoun to a mention with which it is not semantically compatible (e.g. he aligned to board). SYN. COMPAT: Error in assigning linguistic features of nouns for compatibility with pronouns (e.g. disallowing they to refer to team). HEAD: Errors involving the assumption that mentions with the same head are always compatible. Includes modifier and specificity errors such as allowing Lebanon and Southern Lebanon to corefer. This also inclu</context>
+</contexts>
+<marker>Haghighi, Klein, 2007</marker>
+<rawString>Aria Haghighi and Dan Klein. 2007. Unsupervised coreference resolution in a nonparametric bayesian model. In Proceedings of the 45th Annual Meeting of the Association of Computational Linguistics. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Marti Hearst</author>
+</authors>
+<title>Automatic acquisition of hyponyms from large text corpora.</title>
+<date>1992</date>
+<booktitle>In Conference on Natural Language Learning (COLING).</booktitle>
+<contexts>
+<context position="23630" citStr="Hearst (1992)" startWordPosition="3978" endWordPosition="3979">iven in Table 1. The problem is that these highly-reliable syntactic configurations are too sparse and cannot capture all the entity information present. For instance, the first sentence of Wikipedia abstract for Al Gore is: Albert Arnold Al Gore, Jr. is an American environmental activist who served as the 45th Vice President of the United States from 1993 to 2001 under President Bill Clinton. The required lexical pattern X who served as Y is a general appositive-like pattern that almost surely indicates coreference. Rather than opt to manually create a set of these coreference patterns as in Hearst (1992), we instead opt to automatically extract these patterns from large corpora as in Snow et al. (2004) and Phillips and Riloff (2007). We take a simple bootstrapping technique: given a set of mention pairs extracted from appositives and predicate-nominative configurations, we extract counts over tree fragments between nodes which have occurred in this set of head pairs (see Figure 5); the tree fragments are formed by annotating the internal nodes in the tree path with the head word and POS along with the subcategorization. We limit the paths extracted in this way in several ways: paths are only </context>
+</contexts>
+<marker>Hearst, 1992</marker>
+<rawString>Marti Hearst. 1992. Automatic acquisition of hyponyms from large text corpora. In Conference on Natural Language Learning (COLING).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J R Hobbs</author>
+</authors>
+<title>Resolving pronoun references.</title>
+<date>1977</date>
+<journal>Lingua.</journal>
+<contexts>
+<context position="11430" citStr="Hobbs (1977)" startWordPosition="1859" endWordPosition="1860"> address by adding syntactic and semantic constraints. 3.1 Adding Syntactic Information In this section, we enrich the syntactic representation and information in our system to improve results. 3.1.1 Syntactic Salience We first focus on fixing the pronoun antecedent choices. A common error arose from the use of mention head distance as a poor proxy for discourse salience. For instance consider the example in Figure 1, the mention America is closest to its in flat mention distance, but syntactically Nintendo of America holds a more prominent syntactic position relative to the pronoun which, as Hobbs (1977) argues, is key to discourse salience. Mapping Mentions to Parse Nodes: In order to use the syntactic position of mentions to determine anaphoricity, we must associate each mention in the document with a parse tree node. We parse all document sentences with the Stanford parser, and then for each evaluation mention, we find the largest-span NP which has the previously determined mention head as its head.5 Often, this results in a different, typically larger, mention span than annotated in the data. Now that each mention is situated in a parse tree, we utilize the length of the shortest tree pat</context>
+</contexts>
+<marker>Hobbs, 1977</marker>
+<rawString>J. R. Hobbs. 1977. Resolving pronoun references. Lingua.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andrew Kehler</author>
+<author>Laura Kertz</author>
+<author>Hannah Rohde</author>
+<author>Jeffrey Elman</author>
+</authors>
+<title>Coherence and coreference revisited.</title>
+<date>2008</date>
+<contexts>
+<context position="21954" citStr="Kehler et al., 2008" startWordPosition="3706" endWordPosition="3709">s of extracted paths. opment set), predicate nominatives are another highly reliable coreference pattern which we will leverage in Section 3.2 to mine semantic knowledge. As with appositives, we annotate object predicate-nominative NPs and constrain coreference as before. This yields a minor improvement to 55.5 F1. 3.2 Semantic Knowledge While appositives and related syntactic constructions can resolve some cases of non-pronominal reference, most cases require semantic knowledge about the various entities as well as the verbs used in conjunction with those entities to disambiguate references (Kehler et al., 2008). However, given a semantically compatible mention head pair, say AOL and company, one might expect to observe a reliable appositive or predicative-nominative construction involving these mentions somewhere in a large corpus. In fact, the Wikipedia page for AOL10 has a predicate-nominative construction which supports the compatibility of this head pair: AOL LLC (formerly America Online) is an American global Internet services and media company operated by Time Warner. In order to harvest compatible head pairs, we utilize our BLIPP and WIKI data sets (see Section 2), and for each noun (proper o</context>
+</contexts>
+<marker>Kehler, Kertz, Rohde, Elman, 2008</marker>
+<rawString>Andrew Kehler, Laura Kertz, Hannah Rohde, and Jeffrey Elman. 2008. Coherence and coreference revisited.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Klein</author>
+<author>C Manning</author>
+</authors>
+<title>Accurate unlexicalized parsing.</title>
+<date>2003</date>
+<booktitle>In Association of Computational Linguists (ACL).</booktitle>
+<contexts>
+<context position="5737" citStr="Klein and Manning (2003)" startWordPosition="881" endWordPosition="884">aining set utilized in Culotta et al. (2007) and Bengston and Roth (2008). Consists of 107 documents.2 ACE2004-NWIRE: ACE 2004 Newswire set to compare against Poon and Domingos (2008). Consists of 128 documents and 11,413 mentions; intersects with the other ACE data sets. MUC-6-TEST: MUC6 formal evaluation set consisting of 30 documents and 2,068 mentions. Unlabeled: (see Section 3.2) BLIPP: 1.8 million sentences of newswire parsed with the Charniak (2000) parser. No labeled coreference data; used for mining semantic information. WIKI: 25k articles of English Wikipedia abstracts parsed by the Klein and Manning (2003) parser.3 No labeled coreference data; used for mining semantic information. 1 Other mention types exist and are annotated (such as prenominal), which are treated as nominals in this work. 2 The evaluation set was not made available to nonparticipants. 3 Wikipedia abstracts consist of roughly the first paragraph of the corresponding article 2.2 Evaluation We will present evaluations on multiple coreference resolution metrics, as no single one is clearly superior: Pairwise F1: precision, recall, and F1 over all pairs of mentions in the same entity cluster. Note that this over-penalizes the merg</context>
+<context position="9614" citStr="Klein and Manning, 2003" startWordPosition="1529" endWordPosition="1532">ssible antecedents based upon compatibility with the mention (see Figure 2). Selection: Select the closest mention from the set of remaining possible antecedents (see Figure 1) or the NULL antecedent if empty. Initially, there is no syntactic constraint (improved in Section 3.1.3), the antecedent compatibility filter allows proper and nominal mentions to corefer only with mentions that have the same head (improved in Section 3.2), and pronouns have no compatibility constraints (improved in Section 3.1.2). Mention heads are determined by parsing the given mention span with the Stanford parser (Klein and Manning, 2003) and using the Collins head rules (Collins, 1999); Poon and Domingos (2008) showed that using syntactic heads strongly outperformed a simple rightmost headword rule. The mention type is determined by the head POS tag: proper if the head tag is NNP or NNPS, pronoun if the head tag is PRP, PRP$, WP, or WP$, and nominal otherwise. For the selection phase, we order mentions m1, . . . , mi1 according to the position of the head word and select the closest mention that remains after constraint and filtering are applied. This choice reflects the intuition of Grosz et al. (1995) that speakers only use</context>
+<context position="16847" citStr="Klein and Manning (2003)" startWordPosition="2845" endWordPosition="2848">equires semantic knowledge, to which we return later. However, some syntactic configurations 8 There are over twice as many nominal mentions in our development data as pronouns. 1155 \x0cNP#1 !!!!!!! ! &amp;quot; &amp;quot; &amp;quot; &amp;quot; &amp;quot; &amp;quot; &amp;quot; &amp;quot; NP #### # $ $ $ $ $ NN#1 painter NNP Pablo NNP Picasso , , NP#1 %%%%%% &amp; &amp; &amp; &amp; &amp; &amp; subject of the [exhibition]2 NP-PERS#1 !!!!!!!! ! &amp;quot; &amp;quot; # # # # # # # # # NP $$$$ % % % % NP-APPOS#1 NN painter NP-PERS &amp; &amp; &amp; \&apos; \&apos; \&apos; NNP Pablo NNP Picasso , , NP-APPOS#1 (((((( ) ) ) ) ) ) subject of the [exhibition]2 (a) (b) Figure 3: NP structure annotation: In (a) we have the raw parse from the Klein and Manning (2003) parser with the mentions annotated by entity. In (b), we demonstrate the annotation we have added. NER labels are added to all NP according to the NER label given to the head (see Section 3.1.1). Appositive NPs are also annotated. Hashes indicate forced coreferent nodes guarantee coreference. The one exploited most in coreference work (Soon et al., 1999; Ng and Cardie, 2002; Luo et al., 2004; Culotta et al., 2007; Poon and Domingos, 2008; Bengston and Roth, 2008) is the appositive construction. Here, we represent apposition as a syntactic feature of an NP indicating that it is coreferent with</context>
+</contexts>
+<marker>Klein, Manning, 2003</marker>
+<rawString>D. Klein and C. Manning. 2003. Accurate unlexicalized parsing. In Association of Computational Linguists (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Manfred Klenner</author>
+<author>Etienne Ailloud</author>
+</authors>
+<title>Optimization in coreference resolution is not needed: A nearly-optimal algorithm with intensional constraints.</title>
+<date>2007</date>
+<booktitle>In Recent Advances in Natural Language Processing.</booktitle>
+<contexts>
+<context position="1932" citStr="Klenner and Ailloud, 2007" startWordPosition="274" endWordPosition="277">hin-i filter, and appositive constructions restrict reference by configuration. Semantic constraints like selectional compatibility (e.g. a spokesperson can announce things) and subsumption (e.g. Microsoft is a company) rule out many possible referents. Finally, discourse phenomena such as salience and centering theory are assumed to heavily influence reference preferences. As these varied factors have given rise to a multitude of weak features, recent work has focused on how best to learn to combine them using models over reference structures (Culotta et al., 2007; Denis and Baldridge, 2007; Klenner and Ailloud, 2007). In this work, we break from the standard view. Instead, we consider a vastly more modular system in which coreference is predicted from a deterministic function of a few rich features. In particular, we assume a three-step process. First, a selfcontained syntactic module carefully represents syntactic structures using an augmented parser and extracts syntactic paths from mentions to potential antecedents. Some of these paths can be ruled in or out by deterministic but conservative syntactic constraints. Importantly, the bulk of the work in the syntactic module is in making sure the parses ar</context>
+<context position="30117" citStr="Klenner and Ailloud (2007)" startWordPosition="5095" endWordPosition="5098">e most errors are made on nominal mentions with pronouns coming in a distant second. In particular, we most frequently say a nominal is NULL when it has an antecedent; this is typically due to not having the necessary semantic knowledge to link a nominal to a prior expression. In order to get a more thorough view of the cause of pairwise errors, we examined 20 random errors made in aligning each mention type to an antecedent. We categorized the errors as follows: SEM. COMPAT: Missing information about the compatibility of two words e.g. pay and wage. For pronouns, this is used to mean that 11 Klenner and Ailloud (2007) took essentially the same approach but did so on non-comparable data. 12 Poon and Domingos (2008) outperformed Haghighi and Klein (2007). Unfortunately, we cannot compare against Ng (2008) since we do not have access to the version of the ACE data used in their evaluation. we incorrectly aligned a pronoun to a mention with which it is not semantically compatible (e.g. he aligned to board). SYN. COMPAT: Error in assigning linguistic features of nouns for compatibility with pronouns (e.g. disallowing they to refer to team). HEAD: Errors involving the assumption that mentions with the same head </context>
+</contexts>
+<marker>Klenner, Ailloud, 2007</marker>
+<rawString>Manfred Klenner and Etienne Ailloud. 2007. Optimization in coreference resolution is not needed: A nearly-optimal algorithm with intensional constraints. In Recent Advances in Natural Language Processing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Xiaoqiang Luo</author>
+<author>Abe Ittycheriah</author>
+<author>Hongyan Jing</author>
+<author>Nanda Kambhatla</author>
+<author>Salim Roukos</author>
+</authors>
+<title>A Mention-Synchronous Coreference Resolution Algorithm Based on the Bell Tree.</title>
+<date>2004</date>
+<journal>In Association of Computational Linguists.</journal>
+<contexts>
+<context position="17242" citStr="Luo et al., 2004" startWordPosition="2911" endWordPosition="2914">painter NP-PERS &amp; &amp; &amp; \&apos; \&apos; \&apos; NNP Pablo NNP Picasso , , NP-APPOS#1 (((((( ) ) ) ) ) ) subject of the [exhibition]2 (a) (b) Figure 3: NP structure annotation: In (a) we have the raw parse from the Klein and Manning (2003) parser with the mentions annotated by entity. In (b), we demonstrate the annotation we have added. NER labels are added to all NP according to the NER label given to the head (see Section 3.1.1). Appositive NPs are also annotated. Hashes indicate forced coreferent nodes guarantee coreference. The one exploited most in coreference work (Soon et al., 1999; Ng and Cardie, 2002; Luo et al., 2004; Culotta et al., 2007; Poon and Domingos, 2008; Bengston and Roth, 2008) is the appositive construction. Here, we represent apposition as a syntactic feature of an NP indicating that it is coreferent with its parent NP (e.g. it is an exception to the i-within-i constraint that parent and child NPs cannot be coreferent). We deterministically mark a node as NP-APPOS (see Figure 3) when it is the third child in of a parent NP whose expansion begins with (NP , NP), and there is not a conjunction in the expansion (to avoid marking elements in a list as appositive). Role Appositives: During develop</context>
+</contexts>
+<marker>Luo, Ittycheriah, Jing, Kambhatla, Roukos, 2004</marker>
+<rawString>Xiaoqiang Luo, Abe Ittycheriah, Hongyan Jing, Nanda Kambhatla, and Salim Roukos. 2004. A Mention-Synchronous Coreference Resolution Algorithm Based on the Bell Tree. In Association of Computational Linguists.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>X Luo</author>
+</authors>
+<title>On coreference resolution performance metrics.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the conference on Human Language Technology and Empirical Methods in Natural Language Processing.</booktitle>
+<contexts>
+<context position="7057" citStr="Luo, 2005" startWordPosition="1104" endWordPosition="1105">ention, form the intersection between the predicted cluster and the true cluster for that mention. The precision is the ratio of the intersection and the true cluster sizes and recall the ratio of the intersection to the predicted sizes; F1 is given by the harmonic mean over precision and recall from all mentions. MUC (Vilain et al., 1995): For each true cluster, compute the number of predicted clusters which need to be merged to cover the true cluster. Divide this quantity by true cluster size minus one. Recall is given by the same procedure with predicated and true clusters reversed.4 CEAF (Luo, 2005): For a similarity function between predicted and true clusters, CEAF scores the best match between true and predicted clusters using this function. We use the 3 similarity function from Luo (2005). 3 System Description In this section we develop our system and report developmental results on ACE2004-ROTHDEV (see Section 2.1); we report pairwise F1 figures here, but report on many more evaluation metrics in Section 4. At a high level, our system resembles a pairwise coreference model (Soon et al., 1999; Ng and Cardie, 2002; Bengston and Roth, 2008); for each mention mi, we select either a sing</context>
+</contexts>
+<marker>Luo, 2005</marker>
+<rawString>X Luo. 2005. On coreference resolution performance metrics. In Proceedings of the conference on Human Language Technology and Empirical Methods in Natural Language Processing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Vincent Ng</author>
+<author>Claire Cardie</author>
+</authors>
+<title>Improving Machine Learning Approaches to Coreference Resolution.</title>
+<date>2002</date>
+<journal>In Association of Computational Linguists.</journal>
+<contexts>
+<context position="7585" citStr="Ng and Cardie, 2002" startWordPosition="1191" endWordPosition="1194">s given by the same procedure with predicated and true clusters reversed.4 CEAF (Luo, 2005): For a similarity function between predicted and true clusters, CEAF scores the best match between true and predicted clusters using this function. We use the 3 similarity function from Luo (2005). 3 System Description In this section we develop our system and report developmental results on ACE2004-ROTHDEV (see Section 2.1); we report pairwise F1 figures here, but report on many more evaluation metrics in Section 4. At a high level, our system resembles a pairwise coreference model (Soon et al., 1999; Ng and Cardie, 2002; Bengston and Roth, 2008); for each mention mi, we select either a single-best antecedent amongst the previous mentions m1, . . . , mi1, or the NULL mention to indicate the underlying entity has not yet been evoked. Mentions are linearly ordered according to the position of the mention head with ties being broken by the larger node coming first. 4 The MUC measure is problematic when the system predicts many more clusters than actually exist (Luo, 2005; Finkel and Manning, 2008); also, singleton clusters do not contribute to evaluation. 1153 \x0cWhile much research (Ng and Cardie, 2002; Culott</context>
+<context position="17224" citStr="Ng and Cardie, 2002" startWordPosition="2907" endWordPosition="2910"> % % % NP-APPOS#1 NN painter NP-PERS &amp; &amp; &amp; \&apos; \&apos; \&apos; NNP Pablo NNP Picasso , , NP-APPOS#1 (((((( ) ) ) ) ) ) subject of the [exhibition]2 (a) (b) Figure 3: NP structure annotation: In (a) we have the raw parse from the Klein and Manning (2003) parser with the mentions annotated by entity. In (b), we demonstrate the annotation we have added. NER labels are added to all NP according to the NER label given to the head (see Section 3.1.1). Appositive NPs are also annotated. Hashes indicate forced coreferent nodes guarantee coreference. The one exploited most in coreference work (Soon et al., 1999; Ng and Cardie, 2002; Luo et al., 2004; Culotta et al., 2007; Poon and Domingos, 2008; Bengston and Roth, 2008) is the appositive construction. Here, we represent apposition as a syntactic feature of an NP indicating that it is coreferent with its parent NP (e.g. it is an exception to the i-within-i constraint that parent and child NPs cannot be coreferent). We deterministically mark a node as NP-APPOS (see Figure 3) when it is the third child in of a parent NP whose expansion begins with (NP , NP), and there is not a conjunction in the expansion (to avoid marking elements in a list as appositive). Role Appositiv</context>
+</contexts>
+<marker>Ng, Cardie, 2002</marker>
+<rawString>Vincent Ng and Claire Cardie. 2002. Improving Machine Learning Approaches to Coreference Resolution. In Association of Computational Linguists.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Vincent Ng</author>
+</authors>
+<title>Unsupervised models of coreference resolution.</title>
+<date>2008</date>
+<booktitle>In EMNLP.</booktitle>
+<contexts>
+<context position="30306" citStr="Ng (2008)" startWordPosition="5126" endWordPosition="5127">e necessary semantic knowledge to link a nominal to a prior expression. In order to get a more thorough view of the cause of pairwise errors, we examined 20 random errors made in aligning each mention type to an antecedent. We categorized the errors as follows: SEM. COMPAT: Missing information about the compatibility of two words e.g. pay and wage. For pronouns, this is used to mean that 11 Klenner and Ailloud (2007) took essentially the same approach but did so on non-comparable data. 12 Poon and Domingos (2008) outperformed Haghighi and Klein (2007). Unfortunately, we cannot compare against Ng (2008) since we do not have access to the version of the ACE data used in their evaluation. we incorrectly aligned a pronoun to a mention with which it is not semantically compatible (e.g. he aligned to board). SYN. COMPAT: Error in assigning linguistic features of nouns for compatibility with pronouns (e.g. disallowing they to refer to team). HEAD: Errors involving the assumption that mentions with the same head are always compatible. Includes modifier and specificity errors such as allowing Lebanon and Southern Lebanon to corefer. This also includes errors of definiteness in nominals (e.g. the peo</context>
+</contexts>
+<marker>Ng, 2008</marker>
+<rawString>Vincent Ng. 2008. Unsupervised models of coreference resolution. In EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W Phillips</author>
+<author>E Riloff</author>
+</authors>
+<title>Exploiting roleidentifying nouns and expressions for information extraction.</title>
+<date>2007</date>
+<booktitle>In Recent Advances in Natural Language Processing (RANLP).</booktitle>
+<contexts>
+<context position="23761" citStr="Phillips and Riloff (2007)" startWordPosition="3999" endWordPosition="4002">all the entity information present. For instance, the first sentence of Wikipedia abstract for Al Gore is: Albert Arnold Al Gore, Jr. is an American environmental activist who served as the 45th Vice President of the United States from 1993 to 2001 under President Bill Clinton. The required lexical pattern X who served as Y is a general appositive-like pattern that almost surely indicates coreference. Rather than opt to manually create a set of these coreference patterns as in Hearst (1992), we instead opt to automatically extract these patterns from large corpora as in Snow et al. (2004) and Phillips and Riloff (2007). We take a simple bootstrapping technique: given a set of mention pairs extracted from appositives and predicate-nominative configurations, we extract counts over tree fragments between nodes which have occurred in this set of head pairs (see Figure 5); the tree fragments are formed by annotating the internal nodes in the tree path with the head word and POS along with the subcategorization. We limit the paths extracted in this way in several ways: paths are only allowed to go between adjacent sentences and have a length of at most 10. We then filter the set of paths to those which occur more</context>
+</contexts>
+<marker>Phillips, Riloff, 2007</marker>
+<rawString>W. Phillips and E. Riloff. 2007. Exploiting roleidentifying nouns and expressions for information extraction. In Recent Advances in Natural Language Processing (RANLP).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hoifung Poon</author>
+<author>Pedro Domingos</author>
+</authors>
+<title>Joint unsupervised coreference resolution with Markov Logic.</title>
+<date>2008</date>
+<contexts>
+<context position="5296" citStr="Poon and Domingos (2008)" startWordPosition="812" endWordPosition="815">e on all noun phrase nodes in a parse tree (see Section 3.1.1). 2.1 Data Sets In this work we use the following data sets: Development: (see Section 3) ACE2004-ROTH-DEV: Dev set split of the ACE 2004 training set utilized in Bengston and Roth (2008). The ACE data also annotates pre-nominal mentions which we map onto nominals. 68 documents and 4,536 mentions. Testing: (see Section 4) ACE2004-CULOTTA-TEST: Test set split of the ACE 2004 training set utilized in Culotta et al. (2007) and Bengston and Roth (2008). Consists of 107 documents.2 ACE2004-NWIRE: ACE 2004 Newswire set to compare against Poon and Domingos (2008). Consists of 128 documents and 11,413 mentions; intersects with the other ACE data sets. MUC-6-TEST: MUC6 formal evaluation set consisting of 30 documents and 2,068 mentions. Unlabeled: (see Section 3.2) BLIPP: 1.8 million sentences of newswire parsed with the Charniak (2000) parser. No labeled coreference data; used for mining semantic information. WIKI: 25k articles of English Wikipedia abstracts parsed by the Klein and Manning (2003) parser.3 No labeled coreference data; used for mining semantic information. 1 Other mention types exist and are annotated (such as prenominal), which are trea</context>
+<context position="8250" citStr="Poon and Domingos, 2008" startWordPosition="1307" endWordPosition="1310">on mi, we select either a single-best antecedent amongst the previous mentions m1, . . . , mi1, or the NULL mention to indicate the underlying entity has not yet been evoked. Mentions are linearly ordered according to the position of the mention head with ties being broken by the larger node coming first. 4 The MUC measure is problematic when the system predicts many more clusters than actually exist (Luo, 2005; Finkel and Manning, 2008); also, singleton clusters do not contribute to evaluation. 1153 \x0cWhile much research (Ng and Cardie, 2002; Culotta et al., 2007; Haghighi and Klein, 2007; Poon and Domingos, 2008; Finkel and Manning, 2008) has explored how to reconcile pairwise decisions to form coherent clusters, we simply take the transitive closure of our pairwise decision (as in Ng and Cardie (2002) and Bengston and Roth (2008)) which can and does cause system errors. In contrast to most recent research, our pairwise decisions are not made with a learned model which outputs a probability or confidence, but instead for each mention mi, we select an antecedent amongst m1, . . . , mi1 or the NULL mention as follows: Syntactic Constraint: Based on syntactic configurations, either force or disallow cor</context>
+<context position="9689" citStr="Poon and Domingos (2008)" startWordPosition="1542" endWordPosition="1545">. Selection: Select the closest mention from the set of remaining possible antecedents (see Figure 1) or the NULL antecedent if empty. Initially, there is no syntactic constraint (improved in Section 3.1.3), the antecedent compatibility filter allows proper and nominal mentions to corefer only with mentions that have the same head (improved in Section 3.2), and pronouns have no compatibility constraints (improved in Section 3.1.2). Mention heads are determined by parsing the given mention span with the Stanford parser (Klein and Manning, 2003) and using the Collins head rules (Collins, 1999); Poon and Domingos (2008) showed that using syntactic heads strongly outperformed a simple rightmost headword rule. The mention type is determined by the head POS tag: proper if the head tag is NNP or NNPS, pronoun if the head tag is PRP, PRP$, WP, or WP$, and nominal otherwise. For the selection phase, we order mentions m1, . . . , mi1 according to the position of the head word and select the closest mention that remains after constraint and filtering are applied. This choice reflects the intuition of Grosz et al. (1995) that speakers only use pronominal mentions when there are not intervening compatible S !!!!!!! &amp;quot; </context>
+<context position="17289" citStr="Poon and Domingos, 2008" startWordPosition="2919" endWordPosition="2922"> NNP Picasso , , NP-APPOS#1 (((((( ) ) ) ) ) ) subject of the [exhibition]2 (a) (b) Figure 3: NP structure annotation: In (a) we have the raw parse from the Klein and Manning (2003) parser with the mentions annotated by entity. In (b), we demonstrate the annotation we have added. NER labels are added to all NP according to the NER label given to the head (see Section 3.1.1). Appositive NPs are also annotated. Hashes indicate forced coreferent nodes guarantee coreference. The one exploited most in coreference work (Soon et al., 1999; Ng and Cardie, 2002; Luo et al., 2004; Culotta et al., 2007; Poon and Domingos, 2008; Bengston and Roth, 2008) is the appositive construction. Here, we represent apposition as a syntactic feature of an NP indicating that it is coreferent with its parent NP (e.g. it is an exception to the i-within-i constraint that parent and child NPs cannot be coreferent). We deterministically mark a node as NP-APPOS (see Figure 3) when it is the third child in of a parent NP whose expansion begins with (NP , NP), and there is not a conjunction in the expansion (to avoid marking elements in a list as appositive). Role Appositives: During development, we discovered many errors which involved </context>
+<context position="20314" citStr="Poon and Domingos (2008)" startWordPosition="3433" endWordPosition="3436"> we apply the i-withini constraint, which prevents its from having the NP headed by brand in the set of possible antecedents, and by propagation, also removes the NP headed by Gitano. This leaves the NP Wal-Mart as the closest compatible mention. Adding these syntactic constraints to our system yields 55.4 F1, a fairly substantial improvement, but many recall errors remain between mentions with differing heads. Resolving such cases will require external semantic information, which we will automatically acquire (see Section 3.2). Predicate Nominatives: Another syntactic constraint exploited in Poon and Domingos (2008) is the predicate nominative construction, where the object of a copular verb (forms of the verb be) is constrained to corefer with its subject (e.g. Microsoft is a company in Redmond). While much less frequent than appositive configurations (there are only 17 predicate nominatives in our devel9 Arguably, we could also consider right modifying NPs (e.g., [Microsoft [Company]1]1) to be role appositive, but we do not do so here. 1156 \x0cPath Example NP !! ! &amp;quot; &amp;quot; &amp;quot; NP-NNP PRN-NNP NP #### # $ $ % % % % % NP-president CC NP-NNP America Online Inc. (AOL) NP !! ! &amp;quot; &amp;quot; &amp;quot; NP-NNP PRN-NNP NP #### # $ $ % </context>
+<context position="25679" citStr="Poon and Domingos (2008)" startWordPosition="4346" endWordPosition="4349">68.6 60.9 64.5 80.3 68.0 73.6 57.1 30.5 39.8 66.5 66.5 66.5 BASIC-TREE 71.2 63.2 67.0 81.6 69.3 75.0 60.1 34.5 43.9 67.9 67.9 67.9 +SYN-COMPAT 74.6 65.2 69.6 84.2 70.3 76.6 66.7 37.2 47.8 69.2 69.2 69.2 +SYN-CONSTR 74.3 66.4 70.2 83.6 71.0 76.8 66.4 38.0 48.3 69.6 69.6 69.6 +SEM-COMPAT 74.8 77.7 79.6 79.6 78.5 79.0 57.5 57.6 57.5 73.3 73.3 73.3 Supervised Results Culotta et al. (2007) - - - 86.7 73.2 79.3 - - - - - - Bengston and Roth (2008) 82.7 69.9 75.8 88.3 74.5 80.8 55.4 63.7 59.2 - - - MUC6-TEST +SEM-COMPAT 87.2 77.3 81.9 84.7 67.3 75.0 80.5 57.8 67.3 72.0 72.0 72.0 Unsupervised Results Poon and Domingos (2008) 83.0 75.8 79.2 - - - 63.0 57.0 60.0 - - - Supervised Results Finkel and Manning (2008) 89.7 55.1 68.3 90.9 49.7 64.3 74.1 37.1 49.5 - - - ACE2004-NWIRE +SEM-COMPAT 77.0 75.9 76.5 79.4 74.5 76.9 66.9 49.2 56.7 71.5 71.5 71.5 Unsupervised Results Poon and Domingos (2008) 71.3 70.5 70.9 - - - 62.6 38.9 48.0 - - - Table 2: Experimental Results (See Section 4): When comparisons between systems are presented, the largest result is bolded. The CEAF measure has equal values for precision, recall, and F1. specified. However there are some tree fragments which correspond to the novel coreference patter</context>
+<context position="28632" citStr="Poon and Domingos (2008)" startWordPosition="4847" endWordPosition="4850">gold NER tags which Bengston and Roth (2008) does. Across metrics, the syntactic constraints and semantic compatibility components contribute most to the overall final result. On the MUC6-TEST dataset, our system outper1158 \x0cPROPER NOMINAL PRONOUN NULL TOTAL PROPER 21/451 8/20 - 72/288 101/759 NOMINAL 16/150 99/432 - 158/351 323/933 PRONOUN 29/149 60/128 15/97 1/2 105/376 Table 3: Errors for each type of antecedent decision made by the system. Each row is a mention type and the column the predicted mention type antecedent. The majority of errors are made in the NOMINAL category. forms both Poon and Domingos (2008) (an unsupervised Markov Logic Network system which uses explicit constraints) and Finkel and Manning (2008) (a supervised system which uses ILP inference to reconcile the predictions of a pairwise classifier) on all comparable measures.11 Similarly, on the ACE2004-NWIRE dataset, we also outperform the state-of-the-art unsupervised system of Poon and Domingos (2008). Overall, we conclude that our system outperforms state-of-the-art unsupervised systems12 and is in the range of the state-of-the art systems of Culotta et al. (2007) and Bengston and Roth (2008). 5 Error Analysis There are several</context>
+<context position="30215" citStr="Poon and Domingos (2008)" startWordPosition="5112" endWordPosition="5115">we most frequently say a nominal is NULL when it has an antecedent; this is typically due to not having the necessary semantic knowledge to link a nominal to a prior expression. In order to get a more thorough view of the cause of pairwise errors, we examined 20 random errors made in aligning each mention type to an antecedent. We categorized the errors as follows: SEM. COMPAT: Missing information about the compatibility of two words e.g. pay and wage. For pronouns, this is used to mean that 11 Klenner and Ailloud (2007) took essentially the same approach but did so on non-comparable data. 12 Poon and Domingos (2008) outperformed Haghighi and Klein (2007). Unfortunately, we cannot compare against Ng (2008) since we do not have access to the version of the ACE data used in their evaluation. we incorrectly aligned a pronoun to a mention with which it is not semantically compatible (e.g. he aligned to board). SYN. COMPAT: Error in assigning linguistic features of nouns for compatibility with pronouns (e.g. disallowing they to refer to team). HEAD: Errors involving the assumption that mentions with the same head are always compatible. Includes modifier and specificity errors such as allowing Lebanon and South</context>
+</contexts>
+<marker>Poon, Domingos, 2008</marker>
+<rawString>Hoifung Poon and Pedro Domingos. 2008. Joint unsupervised coreference resolution with Markov Logic.</rawString>
+</citation>
+<citation valid="false">
+<booktitle>In Proceedings of the 2008 Conference on Empirical Methods in Natural Language Processing.</booktitle>
+<marker></marker>
+<rawString>In Proceedings of the 2008 Conference on Empirical Methods in Natural Language Processing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Snow</author>
+<author>D Jurafsky</author>
+<author>A Ng</author>
+</authors>
+<title>Learning syntactic patterns for automatic hypernym discovery.</title>
+<date>2004</date>
+<booktitle>In Neural Information Processing Systems (NIPS).</booktitle>
+<contexts>
+<context position="23730" citStr="Snow et al. (2004)" startWordPosition="3994" endWordPosition="3997">rse and cannot capture all the entity information present. For instance, the first sentence of Wikipedia abstract for Al Gore is: Albert Arnold Al Gore, Jr. is an American environmental activist who served as the 45th Vice President of the United States from 1993 to 2001 under President Bill Clinton. The required lexical pattern X who served as Y is a general appositive-like pattern that almost surely indicates coreference. Rather than opt to manually create a set of these coreference patterns as in Hearst (1992), we instead opt to automatically extract these patterns from large corpora as in Snow et al. (2004) and Phillips and Riloff (2007). We take a simple bootstrapping technique: given a set of mention pairs extracted from appositives and predicate-nominative configurations, we extract counts over tree fragments between nodes which have occurred in this set of head pairs (see Figure 5); the tree fragments are formed by annotating the internal nodes in the tree path with the head word and POS along with the subcategorization. We limit the paths extracted in this way in several ways: paths are only allowed to go between adjacent sentences and have a length of at most 10. We then filter the set of </context>
+</contexts>
+<marker>Snow, Jurafsky, Ng, 2004</marker>
+<rawString>R. Snow, D. Jurafsky, and A. Ng. 2004. Learning syntactic patterns for automatic hypernym discovery. In Neural Information Processing Systems (NIPS).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W H Soon</author>
+<author>H T Ng</author>
+<author>D C Y Lim</author>
+</authors>
+<title>A machine learning approach to coreference resolution of noun phrases.</title>
+<date>1999</date>
+<contexts>
+<context position="7564" citStr="Soon et al., 1999" startWordPosition="1187" endWordPosition="1190">minus one. Recall is given by the same procedure with predicated and true clusters reversed.4 CEAF (Luo, 2005): For a similarity function between predicted and true clusters, CEAF scores the best match between true and predicted clusters using this function. We use the 3 similarity function from Luo (2005). 3 System Description In this section we develop our system and report developmental results on ACE2004-ROTHDEV (see Section 2.1); we report pairwise F1 figures here, but report on many more evaluation metrics in Section 4. At a high level, our system resembles a pairwise coreference model (Soon et al., 1999; Ng and Cardie, 2002; Bengston and Roth, 2008); for each mention mi, we select either a single-best antecedent amongst the previous mentions m1, . . . , mi1, or the NULL mention to indicate the underlying entity has not yet been evoked. Mentions are linearly ordered according to the position of the mention head with ties being broken by the larger node coming first. 4 The MUC measure is problematic when the system predicts many more clusters than actually exist (Luo, 2005; Finkel and Manning, 2008); also, singleton clusters do not contribute to evaluation. 1153 \x0cWhile much research (Ng and</context>
+<context position="17203" citStr="Soon et al., 1999" startWordPosition="2903" endWordPosition="2906"># # # # # NP $$$$ % % % % NP-APPOS#1 NN painter NP-PERS &amp; &amp; &amp; \&apos; \&apos; \&apos; NNP Pablo NNP Picasso , , NP-APPOS#1 (((((( ) ) ) ) ) ) subject of the [exhibition]2 (a) (b) Figure 3: NP structure annotation: In (a) we have the raw parse from the Klein and Manning (2003) parser with the mentions annotated by entity. In (b), we demonstrate the annotation we have added. NER labels are added to all NP according to the NER label given to the head (see Section 3.1.1). Appositive NPs are also annotated. Hashes indicate forced coreferent nodes guarantee coreference. The one exploited most in coreference work (Soon et al., 1999; Ng and Cardie, 2002; Luo et al., 2004; Culotta et al., 2007; Poon and Domingos, 2008; Bengston and Roth, 2008) is the appositive construction. Here, we represent apposition as a syntactic feature of an NP indicating that it is coreferent with its parent NP (e.g. it is an exception to the i-within-i constraint that parent and child NPs cannot be coreferent). We deterministically mark a node as NP-APPOS (see Figure 3) when it is the third child in of a parent NP whose expansion begins with (NP , NP), and there is not a conjunction in the expansion (to avoid marking elements in a list as apposi</context>
+</contexts>
+<marker>Soon, Ng, Lim, 1999</marker>
+<rawString>W.H. Soon, H. T. Ng, and D. C. Y. Lim. 1999. A machine learning approach to coreference resolution of noun phrases.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>\x0cMarc Vilain</author>
+<author>John Burger</author>
+<author>John Aberdeen</author>
+<author>Dennis Connolly</author>
+<author>Lynette Hirschman</author>
+</authors>
+<title>A modeltheoretic coreference scoring scheme.</title>
+<date>1995</date>
+<booktitle>In MUC-6.</booktitle>
+<contexts>
+<context position="6788" citStr="Vilain et al., 1995" startWordPosition="1056" endWordPosition="1059">s no single one is clearly superior: Pairwise F1: precision, recall, and F1 over all pairs of mentions in the same entity cluster. Note that this over-penalizes the merger or separation of clusters quadratically in the size of the cluster. b3 (Amit and Baldwin, 1998): For each mention, form the intersection between the predicted cluster and the true cluster for that mention. The precision is the ratio of the intersection and the true cluster sizes and recall the ratio of the intersection to the predicted sizes; F1 is given by the harmonic mean over precision and recall from all mentions. MUC (Vilain et al., 1995): For each true cluster, compute the number of predicted clusters which need to be merged to cover the true cluster. Divide this quantity by true cluster size minus one. Recall is given by the same procedure with predicated and true clusters reversed.4 CEAF (Luo, 2005): For a similarity function between predicted and true clusters, CEAF scores the best match between true and predicted clusters using this function. We use the 3 similarity function from Luo (2005). 3 System Description In this section we develop our system and report developmental results on ACE2004-ROTHDEV (see Section 2.1); we</context>
+</contexts>
+<marker>Vilain, Burger, Aberdeen, Connolly, Hirschman, 1995</marker>
+<rawString>\x0cMarc Vilain, John Burger, John Aberdeen, Dennis Connolly, and Lynette Hirschman. 1995. A modeltheoretic coreference scoring scheme. In MUC-6.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

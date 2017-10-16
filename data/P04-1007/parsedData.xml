@@ -1,0 +1,1728 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<title confidence="0.6075805">
+b&amp;apos;Discriminative Language Modeling with
+Conditional Random Fields and the Perceptron Algorithm
+</title>
+<author confidence="0.847857">
+Brian Roark Murat Saraclar
+</author>
+<affiliation confidence="0.642851">
+AT&amp;T Labs - Research
+</affiliation>
+<email confidence="0.986858">
+{roark,murat}@research.att.com
+</email>
+<author confidence="0.958469">
+Michael Collins Mark Johnson
+</author>
+<affiliation confidence="0.798779">
+MIT CSAIL Brown University
+</affiliation>
+<email confidence="0.761028">
+mcollins@csail.mit.edu Mark Johnson@Brown.edu
+</email>
+<sectionHeader confidence="0.990471" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999505466666667">
+This paper describes discriminative language modeling
+for a large vocabulary speech recognition task. We con-
+trast two parameter estimation methods: the perceptron
+algorithm, and a method based on conditional random
+fields (CRFs). The models are encoded as determin-
+istic weighted finite state automata, and are applied by
+intersecting the automata with word-lattices that are the
+output from a baseline recognizer. The perceptron algo-
+rithm has the benefit of automatically selecting a rela-
+tively small feature set in just a couple of passes over the
+training data. However, using the feature set output from
+the perceptron algorithm (initialized with their weights),
+CRF training provides an additional 0.5% reduction in
+word error rate, for a total 1.8% absolute reduction from
+the baseline of 39.2%.
+</bodyText>
+<sectionHeader confidence="0.998259" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.998713681818182">
+A crucial component of any speech recognizer is the lan-
+guage model (LM), which assigns scores or probabilities
+to candidate output strings in a speech recognizer. The
+language model is used in combination with an acous-
+tic model, to give an overall score to candidate word se-
+quences that ranks them in order of probability or plau-
+sibility.
+A dominant approach in speech recognition has been
+to use a source-channel, or noisy-channel model. In
+this approach, language modeling is effectively framed
+as density estimation: the language models task is to
+define a distribution over the source i.e., the possible
+strings in the language. Markov (n-gram) models are of-
+ten used for this task, whose parameters are optimized
+to maximize the likelihood of a large amount of training
+text. Recognition performance is a direct measure of the
+effectiveness of a language model; an indirect measure
+which is frequently proposed within these approaches is
+the perplexity of the LM (i.e., the log probability it as-
+signs to some held-out data set).
+This paper explores alternative methods for language
+modeling, which complement the source-channel ap-
+proach through discriminatively trained models. The lan-
+guage models we describe do not attempt to estimate a
+generative model P(w) over strings. Instead, they are
+trained on acoustic sequences with their transcriptions,
+in an attempt to directly optimize error-rate. Our work
+builds on previous work on language modeling using the
+perceptron algorithm, described in Roark et al. (2004).
+In particular, we explore conditional random field meth-
+ods, as an alternative training method to the perceptron.
+We describe how these models can be trained over lat-
+tices that are the output from a baseline recognizer. We
+also give a number of experiments comparing the two ap-
+proaches. The perceptron method gave a 1.3% absolute
+improvement in recognition error on the Switchboard do-
+main; the CRF methods we describe give a further gain,
+the final absolute improvement being 1.8%.
+A central issue we focus on concerns feature selection.
+The number of distinct n-grams in our training data is
+close to 45 million, and we show that CRF training con-
+verges very slowly even when trained with a subset (of
+size 12 million) of these features. Because of this, we ex-
+plore methods for picking a small subset of the available
+features.1
+The perceptron algorithm can be used as one
+method for feature selection, selecting around 1.5 million
+features in total. The CRF trained with this feature set,
+and initialized with parameters from perceptron training,
+converges much more quickly than other approaches, and
+also gives the optimal performance on the held-out set.
+We explore other approaches to feature selection, but find
+that the perceptron-based approach gives the best results
+in our experiments.
+While we focus on n-gram models, we stress that our
+methods are applicable to more general language mod-
+eling features for example, syntactic features, as ex-
+plored in, e.g., Khudanpur and Wu (2000). We intend
+to explore methods with new features in the future. Ex-
+perimental results with n-gram models on 1000-best lists
+show a very small drop in accuracy compared to the use
+of lattices. This is encouraging, in that it suggests that
+models with more flexible features than n-gram models,
+which therefore cannot be efficiently used with lattices,
+may not be unduly harmed by their restriction to n-best
+lists.
+</bodyText>
+<subsectionHeader confidence="0.734724">
+1.1 Related Work
+</subsectionHeader>
+<bodyText confidence="0.999134615384615">
+Large vocabulary ASR has benefitted from discrimina-
+tive estimation of Hidden Markov Model (HMM) param-
+eters in the form of Maximum Mutual Information Es-
+timation (MMIE) or Conditional Maximum Likelihood
+Estimation (CMLE). Woodland and Povey (2000) have
+shown the effectiveness of lattice-based MMIE/CMLE in
+challenging large scale ASR tasks such as Switchboard.
+In fact, state-of-the-art acoustic modeling, as seen, for
+example, at annual Switchboard evaluations, invariably
+includes some kind of discriminative training.
+Discriminative estimation of language models has also
+been proposed in recent years. Jelinek (1995) suggested
+an acoustic sensitive language model whose parameters
+</bodyText>
+<footnote confidence="0.831519">
+1Note also that in addition to concerns about training time, a lan-
+</footnote>
+<bodyText confidence="0.988477045454546">
+guage model with fewer features is likely to be considerably more effi-
+cient when decoding new utterances.
+\x0care estimated by minimizing H(W|A), the expected un-
+certainty of the spoken text W, given the acoustic se-
+quence A. Stolcke and Weintraub (1998) experimented
+with various discriminative approaches including MMIE
+with mixed results. This work was followed up with
+some success by Stolcke et al. (2000) where an anti-
+LM, estimated from weighted N-best hypotheses of a
+baseline ASR system, was used with a negative weight
+in combination with the baseline LM. Chen et al. (2000)
+presented a method based on changing the trigram counts
+discriminatively, together with changing the lexicon to
+add new words. Kuo et al. (2002) used the generalized
+probabilistic descent algorithm to train relatively small
+language models which attempt to minimize string error
+rate on the DARPA Communicator task. Banerjee et al.
+(2003) used a language model modification algorithm in
+the context of a reading tutor that listens. Their algorithm
+first uses a classifier to predict what effect each parame-
+ter has on the error rate, and then modifies the parameters
+to reduce the error rate based on this prediction.
+</bodyText>
+<sectionHeader confidence="0.941089" genericHeader="method">
+2 Linear Models, the Perceptron
+</sectionHeader>
+<category confidence="0.463957">
+Algorithm, and Conditional Random
+</category>
+<sectionHeader confidence="0.561259" genericHeader="method">
+Fields
+</sectionHeader>
+<bodyText confidence="0.998849666666667">
+This section describes a general framework, global linear
+models, and two parameter estimation methods within
+the framework, the perceptron algorithm and a method
+based on conditional random fields. The linear models
+we describe are general enough to be applicable to a di-
+verse range of NLP and speech tasks this section gives
+a general description of the approach. In the next section
+of the paper we describe how global linear models can
+be applied to speech recognition. In particular, we focus
+on how the decoding and parameter estimation problems
+can be implemented over lattices using finite-state tech-
+niques.
+</bodyText>
+<subsectionHeader confidence="0.98056">
+2.1 Global linear models
+</subsectionHeader>
+<bodyText confidence="0.719003166666667">
+We follow the framework outlined in Collins (2002;
+2004). The task is to learn a mapping from inputs x X
+to outputs y Y. We assume the following compo-
+nents: (1) Training examples (xi, yi) for i = 1 . . . N.
+(2) A function GEN which enumerates a set of candi-
+dates GEN(x) for an input x. (3) A representation
+</bodyText>
+<equation confidence="0.92387875">
+mapping each (x, y) X Y to a feature vector
+(x, y) Rd
+. (4) A parameter vector Rd
+.
+</equation>
+<bodyText confidence="0.9894255">
+The components GEN, and define a mapping
+from an input x to an output F(x) through
+</bodyText>
+<equation confidence="0.9984544">
+F(x) = argmax
+yGEN(x)
+(x, y) (1)
+where (x, y) is the inner product
+P
+</equation>
+<bodyText confidence="0.8809024">
+s ss(x, y).
+The learning task is to set the parameter values using
+the training examples as evidence. The decoding algo-
+rithm is a method for searching for the y that maximizes
+Eq. 1.
+</bodyText>
+<subsectionHeader confidence="0.998993">
+2.2 The Perceptron algorithm
+</subsectionHeader>
+<bodyText confidence="0.973149">
+We now turn to methods for training the parameters
+of the model, given a set of training examples
+Inputs: Training examples (xi, yi)
+</bodyText>
+<figure confidence="0.953899666666667">
+Initialization: Set = 0
+Algorithm:
+For t = 1 . . . T, i = 1 . . . N
+Calculate zi = argmaxzGEN(xi) (xi, z)
+If(zi 6= yi) then = + (xi, yi) (xi, zi)
+Output: Parameters
+</figure>
+<figureCaption confidence="0.999711">
+Figure 1: A variant of the perceptron algorithm.
+</figureCaption>
+<bodyText confidence="0.972253083333333">
+(x1, y1) . . . (xN , yN ). This section describes the per-
+ceptron algorithm, which was previously applied to lan-
+guage modeling in Roark et al. (2004). The next section
+describes an alternative method, based on conditional
+random fields.
+The perceptron algorithm is shown in figure 1. At
+each training example (xi, yi), the current best-scoring
+hypothesis zi is found, and if it differs from the refer-
+ence yi , then the cost of each feature2
+is increased by
+the count of that feature in zi and decreased by the count
+of that feature in yi. The features in the model are up-
+dated, and the algorithm moves to the next utterance.
+After each pass over the training data, performance on
+a held-out data set is evaluated, and the parameterization
+with the best performance on the held out set is what is
+ultimately produced by the algorithm.
+Following Collins (2002), we used the averaged pa-
+rameters from the training algorithm in decoding held-
+out and test examples in our experiments. Say t
+i is the
+parameter vector after the ith example is processed on
+the tth pass through the data in the algorithm in fig-
+ure 1. Then the averaged parameters AV G are defined
+</bodyText>
+<equation confidence="0.938378333333333">
+as AV G =
+P
+i,t t
+</equation>
+<bodyText confidence="0.99399975">
+i/NT. Freund and Schapire (1999)
+originally proposed the averaged parameter method; it
+was shown to give substantial improvements in accuracy
+for tagging tasks in Collins (2002).
+</bodyText>
+<subsectionHeader confidence="0.999039">
+2.3 Conditional Random Fields
+</subsectionHeader>
+<bodyText confidence="0.994417428571429">
+Conditional Random Fields have been applied to NLP
+tasks such as parsing (Ratnaparkhi et al., 1994; Johnson
+et al., 1999), and tagging or segmentation tasks (Lafferty
+et al., 2001; Sha and Pereira, 2003; McCallum and Li,
+2003; Pinto et al., 2003). CRFs use the parameters
+to define a conditional distribution over the members of
+GEN(x) for a given input x:
+</bodyText>
+<equation confidence="0.982511571428571">
+p(y|x) =
+1
+Z(x, )
+exp ((x, y) )
+where Z(x, ) =
+P
+yGEN(x) exp ((x, y) ) is a
+</equation>
+<bodyText confidence="0.990553">
+normalization constant that depends on x and .
+Given these definitions, the log-likelihood of the train-
+ing data under parameters is
+</bodyText>
+<equation confidence="0.994535">
+LL() =
+N
+X
+i=1
+log p(yi|xi)
+=
+N
+X
+i=1
+[(xi, yi) log Z(xi, )] (2)
+</equation>
+<bodyText confidence="0.616493">
+2Note that here lattice weights are interpreted as costs, which
+changes the sign in the algorithm presented in figure 1.
+\x0cFollowing Johnson et al. (1999) and Lafferty et al.
+(2001), we use a zero-mean Gaussian prior on the pa-
+rameters resulting in the regularized objective function:
+</bodyText>
+<equation confidence="0.84756275">
+LLR() =
+N
+X
+i=1
+[(xi, yi) log Z(xi, )]
+ |2
+22
+(3)
+</equation>
+<bodyText confidence="0.968785705882353">
+The value dictates the relative influence of the log-
+likelihood term vs. the prior, and is typically estimated
+using held-out data. The optimal parameters under this
+criterion are
+= argmax LLR().
+We use a limited memory variable metric method
+(Benson and More, 2002) to optimize LLR. There is a
+general implementation of this method in the Tao/PETSc
+software libraries (Balay et al., 2002; Benson et al.,
+2002). This technique has been shown to be very effec-
+tive in a variety of NLP tasks (Malouf, 2002; Wallach,
+2002). The main interface between the optimizer and the
+training data is a procedure which takes a parameter vec-
+tor as input, and in turn returns LLR() as well as
+the gradient of LLR at . The derivative of the objec-
+tive function with respect to a parameter s at parameter
+values is
+</bodyText>
+<equation confidence="0.903424">
+LLR
+s
+=
+N
+X
+i=1
+s(xi, yi)
+X
+yGEN(xi)
+p(y|xi)s(xi, y)
+s
+2
+(4)
+</equation>
+<bodyText confidence="0.652006333333333">
+Note that LLR() is a convex function, so that there is
+a globally optimal solution and the optimization method
+will find it. The use of the Gaussian prior term  |
+</bodyText>
+<page confidence="0.770018">
+2
+/22
+</page>
+<bodyText confidence="0.986809933333333">
+in the objective function has been found to be useful in
+several NLP settings. It effectively ensures that there is a
+large penalty for parameter values in the model becoming
+too large as such, it tends to control over-training. The
+choice of LLR as an objective function can be justified as
+maximum a-posteriori (MAP) training within a Bayesian
+approach. An alternative justification comes through a
+connection to support vector machines and other large
+margin approaches. SVM-based approaches use an op-
+timization criterion that is closely related to LLR see
+Collins (2004) for more discussion.
+3 Linear models for speech recognition
+We now describe how the formalism and algorithms in
+section 2 can be applied to language modeling for speech
+recognition.
+</bodyText>
+<subsectionHeader confidence="0.996745">
+3.1 The basic approach
+</subsectionHeader>
+<bodyText confidence="0.987820515151515">
+As described in the previous section, linear models re-
+quire definitions of X, Y, xi, yi, GEN, and a param-
+eter estimation method. In the language modeling setting
+we take X to be the set of all possible acoustic inputs; Y
+is the set of all possible strings,
+, for some vocabu-
+lary . Each xi is an utterance (a sequence of acous-
+tic feature-vectors), and GEN(xi) is the set of possible
+transcriptions under a first pass recognizer. (GEN(xi)
+is a huge set, but will be represented compactly using a
+lattice we will discuss this in detail shortly). We take
+yi to be the member of GEN(xi) with lowest error rate
+with respect to the reference transcription of xi.
+All that remains is to define the feature-vector repre-
+sentation, (x, y). In the general case, each component
+i(x, y) could be essentially any function of the acous-
+tic input x and the candidate transcription y. The first
+feature we define is 0(x, y) as the log-probability of y
+given x under the lattice produced by the baseline recog-
+nizer. Thus this feature will include contributions from
+the acoustic model and the original language model. The
+remaining features are restricted to be functions over the
+transcription y alone and they track all n-grams up to
+some length (say n = 3), for example:
+1(x, y) = Number of times the the of is seen in y
+At an abstract level, features of this form are introduced
+for all n-grams up to length 3 seen in some training data
+lattice, i.e., n-grams seen in any word sequence within
+the lattices. In practice, we consider methods that search
+for sparse parameter vectors , thus assigning many n-
+grams 0 weight. This will lead to more efficient algo-
+rithms that avoid dealing explicitly with the entire set of
+n-grams seen in training data.
+</bodyText>
+<subsectionHeader confidence="0.999674">
+3.2 Implementation using WFA
+</subsectionHeader>
+<bodyText confidence="0.999095045454546">
+We now give a brief sketch of how weighted finite-state
+automata (WFA) can be used to implement linear mod-
+els for speech recognition. There are several papers de-
+scribing the use of weighted automata and transducers
+for speech in detail, e.g., Mohri et al. (2002), but for clar-
+ity and completeness this section gives a brief description
+of the operations which we use.
+For our purpose, a WFA A = (, Q, qs, F, E, ),
+where is the vocabulary, Q is a (finite) set of states,
+qs Q is a unique start state, F Q is a set of final
+states, E is a (finite) set of transitions, and : F R
+is a function from final states to final weights. Each tran-
+sition e E is a tuple e = (l[e], p[e], n[e], w[e]), where
+l[e] is a label (in our case, words), p[e] Q is the
+origin state of e, n[e] Q is the destination state of e,
+and w[e] R is the weight of the transition. A suc-
+cessful path = e1 . . . ej is a sequence of transitions,
+such that p[e1] = qs, n[ej] F, and for 1 &amp;lt; k j,
+n[ek1] = p[ek]. Let A be the set of successful paths
+in a WFA A. For any = e1 . . . ej, l[] = l[e1] . . . l[ej].
+The weights of the WFA in our case are always in the
+log semiring, which means that the weight of a path =
+</bodyText>
+<equation confidence="0.99387325">
+e1 . . . ej A is defined as:
+wA[] =
+j
+X
+k=1
+w[ek]
+!
++ (ej) (5)
+</equation>
+<bodyText confidence="0.8518785">
+By convention, we use negative log probabilities as
+weights, so lower weights are better. All WFA that we
+will discuss in this paper are deterministic, i.e. there are
+no \x0f transitions, and for any two transitions e, e0
+E,
+if p[e] = p[e0
+], then l[e] 6= l[e0
+]. Thus, for any string
+w = w1 . . . wj, there is at most one successful path
+A, such that = e1 . . . ej and for 1 k j,
+l[ek] = wk, i.e. l[] = w. The set of strings w such that
+there exists a A with l[] = w define a regular
+language LA .
+We can now define some operations that will be used
+in this paper.
+\x0c A. For a set of transitions E and R, define
+</bodyText>
+<equation confidence="0.835164">
+E = {(l[e], p[e], n[e], w[e]) : e E}. Then, for
+any WFA A = (, Q, qs, F, E, ), define A for R
+</equation>
+<bodyText confidence="0.8844705">
+as follows: A = (, Q, qs, F, E, ).
+A A0
+. The intersection of two deterministic WFAs
+A A0
+in the log semiring is a deterministic WFA
+such that LAA0 = LA
+</bodyText>
+<equation confidence="0.935107">
+T
+LA0 . For any AA0 ,
+wAA0 [] = wA[1] + wA0 [2], where l[] = l[1] =
+l[2].
+</equation>
+<bodyText confidence="0.963712214285714">
+BestPath(A). This operation takes a WFA A, and
+returns the best scoring path = argminA
+wA[].
+MinErr(A, y). Given a WFA A, a string y, and
+an error-function E(y, w), this operation returns =
+argminA
+E(y, l[]). This operation will generally be
+used with y as the reference transcription for a particular
+training example, and E(y, w) as some measure of the
+number of errors in w when compared to y. In this case,
+the MinErr operation returns the path A such
+l[] has the smallest number of errors when compared to
+y.
+Norm(A). Given a WFA A, this operation yields
+</bodyText>
+<equation confidence="0.44427575">
+a WFA A0
+such that LA = LA0 and for every A
+there is a 0
+A0 such that l[] = l[0
+] and
+wA0 [0
+] = wA[] + log
+X
+A
+exp(wA[])
+!
+(6)
+Note that
+X
+Norm(A)
+exp(wNorm(A)[]) = 1 (7)
+</equation>
+<bodyText confidence="0.99834025">
+In other words the weights define a probability distribu-
+tion over the paths.
+ExpCount(A, w). Given a WFA A and an n-gram
+w, we define the expected count of w in A as
+</bodyText>
+<equation confidence="0.84456375">
+ExpCount(A, w) =
+X
+A
+wNorm(A)[]C(w, l[])
+</equation>
+<bodyText confidence="0.968706066666667">
+where C(w, l[]) is defined to be the number of times
+the n-gram w appears in a string l[].
+Given an acoustic input x, let Lx be a deterministic
+word-lattice produced by the baseline recognizer. The
+lattice Lx is an acyclic WFA, representing a weighted set
+of possible transcriptions of x under the baseline recog-
+nizer. The weights represent the combination of acoustic
+and language model scores in the original recognizer.
+The new, discriminative language model constructed
+during training consists of a deterministic WFA which
+we will denote D, together with a single parameter 0.
+The parameter 0 is the weight for the log probability
+feature 0 given by the baseline recognizer. The WFA
+D is constructed so that LD =
+and for all D
+</bodyText>
+<equation confidence="0.9702712">
+wD[] =
+d
+X
+j=1
+j(x, l[])j
+</equation>
+<bodyText confidence="0.828258">
+Recall that j(x, w) for j &amp;gt; 0 is the count of the jth n-
+gram in w, and j is the parameter associated with that
+</bodyText>
+<equation confidence="0.995883666666667">
+w w
+i-2 i-1
+w w
+i-1 i
+wi
+wi-1
+wi
+wi
+wi
+</equation>
+<figureCaption confidence="0.992633">
+Figure 2: Representation of a trigram model with failure transitions.
+</figureCaption>
+<bodyText confidence="0.8211685">
+n-gram. Then, by definition, 0L D accepts the same
+set of strings as L, but
+</bodyText>
+<equation confidence="0.998253875">
+w0LD[] =
+d
+X
+j=0
+j(x, l[])j
+and argmin
+L
+(x, l[]) = BestPath(0L D).
+</equation>
+<bodyText confidence="0.997175">
+Thus decoding under our new model involves first pro-
+ducing a lattice L from the baseline recognizer; second,
+scaling L with 0 and intersecting it with the discrimi-
+native language model D; third, finding the best scoring
+path in the new WFA.
+We now turn to training a model, or more explicitly,
+deriving a discriminative language model (D, 0) from a
+set of training examples. Given a training set (xi, ri) for
+</bodyText>
+<equation confidence="0.877001333333333">
+i = 1 . . . N, where xi is an acoustic sequence, and ri is
+a reference transcription, we can construct lattices Li for
+i = 1 . . . N using the baseline recognizer. We can also
+</equation>
+<bodyText confidence="0.956711">
+derive target transcriptions yi = MinErr(Li, ri). The
+training algorithm is then a mapping from (Li, yi) for
+</bodyText>
+<equation confidence="0.830415">
+i = 1 . . . N to a pair (D, 0). Note that the construction
+</equation>
+<bodyText confidence="0.9946335">
+of the language model requires two choices. The first
+concerns the choice of the set of n-gram features i for
+</bodyText>
+<equation confidence="0.830292">
+i = 1 . . . d implemented by D. The second concerns
+</equation>
+<bodyText confidence="0.99496675">
+the choice of parameters i for i = 0 . . . d which assign
+weights to the n-gram features as well as the baseline
+feature 0.
+Before describing methods for training a discrimina-
+tive language model using perceptron and CRF algo-
+rithms, we give a little more detail about the structure
+of D, focusing on how n-gram language models can be
+implemented with finite-state techniques.
+</bodyText>
+<subsectionHeader confidence="0.998806">
+3.3 Representation of n-gram language models
+</subsectionHeader>
+<bodyText confidence="0.993978083333333">
+An n-gram model can be efficiently represented in a de-
+terministic WFA, through the use of failure transitions
+(Allauzen et al., 2003). Every string accepted by such an
+automaton has a single path through the automaton, and
+the weight of the string is the sum of the weights of the
+transitions in that path. In such a representation, every
+state in the automaton represents an n-gram history h,
+e.g. wi2wi1, and there are transitions leaving the state
+for every word wi such that the feature hwi has a weight.
+There is also a failure transition leaving the state, labeled
+with some reserved symbol , which can only be tra-
+versed if the next symbol in the input does not match any
+transition leaving the state. This failure transition points
+to the backoff state h0
+, i.e. the n-gram history h minus
+its initial word. Figure 2 shows how a trigram model can
+be represented in such an automaton. See Allauzen et al.
+(2003) for more details.
+\x0cNote that in such a deterministic representation, the
+entire weight of all features associated with the word
+wi following history h must be assigned to the transi-
+tion labeled with wi leaving the state h in the automa-
+ton. For example, if h = wi2wi1, then the trigram
+wi2wi1wi is a feature, as is the bigram wi1wi and
+the unigram wi. In this case, the weight on the transi-
+tion wi leaving state h must be the sum of the trigram,
+bigram and unigram feature weights. If only the trigram
+feature weight were assigned to the transition, neither the
+unigram nor the bigram feature contribution would be in-
+cluded in the path weight. In order to ensure that the cor-
+rect weights are assigned to each string, every transition
+encoding an order k n-gram must carry the sum of the
+weights for all n-gram features of orders k. To ensure
+that every string in
+receives the correct weight, for
+any n-gram hw represented explicitly in the automaton,
+</bodyText>
+<page confidence="0.659054">
+h0
+</page>
+<bodyText confidence="0.8149145">
+w must also be represented explicitly in the automaton,
+even if its weight is 0.
+</bodyText>
+<subsectionHeader confidence="0.971861">
+3.4 The perceptron algorithm
+</subsectionHeader>
+<bodyText confidence="0.9791475">
+The perceptron algorithm is incremental, meaning that
+the language model D is built one training example at
+a time, during several passes over the training set. Ini-
+tially, we build D to accept all strings in
+with weight
+0. For the perceptron experiments, we chose the param-
+eter 0 to be a fixed constant, chosen by optimization on
+the held-out set. The loop in the algorithm in figure 1 is
+implemented as:
+For t = 1 . . . T, i = 1 . . . N:
+</bodyText>
+<equation confidence="0.934464">
+Calculate zi = argmaxyGEN(x) (x, y)
+= BestPath(0Li D)
+</equation>
+<bodyText confidence="0.992044333333334">
+If zi 6= MinErr(Li, ri), then update the feature
+weights as in figure 1 (modulo the sign, because of
+the use of costs), and modify D so as to assign the
+correct weight to all strings.
+In addition, averaged parameters need to be stored
+(see section 2.2). These parameters will replace the un-
+averaged parameters in D once training is completed.
+Note that the only n-gram features to be included in
+D at the end of the training process are those that oc-
+cur in either a best scoring path zi or a minimum error
+path yi at some point during training. Thus the percep-
+tron algorithm is in effect doing feature selection as a
+by-product of training. Given N training examples, and
+T passes over the training set, O(NT) n-grams will have
+non-zero weight after training. Experiments in Roark et
+al. (2004) suggest that the perceptron reaches optimal
+performance after a small number of training iterations,
+for example T = 1 or T = 2. Thus O(NT) can be very
+small compared to the full number of n-grams seen in
+all training lattices. In our experiments, the perceptron
+method chose around 1.4 million n-grams with non-zero
+weight. This compares to 43.65 million possible n-grams
+seen in the training data.
+This is a key contrast with conditional random fields,
+which optimize the parameters of a fixed feature set. Fea-
+ture selection can be critical in our domain, as training
+and applying a discriminative language model over all
+n-grams seen in the training data (in either correct or in-
+correct transcriptions) may be computationally very de-
+manding. One training scenario that we will consider
+will be using the output of the perceptron algorithm (the
+averaged parameters) to provide the feature set and the
+initial feature weights for use in the CRF algorithm. This
+leads to a model which is reasonably sparse, but has the
+benefit of CRF training, which as we will see gives gains
+in performance.
+</bodyText>
+<subsectionHeader confidence="0.958149">
+3.5 Conditional Random Fields
+</subsectionHeader>
+<bodyText confidence="0.996152384615385">
+The CRF methods that we use assume a fixed definition
+of the n-gram features i for i = 1 . . . d in the model.
+In the experimental section we will describe a number of
+ways of defining the feature set. The optimization meth-
+ods we use begin at some initial setting for , and then
+search for the parameters
+which maximize LLR()
+as defined in Eq. 3.
+The optimization method requires calculation of
+LLR() and the gradient of LLR() for a series of val-
+ues for . The first step in calculating these quantities is
+to take the parameter values , and to construct an ac-
+ceptor D which accepts all strings in
+</bodyText>
+<equation confidence="0.9796023">
+, such that
+wD[] =
+d
+X
+j=1
+j(x, l[])j
+For each training lattice Li, we then construct a new lat-
+tice L0
+i = Norm(0Li D). The lattice L0
+i represents
+</equation>
+<bodyText confidence="0.9593731">
+(in the log domain) the distribution p(y|xi) over strings
+y GEN(xi). The value of log p(yi|xi) for any i can
+be computed by simply taking the path weight of such
+that l[] = yi in the new lattice L0
+i. Hence computation
+of LLR() in Eq. 3 is straightforward.
+Calculating the n-gram feature gradients for the CRF
+optimization is also relatively simple, once L0
+i has been
+constructed. From the derivative in Eq. 4, for each i =
+</bodyText>
+<equation confidence="0.9938058">
+1 . . . N, j = 1 . . . d the quantity
+j(xi, yi)
+X
+yGEN(xi)
+p(y|xi)j(xi, y) (8)
+</equation>
+<bodyText confidence="0.829131">
+must be computed. The first term is simply the num-
+ber of times the jth n-gram feature is seen in yi. The
+second term is the expected number of times that the
+jth n-gram is seen in the acceptor L0
+i. If the jth
+</bodyText>
+<equation confidence="0.6832105">
+n-gram is w1 . . . wn, then this can be computed as
+ExpCount(L0
+</equation>
+<bodyText confidence="0.9423205">
+i, w1 . . . wn). The GRM library, which
+was presented in Allauzen et al. (2003), has a direct im-
+plementation of the function ExpCount, which simul-
+taneously calculates the expected value of all n-grams of
+order less than or equal to a given n in a lattice L.
+The one non-ngram feature weight that is being esti-
+mated is the weight 0 given to the baseline ASR nega-
+tive log probability. Calculation of the gradient of LLR
+with respect to this parameter again requires calculation
+of the term in Eq. 8 for j = 0 and i = 1 . . . N. Com-
+</bodyText>
+<equation confidence="0.846896666666667">
+putation of
+P
+yGEN(xi) p(y|xi)0(xi, y) turns out to
+</equation>
+<bodyText confidence="0.999661857142857">
+be not as straightforward as calculating n-gram expec-
+tations. To do so, we rely upon the fact that 0(xi, y),
+the negative log probability of the path, decomposes to
+\x0cthe sum of negative log probabilities of each transition
+in the path. We index each transition in the lattice Li,
+and store its negative log probability under the baseline
+model. We can then calculate the required gradient from
+</bodyText>
+<page confidence="0.601989">
+L0
+</page>
+<bodyText confidence="0.912999571428571">
+i, by calculating the expected value in L0
+i of each in-
+dexed transition in Li.
+We found that an approximation to the gradient of
+0, however, performed nearly identically to this exact
+gradient, while requiring substantially less computation.
+Let wn
+</bodyText>
+<footnote confidence="0.919349545454546">
+1 be a string of n words, labeling a path in word-
+lattice L0
+i. For brevity, let Pi(wn
+1 ) = p(wn
+1 |xi) be the
+conditional probability under the current model, and let
+Qi(wn
+1 ) be the probability of wn
+1 in the normalized base-
+line ASR lattice Norm(Li). Let Li be the set of strings
+in the language defined by Li. Then we wish to compute
+</footnote>
+<figure confidence="0.94451740625">
+Ei for i = 1 . . . N, where
+Ei =
+X
+wn
+1 Li
+Pi(wn
+1 ) log Qi(wn
+1 )
+=
+X
+wn
+1 Li
+X
+k=1...n
+Pi(wn
+1 ) log Qi(wk|wk1
+1 ) (9)
+The approximation is to make the following Markov
+assumption:
+Ei
+X
+wn
+1 Li
+X
+k=1...n
+Pi(wn
+1 ) log Qi(wk|wk1
+k2)
+=
+X
+xyzSi
+ExpCount(L0
+</figure>
+<equation confidence="0.775144">
+i, xyz) log Qi(z|xy)(10)
+</equation>
+<bodyText confidence="0.9803809375">
+where Si is the set of all trigrams seen in Li. The term
+log Qi(z|xy) can be calculated once before training for
+every lattice in the training set; the ExpCount term is
+calculated as before using the GRM library. We have
+found this approximation to be effective in practice, and
+it was used for the trials reported below.
+When the gradients and conditional likelihoods are
+collected from all of the utterances in the training set, the
+contributions from the regularizer are combined to give
+an overall gradient and objective function value. These
+values are provided to the parameter estimation routine,
+which then returns the parameters for use in the next it-
+eration. The accumulation of gradients for the feature set
+is the most time consuming part of the approach, but this
+is parallelizable, so that the computation can be divided
+among many processors.
+</bodyText>
+<sectionHeader confidence="0.993127" genericHeader="method">
+4 Empirical Results
+</sectionHeader>
+<bodyText confidence="0.987693272727273">
+We present empirical results on the Rich Transcription
+2002 evaluation test set (rt02), which we used as our de-
+velopment set, as well as on the Rich Transcription 2003
+Spring evaluation CTS test set (rt03). The rt02 set con-
+sists of 6081 sentences (63804 words) and has three sub-
+sets: Switchboard 1, Switchboard 2, Switchboard Cel-
+lular. The rt03 set consists of 9050 sentences (76083
+words) and has two subsets: Switchboard and Fisher.
+We used the same training set as that used in Roark
+et al. (2004). The training set consists of 276726 tran-
+scribed utterances (3047805 words), with an additional
+</bodyText>
+<figure confidence="0.825661">
+20854 utterances (249774 words) as held out data. For
+0 500 1000
+37
+37.5
+38
+38.5
+39
+39.5
+40
+Iterations over training
+Word
+error
+rate
+Baseline recognizer
+Perceptron, Feat=PL, Lattice
+Perceptron, Feat=PN, N=1000
+CRF, = , Feat=PL, Lattice
+CRF, = 0.5, Feat=PL, Lattice
+CRF, = 0.5, Feat=PN, N=1000
+</figure>
+<figureCaption confidence="0.999232">
+Figure 3: Word error rate on the rt02 eval set versus training
+</figureCaption>
+<bodyText confidence="0.980470783783784">
+iterations for CRF trials, contrasted with baseline recognizer
+performance and perceptron performance. Points are at every
+20 iterations. Each point (x,y) is the WER at the iteration with
+the best objective function value in the interval (x-20,x].
+each utterance, a weighted word-lattice was produced,
+representing alternative transcriptions, from the ASR
+system. From each word-lattice, the oracle best path
+was extracted, which gives the best word-error rate from
+among all of the hypotheses in the lattice. The oracle
+word-error rate for the training set lattices was 12.2%.
+We also performed trials with 1000-best lists for the same
+training set, rather than lattices. The oracle score for the
+1000-best lists was 16.7%.
+To produce the word-lattices, each training utterance
+was processed by the baseline ASR system. However,
+these same utterances are what the acoustic and language
+models are built from, which leads to better performance
+on the training utterances than can be expected when the
+ASR system processes unseen utterances. To somewhat
+control for this, the training set was partitioned into 28
+sets, and baseline Katz backoff trigram models were built
+for each set by including only transcripts from the other
+27 sets. Since language models are generally far more
+prone to overtrain than standard acoustic models, this
+goes a long way toward making the training conditions
+similar to testing conditions.
+There are three baselines against which we are com-
+paring. The first is the ASR baseline, with no reweight-
+ing from a discriminatively trained n-gram model. The
+other two baselines are with perceptron-trained n-gram
+model re-weighting, and were reported in Roark et al.
+(2004). The first of these is for a pruned-lattice trained
+trigram model, which showed a reduction in word er-
+ror rate (WER) of 1.3%, from 39.2% to 37.9% on rt02.
+The second is for a 1000-best list trained trigram model,
+which performed only marginally worse than the lattice-
+trained perceptron, at 38.0% on rt02.
+</bodyText>
+<subsectionHeader confidence="0.996518">
+4.1 Perceptron feature set
+</subsectionHeader>
+<bodyText confidence="0.999162">
+We use the perceptron-trained models as the starting
+point for our CRF algorithm: the feature set given to
+the CRF algorithm is the feature set selected by the per-
+ceptron algorithm; the feature weights are initialized to
+those of the averaged perceptron. Figure 3 shows the
+performance of our three baselines versus three trials of
+</bodyText>
+<figure confidence="0.935183705882353">
+\x0c0 500 1000 1500 2000 2500
+37
+37.5
+38
+38.5
+39
+39.5
+40
+Iterations over training
+Word
+error
+rate
+Baseline recognizer
+Perceptron, Feat=PL, Lattice
+CRF, = 0.5, Feat=PL, Lattice
+CRF, = 0.5, Feat=E, =0.01
+CRF, = 0.5, Feat=E, =0.9
+</figure>
+<figureCaption confidence="0.999798">
+Figure 4: Word error rate on the rt02 eval set versus training
+</figureCaption>
+<bodyText confidence="0.989395375">
+iterations for CRF trials, contrasted with baseline recognizer
+performance and perceptron performance. Points are at every
+20 iterations. Each point (x,y) is the WER at the iteration with
+the best objective function value in the interval (x-20,x].
+the CRF algorithm. In the first two trials, the training
+set consists of the pruned lattices, and the feature set
+is from the perceptron algorithm trained on pruned lat-
+tices. There were 1.4 million features in this feature set.
+The first trial set the regularizer constant = , so that
+the algorithm was optimizing raw conditional likelihood.
+The second trial is with the regularizer constant = 0.5,
+which we found empirically to be a good parameteriza-
+tion on the held-out set. As can be seen from these re-
+sults, regularization is critical.
+The third trial in this set uses the feature set from the
+perceptron algorithm trained on 1000-best lists, and uses
+CRF optimization on these on these same 1000-best lists.
+There were 0.9 million features in this feature set. For
+this trial, we also used = 0.5. As with the percep-
+tron baselines, the n-best trial performs nearly identically
+with the pruned lattices, here also resulting in 37.4%
+WER. This may be useful for techniques that would be
+more expensive to extend to lattices versus n-best lists
+(e.g. models with unbounded dependencies).
+These trials demonstrate that the CRF algorithm can
+do a better job of estimating feature weights than the per-
+ceptron algorithm for the same feature set. As mentioned
+in the earlier section, feature selection is a by-product of
+the perceptron algorithm, but the CRF algorithm is given
+a set of features. The next two trials looked at selecting
+feature sets other than those provided by the perceptron
+algorithm.
+</bodyText>
+<subsectionHeader confidence="0.957485">
+4.2 Other feature sets
+</subsectionHeader>
+<bodyText confidence="0.962618636363636">
+In order for the feature weights to be non-zero in this ap-
+proach, they must be observed in the training set. The
+number of unigram, bigram and trigram features with
+non-zero observations in the training set lattices is 43.65
+million, or roughly 30 times the size of the perceptron
+feature set. Many of these features occur only rarely
+with very low conditional probabilities, and hence cannot
+meaningfully impact system performance. We pruned
+this feature set to include all unigrams and bigrams, but
+only those trigrams with an expected count of greater
+than 0.01 in the training set. That is, to be included, a
+</bodyText>
+<table confidence="0.956381375">
+Trial Iter rt02 rt03
+ASR Baseline - 39.2 38.2
+Perceptron, Lattice - 37.9 36.9
+Perceptron, N-best - 38.0 37.2
+CRF, Lattice, Percep Feats (1.4M) 769 37.4 36.5
+CRF, N-best, Percep Feats (0.9M) 946 37.4 36.6
+CRF, Lattice, = 0.01 (12M) 2714 37.6 36.5
+CRF, Lattice, = 0.9 (1.5M) 1679 37.5 36.6
+</table>
+<tableCaption confidence="0.994886">
+Table 1: Word-error rate results at convergence iteration for
+</tableCaption>
+<bodyText confidence="0.998488039215686">
+various trials, on both Switchboard 2002 test set (rt02), which
+was used as the dev set, and Switchboard 2003 test set (rt03).
+trigram must occur in a set of paths, the sum of the con-
+ditional probabilities of which must be greater than our
+threshold = 0.01. This threshold resulted in a feature
+set of roughly 12 million features, nearly 10 times the
+size of the perceptron feature set. For better comparabil-
+ity with that feature set, we set our thresholds higher, so
+that trigrams were pruned if their expected count fell be-
+low = 0.9, and bigrams were pruned if their expected
+count fell below = 0.1. We were concerned that this
+may leave out some of the features on the oracle paths, so
+we added back in all bigram and trigram features that oc-
+curred on oracle paths, giving a feature set of 1.5 million
+features, roughly the same size as the perceptron feature
+set.
+Figure 4 shows the results for three CRF trials versus
+our ASR baseline and the perceptron algorithm baseline
+trained on lattices. First, the result using the perceptron
+feature set provides us with a WER of 37.4%, as pre-
+viously shown. The WER at convergence for the big
+feature set (12 million features) is 37.6%; the WER at
+convergence for the smaller feature set (1.5 million fea-
+tures) is 37.5%. While both of these other feature sets
+converge to performance close to that using the percep-
+tron features, the number of iterations over the training
+data that are required to reach that level of performance
+are many more than for the perceptron-initialized feature
+set.
+Table 1 shows the word-error rate at the convergence
+iteration for the various trials, on both rt02 and rt03. All
+of the CRF trials are significantly better than the percep-
+tron performance, using the Matched Pair Sentence Seg-
+ment test for WER included with SCTK (NIST, 2000).
+On rt02, the N-best and perceptron initialized CRF trials
+were were significantly better than the lattice perceptron
+at p &amp;lt; 0.001; the other two CRF trials were significantly
+better than the lattice perceptron at p &amp;lt; 0.01. On rt03,
+the N-best CRF trial was significantly better than the lat-
+tice perceptron at p &amp;lt; 0.002; the other three CRF tri-
+als were significantly better than the lattice perceptron at
+p &amp;lt; 0.001.
+Finally, we measured the time of a single iteration over
+the training data on a single machine for the perceptron
+algorithm, the CRF algorithm using the approximation to
+the gradient of 0, and the CRF algorithm using an exact
+gradient of 0. Table 2 shows these times in hours. Be-
+cause of the frequent update of the weights in the model,
+the perceptron algorithm is more expensive than the CRF
+algorithm for a single iteration. Further, the CRF algo-
+rithm is parallelizable, so that most of the work of an
+</bodyText>
+<table confidence="0.9388288">
+\x0cCRF
+Features Percep approx exact
+Lattice, Percep Feats (1.4M) 7.10 1.69 3.61
+N-best, Percep Feats (0.9M) 3.40 0.96 1.40
+Lattice, = 0.01 (12M) - 2.24 4.75
+</table>
+<tableCaption confidence="0.973456">
+Table 2: Time (in hours) for one iteration on a single Intel
+</tableCaption>
+<bodyText confidence="0.977725875">
+Xeon 2.4Ghz processor with 4GB RAM.
+iteration can be shared among multiple processors. Our
+most common training setup for the CRF algorithm was
+parallelized between 20 processors, using the approxi-
+mation to the gradient. In that setup, using the 1.4M fea-
+ture set, one iteration of the perceptron algorithm took
+the same amount of real time as approximately 80 itera-
+tions of CRF.
+</bodyText>
+<sectionHeader confidence="0.99904" genericHeader="conclusions">
+5 Conclusion
+</sectionHeader>
+<bodyText confidence="0.999927033333334">
+We have contrasted two approaches to discriminative
+language model estimation on a difficult large vocabu-
+lary task, showing that they can indeed scale effectively
+to handle this size of a problem. Both algorithms have
+their benefits. The perceptron algorithm selects a rela-
+tively small subset of the total feature set, and requires
+just a couple of passes over the training data. The CRF
+algorithm does a better job of parameter estimation for
+the same feature set, and is parallelizable, so that each
+pass over the training set can require just a fraction of
+the real time of the perceptron algorithm.
+The best scenario from among those that we investi-
+gated was a combination of both approaches, with the
+output of the perceptron algorithm taken as the starting
+point for CRF estimation.
+As a final point, note that the methods we describe do
+not replace an existing language model, but rather com-
+plement it. The existing language model has the benefit
+that it can be trained on a large amount of text that does
+not have speech transcriptions. It has the disadvantage
+of not being a discriminative model. The new language
+model is trained on the speech transcriptions, meaning
+that it has less training data, but that it has the advan-
+tage of discriminative training and in particular, the ad-
+vantage of being able to learn negative evidence in the
+form of negative weights on n-grams which are rarely
+or never seen in natural language text (e.g., the of),
+but are produced too frequently by the recognizer. The
+methods we describe combines the two language models,
+allowing them to complement each other.
+</bodyText>
+<sectionHeader confidence="0.992045" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.998378">
+Cyril Allauzen, Mehryar Mohri, and Brian Roark. 2003. Generalized
+algorithms for constructing language models. In Proceedings of the
+41st Annual Meeting of the Association for Computational Linguis-
+tics, pages 4047.
+Satish Balay, William D. Gropp, Lois Curfman McInnes, and Barry F.
+Smith. 2002. Petsc users manual. Technical Report ANL-95/11-
+Revision 2.1.2, Argonne National Laboratory.
+Satanjeev Banerjee, Jack Mostow, Joseph Beck, and Wilson Tam.
+2003. Improving language models by learning from speech recog-
+nition errors in a reading tutor that listens. In Proceedings of the
+Second International Conference on Applied Artificial Intelligence,
+Fort Panhala, Kolhapur, India.
+Steven J. Benson and Jorge J. More. 2002. A limited memory vari-
+able metric method for bound constrained minimization. Preprint
+ANL/ACSP909-0901, Argonne National Laboratory.
+Steven J. Benson, Lois Curfman McInnes, Jorge J. More, and Jason
+Sarich. 2002. Tao users manual. Technical Report ANL/MCS-TM-
+242-Revision 1.4, Argonne National Laboratory.
+Zheng Chen, Kai-Fu Lee, and Ming Jing Li. 2000. Discriminative
+training on language model. In Proceedings of the Sixth Interna-
+tional Conference on Spoken Language Processing (ICSLP), Bei-
+jing, China.
+Michael Collins. 2002. Discriminative training methods for hidden
+markov models: Theory and experiments with perceptron algo-
+rithms. In Proceedings of the Conference on Empirical Methods
+in Natural Language Processing (EMNLP), pages 18.
+Michael Collins. 2004. Parameter estimation for statistical parsing
+models: Theory and practice of distribution-free methods. In Harry
+Bunt, John Carroll, and Giorgio Satta, editors, New Developments
+in Parsing Technology. Kluwer.
+Yoav Freund and Robert Schapire. 1999. Large margin classification
+using the perceptron algorithm. Machine Learning, 3(37):277296.
+Frederick Jelinek. 1995. Acoustic sensitive language modeling. Tech-
+nical report, Center for Language and Speech Processing, Johns
+Hopkins University, Baltimore, MD.
+Mark Johnson, Stuart Geman, Steven Canon, Zhiyi Chi, and Stefan
+Riezler. 1999. Estimators for stochastic unification-based gram-
+mars. In Proceedings of the 37th Annual Meeting of the Association
+for Computational Linguistics, pages 535541.
+Sanjeev Khudanpur and Jun Wu. 2000. Maximum entropy techniques
+for exploiting syntactic, semantic and collocational dependencies in
+language modeling. Computer Speech and Language, 14(4):355
+372.
+Hong-Kwang Jeff Kuo, Eric Fosler-Lussier, Hui Jiang, and Chin-
+Hui Lee. 2002. Discriminative training of language models for
+speech recognition. In Proceedings of the International Conference
+on Acoustics, Speech, and Signal Processing (ICASSP), Orlando,
+Florida.
+John Lafferty, Andrew McCallum, and Fernando Pereira. 2001. Con-
+ditional random fields: Probabilistic models for segmenting and
+labeling sequence data. In Proc. ICML, pages 282289, Williams
+College, Williamstown, MA, USA.
+Robert Malouf. 2002. A comparison of algorithms for maximum en-
+tropy parameter estimation. In Proc. CoNLL, pages 4955.
+Andrew McCallum and Wei Li. 2003. Early results for named entity
+recognition with conditional random fields, feature induction and
+web-enhanced lexicons. In Proc. CoNLL.
+Mehryar Mohri, Fernando C. N. Pereira, and Michael Riley. 2002.
+Weighted finite-state transducers in speech recognition. Computer
+Speech and Language, 16(1):6988.
+NIST. 2000. Speech recognition scoring toolkit (sctk) version 1.2c.
+Available at http://www.nist.gov/speech/tools.
+David Pinto, Andrew McCallum, Xing Wei, and W. Bruce Croft. 2003.
+Table extraction using conditional random fields. In Proc. ACM SI-
+GIR.
+Adwait Ratnaparkhi, Salim Roukos, and R. Todd Ward. 1994. A max-
+imum entropy model for parsing. In Proceedings of the Interna-
+tional Conference on Spoken Language Processing (ICSLP), pages
+803806.
+Brian Roark, Murat Saraclar, and Michael Collins. 2004. Corrective
+language modeling for large vocabulary ASR with the perceptron al-
+gorithm. In Proceedings of the International Conference on Acous-
+tics, Speech, and Signal Processing (ICASSP), pages 749752.
+Fei Sha and Fernando Pereira. 2003. Shallow parsing with conditional
+random fields. In Proc. HLT-NAACL, Edmonton, Canada.
+A. Stolcke and M. Weintraub. 1998. Discriminitive language model-
+ing. In Proceedings of the 9th Hub-5 Conversational Speech Recog-
+nition Workshop.
+A. Stolcke, H. Bratt, J. Butzberger, H. Franco, V. R. Rao Gadde,
+M. Plauche, C. Richey, E. Shriberg, K. Sonmez, F. Weng, and
+J. Zheng. 2000. The SRI March 2000 Hub-5 conversational speech
+transcription system. In Proceedings of the NIST Speech Transcrip-
+tion Workshop.
+Hanna Wallach. 2002. Efficient training of conditional random fields.
+Masters thesis, University of Edinburgh.
+P.C. Woodland and D. Povey. 2000. Large scale discriminative training
+for speech recognition. In Proc. ISCA ITRW ASR2000, pages 716.
+\x0c&amp;apos;
+</reference>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.644996">
+<title confidence="0.998052">b&amp;apos;Discriminative Language Modeling with Conditional Random Fields and the Perceptron Algorithm</title>
+<author confidence="0.999704">Brian Roark Murat Saraclar</author>
+<affiliation confidence="0.980204">AT&amp;T Labs - Research</affiliation>
+<email confidence="0.998604">roark@research.att.com</email>
+<email confidence="0.998604">murat@research.att.com</email>
+<author confidence="0.999992">Michael Collins Mark Johnson</author>
+<affiliation confidence="0.998334">MIT CSAIL Brown University</affiliation>
+<author confidence="0.936142">mcollinscsail mit edu Mark JohnsonBrown edu</author>
+<abstract confidence="0.966743875">This paper describes discriminative language modeling for a large vocabulary speech recognition task. We contrast two parameter estimation methods: the perceptron algorithm, and a method based on conditional random fields (CRFs). The models are encoded as deterministic weighted finite state automata, and are applied by intersecting the automata with word-lattices that are the output from a baseline recognizer. The perceptron algorithm has the benefit of automatically selecting a relatively small feature set in just a couple of passes over the training data. However, using the feature set output from the perceptron algorithm (initialized with their weights), CRF training provides an additional 0.5% reduction in word error rate, for a total 1.8% absolute reduction from the baseline of 39.2%.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Cyril Allauzen</author>
+<author>Mehryar Mohri</author>
+<author>Brian Roark</author>
+</authors>
+<title>Generalized algorithms for constructing language models.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the 41st Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<pages>4047</pages>
+<contexts>
+<context position="19920" citStr="Allauzen et al., 2003" startWordPosition="3532" endWordPosition="3535">m features i for i = 1 . . . d implemented by D. The second concerns the choice of parameters i for i = 0 . . . d which assign weights to the n-gram features as well as the baseline feature 0. Before describing methods for training a discriminative language model using perceptron and CRF algorithms, we give a little more detail about the structure of D, focusing on how n-gram language models can be implemented with finite-state techniques. 3.3 Representation of n-gram language models An n-gram model can be efficiently represented in a deterministic WFA, through the use of failure transitions (Allauzen et al., 2003). Every string accepted by such an automaton has a single path through the automaton, and the weight of the string is the sum of the weights of the transitions in that path. In such a representation, every state in the automaton represents an n-gram history h, e.g. wi2wi1, and there are transitions leaving the state for every word wi such that the feature hwi has a weight. There is also a failure transition leaving the state, labeled with some reserved symbol , which can only be traversed if the next symbol in the input does not match any transition leaving the state. This failure transition p</context>
+<context position="25784" citStr="Allauzen et al. (2003)" startWordPosition="4610" endWordPosition="4613">3 is straightforward. Calculating the n-gram feature gradients for the CRF optimization is also relatively simple, once L0 i has been constructed. From the derivative in Eq. 4, for each i = 1 . . . N, j = 1 . . . d the quantity j(xi, yi) X yGEN(xi) p(y|xi)j(xi, y) (8) must be computed. The first term is simply the number of times the jth n-gram feature is seen in yi. The second term is the expected number of times that the jth n-gram is seen in the acceptor L0 i. If the jth n-gram is w1 . . . wn, then this can be computed as ExpCount(L0 i, w1 . . . wn). The GRM library, which was presented in Allauzen et al. (2003), has a direct implementation of the function ExpCount, which simultaneously calculates the expected value of all n-grams of order less than or equal to a given n in a lattice L. The one non-ngram feature weight that is being estimated is the weight 0 given to the baseline ASR negative log probability. Calculation of the gradient of LLR with respect to this parameter again requires calculation of the term in Eq. 8 for j = 0 and i = 1 . . . N. Computation of P yGEN(xi) p(y|xi)0(xi, y) turns out to be not as straightforward as calculating n-gram expectations. To do so, we rely upon the fact that</context>
+</contexts>
+<marker>Allauzen, Mohri, Roark, 2003</marker>
+<rawString>Cyril Allauzen, Mehryar Mohri, and Brian Roark. 2003. Generalized algorithms for constructing language models. In Proceedings of the 41st Annual Meeting of the Association for Computational Linguistics, pages 4047.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Satish Balay</author>
+<author>William D Gropp</author>
+<author>Lois Curfman McInnes</author>
+<author>Barry F Smith</author>
+</authors>
+<title>Petsc users manual.</title>
+<date>2002</date>
+<tech>Technical Report ANL-95/11-Revision 2.1.2,</tech>
+<institution>Argonne National Laboratory.</institution>
+<contexts>
+<context position="11040" citStr="Balay et al., 2002" startWordPosition="1822" endWordPosition="1825">ted in figure 1. \x0cFollowing Johnson et al. (1999) and Lafferty et al. (2001), we use a zero-mean Gaussian prior on the parameters resulting in the regularized objective function: LLR() = N X i=1 [(xi, yi) log Z(xi, )] |2 22 (3) The value dictates the relative influence of the loglikelihood term vs. the prior, and is typically estimated using held-out data. The optimal parameters under this criterion are = argmax LLR(). We use a limited memory variable metric method (Benson and More, 2002) to optimize LLR. There is a general implementation of this method in the Tao/PETSc software libraries (Balay et al., 2002; Benson et al., 2002). This technique has been shown to be very effective in a variety of NLP tasks (Malouf, 2002; Wallach, 2002). The main interface between the optimizer and the training data is a procedure which takes a parameter vector as input, and in turn returns LLR() as well as the gradient of LLR at . The derivative of the objective function with respect to a parameter s at parameter values is LLR s = N X i=1 s(xi, yi) X yGEN(xi) p(y|xi)s(xi, y) s 2 (4) Note that LLR() is a convex function, so that there is a globally optimal solution and the optimization method will find it. The use</context>
+</contexts>
+<marker>Balay, Gropp, McInnes, Smith, 2002</marker>
+<rawString>Satish Balay, William D. Gropp, Lois Curfman McInnes, and Barry F. Smith. 2002. Petsc users manual. Technical Report ANL-95/11-Revision 2.1.2, Argonne National Laboratory.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Satanjeev Banerjee</author>
+<author>Jack Mostow</author>
+<author>Joseph Beck</author>
+<author>Wilson Tam</author>
+</authors>
+<title>Improving language models by learning from speech recognition errors in a reading tutor that listens.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the Second International Conference on Applied Artificial Intelligence,</booktitle>
+<location>Fort Panhala, Kolhapur, India.</location>
+<contexts>
+<context position="6213" citStr="Banerjee et al. (2003)" startWordPosition="958" endWordPosition="961">oaches including MMIE with mixed results. This work was followed up with some success by Stolcke et al. (2000) where an antiLM, estimated from weighted N-best hypotheses of a baseline ASR system, was used with a negative weight in combination with the baseline LM. Chen et al. (2000) presented a method based on changing the trigram counts discriminatively, together with changing the lexicon to add new words. Kuo et al. (2002) used the generalized probabilistic descent algorithm to train relatively small language models which attempt to minimize string error rate on the DARPA Communicator task. Banerjee et al. (2003) used a language model modification algorithm in the context of a reading tutor that listens. Their algorithm first uses a classifier to predict what effect each parameter has on the error rate, and then modifies the parameters to reduce the error rate based on this prediction. 2 Linear Models, the Perceptron Algorithm, and Conditional Random Fields This section describes a general framework, global linear models, and two parameter estimation methods within the framework, the perceptron algorithm and a method based on conditional random fields. The linear models we describe are general enough </context>
+</contexts>
+<marker>Banerjee, Mostow, Beck, Tam, 2003</marker>
+<rawString>Satanjeev Banerjee, Jack Mostow, Joseph Beck, and Wilson Tam. 2003. Improving language models by learning from speech recognition errors in a reading tutor that listens. In Proceedings of the Second International Conference on Applied Artificial Intelligence, Fort Panhala, Kolhapur, India.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Steven J Benson</author>
+<author>Jorge J More</author>
+</authors>
+<title>A limited memory variable metric method for bound constrained minimization.</title>
+<date>2002</date>
+<tech>Preprint ANL/ACSP909-0901,</tech>
+<institution>Argonne National Laboratory.</institution>
+<contexts>
+<context position="10918" citStr="Benson and More, 2002" startWordPosition="1802" endWordPosition="1805"> yi) log Z(xi, )] (2) 2Note that here lattice weights are interpreted as costs, which changes the sign in the algorithm presented in figure 1. \x0cFollowing Johnson et al. (1999) and Lafferty et al. (2001), we use a zero-mean Gaussian prior on the parameters resulting in the regularized objective function: LLR() = N X i=1 [(xi, yi) log Z(xi, )] |2 22 (3) The value dictates the relative influence of the loglikelihood term vs. the prior, and is typically estimated using held-out data. The optimal parameters under this criterion are = argmax LLR(). We use a limited memory variable metric method (Benson and More, 2002) to optimize LLR. There is a general implementation of this method in the Tao/PETSc software libraries (Balay et al., 2002; Benson et al., 2002). This technique has been shown to be very effective in a variety of NLP tasks (Malouf, 2002; Wallach, 2002). The main interface between the optimizer and the training data is a procedure which takes a parameter vector as input, and in turn returns LLR() as well as the gradient of LLR at . The derivative of the objective function with respect to a parameter s at parameter values is LLR s = N X i=1 s(xi, yi) X yGEN(xi) p(y|xi)s(xi, y) s 2 (4) Note that </context>
+</contexts>
+<marker>Benson, More, 2002</marker>
+<rawString>Steven J. Benson and Jorge J. More. 2002. A limited memory variable metric method for bound constrained minimization. Preprint ANL/ACSP909-0901, Argonne National Laboratory.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Steven J Benson</author>
+<author>Lois Curfman McInnes</author>
+<author>Jorge J More</author>
+<author>Jason Sarich</author>
+</authors>
+<title>Tao users manual.</title>
+<date>2002</date>
+<tech>Technical Report ANL/MCS-TM242-Revision 1.4,</tech>
+<institution>Argonne National Laboratory.</institution>
+<contexts>
+<context position="11062" citStr="Benson et al., 2002" startWordPosition="1826" endWordPosition="1829">cFollowing Johnson et al. (1999) and Lafferty et al. (2001), we use a zero-mean Gaussian prior on the parameters resulting in the regularized objective function: LLR() = N X i=1 [(xi, yi) log Z(xi, )] |2 22 (3) The value dictates the relative influence of the loglikelihood term vs. the prior, and is typically estimated using held-out data. The optimal parameters under this criterion are = argmax LLR(). We use a limited memory variable metric method (Benson and More, 2002) to optimize LLR. There is a general implementation of this method in the Tao/PETSc software libraries (Balay et al., 2002; Benson et al., 2002). This technique has been shown to be very effective in a variety of NLP tasks (Malouf, 2002; Wallach, 2002). The main interface between the optimizer and the training data is a procedure which takes a parameter vector as input, and in turn returns LLR() as well as the gradient of LLR at . The derivative of the objective function with respect to a parameter s at parameter values is LLR s = N X i=1 s(xi, yi) X yGEN(xi) p(y|xi)s(xi, y) s 2 (4) Note that LLR() is a convex function, so that there is a globally optimal solution and the optimization method will find it. The use of the Gaussian prior</context>
+</contexts>
+<marker>Benson, McInnes, More, Sarich, 2002</marker>
+<rawString>Steven J. Benson, Lois Curfman McInnes, Jorge J. More, and Jason Sarich. 2002. Tao users manual. Technical Report ANL/MCS-TM242-Revision 1.4, Argonne National Laboratory.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Zheng Chen</author>
+<author>Kai-Fu Lee</author>
+<author>Ming Jing Li</author>
+</authors>
+<title>Discriminative training on language model.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the Sixth International Conference on Spoken Language Processing (ICSLP),</booktitle>
+<location>Beijing, China.</location>
+<contexts>
+<context position="5874" citStr="Chen et al. (2000)" startWordPosition="907" endWordPosition="910">o concerns about training time, a language model with fewer features is likely to be considerably more efficient when decoding new utterances. \x0care estimated by minimizing H(W|A), the expected uncertainty of the spoken text W, given the acoustic sequence A. Stolcke and Weintraub (1998) experimented with various discriminative approaches including MMIE with mixed results. This work was followed up with some success by Stolcke et al. (2000) where an antiLM, estimated from weighted N-best hypotheses of a baseline ASR system, was used with a negative weight in combination with the baseline LM. Chen et al. (2000) presented a method based on changing the trigram counts discriminatively, together with changing the lexicon to add new words. Kuo et al. (2002) used the generalized probabilistic descent algorithm to train relatively small language models which attempt to minimize string error rate on the DARPA Communicator task. Banerjee et al. (2003) used a language model modification algorithm in the context of a reading tutor that listens. Their algorithm first uses a classifier to predict what effect each parameter has on the error rate, and then modifies the parameters to reduce the error rate based on</context>
+</contexts>
+<marker>Chen, Lee, Li, 2000</marker>
+<rawString>Zheng Chen, Kai-Fu Lee, and Ming Jing Li. 2000. Discriminative training on language model. In Proceedings of the Sixth International Conference on Spoken Language Processing (ICSLP), Beijing, China.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+</authors>
+<title>Discriminative training methods for hidden markov models: Theory and experiments with perceptron algorithms.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP),</booktitle>
+<pages>18</pages>
+<contexts>
+<context position="7255" citStr="Collins (2002" startWordPosition="1127" endWordPosition="1128">ameter estimation methods within the framework, the perceptron algorithm and a method based on conditional random fields. The linear models we describe are general enough to be applicable to a diverse range of NLP and speech tasks this section gives a general description of the approach. In the next section of the paper we describe how global linear models can be applied to speech recognition. In particular, we focus on how the decoding and parameter estimation problems can be implemented over lattices using finite-state techniques. 2.1 Global linear models We follow the framework outlined in Collins (2002; 2004). The task is to learn a mapping from inputs x X to outputs y Y. We assume the following components: (1) Training examples (xi, yi) for i = 1 . . . N. (2) A function GEN which enumerates a set of candidates GEN(x) for an input x. (3) A representation mapping each (x, y) X Y to a feature vector (x, y) Rd . (4) A parameter vector Rd . The components GEN, and define a mapping from an input x to an output F(x) through F(x) = argmax yGEN(x) (x, y) (1) where (x, y) is the inner product P s ss(x, y). The learning task is to set the parameter values using the training examples as evidence. The </context>
+<context position="9165" citStr="Collins (2002)" startWordPosition="1491" endWordPosition="1492">ceptron algorithm is shown in figure 1. At each training example (xi, yi), the current best-scoring hypothesis zi is found, and if it differs from the reference yi , then the cost of each feature2 is increased by the count of that feature in zi and decreased by the count of that feature in yi. The features in the model are updated, and the algorithm moves to the next utterance. After each pass over the training data, performance on a held-out data set is evaluated, and the parameterization with the best performance on the held out set is what is ultimately produced by the algorithm. Following Collins (2002), we used the averaged parameters from the training algorithm in decoding heldout and test examples in our experiments. Say t i is the parameter vector after the ith example is processed on the tth pass through the data in the algorithm in figure 1. Then the averaged parameters AV G are defined as AV G = P i,t t i/NT. Freund and Schapire (1999) originally proposed the averaged parameter method; it was shown to give substantial improvements in accuracy for tagging tasks in Collins (2002). 2.3 Conditional Random Fields Conditional Random Fields have been applied to NLP tasks such as parsing (Rat</context>
+</contexts>
+<marker>Collins, 2002</marker>
+<rawString>Michael Collins. 2002. Discriminative training methods for hidden markov models: Theory and experiments with perceptron algorithms. In Proceedings of the Conference on Empirical Methods in Natural Language Processing (EMNLP), pages 18.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+</authors>
+<title>Parameter estimation for statistical parsing models: Theory and practice of distribution-free methods.</title>
+<date>2004</date>
+<booktitle>New Developments in Parsing Technology.</booktitle>
+<editor>In Harry Bunt, John Carroll, and Giorgio Satta, editors,</editor>
+<publisher>Kluwer.</publisher>
+<contexts>
+<context position="12250" citStr="Collins (2004)" startWordPosition="2038" endWordPosition="2039"> use of the Gaussian prior term | 2 /22 in the objective function has been found to be useful in several NLP settings. It effectively ensures that there is a large penalty for parameter values in the model becoming too large as such, it tends to control over-training. The choice of LLR as an objective function can be justified as maximum a-posteriori (MAP) training within a Bayesian approach. An alternative justification comes through a connection to support vector machines and other large margin approaches. SVM-based approaches use an optimization criterion that is closely related to LLR see Collins (2004) for more discussion. 3 Linear models for speech recognition We now describe how the formalism and algorithms in section 2 can be applied to language modeling for speech recognition. 3.1 The basic approach As described in the previous section, linear models require definitions of X, Y, xi, yi, GEN, and a parameter estimation method. In the language modeling setting we take X to be the set of all possible acoustic inputs; Y is the set of all possible strings, , for some vocabulary . Each xi is an utterance (a sequence of acoustic feature-vectors), and GEN(xi) is the set of possible transcriptio</context>
+</contexts>
+<marker>Collins, 2004</marker>
+<rawString>Michael Collins. 2004. Parameter estimation for statistical parsing models: Theory and practice of distribution-free methods. In Harry Bunt, John Carroll, and Giorgio Satta, editors, New Developments in Parsing Technology. Kluwer.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yoav Freund</author>
+<author>Robert Schapire</author>
+</authors>
+<title>Large margin classification using the perceptron algorithm.</title>
+<date>1999</date>
+<booktitle>Machine Learning,</booktitle>
+<volume>3</volume>
+<issue>37</issue>
+<contexts>
+<context position="9511" citStr="Freund and Schapire (1999)" startWordPosition="1556" endWordPosition="1559">and the algorithm moves to the next utterance. After each pass over the training data, performance on a held-out data set is evaluated, and the parameterization with the best performance on the held out set is what is ultimately produced by the algorithm. Following Collins (2002), we used the averaged parameters from the training algorithm in decoding heldout and test examples in our experiments. Say t i is the parameter vector after the ith example is processed on the tth pass through the data in the algorithm in figure 1. Then the averaged parameters AV G are defined as AV G = P i,t t i/NT. Freund and Schapire (1999) originally proposed the averaged parameter method; it was shown to give substantial improvements in accuracy for tagging tasks in Collins (2002). 2.3 Conditional Random Fields Conditional Random Fields have been applied to NLP tasks such as parsing (Ratnaparkhi et al., 1994; Johnson et al., 1999), and tagging or segmentation tasks (Lafferty et al., 2001; Sha and Pereira, 2003; McCallum and Li, 2003; Pinto et al., 2003). CRFs use the parameters to define a conditional distribution over the members of GEN(x) for a given input x: p(y|x) = 1 Z(x, ) exp ((x, y) ) where Z(x, ) = P yGEN(x) exp ((x, </context>
+</contexts>
+<marker>Freund, Schapire, 1999</marker>
+<rawString>Yoav Freund and Robert Schapire. 1999. Large margin classification using the perceptron algorithm. Machine Learning, 3(37):277296.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Frederick Jelinek</author>
+</authors>
+<title>Acoustic sensitive language modeling.</title>
+<date>1995</date>
+<tech>Technical report,</tech>
+<institution>Center for Language and Speech Processing, Johns Hopkins University,</institution>
+<location>Baltimore, MD.</location>
+<contexts>
+<context position="5162" citStr="Jelinek (1995)" startWordPosition="795" endWordPosition="796"> vocabulary ASR has benefitted from discriminative estimation of Hidden Markov Model (HMM) parameters in the form of Maximum Mutual Information Estimation (MMIE) or Conditional Maximum Likelihood Estimation (CMLE). Woodland and Povey (2000) have shown the effectiveness of lattice-based MMIE/CMLE in challenging large scale ASR tasks such as Switchboard. In fact, state-of-the-art acoustic modeling, as seen, for example, at annual Switchboard evaluations, invariably includes some kind of discriminative training. Discriminative estimation of language models has also been proposed in recent years. Jelinek (1995) suggested an acoustic sensitive language model whose parameters 1Note also that in addition to concerns about training time, a language model with fewer features is likely to be considerably more efficient when decoding new utterances. \x0care estimated by minimizing H(W|A), the expected uncertainty of the spoken text W, given the acoustic sequence A. Stolcke and Weintraub (1998) experimented with various discriminative approaches including MMIE with mixed results. This work was followed up with some success by Stolcke et al. (2000) where an antiLM, estimated from weighted N-best hypotheses o</context>
+</contexts>
+<marker>Jelinek, 1995</marker>
+<rawString>Frederick Jelinek. 1995. Acoustic sensitive language modeling. Technical report, Center for Language and Speech Processing, Johns Hopkins University, Baltimore, MD.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mark Johnson</author>
+<author>Stuart Geman</author>
+<author>Steven Canon</author>
+<author>Zhiyi Chi</author>
+<author>Stefan Riezler</author>
+</authors>
+<title>Estimators for stochastic unification-based grammars.</title>
+<date>1999</date>
+<booktitle>In Proceedings of the 37th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<pages>535541</pages>
+<contexts>
+<context position="9809" citStr="Johnson et al., 1999" startWordPosition="1601" endWordPosition="1604">parameters from the training algorithm in decoding heldout and test examples in our experiments. Say t i is the parameter vector after the ith example is processed on the tth pass through the data in the algorithm in figure 1. Then the averaged parameters AV G are defined as AV G = P i,t t i/NT. Freund and Schapire (1999) originally proposed the averaged parameter method; it was shown to give substantial improvements in accuracy for tagging tasks in Collins (2002). 2.3 Conditional Random Fields Conditional Random Fields have been applied to NLP tasks such as parsing (Ratnaparkhi et al., 1994; Johnson et al., 1999), and tagging or segmentation tasks (Lafferty et al., 2001; Sha and Pereira, 2003; McCallum and Li, 2003; Pinto et al., 2003). CRFs use the parameters to define a conditional distribution over the members of GEN(x) for a given input x: p(y|x) = 1 Z(x, ) exp ((x, y) ) where Z(x, ) = P yGEN(x) exp ((x, y) ) is a normalization constant that depends on x and . Given these definitions, the log-likelihood of the training data under parameters is LL() = N X i=1 log p(yi|xi) = N X i=1 [(xi, yi) log Z(xi, )] (2) 2Note that here lattice weights are interpreted as costs, which changes the sign in the alg</context>
+</contexts>
+<marker>Johnson, Geman, Canon, Chi, Riezler, 1999</marker>
+<rawString>Mark Johnson, Stuart Geman, Steven Canon, Zhiyi Chi, and Stefan Riezler. 1999. Estimators for stochastic unification-based grammars. In Proceedings of the 37th Annual Meeting of the Association for Computational Linguistics, pages 535541.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sanjeev Khudanpur</author>
+<author>Jun Wu</author>
+</authors>
+<title>Maximum entropy techniques for exploiting syntactic, semantic and collocational dependencies in language modeling.</title>
+<date>2000</date>
+<journal>Computer Speech and Language,</journal>
+<volume>14</volume>
+<issue>4</issue>
+<pages>372</pages>
+<contexts>
+<context position="4113" citStr="Khudanpur and Wu (2000)" startWordPosition="636" endWordPosition="639">one method for feature selection, selecting around 1.5 million features in total. The CRF trained with this feature set, and initialized with parameters from perceptron training, converges much more quickly than other approaches, and also gives the optimal performance on the held-out set. We explore other approaches to feature selection, but find that the perceptron-based approach gives the best results in our experiments. While we focus on n-gram models, we stress that our methods are applicable to more general language modeling features for example, syntactic features, as explored in, e.g., Khudanpur and Wu (2000). We intend to explore methods with new features in the future. Experimental results with n-gram models on 1000-best lists show a very small drop in accuracy compared to the use of lattices. This is encouraging, in that it suggests that models with more flexible features than n-gram models, which therefore cannot be efficiently used with lattices, may not be unduly harmed by their restriction to n-best lists. 1.1 Related Work Large vocabulary ASR has benefitted from discriminative estimation of Hidden Markov Model (HMM) parameters in the form of Maximum Mutual Information Estimation (MMIE) or </context>
+</contexts>
+<marker>Khudanpur, Wu, 2000</marker>
+<rawString>Sanjeev Khudanpur and Jun Wu. 2000. Maximum entropy techniques for exploiting syntactic, semantic and collocational dependencies in language modeling. Computer Speech and Language, 14(4):355 372.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hong-Kwang Jeff Kuo</author>
+<author>Eric Fosler-Lussier</author>
+<author>Hui Jiang</author>
+<author>ChinHui Lee</author>
+</authors>
+<title>Discriminative training of language models for speech recognition.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the International Conference on Acoustics, Speech, and Signal Processing (ICASSP),</booktitle>
+<location>Orlando, Florida.</location>
+<contexts>
+<context position="6019" citStr="Kuo et al. (2002)" startWordPosition="930" endWordPosition="933">care estimated by minimizing H(W|A), the expected uncertainty of the spoken text W, given the acoustic sequence A. Stolcke and Weintraub (1998) experimented with various discriminative approaches including MMIE with mixed results. This work was followed up with some success by Stolcke et al. (2000) where an antiLM, estimated from weighted N-best hypotheses of a baseline ASR system, was used with a negative weight in combination with the baseline LM. Chen et al. (2000) presented a method based on changing the trigram counts discriminatively, together with changing the lexicon to add new words. Kuo et al. (2002) used the generalized probabilistic descent algorithm to train relatively small language models which attempt to minimize string error rate on the DARPA Communicator task. Banerjee et al. (2003) used a language model modification algorithm in the context of a reading tutor that listens. Their algorithm first uses a classifier to predict what effect each parameter has on the error rate, and then modifies the parameters to reduce the error rate based on this prediction. 2 Linear Models, the Perceptron Algorithm, and Conditional Random Fields This section describes a general framework, global lin</context>
+</contexts>
+<marker>Kuo, Fosler-Lussier, Jiang, Lee, 2002</marker>
+<rawString>Hong-Kwang Jeff Kuo, Eric Fosler-Lussier, Hui Jiang, and ChinHui Lee. 2002. Discriminative training of language models for speech recognition. In Proceedings of the International Conference on Acoustics, Speech, and Signal Processing (ICASSP), Orlando, Florida.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>John Lafferty</author>
+<author>Andrew McCallum</author>
+<author>Fernando Pereira</author>
+</authors>
+<title>Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In</title>
+<date>2001</date>
+<booktitle>Proc. ICML,</booktitle>
+<pages>282289</pages>
+<location>Williams College, Williamstown, MA, USA.</location>
+<contexts>
+<context position="9867" citStr="Lafferty et al., 2001" startWordPosition="1610" endWordPosition="1613"> and test examples in our experiments. Say t i is the parameter vector after the ith example is processed on the tth pass through the data in the algorithm in figure 1. Then the averaged parameters AV G are defined as AV G = P i,t t i/NT. Freund and Schapire (1999) originally proposed the averaged parameter method; it was shown to give substantial improvements in accuracy for tagging tasks in Collins (2002). 2.3 Conditional Random Fields Conditional Random Fields have been applied to NLP tasks such as parsing (Ratnaparkhi et al., 1994; Johnson et al., 1999), and tagging or segmentation tasks (Lafferty et al., 2001; Sha and Pereira, 2003; McCallum and Li, 2003; Pinto et al., 2003). CRFs use the parameters to define a conditional distribution over the members of GEN(x) for a given input x: p(y|x) = 1 Z(x, ) exp ((x, y) ) where Z(x, ) = P yGEN(x) exp ((x, y) ) is a normalization constant that depends on x and . Given these definitions, the log-likelihood of the training data under parameters is LL() = N X i=1 log p(yi|xi) = N X i=1 [(xi, yi) log Z(xi, )] (2) 2Note that here lattice weights are interpreted as costs, which changes the sign in the algorithm presented in figure 1. \x0cFollowing Johnson et al.</context>
+</contexts>
+<marker>Lafferty, McCallum, Pereira, 2001</marker>
+<rawString>John Lafferty, Andrew McCallum, and Fernando Pereira. 2001. Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In Proc. ICML, pages 282289, Williams College, Williamstown, MA, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Robert Malouf</author>
+</authors>
+<title>A comparison of algorithms for maximum entropy parameter estimation.</title>
+<date>2002</date>
+<booktitle>In Proc. CoNLL,</booktitle>
+<pages>4955</pages>
+<contexts>
+<context position="11154" citStr="Malouf, 2002" startWordPosition="1846" endWordPosition="1847">e parameters resulting in the regularized objective function: LLR() = N X i=1 [(xi, yi) log Z(xi, )] |2 22 (3) The value dictates the relative influence of the loglikelihood term vs. the prior, and is typically estimated using held-out data. The optimal parameters under this criterion are = argmax LLR(). We use a limited memory variable metric method (Benson and More, 2002) to optimize LLR. There is a general implementation of this method in the Tao/PETSc software libraries (Balay et al., 2002; Benson et al., 2002). This technique has been shown to be very effective in a variety of NLP tasks (Malouf, 2002; Wallach, 2002). The main interface between the optimizer and the training data is a procedure which takes a parameter vector as input, and in turn returns LLR() as well as the gradient of LLR at . The derivative of the objective function with respect to a parameter s at parameter values is LLR s = N X i=1 s(xi, yi) X yGEN(xi) p(y|xi)s(xi, y) s 2 (4) Note that LLR() is a convex function, so that there is a globally optimal solution and the optimization method will find it. The use of the Gaussian prior term | 2 /22 in the objective function has been found to be useful in several NLP settings.</context>
+</contexts>
+<marker>Malouf, 2002</marker>
+<rawString>Robert Malouf. 2002. A comparison of algorithms for maximum entropy parameter estimation. In Proc. CoNLL, pages 4955.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andrew McCallum</author>
+<author>Wei Li</author>
+</authors>
+<title>Early results for named entity recognition with conditional random fields, feature induction and web-enhanced lexicons.</title>
+<date>2003</date>
+<booktitle>In Proc. CoNLL.</booktitle>
+<contexts>
+<context position="9913" citStr="McCallum and Li, 2003" startWordPosition="1618" endWordPosition="1621"> is the parameter vector after the ith example is processed on the tth pass through the data in the algorithm in figure 1. Then the averaged parameters AV G are defined as AV G = P i,t t i/NT. Freund and Schapire (1999) originally proposed the averaged parameter method; it was shown to give substantial improvements in accuracy for tagging tasks in Collins (2002). 2.3 Conditional Random Fields Conditional Random Fields have been applied to NLP tasks such as parsing (Ratnaparkhi et al., 1994; Johnson et al., 1999), and tagging or segmentation tasks (Lafferty et al., 2001; Sha and Pereira, 2003; McCallum and Li, 2003; Pinto et al., 2003). CRFs use the parameters to define a conditional distribution over the members of GEN(x) for a given input x: p(y|x) = 1 Z(x, ) exp ((x, y) ) where Z(x, ) = P yGEN(x) exp ((x, y) ) is a normalization constant that depends on x and . Given these definitions, the log-likelihood of the training data under parameters is LL() = N X i=1 log p(yi|xi) = N X i=1 [(xi, yi) log Z(xi, )] (2) 2Note that here lattice weights are interpreted as costs, which changes the sign in the algorithm presented in figure 1. \x0cFollowing Johnson et al. (1999) and Lafferty et al. (2001), we use a z</context>
+</contexts>
+<marker>McCallum, Li, 2003</marker>
+<rawString>Andrew McCallum and Wei Li. 2003. Early results for named entity recognition with conditional random fields, feature induction and web-enhanced lexicons. In Proc. CoNLL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mehryar Mohri</author>
+<author>Fernando C N Pereira</author>
+<author>Michael Riley</author>
+</authors>
+<title>Weighted finite-state transducers in speech recognition.</title>
+<date>2002</date>
+<journal>Computer Speech and Language,</journal>
+<volume>16</volume>
+<issue>1</issue>
+<contexts>
+<context position="14479" citStr="Mohri et al. (2002)" startWordPosition="2427" endWordPosition="2430">me training data lattice, i.e., n-grams seen in any word sequence within the lattices. In practice, we consider methods that search for sparse parameter vectors , thus assigning many ngrams 0 weight. This will lead to more efficient algorithms that avoid dealing explicitly with the entire set of n-grams seen in training data. 3.2 Implementation using WFA We now give a brief sketch of how weighted finite-state automata (WFA) can be used to implement linear models for speech recognition. There are several papers describing the use of weighted automata and transducers for speech in detail, e.g., Mohri et al. (2002), but for clarity and completeness this section gives a brief description of the operations which we use. For our purpose, a WFA A = (, Q, qs, F, E, ), where is the vocabulary, Q is a (finite) set of states, qs Q is a unique start state, F Q is a set of final states, E is a (finite) set of transitions, and : F R is a function from final states to final weights. Each transition e E is a tuple e = (l[e], p[e], n[e], w[e]), where l[e] is a label (in our case, words), p[e] Q is the origin state of e, n[e] Q is the destination state of e, and w[e] R is the weight of the transition. A successful pat</context>
+</contexts>
+<marker>Mohri, Pereira, Riley, 2002</marker>
+<rawString>Mehryar Mohri, Fernando C. N. Pereira, and Michael Riley. 2002. Weighted finite-state transducers in speech recognition. Computer Speech and Language, 16(1):6988.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>NIST</author>
+</authors>
+<title>Speech recognition scoring toolkit (sctk) version 1.2c. Available at http://www.nist.gov/speech/tools.</title>
+<date>2000</date>
+<contexts>
+<context position="36584" citStr="NIST, 2000" startWordPosition="6462" endWordPosition="6463">nce for the smaller feature set (1.5 million features) is 37.5%. While both of these other feature sets converge to performance close to that using the perceptron features, the number of iterations over the training data that are required to reach that level of performance are many more than for the perceptron-initialized feature set. Table 1 shows the word-error rate at the convergence iteration for the various trials, on both rt02 and rt03. All of the CRF trials are significantly better than the perceptron performance, using the Matched Pair Sentence Segment test for WER included with SCTK (NIST, 2000). On rt02, the N-best and perceptron initialized CRF trials were were significantly better than the lattice perceptron at p &amp;lt; 0.001; the other two CRF trials were significantly better than the lattice perceptron at p &amp;lt; 0.01. On rt03, the N-best CRF trial was significantly better than the lattice perceptron at p &amp;lt; 0.002; the other three CRF trials were significantly better than the lattice perceptron at p &amp;lt; 0.001. Finally, we measured the time of a single iteration over the training data on a single machine for the perceptron algorithm, the CRF algorithm using the approximation to the gradient </context>
+</contexts>
+<marker>NIST, 2000</marker>
+<rawString>NIST. 2000. Speech recognition scoring toolkit (sctk) version 1.2c. Available at http://www.nist.gov/speech/tools.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Pinto</author>
+<author>Andrew McCallum</author>
+<author>Xing Wei</author>
+<author>W Bruce Croft</author>
+</authors>
+<title>Table extraction using conditional random fields.</title>
+<date>2003</date>
+<booktitle>In Proc. ACM SIGIR.</booktitle>
+<contexts>
+<context position="9934" citStr="Pinto et al., 2003" startWordPosition="1622" endWordPosition="1625">r after the ith example is processed on the tth pass through the data in the algorithm in figure 1. Then the averaged parameters AV G are defined as AV G = P i,t t i/NT. Freund and Schapire (1999) originally proposed the averaged parameter method; it was shown to give substantial improvements in accuracy for tagging tasks in Collins (2002). 2.3 Conditional Random Fields Conditional Random Fields have been applied to NLP tasks such as parsing (Ratnaparkhi et al., 1994; Johnson et al., 1999), and tagging or segmentation tasks (Lafferty et al., 2001; Sha and Pereira, 2003; McCallum and Li, 2003; Pinto et al., 2003). CRFs use the parameters to define a conditional distribution over the members of GEN(x) for a given input x: p(y|x) = 1 Z(x, ) exp ((x, y) ) where Z(x, ) = P yGEN(x) exp ((x, y) ) is a normalization constant that depends on x and . Given these definitions, the log-likelihood of the training data under parameters is LL() = N X i=1 log p(yi|xi) = N X i=1 [(xi, yi) log Z(xi, )] (2) 2Note that here lattice weights are interpreted as costs, which changes the sign in the algorithm presented in figure 1. \x0cFollowing Johnson et al. (1999) and Lafferty et al. (2001), we use a zero-mean Gaussian pri</context>
+</contexts>
+<marker>Pinto, McCallum, Wei, Croft, 2003</marker>
+<rawString>David Pinto, Andrew McCallum, Xing Wei, and W. Bruce Croft. 2003. Table extraction using conditional random fields. In Proc. ACM SIGIR.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Adwait Ratnaparkhi</author>
+<author>Salim Roukos</author>
+<author>R Todd Ward</author>
+</authors>
+<title>A maximum entropy model for parsing.</title>
+<date>1994</date>
+<booktitle>In Proceedings of the International Conference on Spoken Language Processing (ICSLP),</booktitle>
+<pages>803806</pages>
+<contexts>
+<context position="9786" citStr="Ratnaparkhi et al., 1994" startWordPosition="1597" endWordPosition="1600">02), we used the averaged parameters from the training algorithm in decoding heldout and test examples in our experiments. Say t i is the parameter vector after the ith example is processed on the tth pass through the data in the algorithm in figure 1. Then the averaged parameters AV G are defined as AV G = P i,t t i/NT. Freund and Schapire (1999) originally proposed the averaged parameter method; it was shown to give substantial improvements in accuracy for tagging tasks in Collins (2002). 2.3 Conditional Random Fields Conditional Random Fields have been applied to NLP tasks such as parsing (Ratnaparkhi et al., 1994; Johnson et al., 1999), and tagging or segmentation tasks (Lafferty et al., 2001; Sha and Pereira, 2003; McCallum and Li, 2003; Pinto et al., 2003). CRFs use the parameters to define a conditional distribution over the members of GEN(x) for a given input x: p(y|x) = 1 Z(x, ) exp ((x, y) ) where Z(x, ) = P yGEN(x) exp ((x, y) ) is a normalization constant that depends on x and . Given these definitions, the log-likelihood of the training data under parameters is LL() = N X i=1 log p(yi|xi) = N X i=1 [(xi, yi) log Z(xi, )] (2) 2Note that here lattice weights are interpreted as costs, which chan</context>
+</contexts>
+<marker>Ratnaparkhi, Roukos, Ward, 1994</marker>
+<rawString>Adwait Ratnaparkhi, Salim Roukos, and R. Todd Ward. 1994. A maximum entropy model for parsing. In Proceedings of the International Conference on Spoken Language Processing (ICSLP), pages 803806.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Brian Roark</author>
+<author>Murat Saraclar</author>
+<author>Michael Collins</author>
+</authors>
+<title>Corrective language modeling for large vocabulary ASR with the perceptron algorithm.</title>
+<date>2004</date>
+<booktitle>In Proceedings of the International Conference on Acoustics, Speech, and Signal Processing (ICASSP),</booktitle>
+<pages>749752</pages>
+<contexts>
+<context position="2620" citStr="Roark et al. (2004)" startWordPosition="392" endWordPosition="395">ently proposed within these approaches is the perplexity of the LM (i.e., the log probability it assigns to some held-out data set). This paper explores alternative methods for language modeling, which complement the source-channel approach through discriminatively trained models. The language models we describe do not attempt to estimate a generative model P(w) over strings. Instead, they are trained on acoustic sequences with their transcriptions, in an attempt to directly optimize error-rate. Our work builds on previous work on language modeling using the perceptron algorithm, described in Roark et al. (2004). In particular, we explore conditional random field methods, as an alternative training method to the perceptron. We describe how these models can be trained over lattices that are the output from a baseline recognizer. We also give a number of experiments comparing the two approaches. The perceptron method gave a 1.3% absolute improvement in recognition error on the Switchboard domain; the CRF methods we describe give a further gain, the final absolute improvement being 1.8%. A central issue we focus on concerns feature selection. The number of distinct n-grams in our training data is close </context>
+<context position="8456" citStr="Roark et al. (2004)" startWordPosition="1366" endWordPosition="1369"> as evidence. The decoding algorithm is a method for searching for the y that maximizes Eq. 1. 2.2 The Perceptron algorithm We now turn to methods for training the parameters of the model, given a set of training examples Inputs: Training examples (xi, yi) Initialization: Set = 0 Algorithm: For t = 1 . . . T, i = 1 . . . N Calculate zi = argmaxzGEN(xi) (xi, z) If(zi 6= yi) then = + (xi, yi) (xi, zi) Output: Parameters Figure 1: A variant of the perceptron algorithm. (x1, y1) . . . (xN , yN ). This section describes the perceptron algorithm, which was previously applied to language modeling in Roark et al. (2004). The next section describes an alternative method, based on conditional random fields. The perceptron algorithm is shown in figure 1. At each training example (xi, yi), the current best-scoring hypothesis zi is found, and if it differs from the reference yi , then the cost of each feature2 is increased by the count of that feature in zi and decreased by the count of that feature in yi. The features in the model are updated, and the algorithm moves to the next utterance. After each pass over the training data, performance on a held-out data set is evaluated, and the parameterization with the b</context>
+<context position="23058" citStr="Roark et al. (2004)" startWordPosition="4102" endWordPosition="4105">strings. In addition, averaged parameters need to be stored (see section 2.2). These parameters will replace the unaveraged parameters in D once training is completed. Note that the only n-gram features to be included in D at the end of the training process are those that occur in either a best scoring path zi or a minimum error path yi at some point during training. Thus the perceptron algorithm is in effect doing feature selection as a by-product of training. Given N training examples, and T passes over the training set, O(NT) n-grams will have non-zero weight after training. Experiments in Roark et al. (2004) suggest that the perceptron reaches optimal performance after a small number of training iterations, for example T = 1 or T = 2. Thus O(NT) can be very small compared to the full number of n-grams seen in all training lattices. In our experiments, the perceptron method chose around 1.4 million n-grams with non-zero weight. This compares to 43.65 million possible n-grams seen in the training data. This is a key contrast with conditional random fields, which optimize the parameters of a fixed feature set. Feature selection can be critical in our domain, as training and applying a discriminative</context>
+<context position="28932" citStr="Roark et al. (2004)" startWordPosition="5188" endWordPosition="5191">pproach, but this is parallelizable, so that the computation can be divided among many processors. 4 Empirical Results We present empirical results on the Rich Transcription 2002 evaluation test set (rt02), which we used as our development set, as well as on the Rich Transcription 2003 Spring evaluation CTS test set (rt03). The rt02 set consists of 6081 sentences (63804 words) and has three subsets: Switchboard 1, Switchboard 2, Switchboard Cellular. The rt03 set consists of 9050 sentences (76083 words) and has two subsets: Switchboard and Fisher. We used the same training set as that used in Roark et al. (2004). The training set consists of 276726 transcribed utterances (3047805 words), with an additional 20854 utterances (249774 words) as held out data. For 0 500 1000 37 37.5 38 38.5 39 39.5 40 Iterations over training Word error rate Baseline recognizer Perceptron, Feat=PL, Lattice Perceptron, Feat=PN, N=1000 CRF, = , Feat=PL, Lattice CRF, = 0.5, Feat=PL, Lattice CRF, = 0.5, Feat=PN, N=1000 Figure 3: Word error rate on the rt02 eval set versus training iterations for CRF trials, contrasted with baseline recognizer performance and perceptron performance. Points are at every 20 iterations. Each poin</context>
+<context position="31081" citStr="Roark et al. (2004)" startWordPosition="5525" endWordPosition="5528">aining set was partitioned into 28 sets, and baseline Katz backoff trigram models were built for each set by including only transcripts from the other 27 sets. Since language models are generally far more prone to overtrain than standard acoustic models, this goes a long way toward making the training conditions similar to testing conditions. There are three baselines against which we are comparing. The first is the ASR baseline, with no reweighting from a discriminatively trained n-gram model. The other two baselines are with perceptron-trained n-gram model re-weighting, and were reported in Roark et al. (2004). The first of these is for a pruned-lattice trained trigram model, which showed a reduction in word error rate (WER) of 1.3%, from 39.2% to 37.9% on rt02. The second is for a 1000-best list trained trigram model, which performed only marginally worse than the latticetrained perceptron, at 38.0% on rt02. 4.1 Perceptron feature set We use the perceptron-trained models as the starting point for our CRF algorithm: the feature set given to the CRF algorithm is the feature set selected by the perceptron algorithm; the feature weights are initialized to those of the averaged perceptron. Figure 3 sho</context>
+</contexts>
+<marker>Roark, Saraclar, Collins, 2004</marker>
+<rawString>Brian Roark, Murat Saraclar, and Michael Collins. 2004. Corrective language modeling for large vocabulary ASR with the perceptron algorithm. In Proceedings of the International Conference on Acoustics, Speech, and Signal Processing (ICASSP), pages 749752.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Fei Sha</author>
+<author>Fernando Pereira</author>
+</authors>
+<title>Shallow parsing with conditional random fields.</title>
+<date>2003</date>
+<booktitle>In Proc. HLT-NAACL,</booktitle>
+<location>Edmonton, Canada.</location>
+<contexts>
+<context position="9890" citStr="Sha and Pereira, 2003" startWordPosition="1614" endWordPosition="1617">ur experiments. Say t i is the parameter vector after the ith example is processed on the tth pass through the data in the algorithm in figure 1. Then the averaged parameters AV G are defined as AV G = P i,t t i/NT. Freund and Schapire (1999) originally proposed the averaged parameter method; it was shown to give substantial improvements in accuracy for tagging tasks in Collins (2002). 2.3 Conditional Random Fields Conditional Random Fields have been applied to NLP tasks such as parsing (Ratnaparkhi et al., 1994; Johnson et al., 1999), and tagging or segmentation tasks (Lafferty et al., 2001; Sha and Pereira, 2003; McCallum and Li, 2003; Pinto et al., 2003). CRFs use the parameters to define a conditional distribution over the members of GEN(x) for a given input x: p(y|x) = 1 Z(x, ) exp ((x, y) ) where Z(x, ) = P yGEN(x) exp ((x, y) ) is a normalization constant that depends on x and . Given these definitions, the log-likelihood of the training data under parameters is LL() = N X i=1 log p(yi|xi) = N X i=1 [(xi, yi) log Z(xi, )] (2) 2Note that here lattice weights are interpreted as costs, which changes the sign in the algorithm presented in figure 1. \x0cFollowing Johnson et al. (1999) and Lafferty et</context>
+</contexts>
+<marker>Sha, Pereira, 2003</marker>
+<rawString>Fei Sha and Fernando Pereira. 2003. Shallow parsing with conditional random fields. In Proc. HLT-NAACL, Edmonton, Canada.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Stolcke</author>
+<author>M Weintraub</author>
+</authors>
+<title>Discriminitive language modeling.</title>
+<date>1998</date>
+<booktitle>In Proceedings of the 9th Hub-5 Conversational Speech Recognition Workshop.</booktitle>
+<contexts>
+<context position="5545" citStr="Stolcke and Weintraub (1998)" startWordPosition="854" endWordPosition="857">-of-the-art acoustic modeling, as seen, for example, at annual Switchboard evaluations, invariably includes some kind of discriminative training. Discriminative estimation of language models has also been proposed in recent years. Jelinek (1995) suggested an acoustic sensitive language model whose parameters 1Note also that in addition to concerns about training time, a language model with fewer features is likely to be considerably more efficient when decoding new utterances. \x0care estimated by minimizing H(W|A), the expected uncertainty of the spoken text W, given the acoustic sequence A. Stolcke and Weintraub (1998) experimented with various discriminative approaches including MMIE with mixed results. This work was followed up with some success by Stolcke et al. (2000) where an antiLM, estimated from weighted N-best hypotheses of a baseline ASR system, was used with a negative weight in combination with the baseline LM. Chen et al. (2000) presented a method based on changing the trigram counts discriminatively, together with changing the lexicon to add new words. Kuo et al. (2002) used the generalized probabilistic descent algorithm to train relatively small language models which attempt to minimize stri</context>
+</contexts>
+<marker>Stolcke, Weintraub, 1998</marker>
+<rawString>A. Stolcke and M. Weintraub. 1998. Discriminitive language modeling. In Proceedings of the 9th Hub-5 Conversational Speech Recognition Workshop.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Stolcke</author>
+<author>H Bratt</author>
+<author>J Butzberger</author>
+<author>H Franco</author>
+<author>V R Rao Gadde</author>
+<author>M Plauche</author>
+<author>C Richey</author>
+<author>E Shriberg</author>
+<author>K Sonmez</author>
+<author>F Weng</author>
+<author>J Zheng</author>
+</authors>
+<title>Hub-5 conversational speech transcription system.</title>
+<date>2000</date>
+<booktitle>The SRI</booktitle>
+<contexts>
+<context position="5701" citStr="Stolcke et al. (2000)" startWordPosition="877" endWordPosition="880">timation of language models has also been proposed in recent years. Jelinek (1995) suggested an acoustic sensitive language model whose parameters 1Note also that in addition to concerns about training time, a language model with fewer features is likely to be considerably more efficient when decoding new utterances. \x0care estimated by minimizing H(W|A), the expected uncertainty of the spoken text W, given the acoustic sequence A. Stolcke and Weintraub (1998) experimented with various discriminative approaches including MMIE with mixed results. This work was followed up with some success by Stolcke et al. (2000) where an antiLM, estimated from weighted N-best hypotheses of a baseline ASR system, was used with a negative weight in combination with the baseline LM. Chen et al. (2000) presented a method based on changing the trigram counts discriminatively, together with changing the lexicon to add new words. Kuo et al. (2002) used the generalized probabilistic descent algorithm to train relatively small language models which attempt to minimize string error rate on the DARPA Communicator task. Banerjee et al. (2003) used a language model modification algorithm in the context of a reading tutor that lis</context>
+</contexts>
+<marker>Stolcke, Bratt, Butzberger, Franco, Gadde, Plauche, Richey, Shriberg, Sonmez, Weng, Zheng, 2000</marker>
+<rawString>A. Stolcke, H. Bratt, J. Butzberger, H. Franco, V. R. Rao Gadde, M. Plauche, C. Richey, E. Shriberg, K. Sonmez, F. Weng, and J. Zheng. 2000. The SRI March 2000 Hub-5 conversational speech transcription system. In Proceedings of the NIST Speech Transcription Workshop.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hanna Wallach</author>
+</authors>
+<title>Efficient training of conditional random fields. Masters thesis,</title>
+<date>2002</date>
+<institution>University of Edinburgh.</institution>
+<contexts>
+<context position="11170" citStr="Wallach, 2002" startWordPosition="1848" endWordPosition="1849">esulting in the regularized objective function: LLR() = N X i=1 [(xi, yi) log Z(xi, )] |2 22 (3) The value dictates the relative influence of the loglikelihood term vs. the prior, and is typically estimated using held-out data. The optimal parameters under this criterion are = argmax LLR(). We use a limited memory variable metric method (Benson and More, 2002) to optimize LLR. There is a general implementation of this method in the Tao/PETSc software libraries (Balay et al., 2002; Benson et al., 2002). This technique has been shown to be very effective in a variety of NLP tasks (Malouf, 2002; Wallach, 2002). The main interface between the optimizer and the training data is a procedure which takes a parameter vector as input, and in turn returns LLR() as well as the gradient of LLR at . The derivative of the objective function with respect to a parameter s at parameter values is LLR s = N X i=1 s(xi, yi) X yGEN(xi) p(y|xi)s(xi, y) s 2 (4) Note that LLR() is a convex function, so that there is a globally optimal solution and the optimization method will find it. The use of the Gaussian prior term | 2 /22 in the objective function has been found to be useful in several NLP settings. It effectively </context>
+</contexts>
+<marker>Wallach, 2002</marker>
+<rawString>Hanna Wallach. 2002. Efficient training of conditional random fields. Masters thesis, University of Edinburgh.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P C Woodland</author>
+<author>D Povey</author>
+</authors>
+<title>Large scale discriminative training for speech recognition.</title>
+<date>2000</date>
+<booktitle>In Proc. ISCA ITRW ASR2000,</booktitle>
+<pages>716--0</pages>
+<contexts>
+<context position="4788" citStr="Woodland and Povey (2000)" startWordPosition="743" endWordPosition="746">n the future. Experimental results with n-gram models on 1000-best lists show a very small drop in accuracy compared to the use of lattices. This is encouraging, in that it suggests that models with more flexible features than n-gram models, which therefore cannot be efficiently used with lattices, may not be unduly harmed by their restriction to n-best lists. 1.1 Related Work Large vocabulary ASR has benefitted from discriminative estimation of Hidden Markov Model (HMM) parameters in the form of Maximum Mutual Information Estimation (MMIE) or Conditional Maximum Likelihood Estimation (CMLE). Woodland and Povey (2000) have shown the effectiveness of lattice-based MMIE/CMLE in challenging large scale ASR tasks such as Switchboard. In fact, state-of-the-art acoustic modeling, as seen, for example, at annual Switchboard evaluations, invariably includes some kind of discriminative training. Discriminative estimation of language models has also been proposed in recent years. Jelinek (1995) suggested an acoustic sensitive language model whose parameters 1Note also that in addition to concerns about training time, a language model with fewer features is likely to be considerably more efficient when decoding new u</context>
+</contexts>
+<marker>Woodland, Povey, 2000</marker>
+<rawString>P.C. Woodland and D. Povey. 2000. Large scale discriminative training for speech recognition. In Proc. ISCA ITRW ASR2000, pages 716. \x0c&amp;apos;</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

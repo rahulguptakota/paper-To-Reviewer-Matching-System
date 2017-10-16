@@ -1,0 +1,2022 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.579433">
+b&apos;Proceedings of the 2007 Joint Conference on Empirical Methods in Natural Language Processing and Computational
+Natural Language Learning, pp. 315324, Prague, June 2007. c
+</bodyText>
+<sectionHeader confidence="0.395908" genericHeader="abstract">
+2007 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.8809045">
+A New Perceptron Algorithm for
+Sequence Labeling with Non-local Features
+</title>
+<author confidence="0.794429">
+Junichi Kazama and Kentaro Torisawa
+</author>
+<affiliation confidence="0.928935">
+Japan Advanced Institute of Science and Technology (JAIST)
+</affiliation>
+<address confidence="0.677288">
+Asahidai 1-1, Nomi, Ishikawa, 923-1292 Japan
+</address>
+<email confidence="0.92576">
+{kazama, torisawa}@jaist.ac.jp
+</email>
+<sectionHeader confidence="0.99051" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.998572733333333">
+We cannot use non-local features with cur-
+rent major methods of sequence labeling
+such as CRFs due to concerns about com-
+plexity. We propose a new perceptron algo-
+rithm that can use non-local features. Our
+algorithm allows the use of all types of
+non-local features whose values are deter-
+mined from the sequence and the labels. The
+weights of local and non-local features are
+learned together in the training process with
+guaranteed convergence. We present experi-
+mental results from the CoNLL 2003 named
+entity recognition (NER) task to demon-
+strate the performance of the proposed algo-
+rithm.
+</bodyText>
+<sectionHeader confidence="0.995925" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.992483714285714">
+Many NLP tasks such as POS tagging and named
+entity recognition have recently been solved as se-
+quence labeling. Discriminative methods such as
+Conditional Random Fields (CRFs) (Lafferty et al.,
+2001), Semi-Markov Random Fields (Sarawagi and
+Cohen, 2004), and perceptrons (Collins, 2002a)
+have been popular approaches for sequence label-
+ing because of their excellent performance, which is
+mainly due to their ability to incorporate many kinds
+of overlapping and non-independent features.
+However, the common limitation of these meth-
+ods is that the features are limited to local fea-
+tures, which only depend on a very small number
+of labels (usually two: the previous and the current).
+Although this limitation makes training and infer-
+ence tractable, it also excludes the use of possibly
+useful non-local features that are accessible after
+all labels are determined. For example, non-local
+features such as same phrases in a document do not
+have different entity classes were shown to be use-
+ful in named entity recognition (Sutton and McCal-
+lum, 2004; Bunescu and Mooney, 2004; Finkel et
+al., 2005; Krishnan and Manning, 2006).
+We propose a new perceptron algorithm in this pa-
+per that can use non-local features along with lo-
+cal features. Although several methods have al-
+ready been proposed to incorporate non-local fea-
+tures (Sutton and McCallum, 2004; Bunescu and
+Mooney, 2004; Finkel et al., 2005; Roth and Yih,
+2005; Krishnan and Manning, 2006; Nakagawa and
+Matsumoto, 2006), these present a problem that
+the types of non-local features are somewhat con-
+strained. For example, Finkel et al. (2005) enabled
+the use of non-local features by using Gibbs sam-
+pling. However, it is unclear how to apply their
+method of determining the parameters of a non-local
+model to other types of non-local features, which
+they did not used. Roth and Yih (2005) enabled
+the use of hard constraints on labels by using inte-
+ger linear programming. However, this is equivalent
+to only allowing non-local features whose weights
+are fixed to negative infinity. Krishnan and Manning
+(2006) divided the model into two CRFs, where the
+second model uses the output of the first as a kind of
+non-local information. However, it is not possible
+to use non-local features that depend on the labels
+of the very candidate to be scored. Nakagawa and
+Matsumoto (2006) used a Bolzmann distribution to
+model the correlation of the POS of words having
+the same lexical form in a document. However, their
+method can only be applied when there are conve-
+nient links such as the same lexical form.
+Since non-local features have not yet been exten-
+sively investigated, it is possible for us to find new
+useful non-local features. Therefore, our objective
+in this study was to establish a framework, where all
+</bodyText>
+<page confidence="0.99857">
+315
+</page>
+<bodyText confidence="0.999081512820513">
+\x0ctypes of non-local features are allowed.
+With non-local features, we cannot use efficient
+procedures such as forward-backward procedures
+and the Viterbi algorithm that are required in train-
+ing CRFs (Lafferty et al., 2001) and perceptrons
+(Collins, 2002a). Recently, several methods (Collins
+and Roark, 2004; Daume III and Marcu, 2005; Mc-
+Donald and Pereira, 2006) have been proposed with
+similar motivation to ours. These methods allevi-
+ate this problem by using some approximation in
+perceptron-type learning.
+In this paper, we follow this line of research and
+try to solve the problem by extending Collins per-
+ceptron algorithm (Collins, 2002a). We exploited
+the not-so-familiar fact that we can design a per-
+ceptron algorithm with guaranteed convergence if
+we can find at least one wrong labeling candidate
+even if we cannot perform exact inference. We first
+ran the A* search only using local features to gen-
+erate n-best candidates (this can be efficiently per-
+formed), and then we only calculated the true score
+with non-local features for these candidates to find
+a wrong labeling candidate. The second key idea
+was to update the weights of local features during
+training if this was necessary to generate sufficiently
+good candidates. The proposed algorithm combined
+these ideas to achieve guaranteed convergence and
+effective learning with non-local features.
+The remainder of the paper is organized as fol-
+lows. Section 2 introduces the Collins perceptron
+algorithm. Although this algorithm is the starting
+point for our algorithm, its baseline performance is
+not outstanding. Therefore, we present a margin ex-
+tension to the Collins perceptron in Section 3. This
+margin perceptron became the direct basis of our al-
+gorithm. We then explain our algorithm for non-
+local features in Section 4. We report the experi-
+mental results using the CoNLL 2003 shared task
+dataset in Section 6.
+</bodyText>
+<sectionHeader confidence="0.835627" genericHeader="method">
+2 Perceptron Algorithm for Sequence
+</sectionHeader>
+<subsectionHeader confidence="0.419351">
+Labeling
+</subsectionHeader>
+<bodyText confidence="0.9784284">
+Collins (2002a) proposed an extension of the per-
+ceptron algorithm (Rosenblatt, 1958) to sequence
+labeling. Our aim in sequence labeling is to as-
+sign label yi Y to each word xi X in a
+sequence. We denote sequence x1, . . . , xT as x
+and the corresponding labels as y. We assume
+weight vector Rd and feature mapping
+that maps each (x, y) to feature vector (x, y) =
+(1(x, y), , d(x, y)) Rd. The model deter-
+mines the labels by:
+</bodyText>
+<equation confidence="0.7043715">
+y
+= argmaxyY|x |(x, y) ,
+</equation>
+<bodyText confidence="0.909545">
+where denotes the inner product. The aim
+of the learning algorithm is to obtain an ap-
+propriate weight vector, , given training set
+{(x1, y
+1), , (xL, y
+L)}.
+The learning algorithm, which is illustrated in
+Collins (2002a), proceeds as follows. The weight
+vector is initialized to zero. The algorithm passes
+over the training examples, and each sequence is de-
+coded using the current weights. If y is not the cor-
+rect answer y, the weights are updated according to
+the following rule.
+</bodyText>
+<equation confidence="0.908856333333333">
+new = + (x, y
+) (x, y
+).
+</equation>
+<bodyText confidence="0.981392">
+This algorithm is proved to converge (i.e., there are
+no more updates) in the separable case (Collins,
+2002a).1 That is, if there exist weight vector U (with
+</bodyText>
+<equation confidence="0.996607142857143">
+||U ||= 1), (&amp;gt; 0), and R (&amp;gt; 0) that satisfy:
+i, y Y|xi|
+(xi, yi
+) U (xi, y) U ,
+i, y Y|xi|
+||(xi, yi
+) (xi, y) ||R,
+</equation>
+<bodyText confidence="0.999081">
+the number of updates is at most R2/2.
+The perceptron algorithm only requires one can-
+didate y for each sequence xi, unlike the training of
+CRFs where all possible candidates need to be con-
+sidered. This inherent property is the key to train-
+ing with non-local features. However, note that the
+tractability of learning and inference relies on how
+efficiently y can be found. In practice, we can find
+y efficiently using a Viterbi-type algorithm only
+when the features are all local, i.e., s(x, y) can be
+written as the sum of (two label) local features s as
+</bodyText>
+<equation confidence="0.883556666666667">
+s(x, y) =
+T
+i s(x, yi1, yi). This locality con-
+</equation>
+<bodyText confidence="0.997353666666667">
+straint is also required to make the training of CRFs
+tractable (Lafferty et al., 2001).
+One problem with the perceptron algorithm de-
+scribed so far is that it offers no treatment for over-
+fitting. Thus, Collins (2002a) also proposed an av-
+eraged perceptron, where the final weight vector is
+</bodyText>
+<page confidence="0.931462">
+1
+</page>
+<bodyText confidence="0.984729">
+Collins (2002a) also provided proof that guaranteed good
+learning for the non-separable case. However, we have only
+considered the separable case throughout the paper.
+</bodyText>
+<page confidence="0.999866">
+316
+</page>
+<construct confidence="0.909828">
+\x0cAlgorithm 3.1: Perceptron with margin for
+sequence labeling (parameters: C)
+</construct>
+<page confidence="0.968258">
+0
+</page>
+<bodyText confidence="0.9951235">
+until no more updates do
+for i 1 to L do
+</bodyText>
+<page confidence="0.936134">
+8
+</page>
+<equation confidence="0.754371357142857">
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;lt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+:
+y
+= argmaxy(xi, y)
+y
+= 2nd-besty(xi, y)
+if y
+= y
+i then
+= + (xi, y
+i ) (xi, y
+)
+else if (xi, y
+i ) (xi, y
+) C then
+= + (xi, y
+i ) (xi, y
+)
+</equation>
+<bodyText confidence="0.996064428571429">
+the average of all weight vectors during training.
+Howerver, we found in our experiments that the av-
+eraged perceptron performed poorly in our setting.
+We therefore tried to make the perceptron algorithm
+more robust to overfitting. We will describe our ex-
+tension to the perceptron algorithm in the next sec-
+tion.
+</bodyText>
+<sectionHeader confidence="0.857962" genericHeader="method">
+3 Margin Perceptron Algorithm for
+</sectionHeader>
+<subsectionHeader confidence="0.892608">
+Sequence Labeling
+</subsectionHeader>
+<bodyText confidence="0.977739">
+We extended a perceptron with a margin (Krauth and
+Mezard, 1987) to sequence labeling in this study, as
+Collins (2002a) extended the perceptron algorithm
+to sequence labeling.
+In the case of sequence labeling, the margin is de-
+fined as:
+</bodyText>
+<equation confidence="0.995400125">
+() = min
+xi
+min
+y=y
+i
+(xi, yi
+) (xi, y)
+ |
+</equation>
+<bodyText confidence="0.9918535">
+Assuming that the best candidate, y, equals the cor-
+rect answer, y, the margin can be re-written as:
+</bodyText>
+<equation confidence="0.962335714285714">
+= min
+xi
+(xi, yi
+) (xi, y)
+ |
+,
+where y = 2nd-besty(xi, y) . Using this rela-
+</equation>
+<bodyText confidence="0.995765666666667">
+tion, the resulting algorithm becomes Algorithm 3.1.
+The algorithm tries to enlarge the margin as much as
+possible, as well as make the best scoring candidate
+equal the correct answer.
+Constant C in Algorithm 3.1 is a tunable param-
+eter, which controls the trade-off between the mar-
+gin and convergence time. Based on the proofs
+in Collins (2002a) and Li et al. (2002), we can
+prove that the algorithm converges within (2C +
+</bodyText>
+<equation confidence="0.775658">
+R2)/2 updates and that () C/(2C + R2) =
+(/2)(1 (R2/(2C + R2))) after training. As can
+</equation>
+<bodyText confidence="0.983819545454545">
+be seen, the margin approaches at least half of true
+margin (at the cost of infinite training time), as
+C .
+Note that if the features are all local, the second-
+best candidate (generally n-best candidates) can also
+be found efficiently by using an A* search that uses
+the best scores calculated during a Viterbi search as
+the heuristic estimation (Soong and Huang, 1991).
+There are other methods for improving robustness
+by making margin larger for the structural output
+problem. Such methods include ALMA (Gentile,
+2001) used in (Daume III and Marcu, 2005)2, MIRA
+(Crammer et al., 2006) used in (McDonald et al.,
+2005), and Max-Margin Markov Networks (Taskar
+et al., 2003). However, to the best of our knowledge,
+there has been no prior work that has applied a per-
+ceptron with a margin (Krauth and Mezard, 1987)
+to structured output.3 Our method described in this
+section is one of the easiest to implement, while
+guaranteeing a large margin. We found in the experi-
+ments that our method outperformed the Collins av-
+eraged perceptron by a large margin.
+</bodyText>
+<sectionHeader confidence="0.990449" genericHeader="method">
+4 Algorithm
+</sectionHeader>
+<subsectionHeader confidence="0.996119">
+4.1 Definition and Basic Idea
+</subsectionHeader>
+<bodyText confidence="0.996512714285714">
+Having described the basic perceptron algorithms,
+we will know explain our algorithm that learns the
+weights of local and non-local features in a unified
+way.
+Assume that we have local features and non-
+local features. We use the superscript, l, for
+local features as l
+</bodyText>
+<construct confidence="0.524537666666667">
+i(x, y) and g for non-local
+features as g
+i (x, y). Then, feature mapping is
+written as a(x, y) = l(x, y) + g(x, y) =
+(l
+1(x, y), , l
+n(x, y), g
+n+1(x, y), , g
+d(x, y)).
+</construct>
+<bodyText confidence="0.963296">
+Here, we define:
+</bodyText>
+<equation confidence="0.994408625">
+l
+(x, y) = (l
+1(x, y), , l
+n(x, y), 0, , 0)
+g
+(x, y) = (0, , 0, g
+n+1(x, y), , g
+d(x, y))
+</equation>
+<bodyText confidence="0.9909405">
+Ideally, we want to determine the labels using the
+whole feature set as:
+</bodyText>
+<equation confidence="0.924289666666667">
+y
+= argmaxyY|x |a
+(x, y) .
+</equation>
+<page confidence="0.650338">
+2
+</page>
+<bodyText confidence="0.567979">
+(Daume III and Marcu, 2005) also presents the method us-
+ing the averaged perceptron (Collins, 2002a)
+</bodyText>
+<page confidence="0.990449">
+3
+</page>
+<bodyText confidence="0.99270725">
+For re-ranking problems, Shen and Joshi (2004) proposed
+a perceptron algorithm that also uses margins. The difference is
+that our algorithm trains the sequence labeler itself and is much
+simpler because it only aims at labeling.
+</bodyText>
+<page confidence="0.996069">
+317
+</page>
+<equation confidence="0.576949">
+\x0cAlgorithm 4.1: Candidate algorithm (parameters:
+n, C)
+0
+</equation>
+<bodyText confidence="0.964946">
+until no more updates do
+for i 1 to L do
+</bodyText>
+<page confidence="0.820274">
+8
+</page>
+<figure confidence="0.954816904761905">
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;lt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+:
+{yn
+</figure>
+<equation confidence="0.994069466666666">
+} = n-bestyl
+(xi, y)
+y
+= argmaxy{yn}a
+(xi, y)
+y
+= 2nd-besty{yn}a
+(xi, y)
+if y
+= yi
+&amp; a
+(xi, y
+i ) a
+(xi, y
+) C then
+= + a
+(xi, y
+i ) a
+(xi, y
+)
+else if a
+(xi, y
+i ) a
+(xi, y
+) C then
+= + a
+(xi, y
+i ) a
+(xi, y
+)
+</equation>
+<bodyText confidence="0.994959">
+However, if there are non-local features, it is impos-
+sible to find the highest scoring candidate efficiently,
+since we cannot use the Viterbi algorithm. Thus,
+we cannot use the perceptron algorithms described
+in the previous sections. The training of CRFs is
+also intractable for the same reason.
+To deal with this problem, we first relaxed our ob-
+jective. The modified objective was to find a good
+model from those with the form:
+</bodyText>
+<equation confidence="0.980831166666667">
+{yn
+} = n-bestyl
+(x, y)
+y
+= argmaxy{yn}a
+(x, y) , (1)
+</equation>
+<bodyText confidence="0.989404307692308">
+That is, we first generate n-best candidates {yn}
+under the local model, l(x, y) . This can be
+done efficiently using the A* algorithm. We then
+find the best scoring candidate under the total model,
+a(x, y), only from these n-best candidates. If n
+is moderately small, this can also be done in a prac-
+tical amount of time.
+This resembles the re-ranking approach (Collins
+and Duffy, 2002; Collins, 2002b). However, unlike
+the re-ranking approach, the local model, l(x, y)
+, and the total model, a(x, y) , correlate since
+they share a part of the vector and are trained at
+the same time in our algorithm. The re-ranking ap-
+proach has the disadvantage that it is necessary to
+use different training corpora for the first model and
+for the second, or to use cross validation type train-
+ing, to make the training for the second meaning-
+ful. This reduces the effective size of training data
+or increases training time substantially. On the other
+hand, our algorithm has no such disadvantage.
+However, we are no longer able to find the high-
+est scoring candidate under a(x, y) exactly
+with this approach. We cannot thus use the percep-
+tron algorithms directly. However, by examining the
+Algorithm 4.2: Perceptron with local and
+non-local features (parameters: n, Ca
+</bodyText>
+<equation confidence="0.697785333333333">
+, Cl
+)
+0
+</equation>
+<bodyText confidence="0.9325785">
+until no more updates do
+for i 1 to L do
+</bodyText>
+<page confidence="0.794278">
+8
+</page>
+<figure confidence="0.97979168292683">
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;lt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+&amp;gt;
+:
+{yn
+</figure>
+<equation confidence="0.872083757575758">
+} = n-bestyl
+(xi, y)
+y
+= argmaxy{yn}a
+(xi, y)
+y
+= 2nd-besty{yn}a
+(xi, y)
+if y
+= y
+i
+&amp; a
+(xi, y
+i ) a
+(xi, y
+) Ca
+then
+= + a
+(xi, y
+i ) a
+(xi, y
+) (A)
+else if a
+(xi, y
+i ) a
+(xi, y
+) Ca
+then
+= + a
+(xi, y
+i ) a
+(xi, y
+) (A)
+</equation>
+<figure confidence="0.780659833333333">
+else
+(B)
+8
+&amp;gt;
+&amp;gt;
+&amp;lt;
+&amp;gt;
+&amp;gt;
+:
+if y1
+= yi
+then (y1
+</figure>
+<bodyText confidence="0.610766">
+represents the best in {yn
+</bodyText>
+<equation confidence="0.980454176470588">
+})
+= + l
+(xi, y
+i ) l
+(xi, y1
+)
+else if l
+(xi, y
+i ) l
+(xi, y2
+) Cl
+then
+= + l
+(xi, y
+i ) l
+(xi, y2
+)
+</equation>
+<bodyText confidence="0.989622">
+proofs in Collins (2002a), we can see that the essen-
+tial condition for convergence is that the weights are
+always updated using some y (= y) that satisfies:
+</bodyText>
+<equation confidence="0.99388">
+(xi, y
+i ) (xi, y) 0
+( C in the case of a perceptron with a margin). (2)
+</equation>
+<bodyText confidence="0.9625986">
+That is, y does not necessarily need to be the exact
+best candidate or the exact second-best candidate.
+The algorithm also converges in a finite number of
+iterations even with Eq. (1) as long as Eq. (2) is
+satisfied.
+</bodyText>
+<subsectionHeader confidence="0.97266">
+4.2 Candidate Algorithm
+</subsectionHeader>
+<bodyText confidence="0.9978259">
+The algorithm we came up with first based on the
+above idea, is Algorithm 4.1. We first find the n-
+best candidates using the local model, l(x, y) .
+At this point, we can determine the value of the non-
+local features, g(x, y), to form the whole feature
+vector, a(x, y), for the n-best candidates. Next,
+we re-score and sort them using the total model,
+a(x, y) , to find a candidate that violates the
+margin condition. We call this algorithm the can-
+didate algorithm. After the training has finished,
+</bodyText>
+<equation confidence="0.855885">
+a(xi, y
+i ) a(xi, y) &amp;gt; C is guaran-
+</equation>
+<bodyText confidence="0.995145857142857">
+teed for all (xi, y) where y {yn}, y = y.
+At first glance, this seems sufficient condition for
+good models. However, this is not true because if
+y {yn}, the inference defined by Eq. (1) is not
+guaranteed to find the correct answer, y. In fact,
+this algorithm does not work well with non-local
+features as we found in the experiments.
+</bodyText>
+<page confidence="0.99759">
+318
+</page>
+<subsubsectionHeader confidence="0.378164">
+\x0c4.3 Final Algorithm
+</subsubsectionHeader>
+<bodyText confidence="0.996974206896551">
+Our idea for improving the above algorithm is that
+the local model, l(x, y), must at least be so good
+that y {yn}. To achieve this, we added a modi-
+fication term that was intended to improve the local
+model when the local model was not good enough
+even when the total model was good enough.
+The final algorithm resulted in Algorithm 4.2. As
+can be seen, the part marked (B) has been added. We
+call this algorithm the proposed algorithm. Note
+that the algorithm prioritizes the update of the to-
+tal model, (A), over that of the local model, (B), al-
+though the opposite is also possible. Also note that
+the update of the local model in (B) is aggressive
+since it updates the weights until the best candidate
+output by the local model becomes the correct an-
+swer and satisfies the margin condition. A conser-
+vative updating, where we cease the update when
+the n-best candidates contain the correct answer, is
+also possible from our idea above. We made these
+choices since they worked better than the other al-
+ternatives.
+The tunable parameters are the local margin pa-
+rameter, Cl, the total margin parameter, Ca, and n
+for the n-best search. We used C = Cl = Ca in this
+study to reduce the search space.
+We can prove that the algorithm in Algorithm 4.2
+also converges in a finite number of iterations. It
+converges within (2C + R2)/2 updates, assuming
+that there exist weight vector Ul
+</bodyText>
+<equation confidence="0.981230941176471">
+(with ||Ul
+ ||= 1
+and Ul
+i = 0 (n + 1 i d)), (&amp;gt; 0), and R (&amp;gt; 0)
+that satisfy:
+i, y Y|xi|
+l
+(xi, yi
+)Ul
+l
+(xi, y)Ul
+,
+i, y Y|xi|
+||a
+(xi, yi
+) a
+(xi, y) ||R.
+</equation>
+<bodyText confidence="0.989253">
+In addition, we can prove that () C/(2C +
+R2) for the margin after convergence, where ()
+is defined as:
+</bodyText>
+<equation confidence="0.97408075">
+min
+xi
+min
+y{yn},=y
+i
+a(xi, yi
+) a(xi, y)
+ |
+</equation>
+<bodyText confidence="0.9840856">
+See Appendix A for the proofs.
+We also incorporated the idea behind Bayes point
+machines (BPMs) (Herbrich and Graepel, 2000) to
+improve the robustness of our method further. BPMs
+try to cancel out overfitting caused by the order of
+examples, by training several models by shuffling
+the training examples.4 However, it is very time
+consuming to run the complete training process sev-
+eral times. We thus ran the training in only one pass
+over the shuffled examples several times, and used
+the averaged output weight vectors as a new initial
+weight vector, because we thought that the early part
+of training would be more seriously affected by the
+order of examples. We call this BPM initializa-
+tion. 5
+</bodyText>
+<sectionHeader confidence="0.895851" genericHeader="method">
+5 Named Entity Recognition and
+Non-Local Features
+</sectionHeader>
+<bodyText confidence="0.986395285714286">
+We evaluated the performance of the proposed algo-
+rithm using the named entity recognition task. We
+adopted IOB (IOB2) labeling (Ramshaw and Mar-
+cus, 1995), where the first word of an entity of class
+C is labeled B-C, the words in the entity are la-
+beled I-C, and other words are labeled O.
+We used non-local features based on Finkel et al.
+(2005). These features are based on observations
+such as same phrases in a document tend to have
+the same entity class (phrase consistency) and a
+sub-phrase of a phrase tends to have the same entity
+class as the phrase (sub-phrase consistency). We
+also implemented the majority version of these
+features as used in Krishnan and Manning (2006).
+In addition, we used non-local features, which are
+based on the observation that entities tend to have
+the same entity class if they are in the same con-
+junctive or disjunctive expression as in in U.S.,
+EU, and Japan (conjunction consistency). This type
+of non-local feature was not used by Finkel et al.
+(2005) or Krishnan and Manning (2006).
+</bodyText>
+<sectionHeader confidence="0.990546" genericHeader="evaluation">
+6 Experiments
+</sectionHeader>
+<subsectionHeader confidence="0.991409">
+6.1 Data and Setting
+</subsectionHeader>
+<bodyText confidence="0.998848333333333">
+We used the English dataset of the CoNLL 2003
+named entity shared task (Tjong et al., 2003) for
+the experiments. It is a corpus of English newspa-
+per articles, where four entity classes, PER, LOC,
+ORG, and MISC are annotated. It consists of train-
+ing, development, and testing sets (14,987, 3,466,
+</bodyText>
+<page confidence="0.983678">
+4
+</page>
+<bodyText confidence="0.990519">
+The results for the perceptron algorithms generally depend
+on the order of the training examples.
+</bodyText>
+<page confidence="0.963547">
+5
+</page>
+<bodyText confidence="0.9751635">
+Note that we can prove that the perceptron algorithms con-
+verge even though the weight vector is not initialized as = 0.
+</bodyText>
+<page confidence="0.998003">
+319
+</page>
+<bodyText confidence="0.988216055555556">
+\x0cand 3,684 sentences, respectively). Automatically
+assigned POS tags and chunk tags are also provided.
+The CoNLL 2003 dataset contains document bound-
+ary markers. We concatenated the sentences in the
+same document according to these markers.6 This
+generated 964 documents for the training set, 216
+documents for the development set, and 231 docu-
+ments for the testing set. The documents generated
+as above become the sequence, x, in the learning
+algorithms.
+We first evaluated the baseline performance of
+a CRF model, the Collins perceptron, and the
+Collins averaged perceptron, as well as the margin
+perceptron, with only local features. We next eval-
+uated the performance of our perceptron algorithm
+proposed for non-local features.
+We used the local features summarized in Table
+1, which are similar to those used in other studies
+on named entity recognition. We omitted features
+whose surface part listed in Table 1 occurred less
+than twice in the training corpus.
+We used CRF++ (ver. 0.44)7 as the basis of our
+implementation. We implemented scaling, which
+is similar to that for HMMs (see such as (Rabiner,
+1989)), in the forward-backward phase of CRF train-
+ing to deal with very long sequences due to sentence
+concatenation.8
+We used Gaussian regularization (Chen and
+Rosenfeld, 2000) for CRF training to avoid overfit-
+ting. The parameter of the Gaussian, 2, was tuned
+using the development set. We also tuned the margin
+parameter, C, for the margin perceptron algorithm.9
+The convergence of CRF training was determined by
+checking the log-likelihood of the model. The con-
+vergence of perceptron algorithms was determined
+by checking the per-word labeling error, since the
+</bodyText>
+<page confidence="0.990823">
+6
+</page>
+<bodyText confidence="0.98456">
+We used sentence concatenation even when only using lo-
+cal features, since we found it does not degrade accuracy (rather
+we observed a slight increase).
+</bodyText>
+<page confidence="0.956117">
+7
+</page>
+<equation confidence="0.41251">
+http://chasen.org/ taku/software/CRF++
+</equation>
+<page confidence="0.948765">
+8
+</page>
+<bodyText confidence="0.968626">
+We also replaced the optimization module in the original
+package with that used in the Amis maximum entropy estima-
+tor (http://www-tsujii.is.s.u-tokyo.ac.jp/amis) since we encoun-
+tered problems with the provided module in some cases.
+</bodyText>
+<page confidence="0.979143">
+9
+</page>
+<bodyText confidence="0.972097789473684">
+For the Gaussian parameter, we tested {13, 25, 50, 100,
+200, 400, 800} (the accuracy did not change drastically among
+these values and it seems that there is no accuracy hump even
+if we use smaller values). We tested {500, 1000, 1414, 2000,
+2828, 4000, 5657, 8000, 11313, 16000, 32000} for the margin
+parameters.
+Table 1: Local features used. The value of a node
+feature is determined from the current label, y0, and
+a surface feature determined only from x. The value
+of an edge feature is determined by the previous la-
+bel, y1, the current label, y0, and a surface feature.
+Used surface features are the word (w), the down-
+cased word (wl), the POS tag (pos), the chunk tag
+(chk), the prefix of the word of length n (pn), the
+suffix (sn), the word form features: 2d - cp (these are
+based on (Bikel et al., 1999)), and the gazetteer fea-
+tures: go for ORG, gp for PER, and gm for MISC.
+These represent the (longest) match with an entry in
+the gazetteer by using IOB2 tags.
+</bodyText>
+<equation confidence="0.64586975">
+Node features:
+{, x2, x1, x0, x+1, x+2} y0
+x =, w, wl, pos, chk, p1, p2, p3, p4, s1, s2, s3,
+s4, 2d, 4d, d&amp;a, d&amp;-, d&amp;/, d&amp;,, d&amp;., n, ic, ac,
+l, cp, go, gp, gm
+Edge features:
+{, x2, x1, x0, x+1, x+2} y1 y0
+x =, w, wl, pos, chk, p1, p2, p3, p4, s1, s2, s3,
+s4, 2d, 4d, d&amp;a, d&amp;-, d&amp;/, d&amp;,, d&amp;., n, ic, ac,
+l, cp, go, gp, gm
+Bigram node features:
+{x2x1, x1x0, x0x+1} y0
+x = wl, pos, chk, go, gp, gm
+Bigram edge features:
+{x2x1, x1x0, x0x+1} y1 y0
+x = wl, pos, chk, go, gp, gm
+</equation>
+<bodyText confidence="0.995075944444445">
+number of updates was not zero even after a large
+number of iterations in practice. We stopped train-
+ing when the relative change in these values became
+less than a pre-defined threshold (0.0001) for at least
+three iterations.
+We used n = 20 (n of the n-best) for training
+since we could not use too a large n because it would
+have slowed down training. However, we could ex-
+amine a larger n during testing, since the testing time
+did not dominate the time for the experiment. We
+found an interesting property for n in our prelimi-
+nary experiment. We found that an even larger n in
+testing (written as n) achieved higher accuracy, al-
+though it is natural to assume that the same n that
+was used in training would also be appropriate for
+testing. We thus used n = 100 to evaluate perfor-
+mance during parameter tuning. After finding the
+best C with n = 100, we varied n to investigate its
+</bodyText>
+<page confidence="0.97464">
+320
+</page>
+<table confidence="0.939946384615385">
+\x0cTable 2: Summary of performance (F1).
+Method dev test C (or 2
+)
+local features
+CRF 91.10 86.26 100
+Perceptron 89.01 84.03 -
+Averaged perceptron 89.32 84.08 -
+Margin perceptron 90.98 85.64 11313
++ non-local features
+Candidate (n
+= 100) 90.71 84.90 4000
+Proposed (n
+= 100) 91.95 86.30 5657
+</table>
+<tableCaption confidence="0.880485">
+Table 3: Effect of n.
+</tableCaption>
+<table confidence="0.961251857142857">
+Method dev test C
+Proposed (n
+= 20) 91.76 86.19 5657
+Proposed (n
+= 100) 91.95 86.30 5657
+Proposed (n
+= 400) 92.13 86.39 5657
+Proposed (n
+= 800) 92.09 86.39 5657
+Proposed (n
+= 1600) 92.13 86.46 5657
+Proposed (n
+= 6400) 92.19 86.38 5657
+effects further.
+</table>
+<subsectionHeader confidence="0.658618">
+6.2 Results
+</subsectionHeader>
+<bodyText confidence="0.975911142857143">
+Table 2 compares the results. CRF outperformed
+the perceptron by a large margin. Although the av-
+eraged perceptron outperformed the perceptron, the
+improvement was slight. However, the margin per-
+ceptron greatly outperformed compared to the aver-
+aged perceptron. Yet, CRF still had the best baseline
+performance with only local features.
+The proposed algorithm with non-local features
+improved the performance on the test set by 0.66
+points over that of the margin perceptron without
+non-local features. The row Candidate refers to
+the candidate algorithm (Algorithm 4.1). From the
+results for the candidate algorithm, we can see that
+the modification part, (B), in Algorithm 4.2 was es-
+sential to make learning with non-local features ef-
+fective.
+We next examined the effect of n. As can be
+seen from Table 3, an n larger than that for train-
+ing yields higher performance. The highest perfor-
+mance with the proposed algorithm was achieved
+when n = 6400, where the improvement due to
+non-local features became 0.74 points.
+The performance of the related work (Finkel et
+al., 2005; Krishnan and Manning, 2006) is listed in
+Table 4. We can see that the final performance of our
+algorithm was worse than that of the related work.
+We changed the experimental setting slightly
+to investigate our algorithm further. Instead of
+</bodyText>
+<tableCaption confidence="0.999391">
+Table 4: The performance of the related work.
+</tableCaption>
+<table confidence="0.984513">
+Method dev test
+Finkel et al., 2005 (Finkel et al., 2005)
+baseline CRF - 85.51
++ non-local features - 86.86
+Krishnan and Manning, 2006 (Krishnan and Manning, 2006)
+baseline CRF - 85.29
++ non-local features - 87.24
+</table>
+<tableCaption confidence="0.8546005">
+Table 5: Summary of performance with POS/chunk
+tags by TagChunk.
+</tableCaption>
+<table confidence="0.975420416666667">
+Method dev test C (or 2
+)
+local features
+CRF 91.39 86.30 200
+Perceptron 89.36 84.35 -
+Averaged perceptron 89.76 84.50 -
+Margin perceptron 91.06 86.24 32000
++ non-local features
+Proposed (n
+= 100) 92.23 87.04 5657
+Proposed (n
+= 6400) 92.54 87.17 5657
+</table>
+<bodyText confidence="0.997054142857143">
+the POS/chunk tags provided in the CoNLL 2003
+dataset, we used the tags assigned by TagChunk
+(Daume III and Marcu, 2005)10 with the intention
+of using more accurate tags. The results with this
+setting are summarized in Table 5. Performance was
+better than that in the previous experiment for all al-
+gorithms. We think this was due to the quality of
+the POS/chunk tags. It is interesting that the ef-
+fect of non-local features rose to 0.93 points with
+n = 6400, even though the baseline performance
+was also improved. The resulting performance of
+the proposed algorithm with non-local features is
+higher than that of Finkel et al. (2005) and compara-
+ble with that of Krishnan and Manning (2006). This
+comparison, of course, is not fair because the setting
+was different. However, we think the results demon-
+strate a potential of our new algorithm.
+The effect of BPM initialization was also exam-
+ined. The number of BPM runs was 10 in this
+experiment. The performance of the proposed al-
+gorithm dropped from 91.95/86.30 to 91.89/86.03
+without BPM initialization as expected in the set-
+ting of the experiment of Table 2. The perfor-
+mance of the margin perceptron, on the other hand,
+changed from 90.98/85.64 to 90.98/85.90 without
+BPM initialization. This result was unexpected from
+the result of our preliminary experiment. However,
+the performance was changed from 91.06/86.24 to
+</bodyText>
+<page confidence="0.955618">
+10
+</page>
+<footnote confidence="0.524461">
+http://www.cs.utah.edu/ hal/TagChunk/
+</footnote>
+<page confidence="0.994958">
+321
+</page>
+<tableCaption confidence="0.923958">
+\x0cTable 6: Comparison with re-ranking approach.
+</tableCaption>
+<table confidence="0.989624625">
+Method dev test C
+local features
+Margin Perceptron 91.06 86.24 32000
++ non-local features
+Re-ranking 1 (n
+= 100) 91.62 86.57 4000
+Re-ranking 1 (n
+= 80) 91.71 86.58 4000
+Re-ranking 2 (n
+= 100) 92.08 86.86 16000
+Re-ranking 2 (n
+= 800) 92.26 86.95 16000
+Proposed (n
+= 100) 92.23 87.04 5657
+Proposed (n
+= 6400) 92.54 87.17 5657
+</table>
+<tableCaption confidence="0.994677">
+Table 7: Comparison of training time (C = 5657).
+</tableCaption>
+<table confidence="0.929547181818182">
+Method dev test time (sec.)
+local features
+Margin Perceptron 91.04 86.28 15,977
++ non-local features
+Re-ranking 1 (n
+= 100) 91.48 86.53 86,742
+Re-ranking 2 (n
+= 100) 92.02 86.85 112,138
+Proposed (n
+= 100) 92.23 87.04 28,880
+91.17/86.08 (i.e., dropped for the evaluation set as
+</table>
+<bodyText confidence="0.8816395">
+expected), in the setting of the experiment of Table
+5. Since the effect of BPM initialization is not con-
+clusive only from these results, we need more exper-
+iments on this.
+</bodyText>
+<subsectionHeader confidence="0.998645">
+6.3 Comparison with re-ranking approach
+</subsectionHeader>
+<bodyText confidence="0.997055782608696">
+Finally, we compared our algorithm with the re-
+ranking approach (Collins and Duffy, 2002; Collins,
+2002b), where we first generate the n-best candi-
+dates using a model with only local features (the
+first model) and then re-rank the candidates using
+a model with non-local features (the second model).
+We implemented two re-ranking models, re-
+ranking 1 and re-ranking 2. These models dif-
+fer in how to incorporate the local information in the
+second model. re-ranking 1 uses the score of the
+first model as a feature in addition to the non-local
+features as in Collins (2002b). re-ranking 2 uses
+the same local features as the first model11 in addi-
+tion to the non-local features. The first models were
+trained using the margin perceptron algorithm in Al-
+gorithm 3.1. The second models were trained using
+the algorithm, which is obtained by replacing {yn}
+with the n-best candidates by the first model. The
+first model used to generate n-best candidates for the
+development set and the test set was trained using
+the whole training data. However, CRFs or percep-
+trons generally have nearly zero error on the train-
+ing data, although the first model should mis-label
+</bodyText>
+<page confidence="0.996414">
+11
+</page>
+<bodyText confidence="0.99933535">
+The weights were re-trained for the second model.
+to some extent to make the training of the second
+model meaningful. To avoid this problem, we adopt
+cross-validation training as used in Collins (2002b).
+We split the training data into 5 sets. We then trained
+five first models using 4/5 of the data, each of which
+was used to generate n-best candidates for the re-
+maining 1/5 of the data.
+As in the previous experiments, we tuned C using
+the development set with n = 100 and then tested
+other values for n. Table 6 shows the results. As can
+be seen, re-ranking models were outperformed by
+our proposed algorithm, although they also outper-
+formed the margin perceptron with only local fea-
+tures (re-ranking 2 seems better than re-ranking
+1). Table 7 shows the training time of each algo-
+rithm.12 Our algorithm is much faster than the re-
+ranking approach that uses cross-validation training,
+while achieving the same or higher level of perfor-
+mance.
+</bodyText>
+<sectionHeader confidence="0.997046" genericHeader="conclusions">
+7 Discussion
+</sectionHeader>
+<bodyText confidence="0.999029833333333">
+As we mentioned, there are some algorithms simi-
+lar to ours (Collins and Roark, 2004; Daume III and
+Marcu, 2005; McDonald and Pereira, 2006; Liang
+et al., 2006). The differences of our algorithm from
+these algorithms are as follows.
+Daume III and Marcu (2005) presented the
+method called LaSO (Learning as Search Optimiza-
+tion), in which intractable exact inference is approx-
+imated by optimizing the behavior of the search pro-
+cess. The method can access non-local features
+at each search point, if their values can be deter-
+mined from the search decisions already made. They
+provided robust training algorithms with guaranteed
+convergence for this framework. However, a differ-
+ence is that our method can use non-local features
+whose value depends on all labels throughout train-
+ing, and it is unclear whether the features whose val-
+ues can only be determined at the end of the search
+(e.g., majority features) can be learned effectively
+with such an incremental manner of LaSO.
+The algorithm proposed by McDonald and
+Pereira (2006) is also similar to ours. Their tar-
+get was non-projective dependency parsing, where
+exact inference is intractable. Instead of using
+</bodyText>
+<page confidence="0.944947">
+12
+</page>
+<bodyText confidence="0.223276">
+Training time was measured on a machine with 2.33 GHz
+QuadCore Intel Xeons and 8 GB of memory. C was fixed to
+5657.
+</bodyText>
+<page confidence="0.996026">
+322
+</page>
+<bodyText confidence="0.999402808510638">
+\x0cn-best/re-scoring approach as ours, their method
+modifies the single best projective parse, which
+can be found efficiently, to find a candidate with
+higher score under non-local features. Liang et al.
+(2006) used n candidates of a beam search in the
+Collins perceptron algorithm for machine transla-
+tion. Collins and Roark (2004) proposed an approxi-
+mate incremental method for parsing. Their method
+can be used for sequence labeling as well. These
+studies, however, did not explain the validity of their
+updating methods in terms of convergence.
+To achieve robust training, Daume III and Marcu
+(2005) employed the averaged perceptron (Collins,
+2002a) and ALMA (Gentile, 2001). Collins and
+Roark (2004) used the averaged perceptron (Collins,
+2002a). McDonald and Pereira (2006) used MIRA
+(Crammer et al., 2006). On the other hand, we em-
+ployed the margin perceptron (Krauth and Mezard,
+1987), extending it to sequence labeling. We demon-
+strated that this greatly improved robustness.
+With regard to the local update, (B), in Algo-
+rithm 4.2, early updates (Collins and Roark, 2004)
+and y-good requirement in (Daume III and Marcu,
+2005) resemble our local update in that they tried to
+avoid the situation where the correct answer cannot
+be output. Considering such commonality, the way
+of combining the local update and the non-local up-
+date might be one important key for further improve-
+ment.
+It is still open whether these differences are ad-
+vantages or disadvantages. However, we think our
+algorithm can be a contribution to the study for in-
+corporating non-local features. The convergence
+guarantee is important for the confidence in the
+training results, although it does not mean high per-
+formance directly. Our algorithm could at least im-
+prove the accuracy of NER with non-local features
+and it was indicated that our algorithm was supe-
+rior to the re-ranking approach in terms of accu-
+racy and training cost. However, the achieved accu-
+racy was not better than that of related work (Finkel
+et al., 2005; Krishnan and Manning, 2006) based
+on CRFs. Although this might indicate the limita-
+tion of perceptron-based methods, it has also been
+shown that there is still room for improvement in
+perceptron-based algorithms as our margin percep-
+tron algorithm demonstrated.
+</bodyText>
+<sectionHeader confidence="0.996595" genericHeader="references">
+8 Conclusion
+</sectionHeader>
+<bodyText confidence="0.985437090909091">
+In this paper, we presented a new perceptron algo-
+rithm for learning with non-local features. We think
+the proposed algorithm is an important step towards
+achieving our final objective. We would like to in-
+vestigate various types of new non-local features us-
+ing the proposed algorithm in future work.
+Appendix A: Convergence of Algorithm 4.2
+Let k be a weight vector before the kth update and
+k be a variable that takes 1 when the kth update is
+done in (A) and 0 when done in (B). The update rule
+can then be written as k+1 = k + k(a a +
+</bodyText>
+<figure confidence="0.914699955882353">
+(1 k)(l l).13 First, we obtain
+k+1
+Ul
+= k
+Ul
++ k(a
+Ul
+a
+Ul
+)
++(1 k)(l
+Ul
+l
+Ul
+)
+k
+Ul
++ k + (1 k)
+= k
+Ul
++ 1
+Ul
++ k = k
+Therefore, (k)2 (k+1 Ul
+)2
+(||k+1 |Ul
+||)2 = ||k+1||2 (1). On the
+other hand, we also obtain
+||k+1
+||2
+||k
+||2
++ 2kk
+(a
+a
+)
++2(1 k)k
+(l
+l
+)
++{k(a
+a
+) + (1 k)(l
+l
+)}2
+||k
+||2
++ 2C + R2
+||1
+||2
++ k(R2
++ 2C) = k(R2
++ 2C) (2)
+We used k(a a) Ca, k(l l)
+Cl and Cl = Ca = C to derive 2C in the second
+inequality. We used ||l l  |a a ||R
+to derive R2.
+Combining (1) and (2), we obtain k (R2 +
+2C)/2. Substituting this into (2) gives ||k||
+(R2+2C)/. Since y = y and aa
+&amp;gt;
+C after convergence, we obtain
+() = min
+xi
+a a
+ |
+C/(2C + R2
+).
+</figure>
+<page confidence="0.875866">
+13
+</page>
+<bodyText confidence="0.864839">
+We use the shorthand a
+</bodyText>
+<figure confidence="0.652927">
+= a
+(xi, y
+i ), a
+=
+a
+(xi, y), l
+= l
+(xi, y
+i ), and l
+= l
+(xi, y) where y
+represents the candidate used to update (y
+, y
+, y1
+, or y2
+).
+</figure>
+<page confidence="0.958552">
+323
+</page>
+<reference confidence="0.996776333333333">
+\x0cReferences
+D. M. Bikel, R. L. Schwartz, and R. M. Weischedel.
+1999. An algorithm that learns whats in a name. Ma-
+chine Learning, 34(1-3):211231.
+R. Bunescu and R. J. Mooney. 2004. Collective infor-
+mation extraction with relational markov networks. In
+ACL 2004.
+S. F. Chen and R. Rosenfeld. 2000. A survey of smooth-
+ing techniques for ME models. IEEE Transactions on
+Speech and Audio Processing, 8(1):3750.
+M. Collins and N. Duffy. 2002. New ranking algorithms
+for parsing and tagging: Kernels over discrete struc-
+tures, and the voted perceptron. In ACL 2002, pages
+263270.
+M. Collins and B. Roark. 2004. Incremental parsing with
+the perceptron algorithm. In ACL 2004.
+M. Collins. 2002a. Discriminative training methods for
+hidden Markov models: Theory and experiments with
+perceptron algorithms. In EMNLP 2002.
+M. Collins. 2002b. Ranking algorithms for named-entity
+extraction: Boosting and the voted perceptron. In ACL
+2002.
+K. Crammer, O. Dekel, J. Keshet, S. Shalev-Shwartz,
+and Y. Singer. 2006. Online passive-aggressive al-
+gorithms. Journal of Machine Learning Research.
+H. Daume III and D. Marcu. 2005. Learning as search
+optimization: Approximate large margin methods for
+structured prediction. In ICML 2005.
+J. R. Finkel, T. Grenager, and C. Manning. 2005. In-
+corporating non-local information into information ex-
+traction systems by Gibbs sampling. In ACL 2005.
+C. Gentile. 2001. A new approximate maximal margin
+classification algorithm. JMLR, 3.
+R. Herbrich and T. Graepel. 2000. Large scale Bayes
+point machines. In NIPS 2000.
+W. Krauth and M. Mezard. 1987. Learning algorithms
+with optimal stability in neural networks. Journal of
+Physics A 20, pages 745752.
+V. Krishnan and C. D. Manning. 2006. An effective two-
+stage model for exploiting non-local dependencies in
+named entity recognitioin. In ACL-COLING 2006.
+J. Lafferty, A. McCallum, and F. Pereira. 2001. Con-
+ditional random fields: Probabilistic models for seg-
+menting and labeling sequence data. In ICML 2001,
+pages 282289.
+Y. Li, H. Zaragoza, R. Herbrich, J. Shawe-Taylor, and
+J. Kandola. 2002. The perceptron algorithm with un-
+even margins. In ICML 2002.
+P. Liang, A. Bouchard-Cote, D. Klein, and B. Taskar.
+2006. An end-to-end discriminative approach to ma-
+chine translation. In ACL-COLING 2006.
+R. McDonald and F. Pereira. 2006. Online learning of
+approximate dependency parsing algorithms. In EACL
+2006.
+R. McDonald, K. Crammer, and F. Pereira. 2005. Online
+large-margin training of dependency parsers. In ACL
+2005.
+T. Nakagawa and Y. Matsumoto. 2006. Guessing parts-
+of-speech of unknown words using global information.
+In ACL-COLING 2006.
+L. R. Rabiner. 1989. A tutorial on hidden Markov mod-
+els and selected applications in speech recognition.
+Proceedings of the IEEE, 77(2):257286.
+L. A. Ramshaw and M. P. Marcus. 1995. Text chunk-
+ing using transformation-based learning. In third ACL
+Workshop on very large corpora.
+F. Rosenblatt. 1958. The perceptron: A probabilistic
+model for information storage and organization in the
+brain. Psycological Review, pages 386407.
+D. Roth and W. Yih. 2005. Integer linear program-
+ming inference for conditional random fields. In ICML
+2005.
+S. Sarawagi and W. W. Cohen. 2004. Semi-Markov ran-
+dom fields for information extraction. In NIPS 2004.
+L. Shen and A. K. Joshi. 2004. Flexible margin selection
+for reranking with full pairwise samples. In IJCNLP
+2004.
+F. K. Soong and E. Huang. 1991. A tree-trellis based
+fast search for finding the n best sentence hypotheses
+in continuous speech recognition. In ICASSP-91.
+C. Sutton and A. McCallum. 2004. Collective segme-
+nation and labeling of distant entitites in information
+extraction. University of Massachusetts Rechnical Re-
+port TR 04-49.
+B. Taskar, C. Guestrin, and D. Koller. 2003. Max-margin
+Markov networks. In NIPS 2003.
+E. F. Tjong, K. Sang, and F. De Meulder. 2003. Intro-
+duction to the CoNLL-2003 shared task: Language-
+independent named entity recognition. In CoNLL
+2003.
+</reference>
+<page confidence="0.997018">
+324
+</page>
+<figure confidence="0.244604">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.360969">
+<note confidence="0.909462666666667">b&apos;Proceedings of the 2007 Joint Conference on Empirical Methods in Natural Language Processing and Computational Natural Language Learning, pp. 315324, Prague, June 2007. c 2007 Association for Computational Linguistics</note>
+<title confidence="0.983067">A New Perceptron Algorithm for Sequence Labeling with Non-local Features</title>
+<author confidence="0.961071">Junichi Kazama</author>
+<author confidence="0.961071">Kentaro Torisawa</author>
+<affiliation confidence="0.809185">Japan Advanced Institute of Science and Technology (JAIST)</affiliation>
+<address confidence="0.740083">Asahidai 1-1, Nomi, Ishikawa, 923-1292 Japan</address>
+<email confidence="0.944548">kazama@jaist.ac.jp</email>
+<email confidence="0.944548">torisawa@jaist.ac.jp</email>
+<abstract confidence="0.982004375">We cannot use non-local features with current major methods of sequence labeling such as CRFs due to concerns about complexity. We propose a new perceptron algorithm that can use non-local features. Our algorithm allows the use of all types of non-local features whose values are determined from the sequence and the labels. The weights of local and non-local features are learned together in the training process with guaranteed convergence. We present experimental results from the CoNLL 2003 named entity recognition (NER) task to demonstrate the performance of the proposed algorithm.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>\x0cReferences D M Bikel</author>
+<author>R L Schwartz</author>
+<author>R M Weischedel</author>
+</authors>
+<title>An algorithm that learns whats in a name.</title>
+<date>1999</date>
+<booktitle>Machine Learning,</booktitle>
+<pages>34--1</pages>
+<contexts>
+<context position="22670" citStr="Bikel et al., 1999" startWordPosition="4076" endWordPosition="4079">maller values). We tested {500, 1000, 1414, 2000, 2828, 4000, 5657, 8000, 11313, 16000, 32000} for the margin parameters. Table 1: Local features used. The value of a node feature is determined from the current label, y0, and a surface feature determined only from x. The value of an edge feature is determined by the previous label, y1, the current label, y0, and a surface feature. Used surface features are the word (w), the downcased word (wl), the POS tag (pos), the chunk tag (chk), the prefix of the word of length n (pn), the suffix (sn), the word form features: 2d - cp (these are based on (Bikel et al., 1999)), and the gazetteer features: go for ORG, gp for PER, and gm for MISC. These represent the (longest) match with an entry in the gazetteer by using IOB2 tags. Node features: {, x2, x1, x0, x+1, x+2} y0 x =, w, wl, pos, chk, p1, p2, p3, p4, s1, s2, s3, s4, 2d, 4d, d&amp;a, d&amp;-, d&amp;/, d&amp;,, d&amp;., n, ic, ac, l, cp, go, gp, gm Edge features: {, x2, x1, x0, x+1, x+2} y1 y0 x =, w, wl, pos, chk, p1, p2, p3, p4, s1, s2, s3, s4, 2d, 4d, d&amp;a, d&amp;-, d&amp;/, d&amp;,, d&amp;., n, ic, ac, l, cp, go, gp, gm Bigram node features: {x2x1, x1x0, x0x+1} y0 x = wl, pos, chk, go, gp, gm Bigram edge features: {x2x1, x1x0, x0x+1} y1 y</context>
+</contexts>
+<marker>Bikel, Schwartz, Weischedel, 1999</marker>
+<rawString>\x0cReferences D. M. Bikel, R. L. Schwartz, and R. M. Weischedel. 1999. An algorithm that learns whats in a name. Machine Learning, 34(1-3):211231.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Bunescu</author>
+<author>R J Mooney</author>
+</authors>
+<title>Collective information extraction with relational markov networks.</title>
+<date>2004</date>
+<booktitle>In ACL</booktitle>
+<contexts>
+<context position="2149" citStr="Bunescu and Mooney, 2004" startWordPosition="325" endWordPosition="328">rlapping and non-independent features. However, the common limitation of these methods is that the features are limited to local features, which only depend on a very small number of labels (usually two: the previous and the current). Although this limitation makes training and inference tractable, it also excludes the use of possibly useful non-local features that are accessible after all labels are determined. For example, non-local features such as same phrases in a document do not have different entity classes were shown to be useful in named entity recognition (Sutton and McCallum, 2004; Bunescu and Mooney, 2004; Finkel et al., 2005; Krishnan and Manning, 2006). We propose a new perceptron algorithm in this paper that can use non-local features along with local features. Although several methods have already been proposed to incorporate non-local features (Sutton and McCallum, 2004; Bunescu and Mooney, 2004; Finkel et al., 2005; Roth and Yih, 2005; Krishnan and Manning, 2006; Nakagawa and Matsumoto, 2006), these present a problem that the types of non-local features are somewhat constrained. For example, Finkel et al. (2005) enabled the use of non-local features by using Gibbs sampling. However, it i</context>
+</contexts>
+<marker>Bunescu, Mooney, 2004</marker>
+<rawString>R. Bunescu and R. J. Mooney. 2004. Collective information extraction with relational markov networks. In ACL 2004.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S F Chen</author>
+<author>R Rosenfeld</author>
+</authors>
+<title>A survey of smoothing techniques for ME models.</title>
+<date>2000</date>
+<journal>IEEE Transactions on Speech and Audio Processing,</journal>
+<volume>8</volume>
+<issue>1</issue>
+<contexts>
+<context position="21042" citStr="Chen and Rosenfeld, 2000" startWordPosition="3802" endWordPosition="3805">formance of our perceptron algorithm proposed for non-local features. We used the local features summarized in Table 1, which are similar to those used in other studies on named entity recognition. We omitted features whose surface part listed in Table 1 occurred less than twice in the training corpus. We used CRF++ (ver. 0.44)7 as the basis of our implementation. We implemented scaling, which is similar to that for HMMs (see such as (Rabiner, 1989)), in the forward-backward phase of CRF training to deal with very long sequences due to sentence concatenation.8 We used Gaussian regularization (Chen and Rosenfeld, 2000) for CRF training to avoid overfitting. The parameter of the Gaussian, 2, was tuned using the development set. We also tuned the margin parameter, C, for the margin perceptron algorithm.9 The convergence of CRF training was determined by checking the log-likelihood of the model. The convergence of perceptron algorithms was determined by checking the per-word labeling error, since the 6 We used sentence concatenation even when only using local features, since we found it does not degrade accuracy (rather we observed a slight increase). 7 http://chasen.org/ taku/software/CRF++ 8 We also replaced</context>
+</contexts>
+<marker>Chen, Rosenfeld, 2000</marker>
+<rawString>S. F. Chen and R. Rosenfeld. 2000. A survey of smoothing techniques for ME models. IEEE Transactions on Speech and Audio Processing, 8(1):3750.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+<author>N Duffy</author>
+</authors>
+<title>New ranking algorithms for parsing and tagging: Kernels over discrete structures, and the voted perceptron.</title>
+<date>2002</date>
+<booktitle>In ACL</booktitle>
+<pages>263270</pages>
+<contexts>
+<context position="12981" citStr="Collins and Duffy, 2002" startWordPosition="2289" endWordPosition="2292">g of CRFs is also intractable for the same reason. To deal with this problem, we first relaxed our objective. The modified objective was to find a good model from those with the form: {yn } = n-bestyl (x, y) y = argmaxy{yn}a (x, y) , (1) That is, we first generate n-best candidates {yn} under the local model, l(x, y) . This can be done efficiently using the A* algorithm. We then find the best scoring candidate under the total model, a(x, y), only from these n-best candidates. If n is moderately small, this can also be done in a practical amount of time. This resembles the re-ranking approach (Collins and Duffy, 2002; Collins, 2002b). However, unlike the re-ranking approach, the local model, l(x, y) , and the total model, a(x, y) , correlate since they share a part of the vector and are trained at the same time in our algorithm. The re-ranking approach has the disadvantage that it is necessary to use different training corpora for the first model and for the second, or to use cross validation type training, to make the training for the second meaningful. This reduces the effective size of training data or increases training time substantially. On the other hand, our algorithm has no such disadvantage. How</context>
+<context position="29069" citStr="Collins and Duffy, 2002" startWordPosition="5199" endWordPosition="5202">ble 7: Comparison of training time (C = 5657). Method dev test time (sec.) local features Margin Perceptron 91.04 86.28 15,977 + non-local features Re-ranking 1 (n = 100) 91.48 86.53 86,742 Re-ranking 2 (n = 100) 92.02 86.85 112,138 Proposed (n = 100) 92.23 87.04 28,880 91.17/86.08 (i.e., dropped for the evaluation set as expected), in the setting of the experiment of Table 5. Since the effect of BPM initialization is not conclusive only from these results, we need more experiments on this. 6.3 Comparison with re-ranking approach Finally, we compared our algorithm with the reranking approach (Collins and Duffy, 2002; Collins, 2002b), where we first generate the n-best candidates using a model with only local features (the first model) and then re-rank the candidates using a model with non-local features (the second model). We implemented two re-ranking models, reranking 1 and re-ranking 2. These models differ in how to incorporate the local information in the second model. re-ranking 1 uses the score of the first model as a feature in addition to the non-local features as in Collins (2002b). re-ranking 2 uses the same local features as the first model11 in addition to the non-local features. The first mo</context>
+</contexts>
+<marker>Collins, Duffy, 2002</marker>
+<rawString>M. Collins and N. Duffy. 2002. New ranking algorithms for parsing and tagging: Kernels over discrete structures, and the voted perceptron. In ACL 2002, pages 263270.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+<author>B Roark</author>
+</authors>
+<title>Incremental parsing with the perceptron algorithm.</title>
+<date>2004</date>
+<booktitle>In ACL</booktitle>
+<contexts>
+<context position="4153" citStr="Collins and Roark, 2004" startWordPosition="653" endWordPosition="656">er, their method can only be applied when there are convenient links such as the same lexical form. Since non-local features have not yet been extensively investigated, it is possible for us to find new useful non-local features. Therefore, our objective in this study was to establish a framework, where all 315 \x0ctypes of non-local features are allowed. With non-local features, we cannot use efficient procedures such as forward-backward procedures and the Viterbi algorithm that are required in training CRFs (Lafferty et al., 2001) and perceptrons (Collins, 2002a). Recently, several methods (Collins and Roark, 2004; Daume III and Marcu, 2005; McDonald and Pereira, 2006) have been proposed with similar motivation to ours. These methods alleviate this problem by using some approximation in perceptron-type learning. In this paper, we follow this line of research and try to solve the problem by extending Collins perceptron algorithm (Collins, 2002a). We exploited the not-so-familiar fact that we can design a perceptron algorithm with guaranteed convergence if we can find at least one wrong labeling candidate even if we cannot perform exact inference. We first ran the A* search only using local features to g</context>
+<context position="31181" citStr="Collins and Roark, 2004" startWordPosition="5560" endWordPosition="5563">nts, we tuned C using the development set with n = 100 and then tested other values for n. Table 6 shows the results. As can be seen, re-ranking models were outperformed by our proposed algorithm, although they also outperformed the margin perceptron with only local features (re-ranking 2 seems better than re-ranking 1). Table 7 shows the training time of each algorithm.12 Our algorithm is much faster than the reranking approach that uses cross-validation training, while achieving the same or higher level of performance. 7 Discussion As we mentioned, there are some algorithms similar to ours (Collins and Roark, 2004; Daume III and Marcu, 2005; McDonald and Pereira, 2006; Liang et al., 2006). The differences of our algorithm from these algorithms are as follows. Daume III and Marcu (2005) presented the method called LaSO (Learning as Search Optimization), in which intractable exact inference is approximated by optimizing the behavior of the search process. The method can access non-local features at each search point, if their values can be determined from the search decisions already made. They provided robust training algorithms with guaranteed convergence for this framework. However, a difference is th</context>
+<context position="32712" citStr="Collins and Roark (2004)" startWordPosition="5809" endWordPosition="5812">posed by McDonald and Pereira (2006) is also similar to ours. Their target was non-projective dependency parsing, where exact inference is intractable. Instead of using 12 Training time was measured on a machine with 2.33 GHz QuadCore Intel Xeons and 8 GB of memory. C was fixed to 5657. 322 \x0cn-best/re-scoring approach as ours, their method modifies the single best projective parse, which can be found efficiently, to find a candidate with higher score under non-local features. Liang et al. (2006) used n candidates of a beam search in the Collins perceptron algorithm for machine translation. Collins and Roark (2004) proposed an approximate incremental method for parsing. Their method can be used for sequence labeling as well. These studies, however, did not explain the validity of their updating methods in terms of convergence. To achieve robust training, Daume III and Marcu (2005) employed the averaged perceptron (Collins, 2002a) and ALMA (Gentile, 2001). Collins and Roark (2004) used the averaged perceptron (Collins, 2002a). McDonald and Pereira (2006) used MIRA (Crammer et al., 2006). On the other hand, we employed the margin perceptron (Krauth and Mezard, 1987), extending it to sequence labeling. We </context>
+</contexts>
+<marker>Collins, Roark, 2004</marker>
+<rawString>M. Collins and B. Roark. 2004. Incremental parsing with the perceptron algorithm. In ACL 2004.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+</authors>
+<title>Discriminative training methods for hidden Markov models: Theory and experiments with perceptron algorithms.</title>
+<date>2002</date>
+<booktitle>In EMNLP</booktitle>
+<contexts>
+<context position="1362" citStr="Collins, 2002" startWordPosition="200" endWordPosition="201">are determined from the sequence and the labels. The weights of local and non-local features are learned together in the training process with guaranteed convergence. We present experimental results from the CoNLL 2003 named entity recognition (NER) task to demonstrate the performance of the proposed algorithm. 1 Introduction Many NLP tasks such as POS tagging and named entity recognition have recently been solved as sequence labeling. Discriminative methods such as Conditional Random Fields (CRFs) (Lafferty et al., 2001), Semi-Markov Random Fields (Sarawagi and Cohen, 2004), and perceptrons (Collins, 2002a) have been popular approaches for sequence labeling because of their excellent performance, which is mainly due to their ability to incorporate many kinds of overlapping and non-independent features. However, the common limitation of these methods is that the features are limited to local features, which only depend on a very small number of labels (usually two: the previous and the current). Although this limitation makes training and inference tractable, it also excludes the use of possibly useful non-local features that are accessible after all labels are determined. For example, non-loca</context>
+<context position="4099" citStr="Collins, 2002" startWordPosition="648" endWordPosition="649">g the same lexical form in a document. However, their method can only be applied when there are convenient links such as the same lexical form. Since non-local features have not yet been extensively investigated, it is possible for us to find new useful non-local features. Therefore, our objective in this study was to establish a framework, where all 315 \x0ctypes of non-local features are allowed. With non-local features, we cannot use efficient procedures such as forward-backward procedures and the Viterbi algorithm that are required in training CRFs (Lafferty et al., 2001) and perceptrons (Collins, 2002a). Recently, several methods (Collins and Roark, 2004; Daume III and Marcu, 2005; McDonald and Pereira, 2006) have been proposed with similar motivation to ours. These methods alleviate this problem by using some approximation in perceptron-type learning. In this paper, we follow this line of research and try to solve the problem by extending Collins perceptron algorithm (Collins, 2002a). We exploited the not-so-familiar fact that we can design a perceptron algorithm with guaranteed convergence if we can find at least one wrong labeling candidate even if we cannot perform exact inference. We </context>
+<context position="5787" citStr="Collins (2002" startWordPosition="916" endWordPosition="917">e learning with non-local features. The remainder of the paper is organized as follows. Section 2 introduces the Collins perceptron algorithm. Although this algorithm is the starting point for our algorithm, its baseline performance is not outstanding. Therefore, we present a margin extension to the Collins perceptron in Section 3. This margin perceptron became the direct basis of our algorithm. We then explain our algorithm for nonlocal features in Section 4. We report the experimental results using the CoNLL 2003 shared task dataset in Section 6. 2 Perceptron Algorithm for Sequence Labeling Collins (2002a) proposed an extension of the perceptron algorithm (Rosenblatt, 1958) to sequence labeling. Our aim in sequence labeling is to assign label yi Y to each word xi X in a sequence. We denote sequence x1, . . . , xT as x and the corresponding labels as y. We assume weight vector Rd and feature mapping that maps each (x, y) to feature vector (x, y) = (1(x, y), , d(x, y)) Rd. The model determines the labels by: y = argmaxyY|x |(x, y) , where denotes the inner product. The aim of the learning algorithm is to obtain an appropriate weight vector, , given training set {(x1, y 1), , (xL, y L)}. The lea</context>
+<context position="7819" citStr="Collins (2002" startWordPosition="1301" endWordPosition="1302">nherent property is the key to training with non-local features. However, note that the tractability of learning and inference relies on how efficiently y can be found. In practice, we can find y efficiently using a Viterbi-type algorithm only when the features are all local, i.e., s(x, y) can be written as the sum of (two label) local features s as s(x, y) = T i s(x, yi1, yi). This locality constraint is also required to make the training of CRFs tractable (Lafferty et al., 2001). One problem with the perceptron algorithm described so far is that it offers no treatment for overfitting. Thus, Collins (2002a) also proposed an averaged perceptron, where the final weight vector is 1 Collins (2002a) also provided proof that guaranteed good learning for the non-separable case. However, we have only considered the separable case throughout the paper. 316 \x0cAlgorithm 3.1: Perceptron with margin for sequence labeling (parameters: C) 0 until no more updates do for i 1 to L do 8 &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;lt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; : y = argmaxy(xi, y) y = 2nd-besty(xi, y) if y = y i then = + (xi, y i ) (xi, y ) else if (xi, y i ) (xi, y ) C then = + (xi, y i ) (xi, y ) the average of all weight vectors during training. Howerver, we </context>
+<context position="9514" citStr="Collins (2002" startWordPosition="1622" endWordPosition="1623">case of sequence labeling, the margin is defined as: () = min xi min y=y i (xi, yi ) (xi, y) | Assuming that the best candidate, y, equals the correct answer, y, the margin can be re-written as: = min xi (xi, yi ) (xi, y) | , where y = 2nd-besty(xi, y) . Using this relation, the resulting algorithm becomes Algorithm 3.1. The algorithm tries to enlarge the margin as much as possible, as well as make the best scoring candidate equal the correct answer. Constant C in Algorithm 3.1 is a tunable parameter, which controls the trade-off between the margin and convergence time. Based on the proofs in Collins (2002a) and Li et al. (2002), we can prove that the algorithm converges within (2C + R2)/2 updates and that () C/(2C + R2) = (/2)(1 (R2/(2C + R2))) after training. As can be seen, the margin approaches at least half of true margin (at the cost of infinite training time), as C . Note that if the features are all local, the secondbest candidate (generally n-best candidates) can also be found efficiently by using an A* search that uses the best scores calculated during a Viterbi search as the heuristic estimation (Soong and Huang, 1991). There are other methods for improving robustness by making margi</context>
+<context position="11516" citStr="Collins, 2002" startWordPosition="1993" endWordPosition="1994"> features in a unified way. Assume that we have local features and nonlocal features. We use the superscript, l, for local features as l i(x, y) and g for non-local features as g i (x, y). Then, feature mapping is written as a(x, y) = l(x, y) + g(x, y) = (l 1(x, y), , l n(x, y), g n+1(x, y), , g d(x, y)). Here, we define: l (x, y) = (l 1(x, y), , l n(x, y), 0, , 0) g (x, y) = (0, , 0, g n+1(x, y), , g d(x, y)) Ideally, we want to determine the labels using the whole feature set as: y = argmaxyY|x |a (x, y) . 2 (Daume III and Marcu, 2005) also presents the method using the averaged perceptron (Collins, 2002a) 3 For re-ranking problems, Shen and Joshi (2004) proposed a perceptron algorithm that also uses margins. The difference is that our algorithm trains the sequence labeler itself and is much simpler because it only aims at labeling. 317 \x0cAlgorithm 4.1: Candidate algorithm (parameters: n, C) 0 until no more updates do for i 1 to L do 8 &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;lt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; : {yn } = n-bestyl (xi, y) y = argmaxy{yn}a (xi, y) y = 2nd-besty{yn}a (xi, y) if y = yi &amp; a (xi, y i ) a (xi, y ) C then = + a (xi, y i ) a (xi, y ) else if a (xi, y i ) a (xi, y ) C then = + a (xi, y i ) a (xi, y ) Howe</context>
+<context position="12996" citStr="Collins, 2002" startWordPosition="2293" endWordPosition="2294">able for the same reason. To deal with this problem, we first relaxed our objective. The modified objective was to find a good model from those with the form: {yn } = n-bestyl (x, y) y = argmaxy{yn}a (x, y) , (1) That is, we first generate n-best candidates {yn} under the local model, l(x, y) . This can be done efficiently using the A* algorithm. We then find the best scoring candidate under the total model, a(x, y), only from these n-best candidates. If n is moderately small, this can also be done in a practical amount of time. This resembles the re-ranking approach (Collins and Duffy, 2002; Collins, 2002b). However, unlike the re-ranking approach, the local model, l(x, y) , and the total model, a(x, y) , correlate since they share a part of the vector and are trained at the same time in our algorithm. The re-ranking approach has the disadvantage that it is necessary to use different training corpora for the first model and for the second, or to use cross validation type training, to make the training for the second meaningful. This reduces the effective size of training data or increases training time substantially. On the other hand, our algorithm has no such disadvantage. However, we are no</context>
+<context position="14402" citStr="Collins (2002" startWordPosition="2624" endWordPosition="2625">eptron with local and non-local features (parameters: n, Ca , Cl ) 0 until no more updates do for i 1 to L do 8 &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;lt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; : {yn } = n-bestyl (xi, y) y = argmaxy{yn}a (xi, y) y = 2nd-besty{yn}a (xi, y) if y = y i &amp; a (xi, y i ) a (xi, y ) Ca then = + a (xi, y i ) a (xi, y ) (A) else if a (xi, y i ) a (xi, y ) Ca then = + a (xi, y i ) a (xi, y ) (A) else (B) 8 &amp;gt; &amp;gt; &amp;lt; &amp;gt; &amp;gt; : if y1 = yi then (y1 represents the best in {yn }) = + l (xi, y i ) l (xi, y1 ) else if l (xi, y i ) l (xi, y2 ) Cl then = + l (xi, y i ) l (xi, y2 ) proofs in Collins (2002a), we can see that the essential condition for convergence is that the weights are always updated using some y (= y) that satisfies: (xi, y i ) (xi, y) 0 ( C in the case of a perceptron with a margin). (2) That is, y does not necessarily need to be the exact best candidate or the exact second-best candidate. The algorithm also converges in a finite number of iterations even with Eq. (1) as long as Eq. (2) is satisfied. 4.2 Candidate Algorithm The algorithm we came up with first based on the above idea, is Algorithm 4.1. We first find the nbest candidates using the local model, l(x, y) . At th</context>
+<context position="29084" citStr="Collins, 2002" startWordPosition="5203" endWordPosition="5204">ning time (C = 5657). Method dev test time (sec.) local features Margin Perceptron 91.04 86.28 15,977 + non-local features Re-ranking 1 (n = 100) 91.48 86.53 86,742 Re-ranking 2 (n = 100) 92.02 86.85 112,138 Proposed (n = 100) 92.23 87.04 28,880 91.17/86.08 (i.e., dropped for the evaluation set as expected), in the setting of the experiment of Table 5. Since the effect of BPM initialization is not conclusive only from these results, we need more experiments on this. 6.3 Comparison with re-ranking approach Finally, we compared our algorithm with the reranking approach (Collins and Duffy, 2002; Collins, 2002b), where we first generate the n-best candidates using a model with only local features (the first model) and then re-rank the candidates using a model with non-local features (the second model). We implemented two re-ranking models, reranking 1 and re-ranking 2. These models differ in how to incorporate the local information in the second model. re-ranking 1 uses the score of the first model as a feature in addition to the non-local features as in Collins (2002b). re-ranking 2 uses the same local features as the first model11 in addition to the non-local features. The first models were train</context>
+<context position="30342" citStr="Collins (2002" startWordPosition="5415" endWordPosition="5416">lgorithm 3.1. The second models were trained using the algorithm, which is obtained by replacing {yn} with the n-best candidates by the first model. The first model used to generate n-best candidates for the development set and the test set was trained using the whole training data. However, CRFs or perceptrons generally have nearly zero error on the training data, although the first model should mis-label 11 The weights were re-trained for the second model. to some extent to make the training of the second model meaningful. To avoid this problem, we adopt cross-validation training as used in Collins (2002b). We split the training data into 5 sets. We then trained five first models using 4/5 of the data, each of which was used to generate n-best candidates for the remaining 1/5 of the data. As in the previous experiments, we tuned C using the development set with n = 100 and then tested other values for n. Table 6 shows the results. As can be seen, re-ranking models were outperformed by our proposed algorithm, although they also outperformed the margin perceptron with only local features (re-ranking 2 seems better than re-ranking 1). Table 7 shows the training time of each algorithm.12 Our algo</context>
+</contexts>
+<marker>Collins, 2002</marker>
+<rawString>M. Collins. 2002a. Discriminative training methods for hidden Markov models: Theory and experiments with perceptron algorithms. In EMNLP 2002.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+</authors>
+<title>Ranking algorithms for named-entity extraction: Boosting and the voted perceptron.</title>
+<date>2002</date>
+<booktitle>In ACL</booktitle>
+<contexts>
+<context position="33031" citStr="Collins, 2002" startWordPosition="5860" endWordPosition="5861">, their method modifies the single best projective parse, which can be found efficiently, to find a candidate with higher score under non-local features. Liang et al. (2006) used n candidates of a beam search in the Collins perceptron algorithm for machine translation. Collins and Roark (2004) proposed an approximate incremental method for parsing. Their method can be used for sequence labeling as well. These studies, however, did not explain the validity of their updating methods in terms of convergence. To achieve robust training, Daume III and Marcu (2005) employed the averaged perceptron (Collins, 2002a) and ALMA (Gentile, 2001). Collins and Roark (2004) used the averaged perceptron (Collins, 2002a). McDonald and Pereira (2006) used MIRA (Crammer et al., 2006). On the other hand, we employed the margin perceptron (Krauth and Mezard, 1987), extending it to sequence labeling. We demonstrated that this greatly improved robustness. With regard to the local update, (B), in Algorithm 4.2, early updates (Collins and Roark, 2004) and y-good requirement in (Daume III and Marcu, 2005) resemble our local update in that they tried to avoid the situation where the correct answer cannot be output. Consid</context>
+</contexts>
+<marker>Collins, 2002</marker>
+<rawString>M. Collins. 2002b. Ranking algorithms for named-entity extraction: Boosting and the voted perceptron. In ACL 2002.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K Crammer</author>
+<author>O Dekel</author>
+<author>J Keshet</author>
+<author>S Shalev-Shwartz</author>
+<author>Y Singer</author>
+</authors>
+<title>Online passive-aggressive algorithms.</title>
+<date>2006</date>
+<journal>Journal of Machine Learning Research.</journal>
+<contexts>
+<context position="10265" citStr="Crammer et al., 2006" startWordPosition="1750" endWordPosition="1753">/(2C + R2))) after training. As can be seen, the margin approaches at least half of true margin (at the cost of infinite training time), as C . Note that if the features are all local, the secondbest candidate (generally n-best candidates) can also be found efficiently by using an A* search that uses the best scores calculated during a Viterbi search as the heuristic estimation (Soong and Huang, 1991). There are other methods for improving robustness by making margin larger for the structural output problem. Such methods include ALMA (Gentile, 2001) used in (Daume III and Marcu, 2005)2, MIRA (Crammer et al., 2006) used in (McDonald et al., 2005), and Max-Margin Markov Networks (Taskar et al., 2003). However, to the best of our knowledge, there has been no prior work that has applied a perceptron with a margin (Krauth and Mezard, 1987) to structured output.3 Our method described in this section is one of the easiest to implement, while guaranteeing a large margin. We found in the experiments that our method outperformed the Collins averaged perceptron by a large margin. 4 Algorithm 4.1 Definition and Basic Idea Having described the basic perceptron algorithms, we will know explain our algorithm that lea</context>
+<context position="33192" citStr="Crammer et al., 2006" startWordPosition="5882" endWordPosition="5885"> Liang et al. (2006) used n candidates of a beam search in the Collins perceptron algorithm for machine translation. Collins and Roark (2004) proposed an approximate incremental method for parsing. Their method can be used for sequence labeling as well. These studies, however, did not explain the validity of their updating methods in terms of convergence. To achieve robust training, Daume III and Marcu (2005) employed the averaged perceptron (Collins, 2002a) and ALMA (Gentile, 2001). Collins and Roark (2004) used the averaged perceptron (Collins, 2002a). McDonald and Pereira (2006) used MIRA (Crammer et al., 2006). On the other hand, we employed the margin perceptron (Krauth and Mezard, 1987), extending it to sequence labeling. We demonstrated that this greatly improved robustness. With regard to the local update, (B), in Algorithm 4.2, early updates (Collins and Roark, 2004) and y-good requirement in (Daume III and Marcu, 2005) resemble our local update in that they tried to avoid the situation where the correct answer cannot be output. Considering such commonality, the way of combining the local update and the non-local update might be one important key for further improvement. It is still open wheth</context>
+</contexts>
+<marker>Crammer, Dekel, Keshet, Shalev-Shwartz, Singer, 2006</marker>
+<rawString>K. Crammer, O. Dekel, J. Keshet, S. Shalev-Shwartz, and Y. Singer. 2006. Online passive-aggressive algorithms. Journal of Machine Learning Research.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H Daume</author>
+<author>D Marcu</author>
+</authors>
+<title>Learning as search optimization: Approximate large margin methods for structured prediction.</title>
+<date>2005</date>
+<booktitle>In ICML</booktitle>
+<marker>Daume, Marcu, 2005</marker>
+<rawString>H. Daume III and D. Marcu. 2005. Learning as search optimization: Approximate large margin methods for structured prediction. In ICML 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J R Finkel</author>
+<author>T Grenager</author>
+<author>C Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by Gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In ACL</booktitle>
+<contexts>
+<context position="2170" citStr="Finkel et al., 2005" startWordPosition="329" endWordPosition="332">nt features. However, the common limitation of these methods is that the features are limited to local features, which only depend on a very small number of labels (usually two: the previous and the current). Although this limitation makes training and inference tractable, it also excludes the use of possibly useful non-local features that are accessible after all labels are determined. For example, non-local features such as same phrases in a document do not have different entity classes were shown to be useful in named entity recognition (Sutton and McCallum, 2004; Bunescu and Mooney, 2004; Finkel et al., 2005; Krishnan and Manning, 2006). We propose a new perceptron algorithm in this paper that can use non-local features along with local features. Although several methods have already been proposed to incorporate non-local features (Sutton and McCallum, 2004; Bunescu and Mooney, 2004; Finkel et al., 2005; Roth and Yih, 2005; Krishnan and Manning, 2006; Nakagawa and Matsumoto, 2006), these present a problem that the types of non-local features are somewhat constrained. For example, Finkel et al. (2005) enabled the use of non-local features by using Gibbs sampling. However, it is unclear how to appl</context>
+<context position="18514" citStr="Finkel et al. (2005)" startWordPosition="3386" endWordPosition="3389">mes, and used the averaged output weight vectors as a new initial weight vector, because we thought that the early part of training would be more seriously affected by the order of examples. We call this BPM initialization. 5 5 Named Entity Recognition and Non-Local Features We evaluated the performance of the proposed algorithm using the named entity recognition task. We adopted IOB (IOB2) labeling (Ramshaw and Marcus, 1995), where the first word of an entity of class C is labeled B-C, the words in the entity are labeled I-C, and other words are labeled O. We used non-local features based on Finkel et al. (2005). These features are based on observations such as same phrases in a document tend to have the same entity class (phrase consistency) and a sub-phrase of a phrase tends to have the same entity class as the phrase (sub-phrase consistency). We also implemented the majority version of these features as used in Krishnan and Manning (2006). In addition, we used non-local features, which are based on the observation that entities tend to have the same entity class if they are in the same conjunctive or disjunctive expression as in in U.S., EU, and Japan (conjunction consistency). This type of non-lo</context>
+<context position="25837" citStr="Finkel et al., 2005" startWordPosition="4657" endWordPosition="4660">e margin perceptron without non-local features. The row Candidate refers to the candidate algorithm (Algorithm 4.1). From the results for the candidate algorithm, we can see that the modification part, (B), in Algorithm 4.2 was essential to make learning with non-local features effective. We next examined the effect of n. As can be seen from Table 3, an n larger than that for training yields higher performance. The highest performance with the proposed algorithm was achieved when n = 6400, where the improvement due to non-local features became 0.74 points. The performance of the related work (Finkel et al., 2005; Krishnan and Manning, 2006) is listed in Table 4. We can see that the final performance of our algorithm was worse than that of the related work. We changed the experimental setting slightly to investigate our algorithm further. Instead of Table 4: The performance of the related work. Method dev test Finkel et al., 2005 (Finkel et al., 2005) baseline CRF - 85.51 + non-local features - 86.86 Krishnan and Manning, 2006 (Krishnan and Manning, 2006) baseline CRF - 85.29 + non-local features - 87.24 Table 5: Summary of performance with POS/chunk tags by TagChunk. Method dev test C (or 2 ) local f</context>
+<context position="27288" citStr="Finkel et al. (2005)" startWordPosition="4905" endWordPosition="4908">tags provided in the CoNLL 2003 dataset, we used the tags assigned by TagChunk (Daume III and Marcu, 2005)10 with the intention of using more accurate tags. The results with this setting are summarized in Table 5. Performance was better than that in the previous experiment for all algorithms. We think this was due to the quality of the POS/chunk tags. It is interesting that the effect of non-local features rose to 0.93 points with n = 6400, even though the baseline performance was also improved. The resulting performance of the proposed algorithm with non-local features is higher than that of Finkel et al. (2005) and comparable with that of Krishnan and Manning (2006). This comparison, of course, is not fair because the setting was different. However, we think the results demonstrate a potential of our new algorithm. The effect of BPM initialization was also examined. The number of BPM runs was 10 in this experiment. The performance of the proposed algorithm dropped from 91.95/86.30 to 91.89/86.03 without BPM initialization as expected in the setting of the experiment of Table 2. The performance of the margin perceptron, on the other hand, changed from 90.98/85.64 to 90.98/85.90 without BPM initializa</context>
+<context position="34380" citStr="Finkel et al., 2005" startWordPosition="6081" endWordPosition="6084">ovement. It is still open whether these differences are advantages or disadvantages. However, we think our algorithm can be a contribution to the study for incorporating non-local features. The convergence guarantee is important for the confidence in the training results, although it does not mean high performance directly. Our algorithm could at least improve the accuracy of NER with non-local features and it was indicated that our algorithm was superior to the re-ranking approach in terms of accuracy and training cost. However, the achieved accuracy was not better than that of related work (Finkel et al., 2005; Krishnan and Manning, 2006) based on CRFs. Although this might indicate the limitation of perceptron-based methods, it has also been shown that there is still room for improvement in perceptron-based algorithms as our margin perceptron algorithm demonstrated. 8 Conclusion In this paper, we presented a new perceptron algorithm for learning with non-local features. We think the proposed algorithm is an important step towards achieving our final objective. We would like to investigate various types of new non-local features using the proposed algorithm in future work. Appendix A: Convergence of</context>
+</contexts>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>J. R. Finkel, T. Grenager, and C. Manning. 2005. Incorporating non-local information into information extraction systems by Gibbs sampling. In ACL 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C Gentile</author>
+</authors>
+<title>A new approximate maximal margin classification algorithm.</title>
+<date>2001</date>
+<journal>JMLR,</journal>
+<volume>3</volume>
+<contexts>
+<context position="10199" citStr="Gentile, 2001" startWordPosition="1740" endWordPosition="1741">in (2C + R2)/2 updates and that () C/(2C + R2) = (/2)(1 (R2/(2C + R2))) after training. As can be seen, the margin approaches at least half of true margin (at the cost of infinite training time), as C . Note that if the features are all local, the secondbest candidate (generally n-best candidates) can also be found efficiently by using an A* search that uses the best scores calculated during a Viterbi search as the heuristic estimation (Soong and Huang, 1991). There are other methods for improving robustness by making margin larger for the structural output problem. Such methods include ALMA (Gentile, 2001) used in (Daume III and Marcu, 2005)2, MIRA (Crammer et al., 2006) used in (McDonald et al., 2005), and Max-Margin Markov Networks (Taskar et al., 2003). However, to the best of our knowledge, there has been no prior work that has applied a perceptron with a margin (Krauth and Mezard, 1987) to structured output.3 Our method described in this section is one of the easiest to implement, while guaranteeing a large margin. We found in the experiments that our method outperformed the Collins averaged perceptron by a large margin. 4 Algorithm 4.1 Definition and Basic Idea Having described the basic </context>
+<context position="33058" citStr="Gentile, 2001" startWordPosition="5864" endWordPosition="5865">e single best projective parse, which can be found efficiently, to find a candidate with higher score under non-local features. Liang et al. (2006) used n candidates of a beam search in the Collins perceptron algorithm for machine translation. Collins and Roark (2004) proposed an approximate incremental method for parsing. Their method can be used for sequence labeling as well. These studies, however, did not explain the validity of their updating methods in terms of convergence. To achieve robust training, Daume III and Marcu (2005) employed the averaged perceptron (Collins, 2002a) and ALMA (Gentile, 2001). Collins and Roark (2004) used the averaged perceptron (Collins, 2002a). McDonald and Pereira (2006) used MIRA (Crammer et al., 2006). On the other hand, we employed the margin perceptron (Krauth and Mezard, 1987), extending it to sequence labeling. We demonstrated that this greatly improved robustness. With regard to the local update, (B), in Algorithm 4.2, early updates (Collins and Roark, 2004) and y-good requirement in (Daume III and Marcu, 2005) resemble our local update in that they tried to avoid the situation where the correct answer cannot be output. Considering such commonality, the</context>
+</contexts>
+<marker>Gentile, 2001</marker>
+<rawString>C. Gentile. 2001. A new approximate maximal margin classification algorithm. JMLR, 3.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Herbrich</author>
+<author>T Graepel</author>
+</authors>
+<title>Large scale Bayes point machines.</title>
+<date>2000</date>
+<booktitle>In NIPS</booktitle>
+<contexts>
+<context position="17546" citStr="Herbrich and Graepel, 2000" startWordPosition="3218" endWordPosition="3221">he search space. We can prove that the algorithm in Algorithm 4.2 also converges in a finite number of iterations. It converges within (2C + R2)/2 updates, assuming that there exist weight vector Ul (with ||Ul ||= 1 and Ul i = 0 (n + 1 i d)), (&amp;gt; 0), and R (&amp;gt; 0) that satisfy: i, y Y|xi| l (xi, yi )Ul l (xi, y)Ul , i, y Y|xi| ||a (xi, yi ) a (xi, y) ||R. In addition, we can prove that () C/(2C + R2) for the margin after convergence, where () is defined as: min xi min y{yn},=y i a(xi, yi ) a(xi, y) | See Appendix A for the proofs. We also incorporated the idea behind Bayes point machines (BPMs) (Herbrich and Graepel, 2000) to improve the robustness of our method further. BPMs try to cancel out overfitting caused by the order of examples, by training several models by shuffling the training examples.4 However, it is very time consuming to run the complete training process several times. We thus ran the training in only one pass over the shuffled examples several times, and used the averaged output weight vectors as a new initial weight vector, because we thought that the early part of training would be more seriously affected by the order of examples. We call this BPM initialization. 5 5 Named Entity Recognition</context>
+</contexts>
+<marker>Herbrich, Graepel, 2000</marker>
+<rawString>R. Herbrich and T. Graepel. 2000. Large scale Bayes point machines. In NIPS 2000.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W Krauth</author>
+<author>M Mezard</author>
+</authors>
+<title>Learning algorithms with optimal stability in neural networks.</title>
+<date>1987</date>
+<journal>Journal of Physics A</journal>
+<volume>20</volume>
+<pages>745752</pages>
+<contexts>
+<context position="8782" citStr="Krauth and Mezard, 1987" startWordPosition="1484" endWordPosition="1487">more updates do for i 1 to L do 8 &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;lt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; : y = argmaxy(xi, y) y = 2nd-besty(xi, y) if y = y i then = + (xi, y i ) (xi, y ) else if (xi, y i ) (xi, y ) C then = + (xi, y i ) (xi, y ) the average of all weight vectors during training. Howerver, we found in our experiments that the averaged perceptron performed poorly in our setting. We therefore tried to make the perceptron algorithm more robust to overfitting. We will describe our extension to the perceptron algorithm in the next section. 3 Margin Perceptron Algorithm for Sequence Labeling We extended a perceptron with a margin (Krauth and Mezard, 1987) to sequence labeling in this study, as Collins (2002a) extended the perceptron algorithm to sequence labeling. In the case of sequence labeling, the margin is defined as: () = min xi min y=y i (xi, yi ) (xi, y) | Assuming that the best candidate, y, equals the correct answer, y, the margin can be re-written as: = min xi (xi, yi ) (xi, y) | , where y = 2nd-besty(xi, y) . Using this relation, the resulting algorithm becomes Algorithm 3.1. The algorithm tries to enlarge the margin as much as possible, as well as make the best scoring candidate equal the correct answer. Constant C in Algorithm 3.</context>
+<context position="10490" citStr="Krauth and Mezard, 1987" startWordPosition="1790" endWordPosition="1793">-best candidates) can also be found efficiently by using an A* search that uses the best scores calculated during a Viterbi search as the heuristic estimation (Soong and Huang, 1991). There are other methods for improving robustness by making margin larger for the structural output problem. Such methods include ALMA (Gentile, 2001) used in (Daume III and Marcu, 2005)2, MIRA (Crammer et al., 2006) used in (McDonald et al., 2005), and Max-Margin Markov Networks (Taskar et al., 2003). However, to the best of our knowledge, there has been no prior work that has applied a perceptron with a margin (Krauth and Mezard, 1987) to structured output.3 Our method described in this section is one of the easiest to implement, while guaranteeing a large margin. We found in the experiments that our method outperformed the Collins averaged perceptron by a large margin. 4 Algorithm 4.1 Definition and Basic Idea Having described the basic perceptron algorithms, we will know explain our algorithm that learns the weights of local and non-local features in a unified way. Assume that we have local features and nonlocal features. We use the superscript, l, for local features as l i(x, y) and g for non-local features as g i (x, y)</context>
+<context position="33272" citStr="Krauth and Mezard, 1987" startWordPosition="5896" endWordPosition="5899">tron algorithm for machine translation. Collins and Roark (2004) proposed an approximate incremental method for parsing. Their method can be used for sequence labeling as well. These studies, however, did not explain the validity of their updating methods in terms of convergence. To achieve robust training, Daume III and Marcu (2005) employed the averaged perceptron (Collins, 2002a) and ALMA (Gentile, 2001). Collins and Roark (2004) used the averaged perceptron (Collins, 2002a). McDonald and Pereira (2006) used MIRA (Crammer et al., 2006). On the other hand, we employed the margin perceptron (Krauth and Mezard, 1987), extending it to sequence labeling. We demonstrated that this greatly improved robustness. With regard to the local update, (B), in Algorithm 4.2, early updates (Collins and Roark, 2004) and y-good requirement in (Daume III and Marcu, 2005) resemble our local update in that they tried to avoid the situation where the correct answer cannot be output. Considering such commonality, the way of combining the local update and the non-local update might be one important key for further improvement. It is still open whether these differences are advantages or disadvantages. However, we think our algo</context>
+</contexts>
+<marker>Krauth, Mezard, 1987</marker>
+<rawString>W. Krauth and M. Mezard. 1987. Learning algorithms with optimal stability in neural networks. Journal of Physics A 20, pages 745752.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>V Krishnan</author>
+<author>C D Manning</author>
+</authors>
+<title>An effective twostage model for exploiting non-local dependencies in named entity recognitioin.</title>
+<date>2006</date>
+<booktitle>In ACL-COLING</booktitle>
+<contexts>
+<context position="2199" citStr="Krishnan and Manning, 2006" startWordPosition="333" endWordPosition="336"> the common limitation of these methods is that the features are limited to local features, which only depend on a very small number of labels (usually two: the previous and the current). Although this limitation makes training and inference tractable, it also excludes the use of possibly useful non-local features that are accessible after all labels are determined. For example, non-local features such as same phrases in a document do not have different entity classes were shown to be useful in named entity recognition (Sutton and McCallum, 2004; Bunescu and Mooney, 2004; Finkel et al., 2005; Krishnan and Manning, 2006). We propose a new perceptron algorithm in this paper that can use non-local features along with local features. Although several methods have already been proposed to incorporate non-local features (Sutton and McCallum, 2004; Bunescu and Mooney, 2004; Finkel et al., 2005; Roth and Yih, 2005; Krishnan and Manning, 2006; Nakagawa and Matsumoto, 2006), these present a problem that the types of non-local features are somewhat constrained. For example, Finkel et al. (2005) enabled the use of non-local features by using Gibbs sampling. However, it is unclear how to apply their method of determining</context>
+<context position="18850" citStr="Krishnan and Manning (2006)" startWordPosition="3442" endWordPosition="3445">m using the named entity recognition task. We adopted IOB (IOB2) labeling (Ramshaw and Marcus, 1995), where the first word of an entity of class C is labeled B-C, the words in the entity are labeled I-C, and other words are labeled O. We used non-local features based on Finkel et al. (2005). These features are based on observations such as same phrases in a document tend to have the same entity class (phrase consistency) and a sub-phrase of a phrase tends to have the same entity class as the phrase (sub-phrase consistency). We also implemented the majority version of these features as used in Krishnan and Manning (2006). In addition, we used non-local features, which are based on the observation that entities tend to have the same entity class if they are in the same conjunctive or disjunctive expression as in in U.S., EU, and Japan (conjunction consistency). This type of non-local feature was not used by Finkel et al. (2005) or Krishnan and Manning (2006). 6 Experiments 6.1 Data and Setting We used the English dataset of the CoNLL 2003 named entity shared task (Tjong et al., 2003) for the experiments. It is a corpus of English newspaper articles, where four entity classes, PER, LOC, ORG, and MISC are annota</context>
+<context position="25866" citStr="Krishnan and Manning, 2006" startWordPosition="4661" endWordPosition="4664">ithout non-local features. The row Candidate refers to the candidate algorithm (Algorithm 4.1). From the results for the candidate algorithm, we can see that the modification part, (B), in Algorithm 4.2 was essential to make learning with non-local features effective. We next examined the effect of n. As can be seen from Table 3, an n larger than that for training yields higher performance. The highest performance with the proposed algorithm was achieved when n = 6400, where the improvement due to non-local features became 0.74 points. The performance of the related work (Finkel et al., 2005; Krishnan and Manning, 2006) is listed in Table 4. We can see that the final performance of our algorithm was worse than that of the related work. We changed the experimental setting slightly to investigate our algorithm further. Instead of Table 4: The performance of the related work. Method dev test Finkel et al., 2005 (Finkel et al., 2005) baseline CRF - 85.51 + non-local features - 86.86 Krishnan and Manning, 2006 (Krishnan and Manning, 2006) baseline CRF - 85.29 + non-local features - 87.24 Table 5: Summary of performance with POS/chunk tags by TagChunk. Method dev test C (or 2 ) local features CRF 91.39 86.30 200 P</context>
+<context position="27344" citStr="Krishnan and Manning (2006)" startWordPosition="4915" endWordPosition="4918">the tags assigned by TagChunk (Daume III and Marcu, 2005)10 with the intention of using more accurate tags. The results with this setting are summarized in Table 5. Performance was better than that in the previous experiment for all algorithms. We think this was due to the quality of the POS/chunk tags. It is interesting that the effect of non-local features rose to 0.93 points with n = 6400, even though the baseline performance was also improved. The resulting performance of the proposed algorithm with non-local features is higher than that of Finkel et al. (2005) and comparable with that of Krishnan and Manning (2006). This comparison, of course, is not fair because the setting was different. However, we think the results demonstrate a potential of our new algorithm. The effect of BPM initialization was also examined. The number of BPM runs was 10 in this experiment. The performance of the proposed algorithm dropped from 91.95/86.30 to 91.89/86.03 without BPM initialization as expected in the setting of the experiment of Table 2. The performance of the margin perceptron, on the other hand, changed from 90.98/85.64 to 90.98/85.90 without BPM initialization. This result was unexpected from the result of our </context>
+<context position="34409" citStr="Krishnan and Manning, 2006" startWordPosition="6085" endWordPosition="6088">open whether these differences are advantages or disadvantages. However, we think our algorithm can be a contribution to the study for incorporating non-local features. The convergence guarantee is important for the confidence in the training results, although it does not mean high performance directly. Our algorithm could at least improve the accuracy of NER with non-local features and it was indicated that our algorithm was superior to the re-ranking approach in terms of accuracy and training cost. However, the achieved accuracy was not better than that of related work (Finkel et al., 2005; Krishnan and Manning, 2006) based on CRFs. Although this might indicate the limitation of perceptron-based methods, it has also been shown that there is still room for improvement in perceptron-based algorithms as our margin perceptron algorithm demonstrated. 8 Conclusion In this paper, we presented a new perceptron algorithm for learning with non-local features. We think the proposed algorithm is an important step towards achieving our final objective. We would like to investigate various types of new non-local features using the proposed algorithm in future work. Appendix A: Convergence of Algorithm 4.2 Let k be a wei</context>
+</contexts>
+<marker>Krishnan, Manning, 2006</marker>
+<rawString>V. Krishnan and C. D. Manning. 2006. An effective twostage model for exploiting non-local dependencies in named entity recognitioin. In ACL-COLING 2006.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Lafferty</author>
+<author>A McCallum</author>
+<author>F Pereira</author>
+</authors>
+<title>Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In ICML</title>
+<date>2001</date>
+<pages>282289</pages>
+<contexts>
+<context position="1276" citStr="Lafferty et al., 2001" startWordPosition="187" endWordPosition="190">n-local features. Our algorithm allows the use of all types of non-local features whose values are determined from the sequence and the labels. The weights of local and non-local features are learned together in the training process with guaranteed convergence. We present experimental results from the CoNLL 2003 named entity recognition (NER) task to demonstrate the performance of the proposed algorithm. 1 Introduction Many NLP tasks such as POS tagging and named entity recognition have recently been solved as sequence labeling. Discriminative methods such as Conditional Random Fields (CRFs) (Lafferty et al., 2001), Semi-Markov Random Fields (Sarawagi and Cohen, 2004), and perceptrons (Collins, 2002a) have been popular approaches for sequence labeling because of their excellent performance, which is mainly due to their ability to incorporate many kinds of overlapping and non-independent features. However, the common limitation of these methods is that the features are limited to local features, which only depend on a very small number of labels (usually two: the previous and the current). Although this limitation makes training and inference tractable, it also excludes the use of possibly useful non-loc</context>
+<context position="4068" citStr="Lafferty et al., 2001" startWordPosition="642" endWordPosition="645">he correlation of the POS of words having the same lexical form in a document. However, their method can only be applied when there are convenient links such as the same lexical form. Since non-local features have not yet been extensively investigated, it is possible for us to find new useful non-local features. Therefore, our objective in this study was to establish a framework, where all 315 \x0ctypes of non-local features are allowed. With non-local features, we cannot use efficient procedures such as forward-backward procedures and the Viterbi algorithm that are required in training CRFs (Lafferty et al., 2001) and perceptrons (Collins, 2002a). Recently, several methods (Collins and Roark, 2004; Daume III and Marcu, 2005; McDonald and Pereira, 2006) have been proposed with similar motivation to ours. These methods alleviate this problem by using some approximation in perceptron-type learning. In this paper, we follow this line of research and try to solve the problem by extending Collins perceptron algorithm (Collins, 2002a). We exploited the not-so-familiar fact that we can design a perceptron algorithm with guaranteed convergence if we can find at least one wrong labeling candidate even if we cann</context>
+<context position="7691" citStr="Lafferty et al., 2001" startWordPosition="1277" endWordPosition="1280">ly requires one candidate y for each sequence xi, unlike the training of CRFs where all possible candidates need to be considered. This inherent property is the key to training with non-local features. However, note that the tractability of learning and inference relies on how efficiently y can be found. In practice, we can find y efficiently using a Viterbi-type algorithm only when the features are all local, i.e., s(x, y) can be written as the sum of (two label) local features s as s(x, y) = T i s(x, yi1, yi). This locality constraint is also required to make the training of CRFs tractable (Lafferty et al., 2001). One problem with the perceptron algorithm described so far is that it offers no treatment for overfitting. Thus, Collins (2002a) also proposed an averaged perceptron, where the final weight vector is 1 Collins (2002a) also provided proof that guaranteed good learning for the non-separable case. However, we have only considered the separable case throughout the paper. 316 \x0cAlgorithm 3.1: Perceptron with margin for sequence labeling (parameters: C) 0 until no more updates do for i 1 to L do 8 &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;lt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; : y = argmaxy(xi, y) y = 2nd-besty(xi, y) if y = y i then = + (xi, y i ) (xi,</context>
+</contexts>
+<marker>Lafferty, McCallum, Pereira, 2001</marker>
+<rawString>J. Lafferty, A. McCallum, and F. Pereira. 2001. Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In ICML 2001, pages 282289.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y Li</author>
+<author>H Zaragoza</author>
+<author>R Herbrich</author>
+<author>J Shawe-Taylor</author>
+<author>J Kandola</author>
+</authors>
+<title>The perceptron algorithm with uneven margins.</title>
+<date>2002</date>
+<booktitle>In ICML</booktitle>
+<contexts>
+<context position="9537" citStr="Li et al. (2002)" startWordPosition="1625" endWordPosition="1628">eling, the margin is defined as: () = min xi min y=y i (xi, yi ) (xi, y) | Assuming that the best candidate, y, equals the correct answer, y, the margin can be re-written as: = min xi (xi, yi ) (xi, y) | , where y = 2nd-besty(xi, y) . Using this relation, the resulting algorithm becomes Algorithm 3.1. The algorithm tries to enlarge the margin as much as possible, as well as make the best scoring candidate equal the correct answer. Constant C in Algorithm 3.1 is a tunable parameter, which controls the trade-off between the margin and convergence time. Based on the proofs in Collins (2002a) and Li et al. (2002), we can prove that the algorithm converges within (2C + R2)/2 updates and that () C/(2C + R2) = (/2)(1 (R2/(2C + R2))) after training. As can be seen, the margin approaches at least half of true margin (at the cost of infinite training time), as C . Note that if the features are all local, the secondbest candidate (generally n-best candidates) can also be found efficiently by using an A* search that uses the best scores calculated during a Viterbi search as the heuristic estimation (Soong and Huang, 1991). There are other methods for improving robustness by making margin larger for the struct</context>
+</contexts>
+<marker>Li, Zaragoza, Herbrich, Shawe-Taylor, Kandola, 2002</marker>
+<rawString>Y. Li, H. Zaragoza, R. Herbrich, J. Shawe-Taylor, and J. Kandola. 2002. The perceptron algorithm with uneven margins. In ICML 2002.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P Liang</author>
+<author>A Bouchard-Cote</author>
+<author>D Klein</author>
+<author>B Taskar</author>
+</authors>
+<title>An end-to-end discriminative approach to machine translation.</title>
+<date>2006</date>
+<booktitle>In ACL-COLING</booktitle>
+<contexts>
+<context position="31257" citStr="Liang et al., 2006" startWordPosition="5573" endWordPosition="5576">ues for n. Table 6 shows the results. As can be seen, re-ranking models were outperformed by our proposed algorithm, although they also outperformed the margin perceptron with only local features (re-ranking 2 seems better than re-ranking 1). Table 7 shows the training time of each algorithm.12 Our algorithm is much faster than the reranking approach that uses cross-validation training, while achieving the same or higher level of performance. 7 Discussion As we mentioned, there are some algorithms similar to ours (Collins and Roark, 2004; Daume III and Marcu, 2005; McDonald and Pereira, 2006; Liang et al., 2006). The differences of our algorithm from these algorithms are as follows. Daume III and Marcu (2005) presented the method called LaSO (Learning as Search Optimization), in which intractable exact inference is approximated by optimizing the behavior of the search process. The method can access non-local features at each search point, if their values can be determined from the search decisions already made. They provided robust training algorithms with guaranteed convergence for this framework. However, a difference is that our method can use non-local features whose value depends on all labels t</context>
+<context position="32591" citStr="Liang et al. (2006)" startWordPosition="5789" endWordPosition="5792">arch (e.g., majority features) can be learned effectively with such an incremental manner of LaSO. The algorithm proposed by McDonald and Pereira (2006) is also similar to ours. Their target was non-projective dependency parsing, where exact inference is intractable. Instead of using 12 Training time was measured on a machine with 2.33 GHz QuadCore Intel Xeons and 8 GB of memory. C was fixed to 5657. 322 \x0cn-best/re-scoring approach as ours, their method modifies the single best projective parse, which can be found efficiently, to find a candidate with higher score under non-local features. Liang et al. (2006) used n candidates of a beam search in the Collins perceptron algorithm for machine translation. Collins and Roark (2004) proposed an approximate incremental method for parsing. Their method can be used for sequence labeling as well. These studies, however, did not explain the validity of their updating methods in terms of convergence. To achieve robust training, Daume III and Marcu (2005) employed the averaged perceptron (Collins, 2002a) and ALMA (Gentile, 2001). Collins and Roark (2004) used the averaged perceptron (Collins, 2002a). McDonald and Pereira (2006) used MIRA (Crammer et al., 2006</context>
+</contexts>
+<marker>Liang, Bouchard-Cote, Klein, Taskar, 2006</marker>
+<rawString>P. Liang, A. Bouchard-Cote, D. Klein, and B. Taskar. 2006. An end-to-end discriminative approach to machine translation. In ACL-COLING 2006.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R McDonald</author>
+<author>F Pereira</author>
+</authors>
+<title>Online learning of approximate dependency parsing algorithms.</title>
+<date>2006</date>
+<booktitle>In EACL</booktitle>
+<contexts>
+<context position="4209" citStr="McDonald and Pereira, 2006" startWordPosition="662" endWordPosition="666">convenient links such as the same lexical form. Since non-local features have not yet been extensively investigated, it is possible for us to find new useful non-local features. Therefore, our objective in this study was to establish a framework, where all 315 \x0ctypes of non-local features are allowed. With non-local features, we cannot use efficient procedures such as forward-backward procedures and the Viterbi algorithm that are required in training CRFs (Lafferty et al., 2001) and perceptrons (Collins, 2002a). Recently, several methods (Collins and Roark, 2004; Daume III and Marcu, 2005; McDonald and Pereira, 2006) have been proposed with similar motivation to ours. These methods alleviate this problem by using some approximation in perceptron-type learning. In this paper, we follow this line of research and try to solve the problem by extending Collins perceptron algorithm (Collins, 2002a). We exploited the not-so-familiar fact that we can design a perceptron algorithm with guaranteed convergence if we can find at least one wrong labeling candidate even if we cannot perform exact inference. We first ran the A* search only using local features to generate n-best candidates (this can be efficiently perfo</context>
+<context position="31236" citStr="McDonald and Pereira, 2006" startWordPosition="5569" endWordPosition="5572">00 and then tested other values for n. Table 6 shows the results. As can be seen, re-ranking models were outperformed by our proposed algorithm, although they also outperformed the margin perceptron with only local features (re-ranking 2 seems better than re-ranking 1). Table 7 shows the training time of each algorithm.12 Our algorithm is much faster than the reranking approach that uses cross-validation training, while achieving the same or higher level of performance. 7 Discussion As we mentioned, there are some algorithms similar to ours (Collins and Roark, 2004; Daume III and Marcu, 2005; McDonald and Pereira, 2006; Liang et al., 2006). The differences of our algorithm from these algorithms are as follows. Daume III and Marcu (2005) presented the method called LaSO (Learning as Search Optimization), in which intractable exact inference is approximated by optimizing the behavior of the search process. The method can access non-local features at each search point, if their values can be determined from the search decisions already made. They provided robust training algorithms with guaranteed convergence for this framework. However, a difference is that our method can use non-local features whose value de</context>
+<context position="33159" citStr="McDonald and Pereira (2006)" startWordPosition="5876" endWordPosition="5879"> higher score under non-local features. Liang et al. (2006) used n candidates of a beam search in the Collins perceptron algorithm for machine translation. Collins and Roark (2004) proposed an approximate incremental method for parsing. Their method can be used for sequence labeling as well. These studies, however, did not explain the validity of their updating methods in terms of convergence. To achieve robust training, Daume III and Marcu (2005) employed the averaged perceptron (Collins, 2002a) and ALMA (Gentile, 2001). Collins and Roark (2004) used the averaged perceptron (Collins, 2002a). McDonald and Pereira (2006) used MIRA (Crammer et al., 2006). On the other hand, we employed the margin perceptron (Krauth and Mezard, 1987), extending it to sequence labeling. We demonstrated that this greatly improved robustness. With regard to the local update, (B), in Algorithm 4.2, early updates (Collins and Roark, 2004) and y-good requirement in (Daume III and Marcu, 2005) resemble our local update in that they tried to avoid the situation where the correct answer cannot be output. Considering such commonality, the way of combining the local update and the non-local update might be one important key for further im</context>
+</contexts>
+<marker>McDonald, Pereira, 2006</marker>
+<rawString>R. McDonald and F. Pereira. 2006. Online learning of approximate dependency parsing algorithms. In EACL 2006.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R McDonald</author>
+<author>K Crammer</author>
+<author>F Pereira</author>
+</authors>
+<title>Online large-margin training of dependency parsers.</title>
+<date>2005</date>
+<booktitle>In ACL</booktitle>
+<contexts>
+<context position="10297" citStr="McDonald et al., 2005" startWordPosition="1756" endWordPosition="1759"> can be seen, the margin approaches at least half of true margin (at the cost of infinite training time), as C . Note that if the features are all local, the secondbest candidate (generally n-best candidates) can also be found efficiently by using an A* search that uses the best scores calculated during a Viterbi search as the heuristic estimation (Soong and Huang, 1991). There are other methods for improving robustness by making margin larger for the structural output problem. Such methods include ALMA (Gentile, 2001) used in (Daume III and Marcu, 2005)2, MIRA (Crammer et al., 2006) used in (McDonald et al., 2005), and Max-Margin Markov Networks (Taskar et al., 2003). However, to the best of our knowledge, there has been no prior work that has applied a perceptron with a margin (Krauth and Mezard, 1987) to structured output.3 Our method described in this section is one of the easiest to implement, while guaranteeing a large margin. We found in the experiments that our method outperformed the Collins averaged perceptron by a large margin. 4 Algorithm 4.1 Definition and Basic Idea Having described the basic perceptron algorithms, we will know explain our algorithm that learns the weights of local and non</context>
+</contexts>
+<marker>McDonald, Crammer, Pereira, 2005</marker>
+<rawString>R. McDonald, K. Crammer, and F. Pereira. 2005. Online large-margin training of dependency parsers. In ACL 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Nakagawa</author>
+<author>Y Matsumoto</author>
+</authors>
+<title>Guessing partsof-speech of unknown words using global information.</title>
+<date>2006</date>
+<contexts>
+<context position="2550" citStr="Nakagawa and Matsumoto, 2006" startWordPosition="390" endWordPosition="393">els are determined. For example, non-local features such as same phrases in a document do not have different entity classes were shown to be useful in named entity recognition (Sutton and McCallum, 2004; Bunescu and Mooney, 2004; Finkel et al., 2005; Krishnan and Manning, 2006). We propose a new perceptron algorithm in this paper that can use non-local features along with local features. Although several methods have already been proposed to incorporate non-local features (Sutton and McCallum, 2004; Bunescu and Mooney, 2004; Finkel et al., 2005; Roth and Yih, 2005; Krishnan and Manning, 2006; Nakagawa and Matsumoto, 2006), these present a problem that the types of non-local features are somewhat constrained. For example, Finkel et al. (2005) enabled the use of non-local features by using Gibbs sampling. However, it is unclear how to apply their method of determining the parameters of a non-local model to other types of non-local features, which they did not used. Roth and Yih (2005) enabled the use of hard constraints on labels by using integer linear programming. However, this is equivalent to only allowing non-local features whose weights are fixed to negative infinity. Krishnan and Manning (2006) divided th</context>
+</contexts>
+<marker>Nakagawa, Matsumoto, 2006</marker>
+<rawString>T. Nakagawa and Y. Matsumoto. 2006. Guessing partsof-speech of unknown words using global information.</rawString>
+</citation>
+<citation valid="true">
+<date>2006</date>
+<booktitle>In ACL-COLING</booktitle>
+<contexts>
+<context position="3139" citStr="(2006)" startWordPosition="490" endWordPosition="490"> Matsumoto, 2006), these present a problem that the types of non-local features are somewhat constrained. For example, Finkel et al. (2005) enabled the use of non-local features by using Gibbs sampling. However, it is unclear how to apply their method of determining the parameters of a non-local model to other types of non-local features, which they did not used. Roth and Yih (2005) enabled the use of hard constraints on labels by using integer linear programming. However, this is equivalent to only allowing non-local features whose weights are fixed to negative infinity. Krishnan and Manning (2006) divided the model into two CRFs, where the second model uses the output of the first as a kind of non-local information. However, it is not possible to use non-local features that depend on the labels of the very candidate to be scored. Nakagawa and Matsumoto (2006) used a Bolzmann distribution to model the correlation of the POS of words having the same lexical form in a document. However, their method can only be applied when there are convenient links such as the same lexical form. Since non-local features have not yet been extensively investigated, it is possible for us to find new useful</context>
+<context position="18850" citStr="(2006)" startWordPosition="3445" endWordPosition="3445">ity recognition task. We adopted IOB (IOB2) labeling (Ramshaw and Marcus, 1995), where the first word of an entity of class C is labeled B-C, the words in the entity are labeled I-C, and other words are labeled O. We used non-local features based on Finkel et al. (2005). These features are based on observations such as same phrases in a document tend to have the same entity class (phrase consistency) and a sub-phrase of a phrase tends to have the same entity class as the phrase (sub-phrase consistency). We also implemented the majority version of these features as used in Krishnan and Manning (2006). In addition, we used non-local features, which are based on the observation that entities tend to have the same entity class if they are in the same conjunctive or disjunctive expression as in in U.S., EU, and Japan (conjunction consistency). This type of non-local feature was not used by Finkel et al. (2005) or Krishnan and Manning (2006). 6 Experiments 6.1 Data and Setting We used the English dataset of the CoNLL 2003 named entity shared task (Tjong et al., 2003) for the experiments. It is a corpus of English newspaper articles, where four entity classes, PER, LOC, ORG, and MISC are annota</context>
+<context position="27344" citStr="(2006)" startWordPosition="4918" endWordPosition="4918">TagChunk (Daume III and Marcu, 2005)10 with the intention of using more accurate tags. The results with this setting are summarized in Table 5. Performance was better than that in the previous experiment for all algorithms. We think this was due to the quality of the POS/chunk tags. It is interesting that the effect of non-local features rose to 0.93 points with n = 6400, even though the baseline performance was also improved. The resulting performance of the proposed algorithm with non-local features is higher than that of Finkel et al. (2005) and comparable with that of Krishnan and Manning (2006). This comparison, of course, is not fair because the setting was different. However, we think the results demonstrate a potential of our new algorithm. The effect of BPM initialization was also examined. The number of BPM runs was 10 in this experiment. The performance of the proposed algorithm dropped from 91.95/86.30 to 91.89/86.03 without BPM initialization as expected in the setting of the experiment of Table 2. The performance of the margin perceptron, on the other hand, changed from 90.98/85.64 to 90.98/85.90 without BPM initialization. This result was unexpected from the result of our </context>
+<context position="32124" citStr="(2006)" startWordPosition="5716" endWordPosition="5716"> process. The method can access non-local features at each search point, if their values can be determined from the search decisions already made. They provided robust training algorithms with guaranteed convergence for this framework. However, a difference is that our method can use non-local features whose value depends on all labels throughout training, and it is unclear whether the features whose values can only be determined at the end of the search (e.g., majority features) can be learned effectively with such an incremental manner of LaSO. The algorithm proposed by McDonald and Pereira (2006) is also similar to ours. Their target was non-projective dependency parsing, where exact inference is intractable. Instead of using 12 Training time was measured on a machine with 2.33 GHz QuadCore Intel Xeons and 8 GB of memory. C was fixed to 5657. 322 \x0cn-best/re-scoring approach as ours, their method modifies the single best projective parse, which can be found efficiently, to find a candidate with higher score under non-local features. Liang et al. (2006) used n candidates of a beam search in the Collins perceptron algorithm for machine translation. Collins and Roark (2004) proposed an</context>
+</contexts>
+<marker>2006</marker>
+<rawString>In ACL-COLING 2006.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L R Rabiner</author>
+</authors>
+<title>A tutorial on hidden Markov models and selected applications in speech recognition.</title>
+<date>1989</date>
+<booktitle>Proceedings of the IEEE,</booktitle>
+<pages>77--2</pages>
+<contexts>
+<context position="20870" citStr="Rabiner, 1989" startWordPosition="3778" endWordPosition="3779">f a CRF model, the Collins perceptron, and the Collins averaged perceptron, as well as the margin perceptron, with only local features. We next evaluated the performance of our perceptron algorithm proposed for non-local features. We used the local features summarized in Table 1, which are similar to those used in other studies on named entity recognition. We omitted features whose surface part listed in Table 1 occurred less than twice in the training corpus. We used CRF++ (ver. 0.44)7 as the basis of our implementation. We implemented scaling, which is similar to that for HMMs (see such as (Rabiner, 1989)), in the forward-backward phase of CRF training to deal with very long sequences due to sentence concatenation.8 We used Gaussian regularization (Chen and Rosenfeld, 2000) for CRF training to avoid overfitting. The parameter of the Gaussian, 2, was tuned using the development set. We also tuned the margin parameter, C, for the margin perceptron algorithm.9 The convergence of CRF training was determined by checking the log-likelihood of the model. The convergence of perceptron algorithms was determined by checking the per-word labeling error, since the 6 We used sentence concatenation even whe</context>
+</contexts>
+<marker>Rabiner, 1989</marker>
+<rawString>L. R. Rabiner. 1989. A tutorial on hidden Markov models and selected applications in speech recognition. Proceedings of the IEEE, 77(2):257286.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L A Ramshaw</author>
+<author>M P Marcus</author>
+</authors>
+<title>Text chunking using transformation-based learning.</title>
+<date>1995</date>
+<booktitle>In third ACL Workshop on very large corpora.</booktitle>
+<contexts>
+<context position="18323" citStr="Ramshaw and Marcus, 1995" startWordPosition="3347" endWordPosition="3351">fling the training examples.4 However, it is very time consuming to run the complete training process several times. We thus ran the training in only one pass over the shuffled examples several times, and used the averaged output weight vectors as a new initial weight vector, because we thought that the early part of training would be more seriously affected by the order of examples. We call this BPM initialization. 5 5 Named Entity Recognition and Non-Local Features We evaluated the performance of the proposed algorithm using the named entity recognition task. We adopted IOB (IOB2) labeling (Ramshaw and Marcus, 1995), where the first word of an entity of class C is labeled B-C, the words in the entity are labeled I-C, and other words are labeled O. We used non-local features based on Finkel et al. (2005). These features are based on observations such as same phrases in a document tend to have the same entity class (phrase consistency) and a sub-phrase of a phrase tends to have the same entity class as the phrase (sub-phrase consistency). We also implemented the majority version of these features as used in Krishnan and Manning (2006). In addition, we used non-local features, which are based on the observa</context>
+</contexts>
+<marker>Ramshaw, Marcus, 1995</marker>
+<rawString>L. A. Ramshaw and M. P. Marcus. 1995. Text chunking using transformation-based learning. In third ACL Workshop on very large corpora.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Rosenblatt</author>
+</authors>
+<title>The perceptron: A probabilistic model for information storage and organization in the brain. Psycological Review,</title>
+<date>1958</date>
+<pages>386407</pages>
+<contexts>
+<context position="5858" citStr="Rosenblatt, 1958" startWordPosition="926" endWordPosition="927">rganized as follows. Section 2 introduces the Collins perceptron algorithm. Although this algorithm is the starting point for our algorithm, its baseline performance is not outstanding. Therefore, we present a margin extension to the Collins perceptron in Section 3. This margin perceptron became the direct basis of our algorithm. We then explain our algorithm for nonlocal features in Section 4. We report the experimental results using the CoNLL 2003 shared task dataset in Section 6. 2 Perceptron Algorithm for Sequence Labeling Collins (2002a) proposed an extension of the perceptron algorithm (Rosenblatt, 1958) to sequence labeling. Our aim in sequence labeling is to assign label yi Y to each word xi X in a sequence. We denote sequence x1, . . . , xT as x and the corresponding labels as y. We assume weight vector Rd and feature mapping that maps each (x, y) to feature vector (x, y) = (1(x, y), , d(x, y)) Rd. The model determines the labels by: y = argmaxyY|x |(x, y) , where denotes the inner product. The aim of the learning algorithm is to obtain an appropriate weight vector, , given training set {(x1, y 1), , (xL, y L)}. The learning algorithm, which is illustrated in Collins (2002a), proceeds as f</context>
+</contexts>
+<marker>Rosenblatt, 1958</marker>
+<rawString>F. Rosenblatt. 1958. The perceptron: A probabilistic model for information storage and organization in the brain. Psycological Review, pages 386407.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Roth</author>
+<author>W Yih</author>
+</authors>
+<title>Integer linear programming inference for conditional random fields.</title>
+<date>2005</date>
+<booktitle>In ICML</booktitle>
+<contexts>
+<context position="2491" citStr="Roth and Yih, 2005" startWordPosition="382" endWordPosition="385">local features that are accessible after all labels are determined. For example, non-local features such as same phrases in a document do not have different entity classes were shown to be useful in named entity recognition (Sutton and McCallum, 2004; Bunescu and Mooney, 2004; Finkel et al., 2005; Krishnan and Manning, 2006). We propose a new perceptron algorithm in this paper that can use non-local features along with local features. Although several methods have already been proposed to incorporate non-local features (Sutton and McCallum, 2004; Bunescu and Mooney, 2004; Finkel et al., 2005; Roth and Yih, 2005; Krishnan and Manning, 2006; Nakagawa and Matsumoto, 2006), these present a problem that the types of non-local features are somewhat constrained. For example, Finkel et al. (2005) enabled the use of non-local features by using Gibbs sampling. However, it is unclear how to apply their method of determining the parameters of a non-local model to other types of non-local features, which they did not used. Roth and Yih (2005) enabled the use of hard constraints on labels by using integer linear programming. However, this is equivalent to only allowing non-local features whose weights are fixed t</context>
+</contexts>
+<marker>Roth, Yih, 2005</marker>
+<rawString>D. Roth and W. Yih. 2005. Integer linear programming inference for conditional random fields. In ICML 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Sarawagi</author>
+<author>W W Cohen</author>
+</authors>
+<title>Semi-Markov random fields for information extraction.</title>
+<date>2004</date>
+<booktitle>In NIPS</booktitle>
+<contexts>
+<context position="1330" citStr="Sarawagi and Cohen, 2004" startWordPosition="194" endWordPosition="197">ll types of non-local features whose values are determined from the sequence and the labels. The weights of local and non-local features are learned together in the training process with guaranteed convergence. We present experimental results from the CoNLL 2003 named entity recognition (NER) task to demonstrate the performance of the proposed algorithm. 1 Introduction Many NLP tasks such as POS tagging and named entity recognition have recently been solved as sequence labeling. Discriminative methods such as Conditional Random Fields (CRFs) (Lafferty et al., 2001), Semi-Markov Random Fields (Sarawagi and Cohen, 2004), and perceptrons (Collins, 2002a) have been popular approaches for sequence labeling because of their excellent performance, which is mainly due to their ability to incorporate many kinds of overlapping and non-independent features. However, the common limitation of these methods is that the features are limited to local features, which only depend on a very small number of labels (usually two: the previous and the current). Although this limitation makes training and inference tractable, it also excludes the use of possibly useful non-local features that are accessible after all labels are d</context>
+</contexts>
+<marker>Sarawagi, Cohen, 2004</marker>
+<rawString>S. Sarawagi and W. W. Cohen. 2004. Semi-Markov random fields for information extraction. In NIPS 2004.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Shen</author>
+<author>A K Joshi</author>
+</authors>
+<title>Flexible margin selection for reranking with full pairwise samples.</title>
+<date>2004</date>
+<booktitle>In IJCNLP</booktitle>
+<contexts>
+<context position="11567" citStr="Shen and Joshi (2004)" startWordPosition="1999" endWordPosition="2002">have local features and nonlocal features. We use the superscript, l, for local features as l i(x, y) and g for non-local features as g i (x, y). Then, feature mapping is written as a(x, y) = l(x, y) + g(x, y) = (l 1(x, y), , l n(x, y), g n+1(x, y), , g d(x, y)). Here, we define: l (x, y) = (l 1(x, y), , l n(x, y), 0, , 0) g (x, y) = (0, , 0, g n+1(x, y), , g d(x, y)) Ideally, we want to determine the labels using the whole feature set as: y = argmaxyY|x |a (x, y) . 2 (Daume III and Marcu, 2005) also presents the method using the averaged perceptron (Collins, 2002a) 3 For re-ranking problems, Shen and Joshi (2004) proposed a perceptron algorithm that also uses margins. The difference is that our algorithm trains the sequence labeler itself and is much simpler because it only aims at labeling. 317 \x0cAlgorithm 4.1: Candidate algorithm (parameters: n, C) 0 until no more updates do for i 1 to L do 8 &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;lt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; &amp;gt; : {yn } = n-bestyl (xi, y) y = argmaxy{yn}a (xi, y) y = 2nd-besty{yn}a (xi, y) if y = yi &amp; a (xi, y i ) a (xi, y ) C then = + a (xi, y i ) a (xi, y ) else if a (xi, y i ) a (xi, y ) C then = + a (xi, y i ) a (xi, y ) However, if there are non-local features, it is impossi</context>
+</contexts>
+<marker>Shen, Joshi, 2004</marker>
+<rawString>L. Shen and A. K. Joshi. 2004. Flexible margin selection for reranking with full pairwise samples. In IJCNLP 2004.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F K Soong</author>
+<author>E Huang</author>
+</authors>
+<title>A tree-trellis based fast search for finding the n best sentence hypotheses in continuous speech recognition.</title>
+<date>1991</date>
+<booktitle>In ICASSP-91.</booktitle>
+<contexts>
+<context position="10048" citStr="Soong and Huang, 1991" startWordPosition="1716" endWordPosition="1719"> trade-off between the margin and convergence time. Based on the proofs in Collins (2002a) and Li et al. (2002), we can prove that the algorithm converges within (2C + R2)/2 updates and that () C/(2C + R2) = (/2)(1 (R2/(2C + R2))) after training. As can be seen, the margin approaches at least half of true margin (at the cost of infinite training time), as C . Note that if the features are all local, the secondbest candidate (generally n-best candidates) can also be found efficiently by using an A* search that uses the best scores calculated during a Viterbi search as the heuristic estimation (Soong and Huang, 1991). There are other methods for improving robustness by making margin larger for the structural output problem. Such methods include ALMA (Gentile, 2001) used in (Daume III and Marcu, 2005)2, MIRA (Crammer et al., 2006) used in (McDonald et al., 2005), and Max-Margin Markov Networks (Taskar et al., 2003). However, to the best of our knowledge, there has been no prior work that has applied a perceptron with a margin (Krauth and Mezard, 1987) to structured output.3 Our method described in this section is one of the easiest to implement, while guaranteeing a large margin. We found in the experiment</context>
+</contexts>
+<marker>Soong, Huang, 1991</marker>
+<rawString>F. K. Soong and E. Huang. 1991. A tree-trellis based fast search for finding the n best sentence hypotheses in continuous speech recognition. In ICASSP-91.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C Sutton</author>
+<author>A McCallum</author>
+</authors>
+<title>Collective segmenation and labeling of distant entitites in information extraction.</title>
+<date>2004</date>
+<tech>Rechnical Report TR 04-49.</tech>
+<institution>University of Massachusetts</institution>
+<contexts>
+<context position="2123" citStr="Sutton and McCallum, 2004" startWordPosition="320" endWordPosition="324">corporate many kinds of overlapping and non-independent features. However, the common limitation of these methods is that the features are limited to local features, which only depend on a very small number of labels (usually two: the previous and the current). Although this limitation makes training and inference tractable, it also excludes the use of possibly useful non-local features that are accessible after all labels are determined. For example, non-local features such as same phrases in a document do not have different entity classes were shown to be useful in named entity recognition (Sutton and McCallum, 2004; Bunescu and Mooney, 2004; Finkel et al., 2005; Krishnan and Manning, 2006). We propose a new perceptron algorithm in this paper that can use non-local features along with local features. Although several methods have already been proposed to incorporate non-local features (Sutton and McCallum, 2004; Bunescu and Mooney, 2004; Finkel et al., 2005; Roth and Yih, 2005; Krishnan and Manning, 2006; Nakagawa and Matsumoto, 2006), these present a problem that the types of non-local features are somewhat constrained. For example, Finkel et al. (2005) enabled the use of non-local features by using Gib</context>
+</contexts>
+<marker>Sutton, McCallum, 2004</marker>
+<rawString>C. Sutton and A. McCallum. 2004. Collective segmenation and labeling of distant entitites in information extraction. University of Massachusetts Rechnical Report TR 04-49.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>B Taskar</author>
+<author>C Guestrin</author>
+<author>D Koller</author>
+</authors>
+<title>Max-margin Markov networks.</title>
+<date>2003</date>
+<booktitle>In NIPS</booktitle>
+<contexts>
+<context position="10351" citStr="Taskar et al., 2003" startWordPosition="1764" endWordPosition="1767">e margin (at the cost of infinite training time), as C . Note that if the features are all local, the secondbest candidate (generally n-best candidates) can also be found efficiently by using an A* search that uses the best scores calculated during a Viterbi search as the heuristic estimation (Soong and Huang, 1991). There are other methods for improving robustness by making margin larger for the structural output problem. Such methods include ALMA (Gentile, 2001) used in (Daume III and Marcu, 2005)2, MIRA (Crammer et al., 2006) used in (McDonald et al., 2005), and Max-Margin Markov Networks (Taskar et al., 2003). However, to the best of our knowledge, there has been no prior work that has applied a perceptron with a margin (Krauth and Mezard, 1987) to structured output.3 Our method described in this section is one of the easiest to implement, while guaranteeing a large margin. We found in the experiments that our method outperformed the Collins averaged perceptron by a large margin. 4 Algorithm 4.1 Definition and Basic Idea Having described the basic perceptron algorithms, we will know explain our algorithm that learns the weights of local and non-local features in a unified way. Assume that we have </context>
+</contexts>
+<marker>Taskar, Guestrin, Koller, 2003</marker>
+<rawString>B. Taskar, C. Guestrin, and D. Koller. 2003. Max-margin Markov networks. In NIPS 2003.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E F Tjong</author>
+<author>K Sang</author>
+<author>F De Meulder</author>
+</authors>
+<title>Introduction to the CoNLL-2003 shared task: Languageindependent named entity recognition.</title>
+<date>2003</date>
+<booktitle>In CoNLL</booktitle>
+<marker>Tjong, Sang, De Meulder, 2003</marker>
+<rawString>E. F. Tjong, K. Sang, and F. De Meulder. 2003. Introduction to the CoNLL-2003 shared task: Languageindependent named entity recognition. In CoNLL 2003.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

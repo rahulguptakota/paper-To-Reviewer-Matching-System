@@ -1,0 +1,988 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000019">
+<title confidence="0.8700705">
+b&amp;apos;An Empirical Evaluation of Probabilistic Lexicalized Tree
+Insertion Grammars *
+</title>
+<author confidence="0.939254">
+Rebecca Hwa
+</author>
+<affiliation confidence="0.987273">
+Harvard University
+</affiliation>
+<address confidence="0.964174">
+Cambridge, MA 02138 USA
+</address>
+<email confidence="0.910392">
+rebecca~eecs.harvard.edu
+</email>
+<sectionHeader confidence="0.987924" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.987777142857143">
+We present an empirical study of the applica-
+bility of Probabilistic Lexicalized Tree Inser-
+tion Grammars (PLTIG), a lexicalized counter-
+part to Probabilistic Context-Free Grammars
+(PCFG), to problems in stochastic natural-
+language processing. Comparing the perfor-
+mance of PLTIGs with non-hierarchical N-gram
+models and PCFGs, we show that PLTIG com-
+bines the best aspects of both, with language
+modeling capability comparable to N-grams,
+and improved parsing performance over its non-
+lexicalized counterpart. Furthermore, train-
+ing of PLTIGs displays faster convergence than
+PCFGs.
+</bodyText>
+<sectionHeader confidence="0.997153" genericHeader="keywords">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.997341542372881">
+There are many advantages to expressing a
+grammar in a lexicalized form, where an ob-
+servable word of the language is encoded in
+each grammar rule. First, the lexical words
+help to clarify ambiguities that cannot be re-
+solved by the sentence structures alone. For
+example, to correctly attach a prepositional
+phrase, it is often necessary to consider the lex-
+ical relationships between the head word of the
+prepositional phrase and those of the phrases
+it might modify. Second, lexicalizing the gram-
+mar rules increases computational efficiency be-
+cause those rules that do not contain any ob-
+served words can be pruned away immediately.
+The Lexicalized Tree Insertion Grammar for-
+malism (LTIG) has been proposed as a way
+to lexicalize context-free grammars (Schabes
+* This material is basedupon worksupported bythe Na-
+tional ScienceFoundation under Grant No. IR19712068.
+We thank Yves Schabes and Stuart Shieber for their
+guidance; Joshua Goodman for his PCFG code; Lillian
+Lee and the three anonymous reviewers for their com-
+ments on the paper.
+and Waters, 1994). We now apply a prob-
+abilistic variant of this formalism, Probabilis-
+tic Tree Insertion Grammars (PLTIGs), to nat-
+ural language processing problems of stochas-
+tic parsing and language modeling. This pa-
+per presents two sets of experiments, compar-
+ing PLTIGs with non-lexicalized Probabilistic
+Context-Free Grammars (PCFGs) (Pereira and
+Schabes, 1992) and non-hierarchical N-gram
+models that use the right branching bracketing
+heuristics (period attaches high) as their pars-
+ing strategy. We show that PLTIGs can be in-
+duced from partially bracketed data, and that
+the resulting trained grammars can parse un-
+seen sentences and estimate the likelihood of
+their occurrences in the language. The experi-
+ments are run on two corpora: the Air Travel
+Information System (ATIS) corpus and a sub-
+set of the Wall Street Journal TreeBank cor-
+pus. The results show that the lexicalized na-
+ture of the formalism helps our induced PLTIGs
+to converge faster and provide a better language
+model than PCFGs while maintaining compara-
+ble parsing qualities. Although N-gram models
+still slightly out-perform PLTIGs on language
+modeling, they lack high level structures needed
+for parsing. Therefore, PLTIGs have combined
+the best of two worlds: the language modeling
+capability of N-grams and the parse quality of
+context-free grammars.
+The rest of the paper is organized as fol-
+lows: first, we present an overview of the PLTIG
+formalism; then we describe the experimental
+setup; next, we interpret and discuss the results
+of the experiments; finally, we outline future di-
+rections of the research.
+</bodyText>
+<sectionHeader confidence="0.995481" genericHeader="introduction">
+2 PLTIG and Related Work
+</sectionHeader>
+<bodyText confidence="0.999259">
+The inspiration for the PLTIG formalism stems
+from the desire to lexicalize a context-free gram-
+</bodyText>
+<page confidence="0.994372">
+557
+</page>
+<bodyText confidence="0.999403">
+\x0cmar. There are three ways in which one might
+do so. First, one can modify the tree struc-
+tures so that all context-free productions con-
+tain lexical items. Greibach normal form pro-
+vides a well-known example of such a lexical-
+ized context-free formalism. This method is
+not practical because altering the structures of
+the grammar damages the linguistic informa-
+tion stored in the original grammar (Schabes
+and Waters, 1994). Second, one might prop-
+agate lexical information upward through the
+productions. Examples of formalisms using this
+approach include the work of Magerman (1995),
+Charniak (1997), Collins (1997), and Good-
+man (1997). A more linguistically motivated
+approach is to expand the domain of produc-
+tions downward to incorporate more tree struc-
+tures. The Lexicalized Tree-Adjoining Gram-
+mar (LTAG) formalism (Schabes et al., 1988),
+(Schabes, 1990) , although not context-free, is
+the most well-known instance in this category.
+PLTIGs belong to this third category and gen-
+erate only context-free languages.
+LTAGs (and LTIGs) are tree-rewriting sys-
+tems, consisting of a set of elementary trees
+combined by tree operations. We distinguish
+two types of trees in the set of elementary trees:
+the initial trees and the auxiliary trees. Unlike
+full parse trees but reminiscent of the produc-
+tions of a context-free grammar, both types of
+trees may have nonterminal leaf nodes. Aux-
+iliary trees have, in addition, a distinguished
+nonterminal leaf node, labeled with the same
+nonterminal as the root node of the tree, called
+the foot node. Two types of operations are used
+to construct derived trees, or parse trees: sub-
+stitution and adjunction. An initial tree can
+be substituted into the nonterminal leaf node of
+another tree in a way similar to the substitu-
+tion of nonterminals in the production rules of
+CFGs. An auxiliary tree is inserted into another
+tree through the adjunction operation, which
+splices the auxiliary tree into the target tree at
+a node labeled with the same nonterminal as
+the root and foot of the auxiliary tree. By us-
+ing a tree representation, LTAGs extend the do-
+main of locality of a grammatical primitive, so
+that they capture both lexical features and hi-
+erarchical structure. Moreover, the adjunction
+operation elegantly models intuitive linguistic
+concepts such as long distance dependencies be-
+tween words. Unlike the N-gram model, which
+only offers dependencies between neighboring
+words, these trees can model the interaction of
+structurally related words that occur far apart.
+Like LTAGs, LTIGs are tree-rewriting sys-
+tems, but they differ from LTAGs in their gener-
+ative power. LTAGs can generate some strictly
+context-sensitive languages. They do so by us-
+ing wrapping auxiliary trees, which allow non-
+empty frontier nodes (i.e., leaf nodes whose la-
+bels are not the empty terminal symbol) on both
+sides of the foot node. A wrapping auxiliary
+tree makes the formalism context-sensitive be-
+cause it coordinates the string to the left of its
+foot with the string to the right of its foot while
+allowing a third string to be inserted into the
+foot. Just as the ability to recursively center-
+embed moves the required parsing time from
+O(n) for regular grammars to O(n 3) for context-
+free grammars, so the ability to wrap auxiliary
+trees moves the required parsing time further,
+to O(n8) for tree-adjoining grammars 1. This
+level of complexity is far too computationally
+expensive for current technologies. The com-
+plexity of LTAGs can be moderated by elimi-
+nating just the wrapping auxiliary trees. LTIGs
+prevent wrapping by restricting auxiliary tree
+structures to be in one of two forms: the left
+auxiliary tree, whose non-empty frontier nodes
+are all to the left of the foot node; or the right
+auxiliary tree, whose non-empty frontier nodes
+are all to the right of the foot node. Auxil-
+iary trees of different types cannot adjoin into
+each other if the adjunction would result in a
+wrapping auxiliary tree. The resulting system
+is strongly equivalent to CFGs, yet is fully lex-
+icalized and still O(n 3) parsable, as shown by
+Schabes and Waters (1994).
+Furthermore, LTIGs can be parameterized to
+form probabilistic models (Schabes and Waters,
+1993). Informally speaking, a parameter is as-
+sociated with each possible adjunction or sub-
+stitution operation between a tree and a node.
+For instance, suppose there are V left auxiliary
+trees that might adjoin into node r/. Then there
+are V q- 1 parameters associated with node r/
+</bodyText>
+<footnote confidence="0.589151">
+1The best theoretical upper bound on time complex-
+</footnote>
+<bodyText confidence="0.680437">
+ity for the recognition of Tree Adjoining Languages is
+O(M(n2)), where M(k) is the time needed to multiply
+two k x k booleanmatrices.(Rajasekaran and Yooseph,
+1995)
+</bodyText>
+<page confidence="0.557443">
+558
+</page>
+<equation confidence="0.989162">
+\x0cElem~ntwy~ ~:
+tl~t t~ptl 1
+X, ~tdI
+t~rd 2 twordn
+X word2 X wordn
+* $
+</equation>
+<figureCaption confidence="0.716249">
+Figure h A set of elementary LTIG trees that
+</figureCaption>
+<bodyText confidence="0.949743">
+represent a bigram grammar. The arrows indi-
+cate adjunction sites.
+that describe the distribution of the likelihood
+of any left auxiliary tree adjoining into node ~/.
+(We need one extra parameter for the case of
+no left adjunction.) A similar set of parame-
+ters is constructed for the right adjunction and
+substitution distributions.
+</bodyText>
+<sectionHeader confidence="0.999474" genericHeader="method">
+3 Experiments
+</sectionHeader>
+<bodyText confidence="0.999565037037037">
+In the following experiments we show that
+PLTIGs of varying sizes and configurations can
+be induced by processing a large training cor-
+pus, and that the trained PLTIGs can provide
+parses on unseen test data of comparable qual-
+ity to the parses produced by PCFGs. More-
+over, we show that PLTIGs have significantly
+lower entropy values than PCFGs, suggesting
+that they make better language models. We
+describe the induction process of the PLTIGs
+in Section 3.1. Two corpora of very different
+nature are used for training and testing. The
+first set of experiments uses the Air Travel In-
+formation System (ATIS) corpus. Section 3.2
+presents the complete results of this set of ex-
+periments. To determine if PLTIGs can scale
+up well, we have also begun another study that
+uses a larger and more complex corpus, the Wall
+Street Journal TreeBank corpus. The initial re-
+sults are discussed in Section 3.3. To reduce the
+effect of the data sparsity problem, we back off
+from lexical words to using the part of speech
+tags as the anchoring lexical items in all the
+experiments. Moreover, we use the deleted-
+interpolation smoothing technique for the N-
+gram models and PLTIGs. PCFGs do not re-
+quire smoothing in these experiments.
+</bodyText>
+<subsectionHeader confidence="0.998656">
+3.1 Grammar Induction
+</subsectionHeader>
+<bodyText confidence="0.979070571428571">
+The technique used to induce a grammar is a
+subtractive process. Starting from a universal
+grammar (i.e., one that can generate any string
+made up of the alphabet set), the parameters
+Example sentence:
+The cat chases the mouse
+Corresponding derivation tree:
+</bodyText>
+<figureCaption confidence="0.671920857142857">
+tinit .~dJ.
+tthe .~dj.
+teat ~dj.
+tchases ~dj.
+ttht ,,,1~t. adj.
+tmouse
+Figure 2: An example sentence. Because each
+</figureCaption>
+<bodyText confidence="0.994982378378378">
+tree is right adjoined to the tree anchored with
+the neighboring word in the sentence, the only
+structure is right branching.
+are iteratively refined until the grammar gen-
+erates, hopefully, all and only the sentences in
+the target language, for which the training data
+provides an adequate sampling. In the case of
+a PCFG, the initial grammar production rule
+set contains all possible rules in Chomsky Nor-
+mal Form constructed by the nonterminal and
+terminal symbols. The initial parameters asso-
+ciated with each rule are randomly generated
+subject to an admissibility constraint. As long
+as all the rules have a non-zero probability, any
+string has a non-zero chance of being generated.
+To train the grammar, we follow the Inside-
+Outside re-estimation algorithm described by
+Lari and Young (1990). The Inside-Outside re-
+estimation algorithm can also be extended to
+train PLTIGs. The equations calculating the
+inside and outside probabilities for PLTIGs can
+be found in Hwa (1998).
+As with PCFGs, the initial grammar must be
+able to generate any string. A simple PLTIG
+that fits the requirement is one that simulates
+a bigram model. It is represented by a tree set
+that contains a right auxiliary tree for each lex-
+ical item as depicted in Figure 1. Each tree has
+one adjunction site into which other right auxil-
+iary trees can adjoin. The tree set has only one
+initial tree, which is anchored by an empty lex-
+ical item. The initial tree represents the start
+of the sentence. Any string can be constructed
+by right adjoining the words together in order.
+Training the parameters of this grammar yields
+the same result as a bigram model: the param-
+eters reflect close correlations between words
+</bodyText>
+<page confidence="0.925064">
+559
+</page>
+<equation confidence="0.951076666666667">
+\x0cKtemem~~ Sits:
+t~t tl~ 1 a word= ~rdl uv\&amp;apos;~m
+5i -_ /\\ -/\\ /\\ -/\\
+~X~ X. X X X, X X, X
+_sj _SIR_ &quot; _51 __iSJR_
+wordI wordx wo~1 wo~X
+</equation>
+<figureCaption confidence="0.86485">
+Figure 3: An LTIG elementary tree set that al-
+low both left and right adjunctions.
+</figureCaption>
+<bodyText confidence="0.922736666666667">
+that are frequently seen together, but the model
+cannot provide any high-level linguistic struc-
+ture. (See example in Figure 2.)
+</bodyText>
+<figure confidence="0.778272125">
+Example sentence:
+The cat chases the mouse
+Corresponding derivation tree:
+tinit
+.~dj.
+re,chases
+~ ltca~ ~r,~rtottme
+l~l\&amp;apos;the ~\&amp;apos;l,the
+</figure>
+<figureCaption confidence="0.999687">
+Figure 4: With both left and right adjunctions
+</figureCaption>
+<bodyText confidence="0.9878688">
+possible, the sentences can be parsed in a more
+linguistically plausible way
+To generate non-linear structures, we need to
+allow adjunction in both left and right direc-
+tions. The expanded LTIG tree set includes a
+left auxiliary tree representation as well as right
+for each lexical item. Moreover, we must mod-
+ify the topology of the auxiliary trees so that
+adjunction in both directions can occur. We in-
+sert an intermediary node between the root and
+the lexical word. At this internal node, at most
+one adjunction of each direction may take place.
+The introduction of this node is necessary be-
+cause the definition of the formalism disallows
+right adjunction into the root node of a left aux-
+iliary tree and vice versa. For the sake of unifor-
+mity, we shall disallow adjunction into the root
+nodes of the auxiliary trees from now on. Figure
+3 shows an LTIG that allows at most one left
+and one right adjunction for each elementary
+tree. This enhanced LTIG can produce hierar-
+chical structures that the bigram model could
+not (See Figure 4.)
+It is, however, still too limiting to allow
+only one adjunction from each direction. Many
+</bodyText>
+<page confidence="0.942134">
+560
+</page>
+<bodyText confidence="0.999745516129032">
+words often require more than one modifier. For
+example, a transitive verb such as &quot;give&quot; takes
+at least two adjunctions: a direct object noun
+phrase, an indirect object noun phrase, and pos-
+sibly other adverbial modifiers. To create more
+adjunct/on sites for each word, we introduce yet
+more intermediary nodes between the root and
+the lexical word. Our empirical studies show
+that each lexicalized auxiliary tree requires at
+least 3 adjunction sites to parse all the sentences
+in the corpora. Figure 5(a) and (b) show two
+examples of auxiliary trees with 3 adjunction
+sites. The number of parameters in a PLTIG
+is dependent on the number of adjunction sites
+just as the size of a PCFG is dependent on the
+number of nonterminals. For a language with
+V vocabulary items, the number of parameters
+for the type of PLTIGs used in this paper is
+2(V+I)+2V(K)(V+I), where K is the number
+of adjunction sites per tree. The first term of
+the equation is the number of parameters con-
+tributed by the initial tree, which always has
+two adjunction sites in our experiments. The
+second term is the contribution from the aux-
+iliary trees. There are 2V auxiliary trees, each
+tree has K adjunction sites; and V + 1 param-
+eters describe the distribution of adjunction at
+each site. The number of parameters of a PCFG
+with M nonterminals is M 3 + MV. For the ex-
+periments, we try to choose values of K and M
+for the PLTIGs and PCFGs such that
+</bodyText>
+<equation confidence="0.893246">
+2(Y + 1) + 2Y(g)(Y + 1) ~ M 3 + MY
+</equation>
+<subsectionHeader confidence="0.974876">
+3.2 ATIS
+</subsectionHeader>
+<bodyText confidence="0.996921470588235">
+To reproduce the results of PCFGs reported by
+Pereira and Schabes, we use the ATIS corpus
+for our first experiment. This corpus contains
+577 sentences with 32 part-of-speech tags. To
+ensure statistical significance, we generate ten
+random train-test splits on the corpus. Each
+set randomly partitions the corpus into three
+sections according to the following distribution:
+80% training, 10% held-out, and 10% testing.
+This gives us, on average, 406 training sen-
+tences, 83 testing sentences, and 88 sentences
+for held-out testing. The results reported here
+are the averages of ten runs.
+We have trained three types of PLTIGs, vary-
+ing the number of left and right adjunction sites.
+The L2R1 version has two left adjunction sites
+and one right adjunction site; L1R2 has one
+</bodyText>
+<figure confidence="0.995659368421053">
+\x0ctlwrdn
+X
+x x.
+word n
+re word n
+X
+x.
+L\\
+word n
+(a)
+tlwo;,d n
+X
+word n
+rrwordn
+X
+5xt
+wordn
+(b)
+tlwrdn
+X
+word n
+~\&amp;apos;wordn
+X
+x. sx\\
+word nl
+(c)
+]
+t
+11 . . . . .
+No. of ~
+I I
+40 45 r~O
+,.IF~- m
+&quot;t.2Rl&quot; ----
+%2R2&quot; ......
+&quot;PCFG1 S&quot; --
+&quot;PCFG2~\&amp;apos;
+I
+</figure>
+<figureCaption confidence="0.98179325">
+Figure 6: Average convergence rates of the
+training process for 3 PLTIGs and 2 PCFGs.
+Figure 5: Prototypical auxiliary trees for three
+PLTIGs: (a) L1R2, (b) L2R1, and (c) L2R2.
+</figureCaption>
+<bodyText confidence="0.996410475409836">
+left adjunction site and two right adjunction
+sites; L2R2 has two of each. The prototypi-
+cal auxiliary trees for these three grammars are
+shown in Figure 5. At the end of every train-
+ing iteration, the updated grammars are used
+to parse sentences in the held-out test sets D,
+and the new language modeling scores (by mea-
+suring the cross-entropy estimates f/(D, L2R1),
+f/(D, L1R2), and//(D, L2R2)) are calculated.
+The rate of improvement of the language model-
+ing scores determines convergence. The PLTIGs
+are compared with two PCFGs: one with
+15-nonterminals, as Pereira and Schabes have
+done, and one with 20-nonterminals, which has
+comparable number of parameters to L2R2, the
+larger PLTIG.
+In Figure 6 we plot the average iterative
+improvements of the training process for each
+grammar. All training processes of the PLTIGs
+converge much faster (both in numbers of itera-
+tions and in real time) than those of the PCFGs,
+even when the PCFG has fewer parameters to
+estimate, as shown in Table 1. From Figure 6,
+we see that both PCFGs take many more iter-
+ations to converge and that the cross-entropy
+value they converge on is much higher than the
+PLTIGs.
+During the testing phase, the trained gram-
+mars are used to produce bracketed constituents
+on unmarked sentences from the testing sets
+T. We use the crossing bracket metric to
+evaluate the parsing quality of each gram-
+mar. We also measure the cross-entropy es-
+timates [-I(T,L2R1), f-I(T,L1R2),H(T, L2R2),
+f-I(T,PCFG:5), and fI(T, PCFG2o) to deter-
+mine the quality of the language model. For
+a baseline comparison, we consider bigram and
+trigram models with simple right branching
+bracketing heuristics. Our findings are summa-
+rized in Table 1.
+The three types of PLTIGs generate roughly
+the same number of bracketed constituent errors
+as that of the trained PCFGs, but they achieve
+a much lower entropy score. While the average
+entropy value of the trigram model is the low-
+est, there is no statistical significance between it
+and any of the three PLTIGs. The relative sta-
+tistical significance between the various types of
+models is presented in Table 2. In any case, the
+slight language modeling advantage of the tri-
+gram model is offset by its inability to handle
+parsing.
+Our ATIS results agree with the findings of
+Pereira and Schabes that concluded that the
+performances of the PCFGs do not seem to de-
+pend heavily on the number of parameters once
+a certain threshold is crossed. Even though
+PCFG2o has about as many number of param-
+eters as the larger PLTIG (L2R2), its language
+modeling score is still significantly worse than
+that of any of the PLTIGs.
+</bodyText>
+<page confidence="0.997188">
+561
+</page>
+<table confidence="0.998383">
+\x0cI[ Bigram/Trigram PCFG 15
+Number of parameters 1088 / 34880 3855
+- 45
+Iterations to convergence
+Real-time convergence (min) - 62
+[-I(T,Grammar) 2.88 / 2.71 3.81
+Crossing bracket (on T) 66.78 93.46
+PCFG201L1R21L2R1 I L2R2
+8640 6402 6402 8514
+45 19 17 24
+142 8 7 14
+3.42 2.87 2.85 2.78
+93.41 93.07 93.28 94.51
+</table>
+<tableCaption confidence="0.998768">
+Table 1: Summary results for ATIS. The machine used to measure real-time is an HP 9000/859.
+</tableCaption>
+<figure confidence="0.940986714285714">
+Number of
+parameters
+Bigram/Trigram
+2400 / 115296
+PCFG 15
+4095
+PCFG 20
+8960
+PCFG 23[ LIR2 IL2R1 I L2R2
+13271
+Iterations to - 80 60 70
+convergence
+Real-time con- - 143 252 511
+vergence (hr)
+</figure>
+<table confidence="0.922305875">
+.f-I(T,Grammar 3.39/3.20 4.31 4.27 4.13
+Crossing 49.44 56.41 78.82 79.30
+bracket (T)
+14210 14210 18914
+28 30 28
+38 41 60
+3.58 3.56 3.59
+80.08 82.43 80.832
+</table>
+<tableCaption confidence="0.915369">
+Table 3: Summary results of the training phase for WSJ
+</tableCaption>
+<table confidence="0.82552975">
+PLTIGs II better
+bigram better -
+trigram better - better
+I[ PCFGs PLTIGs bigram
+</table>
+<tableCaption confidence="0.997713">
+Table 2: Summary of pair-wise t-test for all
+</tableCaption>
+<bodyText confidence="0.997551">
+grammars. If &quot;better&quot; appears at cell (i,j), then
+the model in row i has an entropy value lower
+than that of the model in column j in a statis-
+tically significant way. The symbol &quot;-&quot; denotes
+that the difference of scores between the models
+bears no statistical significance.
+</bodyText>
+<subsectionHeader confidence="0.962274">
+3.3 WSJ
+</subsectionHeader>
+<bodyText confidence="0.999627604651163">
+Because the sentences in ATIS are short with
+simple and similar structures, the difference in
+performance between the formalisms may not
+be as apparent. For the second experiment,
+we use the Wall Street Journal (WSJ) corpus,
+whose sentences are longer and have more var-
+ied and complex structures. We use sections
+02 to 09 of the WSJ corpus for training, sec-
+tion 00 for held-out data D, and section 23 for
+test T. We consider sentences of length 40 or
+less. There are 13242 training sentences, 1780
+sentences for the held-out data, and 2245 sen-
+tences in the test. The vocabulary set con-
+sists of the 48 part-of-speech tags. We compare
+three variants of PCFGs (15 nonterminals, 20
+nonterminals, and 23 nonterminals) with three
+variants of PLTIGs (L1R2, L2R1, L2R2). A
+PCFG with 23 nonterminals is included because
+its size approximates that of the two smaller
+PLTIGs. We did not generate random train-
+test splits for the WSJ corpus because it is large
+enough to provide adequate sampling. Table
+3 presents our findings. From Table 3, we see
+several similarities to the results from the ATIS
+corpus. All three variants of the PLTIG formal-
+ism have converged at a faster rate and have
+far better language modeling scores than any of
+the PCFGs. Differing from the previous experi-
+ment, the PLTIGs produce slightly better cross-
+ing bracket rates than the PCFGs on the more
+complex WSJ corpus. At least 20 nonterminals
+are needed for a PCFG to perform in league
+with the PLTIGs. Although the PCFGs have
+fewer parameters, the rate seems to be indiffer-
+ent to the size of the grammars after a thresh-
+old has been reached. While upping the number
+of nonterminal symbols from 15 to 20 led to a
+22.4% gain, the improvement from PCFG2o to
+PCFG23 is only 0.5%. Similarly for PLTIGs,
+L2R2 performs worse than L2R1 even though it
+has more parameters. The baseline comparison
+for this experiment results in more extreme out-
+comes. The right branching heuristic receives a
+</bodyText>
+<page confidence="0.967024">
+562
+</page>
+<bodyText confidence="0.998437222222222">
+\x0ccrossing bracket rate of 49.44%, worse than even
+that of PCFG15. However, the N-gram models
+have better cross-entropy measurements than
+PCFGs and PLTIGs; bigram has a score of 3.39
+bits per word, and trigram has a score of 3.20
+bits per word. Because the lexical relationship
+modeled by the PLTIGs presented in this pa-
+per is limited to those between two words, their
+scores are close to that of the bigram model.
+</bodyText>
+<sectionHeader confidence="0.997298" genericHeader="conclusions">
+4 Conclusion and Future Work
+</sectionHeader>
+<bodyText confidence="0.999600538461539">
+In this paper, we have presented the results
+of two empirical experiments using Probabilis-
+tic Lexicalized Tree Insertion Grammars. Com-
+paring PLTIGs with PCFGs and N-grams, our
+studies show that a lexicalized tree represen-
+tation drastically improves the quality of lan-
+guage modeling of a context-free grammar to
+the level of N-grams without degrading the
+parsing accuracy. In the future, we hope to
+continue to improve on the quality of parsing
+and language modeling by making more use
+of the lexical information. For example, cur-
+rently, the initial untrained PLTIGs consist of
+elementary trees that have uniform configura-
+tions (i.e., every auxiliary tree has the same
+number of adjunction sites) to mirror the CNF
+representation of PCFGs. We hypothesize that
+a grammar consisting of a set of elementary
+trees whose number of adjunction sites depend
+on their lexical anchors would make a closer ap-
+proximation to the &quot;true&quot; grammar. We also
+hope to apply PLTIGs to natural language tasks
+that may benefit from a good language model,
+such as speech recognition, machine translation,
+message understanding, and keyword and topic
+spotting.
+</bodyText>
+<sectionHeader confidence="0.99136" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.999350528301887">
+Eugene Charniak. 1997. Statistical parsing
+with a context-free grammar and word statis-
+tics. In Proceedings of the AAAI, pages 598-
+603, Providence, RI. AAAI Press/MIT Press.
+Michael Collins. 1997. Three generative, lexi-
+calised models for statistical parsing. In Pro-
+ceedings of the 35th Annual Meeting of the
+ACL, pages 16-23, Madrid, Spain.
+Joshua Goodman. 1997. Probabilistic fea-
+ture grammars. In Proceedings of the Inter-
+national Workshop on Parsing Technologies
+1997.
+Rebecca Hwa. 1998. An empirical evaluation of
+probabilistic lexicalized tree insertion gram-
+mars. Technical Report 06-98, Harvard Uni-
+versity. Full Version.
+K. Lari and S.J. Young. 1990. The estima-
+tion of stochastic context-free grammars us-
+ing the inside-outside algorithm. Computer
+Speech and Language, 4:35-56.
+David Magerman. 1995. Statistical decision-
+models for parsing. In Proceedingsof the 33rd
+Annual Meeting of the A CL, pages 276-283,
+Cambridge, MA.
+Fernando Pereira and Yves Schabes. 1992.
+Inside-Outside reestimation from partially
+bracketed corpora. In Proceedingsof the 30th
+Annual Meeting of the ACL, pages 128-135,
+Newark, Delaware.
+S. Rajasekaran and S. Yooseph. 1995. Tal
+recognitionin O(M(n2)) time. In Proceedings
+of the 33rdAnnual Meeting of the A CL, pages
+166-173, Cambridge, MA.
+Y. Schabes and R. Waters. 1993. Stochastic
+lexicalizedcontext-free grammar. In Proceed-
+ings of the Third International Workshop on
+Parsing Technologies,pages 257-266.
+Y. Schabes and R. Waters. 1994. Tree insertion
+grammar: A cubic-time parsable formalism
+that lexicalizes context-free grammar without
+changing the tree produced. Technical Re-
+port TR-94-13, Mitsubishi Electric Research
+Laboratories.
+Y. Schabes, A. Abeille, and A. K. Joshi. 1988.
+Parsing strategies with \&amp;apos;lexicalized\&amp;apos; gram-
+mars: Application to tree adjoining gram-
+mars. In Proceedings of the 1Pth Interna-
+tional Conference on Computational Linguis-
+tics (COLING \&amp;apos;88), August.
+Yves Schabes. 1990. Mathematical and Com-
+putational Aspects of Lexicalized Grammars.
+Ph.D. thesis, University of Pennsylvania, Au-
+gust.
+</reference>
+<page confidence="0.981863">
+563
+</page>
+<figure confidence="0.250425">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.910807">
+<title confidence="0.9949175">b&amp;apos;An Empirical Evaluation of Probabilistic Lexicalized Tree Insertion Grammars *</title>
+<author confidence="0.998167">Rebecca Hwa</author>
+<affiliation confidence="0.999997">Harvard University</affiliation>
+<address confidence="0.999936">Cambridge, MA 02138 USA</address>
+<email confidence="0.999868">rebecca~eecs.harvard.edu</email>
+<abstract confidence="0.9945516">We present an empirical study of the applicability of Probabilistic Lexicalized Tree Insertion Grammars (PLTIG), a lexicalized counterpart to Probabilistic Context-Free Grammars (PCFG), to problems in stochastic naturallanguage processing. Comparing the performance of PLTIGs with non-hierarchical N-gram models and PCFGs, we show that PLTIG combines the best aspects of both, with language modeling capability comparable to N-grams, and improved parsing performance over its nonlexicalized counterpart. Furthermore, training of PLTIGs displays faster convergence than PCFGs.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Eugene Charniak</author>
+</authors>
+<title>Statistical parsing with a context-free grammar and word statistics.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the AAAI,</booktitle>
+<pages>598--603</pages>
+<publisher>AAAI Press/MIT Press.</publisher>
+<location>Providence, RI.</location>
+<contexts>
+<context position="4106" citStr="Charniak (1997)" startWordPosition="632" endWordPosition="633">t-free gram557 \x0cmar. There are three ways in which one might do so. First, one can modify the tree structures so that all context-free productions contain lexical items. Greibach normal form provides a well-known example of such a lexicalized context-free formalism. This method is not practical because altering the structures of the grammar damages the linguistic information stored in the original grammar (Schabes and Waters, 1994). Second, one might propagate lexical information upward through the productions. Examples of formalisms using this approach include the work of Magerman (1995), Charniak (1997), Collins (1997), and Goodman (1997). A more linguistically motivated approach is to expand the domain of productions downward to incorporate more tree structures. The Lexicalized Tree-Adjoining Grammar (LTAG) formalism (Schabes et al., 1988), (Schabes, 1990) , although not context-free, is the most well-known instance in this category. PLTIGs belong to this third category and generate only context-free languages. LTAGs (and LTIGs) are tree-rewriting systems, consisting of a set of elementary trees combined by tree operations. We distinguish two types of trees in the set of elementary trees: t</context>
+</contexts>
+<marker>Charniak, 1997</marker>
+<rawString>Eugene Charniak. 1997. Statistical parsing with a context-free grammar and word statistics. In Proceedings of the AAAI, pages 598-603, Providence, RI. AAAI Press/MIT Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+</authors>
+<title>Three generative, lexicalised models for statistical parsing.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the 35th Annual Meeting of the ACL,</booktitle>
+<pages>16--23</pages>
+<location>Madrid,</location>
+<contexts>
+<context position="4122" citStr="Collins (1997)" startWordPosition="634" endWordPosition="635">0cmar. There are three ways in which one might do so. First, one can modify the tree structures so that all context-free productions contain lexical items. Greibach normal form provides a well-known example of such a lexicalized context-free formalism. This method is not practical because altering the structures of the grammar damages the linguistic information stored in the original grammar (Schabes and Waters, 1994). Second, one might propagate lexical information upward through the productions. Examples of formalisms using this approach include the work of Magerman (1995), Charniak (1997), Collins (1997), and Goodman (1997). A more linguistically motivated approach is to expand the domain of productions downward to incorporate more tree structures. The Lexicalized Tree-Adjoining Grammar (LTAG) formalism (Schabes et al., 1988), (Schabes, 1990) , although not context-free, is the most well-known instance in this category. PLTIGs belong to this third category and generate only context-free languages. LTAGs (and LTIGs) are tree-rewriting systems, consisting of a set of elementary trees combined by tree operations. We distinguish two types of trees in the set of elementary trees: the initial trees</context>
+</contexts>
+<marker>Collins, 1997</marker>
+<rawString>Michael Collins. 1997. Three generative, lexicalised models for statistical parsing. In Proceedings of the 35th Annual Meeting of the ACL, pages 16-23, Madrid, Spain.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Joshua Goodman</author>
+</authors>
+<title>Probabilistic feature grammars.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the International Workshop on Parsing Technologies</booktitle>
+<contexts>
+<context position="4142" citStr="Goodman (1997)" startWordPosition="637" endWordPosition="639">ee ways in which one might do so. First, one can modify the tree structures so that all context-free productions contain lexical items. Greibach normal form provides a well-known example of such a lexicalized context-free formalism. This method is not practical because altering the structures of the grammar damages the linguistic information stored in the original grammar (Schabes and Waters, 1994). Second, one might propagate lexical information upward through the productions. Examples of formalisms using this approach include the work of Magerman (1995), Charniak (1997), Collins (1997), and Goodman (1997). A more linguistically motivated approach is to expand the domain of productions downward to incorporate more tree structures. The Lexicalized Tree-Adjoining Grammar (LTAG) formalism (Schabes et al., 1988), (Schabes, 1990) , although not context-free, is the most well-known instance in this category. PLTIGs belong to this third category and generate only context-free languages. LTAGs (and LTIGs) are tree-rewriting systems, consisting of a set of elementary trees combined by tree operations. We distinguish two types of trees in the set of elementary trees: the initial trees and the auxiliary t</context>
+</contexts>
+<marker>Goodman, 1997</marker>
+<rawString>Joshua Goodman. 1997. Probabilistic feature grammars. In Proceedings of the International Workshop on Parsing Technologies 1997.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Rebecca Hwa</author>
+</authors>
+<title>An empirical evaluation of probabilistic lexicalized tree insertion grammars.</title>
+<date>1998</date>
+<tech>Technical Report 06-98,</tech>
+<institution>Harvard University. Full Version.</institution>
+<contexts>
+<context position="11215" citStr="Hwa (1998)" startWordPosition="1803" endWordPosition="1804">tains all possible rules in Chomsky Normal Form constructed by the nonterminal and terminal symbols. The initial parameters associated with each rule are randomly generated subject to an admissibility constraint. As long as all the rules have a non-zero probability, any string has a non-zero chance of being generated. To train the grammar, we follow the InsideOutside re-estimation algorithm described by Lari and Young (1990). The Inside-Outside reestimation algorithm can also be extended to train PLTIGs. The equations calculating the inside and outside probabilities for PLTIGs can be found in Hwa (1998). As with PCFGs, the initial grammar must be able to generate any string. A simple PLTIG that fits the requirement is one that simulates a bigram model. It is represented by a tree set that contains a right auxiliary tree for each lexical item as depicted in Figure 1. Each tree has one adjunction site into which other right auxiliary trees can adjoin. The tree set has only one initial tree, which is anchored by an empty lexical item. The initial tree represents the start of the sentence. Any string can be constructed by right adjoining the words together in order. Training the parameters of th</context>
+</contexts>
+<marker>Hwa, 1998</marker>
+<rawString>Rebecca Hwa. 1998. An empirical evaluation of probabilistic lexicalized tree insertion grammars. Technical Report 06-98, Harvard University. Full Version.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K Lari</author>
+<author>S J Young</author>
+</authors>
+<title>The estimation of stochastic context-free grammars using the inside-outside algorithm.</title>
+<date>1990</date>
+<journal>Computer Speech and Language,</journal>
+<pages>4--35</pages>
+<contexts>
+<context position="11033" citStr="Lari and Young (1990)" startWordPosition="1773" endWordPosition="1776">ates, hopefully, all and only the sentences in the target language, for which the training data provides an adequate sampling. In the case of a PCFG, the initial grammar production rule set contains all possible rules in Chomsky Normal Form constructed by the nonterminal and terminal symbols. The initial parameters associated with each rule are randomly generated subject to an admissibility constraint. As long as all the rules have a non-zero probability, any string has a non-zero chance of being generated. To train the grammar, we follow the InsideOutside re-estimation algorithm described by Lari and Young (1990). The Inside-Outside reestimation algorithm can also be extended to train PLTIGs. The equations calculating the inside and outside probabilities for PLTIGs can be found in Hwa (1998). As with PCFGs, the initial grammar must be able to generate any string. A simple PLTIG that fits the requirement is one that simulates a bigram model. It is represented by a tree set that contains a right auxiliary tree for each lexical item as depicted in Figure 1. Each tree has one adjunction site into which other right auxiliary trees can adjoin. The tree set has only one initial tree, which is anchored by an </context>
+</contexts>
+<marker>Lari, Young, 1990</marker>
+<rawString>K. Lari and S.J. Young. 1990. The estimation of stochastic context-free grammars using the inside-outside algorithm. Computer Speech and Language, 4:35-56.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Magerman</author>
+</authors>
+<title>Statistical decisionmodels for parsing.</title>
+<date>1995</date>
+<booktitle>In Proceedingsof the 33rd Annual Meeting of the A CL,</booktitle>
+<pages>276--283</pages>
+<location>Cambridge, MA.</location>
+<contexts>
+<context position="4089" citStr="Magerman (1995)" startWordPosition="630" endWordPosition="631">xicalize a context-free gram557 \x0cmar. There are three ways in which one might do so. First, one can modify the tree structures so that all context-free productions contain lexical items. Greibach normal form provides a well-known example of such a lexicalized context-free formalism. This method is not practical because altering the structures of the grammar damages the linguistic information stored in the original grammar (Schabes and Waters, 1994). Second, one might propagate lexical information upward through the productions. Examples of formalisms using this approach include the work of Magerman (1995), Charniak (1997), Collins (1997), and Goodman (1997). A more linguistically motivated approach is to expand the domain of productions downward to incorporate more tree structures. The Lexicalized Tree-Adjoining Grammar (LTAG) formalism (Schabes et al., 1988), (Schabes, 1990) , although not context-free, is the most well-known instance in this category. PLTIGs belong to this third category and generate only context-free languages. LTAGs (and LTIGs) are tree-rewriting systems, consisting of a set of elementary trees combined by tree operations. We distinguish two types of trees in the set of el</context>
+</contexts>
+<marker>Magerman, 1995</marker>
+<rawString>David Magerman. 1995. Statistical decisionmodels for parsing. In Proceedingsof the 33rd Annual Meeting of the A CL, pages 276-283, Cambridge, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Fernando Pereira</author>
+<author>Yves Schabes</author>
+</authors>
+<title>Inside-Outside reestimation from partially bracketed corpora.</title>
+<date>1992</date>
+<booktitle>In Proceedingsof the 30th Annual Meeting of the ACL,</booktitle>
+<pages>128--135</pages>
+<location>Newark, Delaware.</location>
+<contexts>
+<context position="2161" citStr="Pereira and Schabes, 1992" startWordPosition="320" endWordPosition="323">l is basedupon worksupported bythe National ScienceFoundation under Grant No. IR19712068. We thank Yves Schabes and Stuart Shieber for their guidance; Joshua Goodman for his PCFG code; Lillian Lee and the three anonymous reviewers for their comments on the paper. and Waters, 1994). We now apply a probabilistic variant of this formalism, Probabilistic Tree Insertion Grammars (PLTIGs), to natural language processing problems of stochastic parsing and language modeling. This paper presents two sets of experiments, comparing PLTIGs with non-lexicalized Probabilistic Context-Free Grammars (PCFGs) (Pereira and Schabes, 1992) and non-hierarchical N-gram models that use the right branching bracketing heuristics (period attaches high) as their parsing strategy. We show that PLTIGs can be induced from partially bracketed data, and that the resulting trained grammars can parse unseen sentences and estimate the likelihood of their occurrences in the language. The experiments are run on two corpora: the Air Travel Information System (ATIS) corpus and a subset of the Wall Street Journal TreeBank corpus. The results show that the lexicalized nature of the formalism helps our induced PLTIGs to converge faster and provide a</context>
+</contexts>
+<marker>Pereira, Schabes, 1992</marker>
+<rawString>Fernando Pereira and Yves Schabes. 1992. Inside-Outside reestimation from partially bracketed corpora. In Proceedingsof the 30th Annual Meeting of the ACL, pages 128-135, Newark, Delaware.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Rajasekaran</author>
+<author>S Yooseph</author>
+</authors>
+<title>Tal recognitionin O(M(n2)) time.</title>
+<date>1995</date>
+<booktitle>In Proceedings of the 33rdAnnual Meeting of the A CL,</booktitle>
+<pages>166--173</pages>
+<location>Cambridge, MA.</location>
+<contexts>
+<context position="8165" citStr="Rajasekaran and Yooseph, 1995" startWordPosition="1295" endWordPosition="1298">sable, as shown by Schabes and Waters (1994). Furthermore, LTIGs can be parameterized to form probabilistic models (Schabes and Waters, 1993). Informally speaking, a parameter is associated with each possible adjunction or substitution operation between a tree and a node. For instance, suppose there are V left auxiliary trees that might adjoin into node r/. Then there are V q- 1 parameters associated with node r/ 1The best theoretical upper bound on time complexity for the recognition of Tree Adjoining Languages is O(M(n2)), where M(k) is the time needed to multiply two k x k booleanmatrices.(Rajasekaran and Yooseph, 1995) 558 \x0cElem~ntwy~ ~: tl~t t~ptl 1 X, ~tdI t~rd 2 twordn X word2 X wordn * $ Figure h A set of elementary LTIG trees that represent a bigram grammar. The arrows indicate adjunction sites. that describe the distribution of the likelihood of any left auxiliary tree adjoining into node ~/. (We need one extra parameter for the case of no left adjunction.) A similar set of parameters is constructed for the right adjunction and substitution distributions. 3 Experiments In the following experiments we show that PLTIGs of varying sizes and configurations can be induced by processing a large training </context>
+</contexts>
+<marker>Rajasekaran, Yooseph, 1995</marker>
+<rawString>S. Rajasekaran and S. Yooseph. 1995. Tal recognitionin O(M(n2)) time. In Proceedings of the 33rdAnnual Meeting of the A CL, pages 166-173, Cambridge, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y Schabes</author>
+<author>R Waters</author>
+</authors>
+<title>Stochastic lexicalizedcontext-free grammar.</title>
+<date>1993</date>
+<booktitle>In Proceedings of the Third International Workshop on Parsing Technologies,pages</booktitle>
+<pages>257--266</pages>
+<contexts>
+<context position="7676" citStr="Schabes and Waters, 1993" startWordPosition="1214" endWordPosition="1217">y restricting auxiliary tree structures to be in one of two forms: the left auxiliary tree, whose non-empty frontier nodes are all to the left of the foot node; or the right auxiliary tree, whose non-empty frontier nodes are all to the right of the foot node. Auxiliary trees of different types cannot adjoin into each other if the adjunction would result in a wrapping auxiliary tree. The resulting system is strongly equivalent to CFGs, yet is fully lexicalized and still O(n 3) parsable, as shown by Schabes and Waters (1994). Furthermore, LTIGs can be parameterized to form probabilistic models (Schabes and Waters, 1993). Informally speaking, a parameter is associated with each possible adjunction or substitution operation between a tree and a node. For instance, suppose there are V left auxiliary trees that might adjoin into node r/. Then there are V q- 1 parameters associated with node r/ 1The best theoretical upper bound on time complexity for the recognition of Tree Adjoining Languages is O(M(n2)), where M(k) is the time needed to multiply two k x k booleanmatrices.(Rajasekaran and Yooseph, 1995) 558 \x0cElem~ntwy~ ~: tl~t t~ptl 1 X, ~tdI t~rd 2 twordn X word2 X wordn * $ Figure h A set of elementary LTIG</context>
+</contexts>
+<marker>Schabes, Waters, 1993</marker>
+<rawString>Y. Schabes and R. Waters. 1993. Stochastic lexicalizedcontext-free grammar. In Proceedings of the Third International Workshop on Parsing Technologies,pages 257-266.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y Schabes</author>
+<author>R Waters</author>
+</authors>
+<title>Tree insertion grammar: A cubic-time parsable formalism that lexicalizes context-free grammar without changing the tree produced.</title>
+<date>1994</date>
+<tech>Technical Report TR-94-13,</tech>
+<institution>Mitsubishi Electric Research Laboratories.</institution>
+<contexts>
+<context position="3929" citStr="Schabes and Waters, 1994" startWordPosition="605" endWordPosition="608">ts of the experiments; finally, we outline future directions of the research. 2 PLTIG and Related Work The inspiration for the PLTIG formalism stems from the desire to lexicalize a context-free gram557 \x0cmar. There are three ways in which one might do so. First, one can modify the tree structures so that all context-free productions contain lexical items. Greibach normal form provides a well-known example of such a lexicalized context-free formalism. This method is not practical because altering the structures of the grammar damages the linguistic information stored in the original grammar (Schabes and Waters, 1994). Second, one might propagate lexical information upward through the productions. Examples of formalisms using this approach include the work of Magerman (1995), Charniak (1997), Collins (1997), and Goodman (1997). A more linguistically motivated approach is to expand the domain of productions downward to incorporate more tree structures. The Lexicalized Tree-Adjoining Grammar (LTAG) formalism (Schabes et al., 1988), (Schabes, 1990) , although not context-free, is the most well-known instance in this category. PLTIGs belong to this third category and generate only context-free languages. LTAGs</context>
+<context position="7579" citStr="Schabes and Waters (1994)" startWordPosition="1201" endWordPosition="1204">LTAGs can be moderated by eliminating just the wrapping auxiliary trees. LTIGs prevent wrapping by restricting auxiliary tree structures to be in one of two forms: the left auxiliary tree, whose non-empty frontier nodes are all to the left of the foot node; or the right auxiliary tree, whose non-empty frontier nodes are all to the right of the foot node. Auxiliary trees of different types cannot adjoin into each other if the adjunction would result in a wrapping auxiliary tree. The resulting system is strongly equivalent to CFGs, yet is fully lexicalized and still O(n 3) parsable, as shown by Schabes and Waters (1994). Furthermore, LTIGs can be parameterized to form probabilistic models (Schabes and Waters, 1993). Informally speaking, a parameter is associated with each possible adjunction or substitution operation between a tree and a node. For instance, suppose there are V left auxiliary trees that might adjoin into node r/. Then there are V q- 1 parameters associated with node r/ 1The best theoretical upper bound on time complexity for the recognition of Tree Adjoining Languages is O(M(n2)), where M(k) is the time needed to multiply two k x k booleanmatrices.(Rajasekaran and Yooseph, 1995) 558 \x0cElem~</context>
+</contexts>
+<marker>Schabes, Waters, 1994</marker>
+<rawString>Y. Schabes and R. Waters. 1994. Tree insertion grammar: A cubic-time parsable formalism that lexicalizes context-free grammar without changing the tree produced. Technical Report TR-94-13, Mitsubishi Electric Research Laboratories.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y Schabes</author>
+<author>A Abeille</author>
+<author>A K Joshi</author>
+</authors>
+<title>Parsing strategies with \&amp;apos;lexicalized\&amp;apos; grammars: Application to tree adjoining grammars.</title>
+<date>1988</date>
+<booktitle>In Proceedings of the 1Pth International Conference on Computational Linguistics (COLING \&amp;apos;88),</booktitle>
+<contexts>
+<context position="4348" citStr="Schabes et al., 1988" startWordPosition="667" endWordPosition="670">xicalized context-free formalism. This method is not practical because altering the structures of the grammar damages the linguistic information stored in the original grammar (Schabes and Waters, 1994). Second, one might propagate lexical information upward through the productions. Examples of formalisms using this approach include the work of Magerman (1995), Charniak (1997), Collins (1997), and Goodman (1997). A more linguistically motivated approach is to expand the domain of productions downward to incorporate more tree structures. The Lexicalized Tree-Adjoining Grammar (LTAG) formalism (Schabes et al., 1988), (Schabes, 1990) , although not context-free, is the most well-known instance in this category. PLTIGs belong to this third category and generate only context-free languages. LTAGs (and LTIGs) are tree-rewriting systems, consisting of a set of elementary trees combined by tree operations. We distinguish two types of trees in the set of elementary trees: the initial trees and the auxiliary trees. Unlike full parse trees but reminiscent of the productions of a context-free grammar, both types of trees may have nonterminal leaf nodes. Auxiliary trees have, in addition, a distinguished nontermina</context>
+</contexts>
+<marker>Schabes, Abeille, Joshi, 1988</marker>
+<rawString>Y. Schabes, A. Abeille, and A. K. Joshi. 1988. Parsing strategies with \&amp;apos;lexicalized\&amp;apos; grammars: Application to tree adjoining grammars. In Proceedings of the 1Pth International Conference on Computational Linguistics (COLING \&amp;apos;88), August.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yves Schabes</author>
+</authors>
+<title>Mathematical and Computational Aspects of Lexicalized Grammars.</title>
+<date>1990</date>
+<tech>Ph.D. thesis,</tech>
+<institution>University of Pennsylvania,</institution>
+<contexts>
+<context position="4365" citStr="Schabes, 1990" startWordPosition="671" endWordPosition="672">ormalism. This method is not practical because altering the structures of the grammar damages the linguistic information stored in the original grammar (Schabes and Waters, 1994). Second, one might propagate lexical information upward through the productions. Examples of formalisms using this approach include the work of Magerman (1995), Charniak (1997), Collins (1997), and Goodman (1997). A more linguistically motivated approach is to expand the domain of productions downward to incorporate more tree structures. The Lexicalized Tree-Adjoining Grammar (LTAG) formalism (Schabes et al., 1988), (Schabes, 1990) , although not context-free, is the most well-known instance in this category. PLTIGs belong to this third category and generate only context-free languages. LTAGs (and LTIGs) are tree-rewriting systems, consisting of a set of elementary trees combined by tree operations. We distinguish two types of trees in the set of elementary trees: the initial trees and the auxiliary trees. Unlike full parse trees but reminiscent of the productions of a context-free grammar, both types of trees may have nonterminal leaf nodes. Auxiliary trees have, in addition, a distinguished nonterminal leaf node, labe</context>
+</contexts>
+<marker>Schabes, 1990</marker>
+<rawString>Yves Schabes. 1990. Mathematical and Computational Aspects of Lexicalized Grammars. Ph.D. thesis, University of Pennsylvania, August.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

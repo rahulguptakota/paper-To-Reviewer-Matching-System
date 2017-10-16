@@ -1,0 +1,1123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<note confidence="0.301127">
+b&amp;quot;Proceedings of the 51st Annual Meeting of the Association for Computational Linguistics, pages 8791,
+</note>
+<address confidence="0.487727">
+Sofia, Bulgaria, August 4-9 2013. c
+</address>
+<figure confidence="0.638047777777778">
+2013 Association for Computational Linguistics
+Learning to Order Natural Language Texts
+Jiwei Tana, b
+, Xiaojun Wana
+* and Jianguo Xiaoa
+a
+Institute of Computer Science and Technology, The MOE Key Laboratory of Computa-
+tional Linguistics, Peking University, China
+b
+</figure>
+<affiliation confidence="0.886899">
+School of Information Science and Technology, Beijing Normal University, China
+</affiliation>
+<email confidence="0.917431">
+tanjiwei8@gmail.com, {wanxiaojun,jgxiao}@pku.edu.cn
+</email>
+<sectionHeader confidence="0.986469" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.998345375">
+Ordering texts is an important task for many
+NLP applications. Most previous works on
+summary sentence ordering rely on the contex-
+tual information (e.g. adjacent sentences) of
+each sentence in the source document. In this
+paper, we investigate a more challenging task
+of ordering a set of unordered sentences with-
+out any contextual information. We introduce
+a set of features to characterize the order and
+coherence of natural language texts, and use
+the learning to rank technique to determine the
+order of any two sentences. We also propose
+to use the genetic algorithm to determine the
+total order of all sentences. Evaluation results
+on a news corpus show the effectiveness of
+our proposed method.
+</bodyText>
+<sectionHeader confidence="0.996908" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.9868151">
+Ordering texts is an important task in many natu-
+ral language processing (NLP) applications. It is
+typically applicable in the text generation field,
+both for concept-to-text generation and text-to-
+text generation (Lapata, 2003), such as multiple
+document summarization (MDS), question an-
+swering and so on. However, ordering a set of
+sentences into a coherent text is still a hard and
+challenging problem for computers.
+Previous works on sentence ordering mainly
+focus on the MDS task (Barzilay et al., 2002;
+Okazaki et al., 2004; Nie et al., 2006; Ji and
+Pulman, 2006; Madnani et al., 2007; Zhang et al.,
+2010; He et al., 2006; Bollegala et al., 2005; Bol-
+legala et al., 2010). In this task, each summary
+sentence is extracted from a source document.
+The timestamp of the source documents and the
+adjacent sentences in the source documents can
+be used as important clues for ordering summary
+sentences.
+In this study, we investigate a more challeng-
+ing and more general task of ordering a set of
+unordered sentences (e.g. randomly shuffle the
+*
+Xiaojun Wan is the corresponding author.
+sentences in a text paragraph) without any con-
+textual information. This task can be applied to
+almost all text generation applications without
+restriction.
+In order to address this challenging task, we
+first introduce a few useful features to character-
+ize the order and coherence of natural language
+texts, and then propose to use the learning to
+rank algorithm to determine the order of two sen-
+tences. Moreover, we propose to use the genetic
+algorithm to decide the overall text order. Evalu-
+ations are conducted on a news corpus, and the
+results show the prominence of our method. Each
+component technique or feature in our method
+has also been validated.
+</bodyText>
+<sectionHeader confidence="0.999619" genericHeader="related work">
+2 Related Work
+</sectionHeader>
+<bodyText confidence="0.999867722222222">
+For works taking no use of source document,
+Lapata (2003) proposed a probabilistic model
+which learns constraints on sentence ordering
+from a corpus of texts. Experimental evaluation
+indicated the importance of several learned lexi-
+cal and syntactic features. However, the model
+only works well when using single feature, but
+unfortunately, it becomes worse when multiple
+features are combined. Barzilay and Lee (2004)
+investigated the utility of domain-specific con-
+tent model for representing topic and topic shifts
+and the model performed well on the five se-
+lected domains. Nahnsen (2009) employed fea-
+tures which were based on discourse entities,
+shallow syntactic analysis, and temporal prece-
+dence relations retrieved from VerbOcean. How-
+ever, the model does not perform well on data-
+sets describing the consequences of events.
+</bodyText>
+<sectionHeader confidence="0.979874" genericHeader="method">
+3 Our Proposed Method
+</sectionHeader>
+<subsectionHeader confidence="0.960878">
+3.1 Overview
+</subsectionHeader>
+<bodyText confidence="0.998172">
+The task of text ordering can be modeled like
+(Cohen et al., 1998), as measuring the coherence
+of a text by summing the association strength of
+any sentence pairs. Then the objective of a text
+ordering model is to find a permutation which
+can maximize the summation.
+</bodyText>
+<page confidence="0.997931">
+87
+</page>
+<bodyText confidence="0.81270275">
+\x0cFormally, we define an association strength
+function PREF( , ) R
+u v to measure how strong
+it is that sentence u should be arranged before
+sentence v (denoted as u v
+; ). We then define
+function AGREE( ,PREF)
+as:
+</bodyText>
+<equation confidence="0.2842525">
+, : ( ) ( )
+AGREE( ,PREF) = PREF( , )
+u v u v
+u v
+&amp;gt;
+(1)
+</equation>
+<bodyText confidence="0.697434">
+where denotes a sentence permutation and
+</bodyText>
+<equation confidence="0.624047666666667">
+( ) ( )
+u v
+&amp;gt; means u v
+</equation>
+<bodyText confidence="0.984501818181818">
+; in the permutation .
+Then the objective of finding an overall order of
+the sentences becomes finding a permutation
+to maximize AGREE( ,PREF)
+.
+The main framework is made up of two parts:
+defining a pairwise order relation and determin-
+ing an overall order. Our study focuses on both
+the two parts by learning a better pairwise rela-
+tion and proposing a better search strategy, as
+described respectively in next sections.
+</bodyText>
+<subsectionHeader confidence="0.999694">
+3.2 Pairwise Relation Learning
+</subsectionHeader>
+<bodyText confidence="0.971832366666667">
+The goal for pairwise relation learning is defin-
+ing the strength function PREF for any sentence
+pair. In our method we define the function PREF
+by combining multiple features.
+Method: Traditionally, there are two main
+methods for defining a strength function: inte-
+grating features by a linear combination (He et
+al., 2006; Bollegala et al., 2005) or by a binary
+classifier (Bollegala et al., 2010). However, the
+binary classification method is very coarse-
+grained since it considers any pair of sentences
+either positive or negative. Instead we pro-
+pose to use a better model of learning to rank to
+integrate multiple features.
+In this study, we use Ranking SVM imple-
+mented in the svmrank
+toolkit (Joachims, 2002;
+Joachims, 2006) as the ranking model. The ex-
+amples to be ranked in our ranking model are
+sequential sentence pairs like u v
+; . The feature
+values for a training example are generated by a
+few feature functions ( , )
+i
+f u v , and we will intro-
+duce the features later. We build the training ex-
+amples for svmrank
+as follows:
+For a training query, which is a paragraph with
+n sequential sentences as 1 2 ... n
+</bodyText>
+<equation confidence="0.495920545454545">
+s s s
+; ; ; , we
+can get 2
+( 1)
+n
+A n n
+= training examples. For
+pairs like ( 0)
+a a k
+s s k
++ &amp;gt;
+</equation>
+<bodyText confidence="0.90036">
+; the target rank values
+are set to n k
+, which means that the longer the
+distance between the two sentences is, the small-
+er the target value is. Other pairs like a k a
+</bodyText>
+<equation confidence="0.8992215">
+s s
++ ;
+</equation>
+<bodyText confidence="0.99736025">
+are all set to 0. In order to better capture the or-
+der information of each feature, for every sen-
+tence pair u v
+; , we derive four feature values
+</bodyText>
+<equation confidence="0.938719">
+from each function ( , )
+i
+</equation>
+<bodyText confidence="0.6615635">
+f u v , which are listed as
+follows:
+</bodyText>
+<equation confidence="0.996272203703704">
+,1 ( , )
+i
+i
+V f u v
+= (2)
+,2
+1/ 2, if ( , ) ( , ) 0
+( , )
+, otherwise
+( , ) ( , )
+i i
+i i
+i i
+f u v f v u
+V f u v
+f u v f v u
++ =
+=
++
+(3)
+,3
+1/ if ( , ) 0
+( , ) / ( , ), otherwise
+i
+y S y u
+i
+i i
+y S y u
+S f u y
+V
+f u v f u y
+=
+=
+=
+=
+,
+(4)
+,4
+1/ if ( , ) 0
+( , ) / ( , ), otherwise
+i
+x S x v
+i
+i i
+x S x v
+S f x v
+V
+f u v f x v
+=
+=
+=
+=
+,
+(5)
+</equation>
+<bodyText confidence="0.93202825">
+where S is the set of all sentences in a paragraph
+and S is the number of sentences in S . The
+three additional feature values of (3) (4) (5) are
+defined to measure the priority of u v
+</bodyText>
+<table confidence="0.580143363636364">
+; to v u
+; ,
+u v
+; to { , }
+u y S u v
+; and u v
+; to
+{ , }
+x S u v v
+; respectively, by calculating
+the proportion of ( , )
+</table>
+<equation confidence="0.590131">
+i
+</equation>
+<bodyText confidence="0.905197142857143">
+f u v in respective summa-
+tions.
+The learned model can be used to predict tar-
+get values for new examples. A paragraph of un-
+ordered sentences is viewed as a test query, and
+the predicted target value for u v
+; is set as
+</bodyText>
+<figure confidence="0.5876045">
+PREF( , )
+u v .
+</figure>
+<bodyText confidence="0.89866425">
+Features: We select four types of features to
+characterize text coherence. Every type of fea-
+tures is quantified with several functions distin-
+guished by i in the formulation of ( , )
+</bodyText>
+<equation confidence="0.6884515">
+i
+f u v and
+normalized to [0,1] . The features and definitions
+of ( , )
+i
+f u v are introduced in Table 1.
+</equation>
+<figure confidence="0.97317868">
+Type Description
+sim( , )
+u v
+Similarity
+sim(latter( ),former( ))
+u v
+overlap ( , ) / min( ||, ||)
+j u v u v
+Overlap overlap (latter( ),former( ))
+overlap ( , )
+j
+j
+u v
+u v
+Number of
+coreference chains
+Coreference
+Number of
+coreference words
+Noun
+Verb
+Verb &amp; noun dependency
+Probability
+Model
+Adjective &amp; adverb
+</figure>
+<tableCaption confidence="0.750143">
+Table 1: Features used in our model.
+</tableCaption>
+<page confidence="0.722337">
+88
+</page>
+<bodyText confidence="0.839189444444445">
+\x0cAs in Table 1, function sim( , )
+u v denotes the
+cosine similarity of sentence u and v ; latter( )
+u
+and former( )
+v denotes the latter half part of u
+and the former part of v respectively, which are
+separated by the most centered comma (if exists)
+or word (if no comma exits); overlap ( , )
+j u v de-
+notes the number of mutual words of u and v ,
+for 1,2,3
+j = representing lemmatized noun,
+verb and adjective or adverb respectively;  ||
+u is
+the number of words of sentence u . The value
+will be set to 0 if the denominator is 0.
+For the coreference features we use the ARK-
+ref1
+tool. It can output the coreference chains
+containing words which represent the same entity
+for two sequential sentences u v
+; .
+The probability model originates from (Lapata,
+2003), and we implement the model with four
+features of lemmatized noun, verb, adjective or
+adverb, and verb and noun related dependency.
+</bodyText>
+<subsectionHeader confidence="0.998885">
+3.3 Overall Order Determination
+</subsectionHeader>
+<bodyText confidence="0.976779545454545">
+Cohen et al. (1998) proved finding a permutation
+to maximize AGREE( ,PREF)
+is NP-
+complete. To solve this, they proposed a greedy
+algorithm for finding an approximately optimal
+order. Most later works adopted the greedy
+search strategy to determine the overall order.
+However, a greedy algorithm does not always
+lead to satisfactory results, as our experiment
+shows in Section 4.2. Therefore, we propose to
+use the genetic algorithm (Holland, 1992) as the
+search strategy, which can lead to better results.
+Genetic Algorithm: The genetic algorithm
+(GA) is an artificial intelligence algorithm for
+optimization and search problems. The key point
+of using GA is modeling the individual, fitness
+function and three operators of crossover, muta-
+tion and selection. Once a problem is modeled,
+the algorithm can be constructed conventionally.
+In our method we set a permutation as an
+individual encoded by a numerical path, for ex-
+ample a permutation 2 1 3
+</bodyText>
+<equation confidence="0.4789555">
+s s s
+; ; is encoded as (2
+1 3). Then the function AGREE( ,PREF)
+is just
+</equation>
+<bodyText confidence="0.990427714285714">
+the fitness function. We adopt the order-based
+crossover operator which is described in (Davis,
+1985). The mutation operator is a random inver-
+sion of two sentences. For selection operator we
+take a tournament selection operator which ran-
+domly selects two individuals to choose the one
+with the greater fitness value AGREE( ,PREF)
+</bodyText>
+<equation confidence="0.960283">
+.
+1
+http://www.ark.cs.cmu.edu/ARKref/
+</equation>
+<bodyText confidence="0.992147">
+After several generations of evolution, the indi-
+vidual with the greatest fitness value will be a
+close solution to the optimal result.
+</bodyText>
+<sectionHeader confidence="0.997132" genericHeader="evaluation">
+4 Experiments
+</sectionHeader>
+<subsectionHeader confidence="0.7709995">
+4.1 Experiment Setup
+Data Set and Evaluation Metric: We con-
+</subsectionHeader>
+<bodyText confidence="0.974397">
+ducted the experiments on the North American
+</bodyText>
+<subsectionHeader confidence="0.474125">
+News Text Corpus2
+</subsectionHeader>
+<bodyText confidence="0.992719142857143">
+. We trained the model on 80
+thousand paragraphs and tested with 200 shuffled
+paragraphs. We use Kendalls as the evalua-
+tion metric, which is based on the number of in-
+versions in the rankings.
+Comparisons: It is incomparable with other
+methods for summary sentence ordering based
+on special summarization corpus, so we imple-
+mented Lapatas probability model for compari-
+son, which is considered the state of the art for
+this task. In addition, we implemented a random
+ordering as a baseline. We also tried to use a
+classification model in place of the ranking mod-
+el. In the classification model, sentence pairs like
+</bodyText>
+<figure confidence="0.804499666666667">
+1
+a a
+s s +
+</figure>
+<bodyText confidence="0.986503769230769">
+; were viewed as positive examples and
+all other pairs were viewed as negative examples.
+When deciding the overall order for either rank-
+ing or classification model we used three search
+strategies: greedy, genetic and exhaustive (or
+brutal) algorithms. In addition, we conducted a
+series of experiments to evaluate the effect of
+each feature. For each feature, we tested in two
+experiments, one of which only contained the
+single feature and the other one contained all the
+other features. For comparative analysis of fea-
+tures, we tested with an exhaustive search algo-
+rithm to determine the overall order.
+</bodyText>
+<subsectionHeader confidence="0.989785">
+4.2 Experiment Results
+</subsectionHeader>
+<bodyText confidence="0.944702875">
+The comparison results in Table 2 show that our
+Ranking SVM based method improves the per-
+formance over the baselines and the classifica-
+tion based method with any of the search algo-
+rithms. We can also see the greedy search strat-
+egy does not perform well and the genetic algo-
+rithm can provide a good approximate solution to
+obtain optimal results.
+</bodyText>
+<table confidence="0.9649316">
+Method Greedy Exhaustive Genetic
+Baseline -0.0127
+Probability 0.1859
+Classification 0.5006 0.5360 0.5264
+Ranking 0.5191 0.5768 0.5747
+</table>
+<tableCaption confidence="0.997961">
+Table 2: Average of different methods.
+</tableCaption>
+<page confidence="0.862592">
+2
+</page>
+<bodyText confidence="0.816331">
+The corpus is available from
+</bodyText>
+<figure confidence="0.608127">
+http://www.ldc.upenn.edu/Catalog/catalogEntry.jsp?catalog
+Id=LDC98T30
+</figure>
+<page confidence="0.975779">
+89
+</page>
+<bodyText confidence="0.9654024">
+\x0cRanking vs. Classification: It is not surpris-
+ing that the ranking model is better, because
+when using a classification model, an example
+should be labeled either positive or negative. It is
+not very reasonable to label a sentence pair like
+</bodyText>
+<equation confidence="0.7633995">
+( 1)
+a a k
+s s k
++ &amp;gt;
+</equation>
+<bodyText confidence="0.989511333333333">
+; as a negative example, nor a pos-
+itive one, because in some cases, it is easy to
+conclude one sentence should be arranged after
+another but hard to decide whether they should
+be adjacent. As we see in the function AGREE ,
+the value of PREF( , )
+a a k
+s s + also contributes to
+the summation. In a ranking model, this informa-
+tion can be quantified by the different priorities
+of sentence pairs with different distances.
+Single Feature Effect: The effects of differ-
+ent types of features are shown in Table 3. Prob
+denotes Lapatas probability model with differ-
+ent features.
+</bodyText>
+<table confidence="0.995266333333333">
+Feature Only Removed
+Similarity 0.0721 0.4614
+Overlap 0.1284 0.4631
+Coreference 0.0734 0.4704
+Probnoun 0.3679 0.3932
+Probverb 0.0615 0.4544
+Probadjective&amp;adverb 0.2650 0.4258
+Probdependency 0.2687 0.4892
+All 0.5768
+</table>
+<tableCaption confidence="0.99934">
+Table 3: Effects of different features.
+</tableCaption>
+<bodyText confidence="0.988743857142857">
+It can be seen in Table 3 that all these features
+contribute to the final result. The two features of
+noun probability and dependency probability
+play an important role as demonstrated in (La-
+pata, 2003). Other features also improve the final
+performance. A paragraph which is ordered en-
+tirely right by our method is shown in Figure 1.
+Sentences which should be arranged together
+tend to have a higher similarity and overlap. Like
+sentence (3) and (4) in Figure 1, they have a
+highest cosine similarity of 0.2240 and most
+overlap words of Israel and nuclear. How-
+ever, the similarity or overlap of the two sen-
+tences does not help to decide which sentence
+should be arranged before another. In this case
+the overlap and similarity of half part of the sen-
+tences may help. For example latter((3)) and
+former((4)) share an overlap of Israel while
+there is no overlap for latter((4)) and former((3)).
+Coreference is also an important clue for or-
+dering natural language texts. When we use a
+pronoun to represent an entity, it always has oc-
+curred before. For example when conducting
+coreference resolution for (1) (2)
+; , it will be
+found that He refers to Vanunu. Otherwise
+for (2) (1)
+; , no coreference chain will be found.
+</bodyText>
+<subsectionHeader confidence="0.98992">
+4.3 Genetic Algorithm
+</subsectionHeader>
+<bodyText confidence="0.9814027">
+There are three main parameters for GA includ-
+ing the crossover probability (PC), the mutation
+probability (PM) and the population size (PS).
+There is no definite selection for these parame-
+ters. In our study we experimented with a wide
+range of parameter values to see the effect of
+each parameter. It is hard to traverse all possible
+combinations so when testing a parameter we
+fixed the other two parameters. The results are
+shown in Table 4.
+</bodyText>
+<table confidence="0.9774514">
+Value
+Para Avg Max Min Stddev
+PS 0.5731 0.5859 0.5606 0.0046
+PC 0.5733 0.5806 0.5605 0.0038
+PM 0.5741 0.5803 0.5337 0.0045
+</table>
+<tableCaption confidence="0.999119">
+Table 4: Results of GA with different parameters.
+</tableCaption>
+<bodyText confidence="0.999376888888889">
+As we can see in Table 4, when adjusting the
+three parameters the average values are all
+close to the exhaustive result of 0.5768 and their
+standard deviations are low. Table 4 shows that
+in our case the genetic algorithm is not very sen-
+sible to the parameters. In the experiments, we
+set PS to 30, PC to 0.5 and PM to 0.05, and
+reached a value of 0.5747, which is very close to
+the theoretical upper bound of 0.5768.
+</bodyText>
+<sectionHeader confidence="0.991191" genericHeader="conclusions">
+5 Conclusion and Discussion
+</sectionHeader>
+<bodyText confidence="0.992509625">
+In this paper we propose a method for ordering
+sentences which have no contextual information
+by making use of Ranking SVM and the genetic
+algorithm. Evaluation results demonstrate the
+good effectiveness of our method.
+In future work, we will explore more features
+such as semantic features to further improve the
+performance.
+</bodyText>
+<sectionHeader confidence="0.876277" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<table confidence="0.919689">
+The work was supported by NSFC (61170166),
+Beijing Nova Program (2008B03) and National
+High-Tech R&amp;D Program (2012AA011101).
+</table>
+<listItem confidence="0.9868482">
+(1) Vanunu, 43, is serving an 18-year sentence for
+treason.
+(2) He was kidnapped by Israel&amp;apos;s Mossad spy
+agency in Rome in 1986 after giving The Sun-
+day Times of London photographs of the in-
+side of the Dimona reactor.
+(3) From the photographs, experts determined
+that Israel had the world&amp;apos;s sixth largest stock-
+pile of nuclear weapons.
+(4) Israel has never confirmed or denied that it
+</listItem>
+<figureCaption confidence="0.832855">
+has a nuclear capability.
+Figure 1: A right ordered paragraph.
+</figureCaption>
+<figure confidence="0.511355">
+90
+\x0cReferences
+</figure>
+<reference confidence="0.998056685714285">
+Danushka Bollegala, Naoaki Okazaki, Mitsuru Ishi-
+zuka. 2005. A machine learning approach to sen-
+tence ordering for multi-document summarization
+and its evaluation. In Proceedings of the Second in-
+ternational joint conference on Natural Language
+Processing (IJCNLP &amp;apos;05), 624-635.
+Danushka Bollegala, Naoaki Okazaki, and Mitsuru
+Ishizuka. 2010. A bottom-up approach to sentence
+ordering for multi-document summarization. Inf.
+Process. Manage. 46, 1 (January 2010), 89-109.
+John H. Holland. 1992. Adaptation in Natural and
+Artificial Systems: An Introductory Analysis with
+Applications to Biology, Control and Artificial In-
+telligence. MIT Press, Cambridge, MA, USA.
+Lawrence Davis. 1985. Applying adaptive algorithms
+to epistatic domains. In Proceedings of the 9th in-
+ternational joint conference on Artificial intelli-
+gence - Volume 1 (IJCAI&amp;apos;85), Aravind Joshi (Ed.),
+Vol. 1. Morgan Kaufmann Publishers Inc., San
+Francisco, CA, USA, 162-164.
+Mirella Lapata. 2003. Probabilistic text structuring:
+experiments with sentence ordering. InProceedings
+of the 41st Annual Meeting on Association for
+Computational Linguistics - Volume 1(ACL &amp;apos;03),
+Vol. 1. Association for Computational Linguistics,
+Stroudsburg, PA, USA, 545-552.
+Naoaki Okazaki, Yutaka Matsuo, and Mitsuru Ishi-
+zuka. 2004. Improving chronological sentence or-
+dering by precedence relation. In Proceedings of
+the 20th international conference on Computa-
+tional Linguistics (COLING &amp;apos;04). Association for
+Computational Linguistics, Stroudsburg, PA,
+USA, , Article 750 .
+Nitin Madnani, Rebecca Passonneau, Necip Fazil
+Ayan, John M. Conroy, Bonnie J. Dorr, Judith L.
+Klavans, Dianne P. O&amp;apos;Leary, and Judith D. Schle-
+singer. 2007. Measuring variability in sentence or-
+dering for news summarization. In Proceedings of
+the Eleventh European Workshop on Natural Lan-
+guage Generation (ENLG &amp;apos;07), Stephan Busemann
+(Ed.). Association for Computational Linguistics,
+Stroudsburg, PA, USA, 81-88.
+Paul D. Ji and Stephen Pulman. 2006. Sentence order-
+ing with manifold-based classification in multi-
+document summarization. In Proceedings of the
+2006 Conference on Empirical Methods in Natural
+Language Processing (EMNLP &amp;apos;06). Association
+for Computational Linguistics, Stroudsburg, PA,
+USA, 526-533.
+Regina Barzilay, Noemie Elhadad, and Kathleen
+McKeown. 2002. Inferring strategies for sentence
+ordering in multidocument news summarization.
+Journal of Artificial Intelligence Research, 17:35
+55.
+Regina Barzilay and Lillian Lee. 2004. Catching the
+drift: Probabilistic content models, with applica-
+tions to generation and summarization. In HLT-
+NAACL2004: Proceedings of the Main Conference,
+pages 113120.
+Renxian Zhang, Wenjie Li, and Qin Lu. 2010. Sen-
+tence ordering with event-enriched semantics and
+two-layered clustering for multi-document news
+summarization. In Proceedings of the 23rd Interna-
+tional Conference on Computational Linguistics:
+Posters (COLING &amp;apos;10). Association for Computa-
+tional Linguistics, Stroudsburg, PA, USA, 1489-
+1497.
+Thade Nahnsen. 2009. Domain-independent shallow
+sentence ordering. In Proceedings of Human Lan-
+guage Technologies: The 2009 Annual Conference
+of the North American Chapter of the Association
+for Computational Linguistics, Companion Volume:
+Student Research Workshop and Doctoral Consor-
+tium (SRWS &amp;apos;09). Association for Computational
+Linguistics, Stroudsburg, PA, USA, 78-83.
+Thorsten Joachims. 2002. Optimizing search engines
+using click through data. In Proceedings of the
+eighth ACM SIGKDD international conference on
+Knowledge discovery and data mining (KDD &amp;apos;02).
+ACM, New York, NY, USA, 133-142.
+Thorsten Joachims. 2006. Training linear SVMs in
+linear time. In Proceedings of the 12th ACM
+SIGKDD international conference on Knowledge
+discovery and data mining (KDD &amp;apos;06). ACM, New
+York, NY, USA, 217-226.
+William W. Cohen, Robert E. Schapire, and Yoram
+Singer. 1998. Learning to order things. InProceed-
+ings of the 1997 conference on Advances in neural
+information processing systems 10(NIPS &amp;apos;97), Mi-
+chael I. Jordan, Michael J. Kearns, and Sara A.
+Solla (Eds.). MIT Press, Cambridge, MA, USA,
+451-457.
+Yanxiang He, Dexi Liu, Hua Yang, Donghong Ji,
+Chong Teng, and Wenqing Qi. 2006. A hybrid sen-
+tence ordering strategy in multi-document summa-
+rization. In Proceedings of the 7th international
+conference on Web Information Systems (WISE&amp;apos;06),
+Karl Aberer, Zhiyong Peng, Elke A. Rundensteiner,
+Yanchun Zhang, and Xuhui Li (Eds.). Springer-
+Verlag, Berlin, Heidelberg, 339-349.
+Yu Nie, Donghong Ji, and Lingpeng Yang. 2006. An
+adjacency model for sentence ordering in multi-
+document summarization. In Proceedings of the
+Third Asia conference on Information Retrieval
+Technology (AIRS&amp;apos;06), 313-322.
+</reference>
+<page confidence="0.913756">
+91
+</page>
+<figure confidence="0.296832">
+\x0c&amp;quot;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.110884">
+<note confidence="0.898445666666667">b&amp;quot;Proceedings of the 51st Annual Meeting of the Association for Computational Linguistics, pages 8791, Sofia, Bulgaria, August 4-9 2013. c 2013 Association for Computational Linguistics</note>
+<title confidence="0.819903">Learning to Order Natural Language Texts</title>
+<author confidence="0.707503">Xiaojun Wana</author>
+<author confidence="0.707503">Jianguo Xiaoa</author>
+<affiliation confidence="0.792256">a Institute of Computer Science and Technology, The MOE Key Laboratory of Computational Linguistics, Peking University, China b School of Information Science and Technology, Beijing Normal University, China</affiliation>
+<email confidence="0.86061">tanjiwei8@gmail.com,{wanxiaojun,jgxiao}@pku.edu.cn</email>
+<abstract confidence="0.999780941176471">Ordering texts is an important task for many NLP applications. Most previous works on summary sentence ordering rely on the contextual information (e.g. adjacent sentences) of each sentence in the source document. In this paper, we investigate a more challenging task of ordering a set of unordered sentences without any contextual information. We introduce a set of features to characterize the order and coherence of natural language texts, and use the learning to rank technique to determine the order of any two sentences. We also propose to use the genetic algorithm to determine the total order of all sentences. Evaluation results on a news corpus show the effectiveness of our proposed method.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Danushka Bollegala</author>
+<author>Naoaki Okazaki</author>
+<author>Mitsuru Ishizuka</author>
+</authors>
+<title>A machine learning approach to sentence ordering for multi-document summarization and its evaluation.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the Second international joint conference on Natural Language Processing (IJCNLP &amp;apos;05),</booktitle>
+<pages>624--635</pages>
+<contexts>
+<context position="1910" citStr="Bollegala et al., 2005" startWordPosition="292" endWordPosition="295">ant task in many natural language processing (NLP) applications. It is typically applicable in the text generation field, both for concept-to-text generation and text-totext generation (Lapata, 2003), such as multiple document summarization (MDS), question answering and so on. However, ordering a set of sentences into a coherent text is still a hard and challenging problem for computers. Previous works on sentence ordering mainly focus on the MDS task (Barzilay et al., 2002; Okazaki et al., 2004; Nie et al., 2006; Ji and Pulman, 2006; Madnani et al., 2007; Zhang et al., 2010; He et al., 2006; Bollegala et al., 2005; Bollegala et al., 2010). In this task, each summary sentence is extracted from a source document. The timestamp of the source documents and the adjacent sentences in the source documents can be used as important clues for ordering summary sentences. In this study, we investigate a more challenging and more general task of ordering a set of unordered sentences (e.g. randomly shuffle the * Xiaojun Wan is the corresponding author. sentences in a text paragraph) without any contextual information. This task can be applied to almost all text generation applications without restriction. In order t</context>
+<context position="5285" citStr="Bollegala et al., 2005" startWordPosition="864" endWordPosition="867">of two parts: defining a pairwise order relation and determining an overall order. Our study focuses on both the two parts by learning a better pairwise relation and proposing a better search strategy, as described respectively in next sections. 3.2 Pairwise Relation Learning The goal for pairwise relation learning is defining the strength function PREF for any sentence pair. In our method we define the function PREF by combining multiple features. Method: Traditionally, there are two main methods for defining a strength function: integrating features by a linear combination (He et al., 2006; Bollegala et al., 2005) or by a binary classifier (Bollegala et al., 2010). However, the binary classification method is very coarsegrained since it considers any pair of sentences either positive or negative. Instead we propose to use a better model of learning to rank to integrate multiple features. In this study, we use Ranking SVM implemented in the svmrank toolkit (Joachims, 2002; Joachims, 2006) as the ranking model. The examples to be ranked in our ranking model are sequential sentence pairs like u v ; . The feature values for a training example are generated by a few feature functions ( , ) i f u v , and we </context>
+</contexts>
+<marker>Bollegala, Okazaki, Ishizuka, 2005</marker>
+<rawString>Danushka Bollegala, Naoaki Okazaki, Mitsuru Ishizuka. 2005. A machine learning approach to sentence ordering for multi-document summarization and its evaluation. In Proceedings of the Second international joint conference on Natural Language Processing (IJCNLP &amp;apos;05), 624-635.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Danushka Bollegala</author>
+<author>Naoaki Okazaki</author>
+<author>Mitsuru Ishizuka</author>
+</authors>
+<title>A bottom-up approach to sentence ordering for multi-document summarization.</title>
+<date>2010</date>
+<journal>Inf.</journal>
+<contexts>
+<context position="1935" citStr="Bollegala et al., 2010" startWordPosition="296" endWordPosition="300"> language processing (NLP) applications. It is typically applicable in the text generation field, both for concept-to-text generation and text-totext generation (Lapata, 2003), such as multiple document summarization (MDS), question answering and so on. However, ordering a set of sentences into a coherent text is still a hard and challenging problem for computers. Previous works on sentence ordering mainly focus on the MDS task (Barzilay et al., 2002; Okazaki et al., 2004; Nie et al., 2006; Ji and Pulman, 2006; Madnani et al., 2007; Zhang et al., 2010; He et al., 2006; Bollegala et al., 2005; Bollegala et al., 2010). In this task, each summary sentence is extracted from a source document. The timestamp of the source documents and the adjacent sentences in the source documents can be used as important clues for ordering summary sentences. In this study, we investigate a more challenging and more general task of ordering a set of unordered sentences (e.g. randomly shuffle the * Xiaojun Wan is the corresponding author. sentences in a text paragraph) without any contextual information. This task can be applied to almost all text generation applications without restriction. In order to address this challengin</context>
+<context position="5336" citStr="Bollegala et al., 2010" startWordPosition="873" endWordPosition="876">d determining an overall order. Our study focuses on both the two parts by learning a better pairwise relation and proposing a better search strategy, as described respectively in next sections. 3.2 Pairwise Relation Learning The goal for pairwise relation learning is defining the strength function PREF for any sentence pair. In our method we define the function PREF by combining multiple features. Method: Traditionally, there are two main methods for defining a strength function: integrating features by a linear combination (He et al., 2006; Bollegala et al., 2005) or by a binary classifier (Bollegala et al., 2010). However, the binary classification method is very coarsegrained since it considers any pair of sentences either positive or negative. Instead we propose to use a better model of learning to rank to integrate multiple features. In this study, we use Ranking SVM implemented in the svmrank toolkit (Joachims, 2002; Joachims, 2006) as the ranking model. The examples to be ranked in our ranking model are sequential sentence pairs like u v ; . The feature values for a training example are generated by a few feature functions ( , ) i f u v , and we will introduce the features later. We build the tra</context>
+</contexts>
+<marker>Bollegala, Okazaki, Ishizuka, 2010</marker>
+<rawString>Danushka Bollegala, Naoaki Okazaki, and Mitsuru Ishizuka. 2010. A bottom-up approach to sentence ordering for multi-document summarization. Inf.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Manage</author>
+</authors>
+<date>2010</date>
+<volume>46</volume>
+<pages>89--109</pages>
+<marker>Manage, 2010</marker>
+<rawString>Process. Manage. 46, 1 (January 2010), 89-109.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>John H Holland</author>
+</authors>
+<title>Adaptation in Natural and Artificial Systems: An Introductory Analysis with Applications to Biology, Control and Artificial Intelligence.</title>
+<date>1992</date>
+<publisher>MIT Press,</publisher>
+<location>Cambridge, MA, USA.</location>
+<contexts>
+<context position="9445" citStr="Holland, 1992" startWordPosition="1783" endWordPosition="1784">03), and we implement the model with four features of lemmatized noun, verb, adjective or adverb, and verb and noun related dependency. 3.3 Overall Order Determination Cohen et al. (1998) proved finding a permutation to maximize AGREE( ,PREF) is NPcomplete. To solve this, they proposed a greedy algorithm for finding an approximately optimal order. Most later works adopted the greedy search strategy to determine the overall order. However, a greedy algorithm does not always lead to satisfactory results, as our experiment shows in Section 4.2. Therefore, we propose to use the genetic algorithm (Holland, 1992) as the search strategy, which can lead to better results. Genetic Algorithm: The genetic algorithm (GA) is an artificial intelligence algorithm for optimization and search problems. The key point of using GA is modeling the individual, fitness function and three operators of crossover, mutation and selection. Once a problem is modeled, the algorithm can be constructed conventionally. In our method we set a permutation as an individual encoded by a numerical path, for example a permutation 2 1 3 s s s ; ; is encoded as (2 1 3). Then the function AGREE( ,PREF) is just the fitness function. We a</context>
+</contexts>
+<marker>Holland, 1992</marker>
+<rawString>John H. Holland. 1992. Adaptation in Natural and Artificial Systems: An Introductory Analysis with Applications to Biology, Control and Artificial Intelligence. MIT Press, Cambridge, MA, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Lawrence Davis</author>
+</authors>
+<title>Applying adaptive algorithms to epistatic domains.</title>
+<date>1985</date>
+<journal>Aravind Joshi (Ed.),</journal>
+<booktitle>In Proceedings of the 9th international joint conference on Artificial intelligence - Volume</booktitle>
+<volume>1</volume>
+<pages>162--164</pages>
+<publisher>Morgan Kaufmann Publishers Inc.,</publisher>
+<location>San Francisco, CA, USA,</location>
+<contexts>
+<context position="10120" citStr="Davis, 1985" startWordPosition="1897" endWordPosition="1898">tic Algorithm: The genetic algorithm (GA) is an artificial intelligence algorithm for optimization and search problems. The key point of using GA is modeling the individual, fitness function and three operators of crossover, mutation and selection. Once a problem is modeled, the algorithm can be constructed conventionally. In our method we set a permutation as an individual encoded by a numerical path, for example a permutation 2 1 3 s s s ; ; is encoded as (2 1 3). Then the function AGREE( ,PREF) is just the fitness function. We adopt the order-based crossover operator which is described in (Davis, 1985). The mutation operator is a random inversion of two sentences. For selection operator we take a tournament selection operator which randomly selects two individuals to choose the one with the greater fitness value AGREE( ,PREF) . 1 http://www.ark.cs.cmu.edu/ARKref/ After several generations of evolution, the individual with the greatest fitness value will be a close solution to the optimal result. 4 Experiments 4.1 Experiment Setup Data Set and Evaluation Metric: We conducted the experiments on the North American News Text Corpus2 . We trained the model on 80 thousand paragraphs and tested wi</context>
+</contexts>
+<marker>Davis, 1985</marker>
+<rawString>Lawrence Davis. 1985. Applying adaptive algorithms to epistatic domains. In Proceedings of the 9th international joint conference on Artificial intelligence - Volume 1 (IJCAI&amp;apos;85), Aravind Joshi (Ed.), Vol. 1. Morgan Kaufmann Publishers Inc., San Francisco, CA, USA, 162-164.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mirella Lapata</author>
+</authors>
+<title>Probabilistic text structuring: experiments with sentence ordering.</title>
+<date>2003</date>
+<booktitle>InProceedings of the 41st Annual Meeting on Association for Computational Linguistics - Volume 1(ACL &amp;apos;03), Vol. 1. Association for Computational Linguistics,</booktitle>
+<pages>545--552</pages>
+<location>Stroudsburg, PA, USA,</location>
+<contexts>
+<context position="1487" citStr="Lapata, 2003" startWordPosition="220" endWordPosition="221">l information. We introduce a set of features to characterize the order and coherence of natural language texts, and use the learning to rank technique to determine the order of any two sentences. We also propose to use the genetic algorithm to determine the total order of all sentences. Evaluation results on a news corpus show the effectiveness of our proposed method. 1 Introduction Ordering texts is an important task in many natural language processing (NLP) applications. It is typically applicable in the text generation field, both for concept-to-text generation and text-totext generation (Lapata, 2003), such as multiple document summarization (MDS), question answering and so on. However, ordering a set of sentences into a coherent text is still a hard and challenging problem for computers. Previous works on sentence ordering mainly focus on the MDS task (Barzilay et al., 2002; Okazaki et al., 2004; Nie et al., 2006; Ji and Pulman, 2006; Madnani et al., 2007; Zhang et al., 2010; He et al., 2006; Bollegala et al., 2005; Bollegala et al., 2010). In this task, each summary sentence is extracted from a source document. The timestamp of the source documents and the adjacent sentences in the sourc</context>
+<context position="3073" citStr="Lapata (2003)" startWordPosition="488" endWordPosition="489">ation applications without restriction. In order to address this challenging task, we first introduce a few useful features to characterize the order and coherence of natural language texts, and then propose to use the learning to rank algorithm to determine the order of two sentences. Moreover, we propose to use the genetic algorithm to decide the overall text order. Evaluations are conducted on a news corpus, and the results show the prominence of our method. Each component technique or feature in our method has also been validated. 2 Related Work For works taking no use of source document, Lapata (2003) proposed a probabilistic model which learns constraints on sentence ordering from a corpus of texts. Experimental evaluation indicated the importance of several learned lexical and syntactic features. However, the model only works well when using single feature, but unfortunately, it becomes worse when multiple features are combined. Barzilay and Lee (2004) investigated the utility of domain-specific content model for representing topic and topic shifts and the model performed well on the five selected domains. Nahnsen (2009) employed features which were based on discourse entities, shallow s</context>
+<context position="8834" citStr="Lapata, 2003" startWordPosition="1688" endWordPosition="1689"> of u and the former part of v respectively, which are separated by the most centered comma (if exists) or word (if no comma exits); overlap ( , ) j u v denotes the number of mutual words of u and v , for 1,2,3 j = representing lemmatized noun, verb and adjective or adverb respectively; || u is the number of words of sentence u . The value will be set to 0 if the denominator is 0. For the coreference features we use the ARKref1 tool. It can output the coreference chains containing words which represent the same entity for two sequential sentences u v ; . The probability model originates from (Lapata, 2003), and we implement the model with four features of lemmatized noun, verb, adjective or adverb, and verb and noun related dependency. 3.3 Overall Order Determination Cohen et al. (1998) proved finding a permutation to maximize AGREE( ,PREF) is NPcomplete. To solve this, they proposed a greedy algorithm for finding an approximately optimal order. Most later works adopted the greedy search strategy to determine the overall order. However, a greedy algorithm does not always lead to satisfactory results, as our experiment shows in Section 4.2. Therefore, we propose to use the genetic algorithm (Hol</context>
+<context position="13828" citStr="Lapata, 2003" startWordPosition="2505" endWordPosition="2507">es. Single Feature Effect: The effects of different types of features are shown in Table 3. Prob denotes Lapatas probability model with different features. Feature Only Removed Similarity 0.0721 0.4614 Overlap 0.1284 0.4631 Coreference 0.0734 0.4704 Probnoun 0.3679 0.3932 Probverb 0.0615 0.4544 Probadjective&amp;adverb 0.2650 0.4258 Probdependency 0.2687 0.4892 All 0.5768 Table 3: Effects of different features. It can be seen in Table 3 that all these features contribute to the final result. The two features of noun probability and dependency probability play an important role as demonstrated in (Lapata, 2003). Other features also improve the final performance. A paragraph which is ordered entirely right by our method is shown in Figure 1. Sentences which should be arranged together tend to have a higher similarity and overlap. Like sentence (3) and (4) in Figure 1, they have a highest cosine similarity of 0.2240 and most overlap words of Israel and nuclear. However, the similarity or overlap of the two sentences does not help to decide which sentence should be arranged before another. In this case the overlap and similarity of half part of the sentences may help. For example latter((3)) and former</context>
+</contexts>
+<marker>Lapata, 2003</marker>
+<rawString>Mirella Lapata. 2003. Probabilistic text structuring: experiments with sentence ordering. InProceedings of the 41st Annual Meeting on Association for Computational Linguistics - Volume 1(ACL &amp;apos;03), Vol. 1. Association for Computational Linguistics, Stroudsburg, PA, USA, 545-552.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Naoaki Okazaki</author>
+<author>Yutaka Matsuo</author>
+<author>Mitsuru Ishizuka</author>
+</authors>
+<title>Improving chronological sentence ordering by precedence relation.</title>
+<date>2004</date>
+<journal>Article 750 . Nitin Madnani, Rebecca Passonneau, Necip Fazil Ayan, John</journal>
+<booktitle>In Proceedings of the 20th international conference on Computational Linguistics (COLING &amp;apos;04). Association for Computational Linguistics,</booktitle>
+<location>Stroudsburg, PA, USA,</location>
+<contexts>
+<context position="1788" citStr="Okazaki et al., 2004" startWordPosition="268" endWordPosition="271">ation results on a news corpus show the effectiveness of our proposed method. 1 Introduction Ordering texts is an important task in many natural language processing (NLP) applications. It is typically applicable in the text generation field, both for concept-to-text generation and text-totext generation (Lapata, 2003), such as multiple document summarization (MDS), question answering and so on. However, ordering a set of sentences into a coherent text is still a hard and challenging problem for computers. Previous works on sentence ordering mainly focus on the MDS task (Barzilay et al., 2002; Okazaki et al., 2004; Nie et al., 2006; Ji and Pulman, 2006; Madnani et al., 2007; Zhang et al., 2010; He et al., 2006; Bollegala et al., 2005; Bollegala et al., 2010). In this task, each summary sentence is extracted from a source document. The timestamp of the source documents and the adjacent sentences in the source documents can be used as important clues for ordering summary sentences. In this study, we investigate a more challenging and more general task of ordering a set of unordered sentences (e.g. randomly shuffle the * Xiaojun Wan is the corresponding author. sentences in a text paragraph) without any c</context>
+</contexts>
+<marker>Okazaki, Matsuo, Ishizuka, 2004</marker>
+<rawString>Naoaki Okazaki, Yutaka Matsuo, and Mitsuru Ishizuka. 2004. Improving chronological sentence ordering by precedence relation. In Proceedings of the 20th international conference on Computational Linguistics (COLING &amp;apos;04). Association for Computational Linguistics, Stroudsburg, PA, USA, , Article 750 . Nitin Madnani, Rebecca Passonneau, Necip Fazil Ayan, John M. Conroy, Bonnie J. Dorr, Judith L.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Dianne P O&amp;apos;Leary Klavans</author>
+<author>Judith D Schlesinger</author>
+</authors>
+<title>Measuring variability in sentence ordering for news summarization.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the Eleventh European Workshop on Natural Language Generation (ENLG &amp;apos;07), Stephan Busemann (Ed.). Association for Computational Linguistics,</booktitle>
+<pages>81--88</pages>
+<location>Stroudsburg, PA, USA,</location>
+<marker>Klavans, Schlesinger, 2007</marker>
+<rawString>Klavans, Dianne P. O&amp;apos;Leary, and Judith D. Schlesinger. 2007. Measuring variability in sentence ordering for news summarization. In Proceedings of the Eleventh European Workshop on Natural Language Generation (ENLG &amp;apos;07), Stephan Busemann (Ed.). Association for Computational Linguistics, Stroudsburg, PA, USA, 81-88.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Paul D Ji</author>
+<author>Stephen Pulman</author>
+</authors>
+<title>Sentence ordering with manifold-based classification in multidocument summarization.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the 2006 Conference on Empirical Methods in Natural Language Processing (EMNLP &amp;apos;06). Association for Computational Linguistics,</booktitle>
+<pages>526--533</pages>
+<location>Stroudsburg, PA, USA,</location>
+<contexts>
+<context position="1827" citStr="Ji and Pulman, 2006" startWordPosition="276" endWordPosition="279">effectiveness of our proposed method. 1 Introduction Ordering texts is an important task in many natural language processing (NLP) applications. It is typically applicable in the text generation field, both for concept-to-text generation and text-totext generation (Lapata, 2003), such as multiple document summarization (MDS), question answering and so on. However, ordering a set of sentences into a coherent text is still a hard and challenging problem for computers. Previous works on sentence ordering mainly focus on the MDS task (Barzilay et al., 2002; Okazaki et al., 2004; Nie et al., 2006; Ji and Pulman, 2006; Madnani et al., 2007; Zhang et al., 2010; He et al., 2006; Bollegala et al., 2005; Bollegala et al., 2010). In this task, each summary sentence is extracted from a source document. The timestamp of the source documents and the adjacent sentences in the source documents can be used as important clues for ordering summary sentences. In this study, we investigate a more challenging and more general task of ordering a set of unordered sentences (e.g. randomly shuffle the * Xiaojun Wan is the corresponding author. sentences in a text paragraph) without any contextual information. This task can be</context>
+</contexts>
+<marker>Ji, Pulman, 2006</marker>
+<rawString>Paul D. Ji and Stephen Pulman. 2006. Sentence ordering with manifold-based classification in multidocument summarization. In Proceedings of the 2006 Conference on Empirical Methods in Natural Language Processing (EMNLP &amp;apos;06). Association for Computational Linguistics, Stroudsburg, PA, USA, 526-533.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Regina Barzilay</author>
+<author>Noemie Elhadad</author>
+<author>Kathleen McKeown</author>
+</authors>
+<title>Inferring strategies for sentence ordering in multidocument news summarization.</title>
+<date>2002</date>
+<journal>Journal of Artificial Intelligence Research,</journal>
+<volume>17</volume>
+<pages>55</pages>
+<contexts>
+<context position="1766" citStr="Barzilay et al., 2002" startWordPosition="264" endWordPosition="267">of all sentences. Evaluation results on a news corpus show the effectiveness of our proposed method. 1 Introduction Ordering texts is an important task in many natural language processing (NLP) applications. It is typically applicable in the text generation field, both for concept-to-text generation and text-totext generation (Lapata, 2003), such as multiple document summarization (MDS), question answering and so on. However, ordering a set of sentences into a coherent text is still a hard and challenging problem for computers. Previous works on sentence ordering mainly focus on the MDS task (Barzilay et al., 2002; Okazaki et al., 2004; Nie et al., 2006; Ji and Pulman, 2006; Madnani et al., 2007; Zhang et al., 2010; He et al., 2006; Bollegala et al., 2005; Bollegala et al., 2010). In this task, each summary sentence is extracted from a source document. The timestamp of the source documents and the adjacent sentences in the source documents can be used as important clues for ordering summary sentences. In this study, we investigate a more challenging and more general task of ordering a set of unordered sentences (e.g. randomly shuffle the * Xiaojun Wan is the corresponding author. sentences in a text pa</context>
+</contexts>
+<marker>Barzilay, Elhadad, McKeown, 2002</marker>
+<rawString>Regina Barzilay, Noemie Elhadad, and Kathleen McKeown. 2002. Inferring strategies for sentence ordering in multidocument news summarization. Journal of Artificial Intelligence Research, 17:35 55.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Regina Barzilay</author>
+<author>Lillian Lee</author>
+</authors>
+<title>Catching the drift: Probabilistic content models, with applications to generation and summarization.</title>
+<date>2004</date>
+<booktitle>In HLTNAACL2004: Proceedings of the Main Conference,</booktitle>
+<pages>113120</pages>
+<contexts>
+<context position="3433" citStr="Barzilay and Lee (2004)" startWordPosition="538" endWordPosition="541"> overall text order. Evaluations are conducted on a news corpus, and the results show the prominence of our method. Each component technique or feature in our method has also been validated. 2 Related Work For works taking no use of source document, Lapata (2003) proposed a probabilistic model which learns constraints on sentence ordering from a corpus of texts. Experimental evaluation indicated the importance of several learned lexical and syntactic features. However, the model only works well when using single feature, but unfortunately, it becomes worse when multiple features are combined. Barzilay and Lee (2004) investigated the utility of domain-specific content model for representing topic and topic shifts and the model performed well on the five selected domains. Nahnsen (2009) employed features which were based on discourse entities, shallow syntactic analysis, and temporal precedence relations retrieved from VerbOcean. However, the model does not perform well on datasets describing the consequences of events. 3 Our Proposed Method 3.1 Overview The task of text ordering can be modeled like (Cohen et al., 1998), as measuring the coherence of a text by summing the association strength of any senten</context>
+</contexts>
+<marker>Barzilay, Lee, 2004</marker>
+<rawString>Regina Barzilay and Lillian Lee. 2004. Catching the drift: Probabilistic content models, with applications to generation and summarization. In HLTNAACL2004: Proceedings of the Main Conference, pages 113120.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Renxian Zhang</author>
+<author>Wenjie Li</author>
+<author>Qin Lu</author>
+</authors>
+<title>Sentence ordering with event-enriched semantics and two-layered clustering for multi-document news summarization.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 23rd International Conference on Computational Linguistics: Posters (COLING &amp;apos;10). Association for Computational Linguistics,</booktitle>
+<pages>1489--1497</pages>
+<location>Stroudsburg, PA, USA,</location>
+<contexts>
+<context position="1869" citStr="Zhang et al., 2010" startWordPosition="284" endWordPosition="287">roduction Ordering texts is an important task in many natural language processing (NLP) applications. It is typically applicable in the text generation field, both for concept-to-text generation and text-totext generation (Lapata, 2003), such as multiple document summarization (MDS), question answering and so on. However, ordering a set of sentences into a coherent text is still a hard and challenging problem for computers. Previous works on sentence ordering mainly focus on the MDS task (Barzilay et al., 2002; Okazaki et al., 2004; Nie et al., 2006; Ji and Pulman, 2006; Madnani et al., 2007; Zhang et al., 2010; He et al., 2006; Bollegala et al., 2005; Bollegala et al., 2010). In this task, each summary sentence is extracted from a source document. The timestamp of the source documents and the adjacent sentences in the source documents can be used as important clues for ordering summary sentences. In this study, we investigate a more challenging and more general task of ordering a set of unordered sentences (e.g. randomly shuffle the * Xiaojun Wan is the corresponding author. sentences in a text paragraph) without any contextual information. This task can be applied to almost all text generation app</context>
+</contexts>
+<marker>Zhang, Li, Lu, 2010</marker>
+<rawString>Renxian Zhang, Wenjie Li, and Qin Lu. 2010. Sentence ordering with event-enriched semantics and two-layered clustering for multi-document news summarization. In Proceedings of the 23rd International Conference on Computational Linguistics: Posters (COLING &amp;apos;10). Association for Computational Linguistics, Stroudsburg, PA, USA, 1489-1497.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Thade Nahnsen</author>
+</authors>
+<title>Domain-independent shallow sentence ordering.</title>
+<date>2009</date>
+<booktitle>In Proceedings of Human Language Technologies: The 2009 Annual Conference of the North American Chapter of the Association for Computational Linguistics, Companion Volume: Student Research Workshop and Doctoral Consortium (SRWS &amp;apos;09). Association for Computational Linguistics,</booktitle>
+<pages>78--83</pages>
+<location>Stroudsburg, PA, USA,</location>
+<contexts>
+<context position="3605" citStr="Nahnsen (2009)" startWordPosition="567" endWordPosition="568">alidated. 2 Related Work For works taking no use of source document, Lapata (2003) proposed a probabilistic model which learns constraints on sentence ordering from a corpus of texts. Experimental evaluation indicated the importance of several learned lexical and syntactic features. However, the model only works well when using single feature, but unfortunately, it becomes worse when multiple features are combined. Barzilay and Lee (2004) investigated the utility of domain-specific content model for representing topic and topic shifts and the model performed well on the five selected domains. Nahnsen (2009) employed features which were based on discourse entities, shallow syntactic analysis, and temporal precedence relations retrieved from VerbOcean. However, the model does not perform well on datasets describing the consequences of events. 3 Our Proposed Method 3.1 Overview The task of text ordering can be modeled like (Cohen et al., 1998), as measuring the coherence of a text by summing the association strength of any sentence pairs. Then the objective of a text ordering model is to find a permutation which can maximize the summation. 87 \x0cFormally, we define an association strength function</context>
+</contexts>
+<marker>Nahnsen, 2009</marker>
+<rawString>Thade Nahnsen. 2009. Domain-independent shallow sentence ordering. In Proceedings of Human Language Technologies: The 2009 Annual Conference of the North American Chapter of the Association for Computational Linguistics, Companion Volume: Student Research Workshop and Doctoral Consortium (SRWS &amp;apos;09). Association for Computational Linguistics, Stroudsburg, PA, USA, 78-83.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Thorsten Joachims</author>
+</authors>
+<title>Optimizing search engines using click through data.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the eighth ACM SIGKDD international conference on Knowledge discovery and data mining (KDD &amp;apos;02).</booktitle>
+<pages>133--142</pages>
+<publisher>ACM,</publisher>
+<location>New York, NY, USA,</location>
+<contexts>
+<context position="5649" citStr="Joachims, 2002" startWordPosition="927" endWordPosition="928">pair. In our method we define the function PREF by combining multiple features. Method: Traditionally, there are two main methods for defining a strength function: integrating features by a linear combination (He et al., 2006; Bollegala et al., 2005) or by a binary classifier (Bollegala et al., 2010). However, the binary classification method is very coarsegrained since it considers any pair of sentences either positive or negative. Instead we propose to use a better model of learning to rank to integrate multiple features. In this study, we use Ranking SVM implemented in the svmrank toolkit (Joachims, 2002; Joachims, 2006) as the ranking model. The examples to be ranked in our ranking model are sequential sentence pairs like u v ; . The feature values for a training example are generated by a few feature functions ( , ) i f u v , and we will introduce the features later. We build the training examples for svmrank as follows: For a training query, which is a paragraph with n sequential sentences as 1 2 ... n s s s ; ; ; , we can get 2 ( 1) n A n n = training examples. For pairs like ( 0) a a k s s k + &amp;gt; ; the target rank values are set to n k , which means that the longer the distance between th</context>
+</contexts>
+<marker>Joachims, 2002</marker>
+<rawString>Thorsten Joachims. 2002. Optimizing search engines using click through data. In Proceedings of the eighth ACM SIGKDD international conference on Knowledge discovery and data mining (KDD &amp;apos;02). ACM, New York, NY, USA, 133-142.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Thorsten Joachims</author>
+</authors>
+<title>Training linear SVMs in linear time.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining (KDD &amp;apos;06).</booktitle>
+<pages>217--226</pages>
+<publisher>ACM,</publisher>
+<location>New York, NY, USA,</location>
+<contexts>
+<context position="5666" citStr="Joachims, 2006" startWordPosition="929" endWordPosition="930">hod we define the function PREF by combining multiple features. Method: Traditionally, there are two main methods for defining a strength function: integrating features by a linear combination (He et al., 2006; Bollegala et al., 2005) or by a binary classifier (Bollegala et al., 2010). However, the binary classification method is very coarsegrained since it considers any pair of sentences either positive or negative. Instead we propose to use a better model of learning to rank to integrate multiple features. In this study, we use Ranking SVM implemented in the svmrank toolkit (Joachims, 2002; Joachims, 2006) as the ranking model. The examples to be ranked in our ranking model are sequential sentence pairs like u v ; . The feature values for a training example are generated by a few feature functions ( , ) i f u v , and we will introduce the features later. We build the training examples for svmrank as follows: For a training query, which is a paragraph with n sequential sentences as 1 2 ... n s s s ; ; ; , we can get 2 ( 1) n A n n = training examples. For pairs like ( 0) a a k s s k + &amp;gt; ; the target rank values are set to n k , which means that the longer the distance between the two sentences i</context>
+</contexts>
+<marker>Joachims, 2006</marker>
+<rawString>Thorsten Joachims. 2006. Training linear SVMs in linear time. In Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining (KDD &amp;apos;06). ACM, New York, NY, USA, 217-226.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>William W Cohen</author>
+<author>Robert E Schapire</author>
+<author>Yoram Singer</author>
+</authors>
+<title>Learning to order things.</title>
+<date>1998</date>
+<booktitle>InProceedings of the 1997 conference on Advances in neural information processing systems 10(NIPS &amp;apos;97),</booktitle>
+<pages>451--457</pages>
+<publisher>MIT Press,</publisher>
+<location>Cambridge, MA, USA,</location>
+<contexts>
+<context position="3945" citStr="Cohen et al., 1998" startWordPosition="620" endWordPosition="623">e feature, but unfortunately, it becomes worse when multiple features are combined. Barzilay and Lee (2004) investigated the utility of domain-specific content model for representing topic and topic shifts and the model performed well on the five selected domains. Nahnsen (2009) employed features which were based on discourse entities, shallow syntactic analysis, and temporal precedence relations retrieved from VerbOcean. However, the model does not perform well on datasets describing the consequences of events. 3 Our Proposed Method 3.1 Overview The task of text ordering can be modeled like (Cohen et al., 1998), as measuring the coherence of a text by summing the association strength of any sentence pairs. Then the objective of a text ordering model is to find a permutation which can maximize the summation. 87 \x0cFormally, we define an association strength function PREF( , ) R u v to measure how strong it is that sentence u should be arranged before sentence v (denoted as u v ; ). We then define function AGREE( ,PREF) as: , : ( ) ( ) AGREE( ,PREF) = PREF( , ) u v u v u v &amp;gt; (1) where denotes a sentence permutation and ( ) ( ) u v &amp;gt; means u v ; in the permutation . Then the objective of finding an ov</context>
+<context position="9018" citStr="Cohen et al. (1998)" startWordPosition="1715" endWordPosition="1718">ual words of u and v , for 1,2,3 j = representing lemmatized noun, verb and adjective or adverb respectively; || u is the number of words of sentence u . The value will be set to 0 if the denominator is 0. For the coreference features we use the ARKref1 tool. It can output the coreference chains containing words which represent the same entity for two sequential sentences u v ; . The probability model originates from (Lapata, 2003), and we implement the model with four features of lemmatized noun, verb, adjective or adverb, and verb and noun related dependency. 3.3 Overall Order Determination Cohen et al. (1998) proved finding a permutation to maximize AGREE( ,PREF) is NPcomplete. To solve this, they proposed a greedy algorithm for finding an approximately optimal order. Most later works adopted the greedy search strategy to determine the overall order. However, a greedy algorithm does not always lead to satisfactory results, as our experiment shows in Section 4.2. Therefore, we propose to use the genetic algorithm (Holland, 1992) as the search strategy, which can lead to better results. Genetic Algorithm: The genetic algorithm (GA) is an artificial intelligence algorithm for optimization and search </context>
+</contexts>
+<marker>Cohen, Schapire, Singer, 1998</marker>
+<rawString>William W. Cohen, Robert E. Schapire, and Yoram Singer. 1998. Learning to order things. InProceedings of the 1997 conference on Advances in neural information processing systems 10(NIPS &amp;apos;97), Michael I. Jordan, Michael J. Kearns, and Sara A. Solla (Eds.). MIT Press, Cambridge, MA, USA, 451-457.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yanxiang He</author>
+<author>Dexi Liu</author>
+<author>Hua Yang</author>
+<author>Donghong Ji</author>
+<author>Chong Teng</author>
+<author>Wenqing Qi</author>
+</authors>
+<title>A hybrid sentence ordering strategy in multi-document summarization.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the 7th international conference on Web Information Systems (WISE&amp;apos;06), Karl Aberer, Zhiyong Peng, Elke</booktitle>
+<pages>339--349</pages>
+<publisher>SpringerVerlag,</publisher>
+<location>Berlin, Heidelberg,</location>
+<contexts>
+<context position="1886" citStr="He et al., 2006" startWordPosition="288" endWordPosition="291">exts is an important task in many natural language processing (NLP) applications. It is typically applicable in the text generation field, both for concept-to-text generation and text-totext generation (Lapata, 2003), such as multiple document summarization (MDS), question answering and so on. However, ordering a set of sentences into a coherent text is still a hard and challenging problem for computers. Previous works on sentence ordering mainly focus on the MDS task (Barzilay et al., 2002; Okazaki et al., 2004; Nie et al., 2006; Ji and Pulman, 2006; Madnani et al., 2007; Zhang et al., 2010; He et al., 2006; Bollegala et al., 2005; Bollegala et al., 2010). In this task, each summary sentence is extracted from a source document. The timestamp of the source documents and the adjacent sentences in the source documents can be used as important clues for ordering summary sentences. In this study, we investigate a more challenging and more general task of ordering a set of unordered sentences (e.g. randomly shuffle the * Xiaojun Wan is the corresponding author. sentences in a text paragraph) without any contextual information. This task can be applied to almost all text generation applications without</context>
+<context position="5260" citStr="He et al., 2006" startWordPosition="860" endWordPosition="863">ework is made up of two parts: defining a pairwise order relation and determining an overall order. Our study focuses on both the two parts by learning a better pairwise relation and proposing a better search strategy, as described respectively in next sections. 3.2 Pairwise Relation Learning The goal for pairwise relation learning is defining the strength function PREF for any sentence pair. In our method we define the function PREF by combining multiple features. Method: Traditionally, there are two main methods for defining a strength function: integrating features by a linear combination (He et al., 2006; Bollegala et al., 2005) or by a binary classifier (Bollegala et al., 2010). However, the binary classification method is very coarsegrained since it considers any pair of sentences either positive or negative. Instead we propose to use a better model of learning to rank to integrate multiple features. In this study, we use Ranking SVM implemented in the svmrank toolkit (Joachims, 2002; Joachims, 2006) as the ranking model. The examples to be ranked in our ranking model are sequential sentence pairs like u v ; . The feature values for a training example are generated by a few feature function</context>
+</contexts>
+<marker>He, Liu, Yang, Ji, Teng, Qi, 2006</marker>
+<rawString>Yanxiang He, Dexi Liu, Hua Yang, Donghong Ji, Chong Teng, and Wenqing Qi. 2006. A hybrid sentence ordering strategy in multi-document summarization. In Proceedings of the 7th international conference on Web Information Systems (WISE&amp;apos;06), Karl Aberer, Zhiyong Peng, Elke A. Rundensteiner, Yanchun Zhang, and Xuhui Li (Eds.). SpringerVerlag, Berlin, Heidelberg, 339-349.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yu Nie</author>
+<author>Donghong Ji</author>
+<author>Lingpeng Yang</author>
+</authors>
+<title>An adjacency model for sentence ordering in multidocument summarization.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the Third Asia conference on Information Retrieval Technology (AIRS&amp;apos;06),</booktitle>
+<pages>313--322</pages>
+<contexts>
+<context position="1806" citStr="Nie et al., 2006" startWordPosition="272" endWordPosition="275">s corpus show the effectiveness of our proposed method. 1 Introduction Ordering texts is an important task in many natural language processing (NLP) applications. It is typically applicable in the text generation field, both for concept-to-text generation and text-totext generation (Lapata, 2003), such as multiple document summarization (MDS), question answering and so on. However, ordering a set of sentences into a coherent text is still a hard and challenging problem for computers. Previous works on sentence ordering mainly focus on the MDS task (Barzilay et al., 2002; Okazaki et al., 2004; Nie et al., 2006; Ji and Pulman, 2006; Madnani et al., 2007; Zhang et al., 2010; He et al., 2006; Bollegala et al., 2005; Bollegala et al., 2010). In this task, each summary sentence is extracted from a source document. The timestamp of the source documents and the adjacent sentences in the source documents can be used as important clues for ordering summary sentences. In this study, we investigate a more challenging and more general task of ordering a set of unordered sentences (e.g. randomly shuffle the * Xiaojun Wan is the corresponding author. sentences in a text paragraph) without any contextual informat</context>
+</contexts>
+<marker>Nie, Ji, Yang, 2006</marker>
+<rawString>Yu Nie, Donghong Ji, and Lingpeng Yang. 2006. An adjacency model for sentence ordering in multidocument summarization. In Proceedings of the Third Asia conference on Information Retrieval Technology (AIRS&amp;apos;06), 313-322.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

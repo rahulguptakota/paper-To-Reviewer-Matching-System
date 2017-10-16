@@ -1,0 +1,658 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.001177">
+<title confidence="0.580731">
+b&amp;apos;Biomedical Named Entity Recognition Using
+Conditional Random Fields and Rich Feature Sets
+</title>
+<author confidence="0.963889">
+Burr Settles
+</author>
+<affiliation confidence="0.99198">
+Department of Computer Sciences
+Department of Biostatistics and Medical Informatics
+University of Wisconsin-Madison
+</affiliation>
+<address confidence="0.957239">
+Madison, WI, USA
+</address>
+<email confidence="0.997221">
+bsettles@cs.wisc.edu
+</email>
+<sectionHeader confidence="0.998868" genericHeader="abstract">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.997375666666667">
+As the wealth of biomedical knowledge in the
+form of literature increases, there is a rising need
+for effective natural language processing tools
+to assist in organizing, curating, and retrieving
+this information. To that end, named entity
+recognition (the task of identifying words and
+phrases in free text that belong to certain classes
+of interest) is an important first step for many
+of these larger information management goals.
+In recent years, much attention has been fo-
+cused on the problem of recognizing gene and
+protein mentions in biomedical abstracts. This
+paper presents a framework for simultaneously
+recognizing occurrences of PROTEIN, DNA, RNA,
+CELL-LINE, and CELL-TYPE entity classes us-
+ing Conditional Random Fields with a variety
+of traditional and novel features. I show that
+this approach can achieve an overall F1 mea-
+sure around 70, which seems to be the current
+state of the art.
+The system described here was developed as
+part of the BioNLP/NLPBA 2004 shared task.
+Experiments were conducted on a training and
+evaluation set provided by the task organizers.
+</bodyText>
+<sectionHeader confidence="0.986355" genericHeader="method">
+2 Conditional Random Fields
+</sectionHeader>
+<bodyText confidence="0.9970933">
+Biomedical named entity recognition can be
+thought of as a sequence segmentation prob-
+lem: each word is a token in a sequence to
+be assigned a label (e.g. PROTEIN, DNA, RNA,
+CELL-LINE, CELL-TYPE, or OTHER1). Conditional
+Random Fields (CRFs) are undirected statisti-
+cal graphical models, a special case of which is a
+linear chain that corresponds to a conditionally
+trained finite-state machine. Such models are
+well suited to sequence analysis, and CRFs in
+</bodyText>
+<page confidence="0.918246">
+1
+</page>
+<bodyText confidence="0.999350681818182">
+More accurately, the data is in IOB format. B-DNA
+labels the first word of a DNA mention, I-DNA labels all
+subsequent words (likewise for other entities), and O la-
+bels non-entities. For simplicity, this paper only refers
+to the entities, not all the IOB label variants.
+particular have been shown to be useful in part-
+of-speech tagging (Lafferty et al., 2001), shallow
+parsing (Sha and Pereira, 2003), and named en-
+tity recognition for newswire data (McCallum
+and Li, 2003). They have also just recently been
+applied to the more limited task of finding gene
+and protein mentions (McDonald and Pereira,
+2004), with promising early results.
+Let o = ho1, o2, . . . , oni be an sequence of
+observed words of length n. Let S be a set
+of states in a finite state machine, each corre-
+sponding to a label l L (e.g. PROTEIN, DNA,
+etc.). Let s = hs1, s2, . . . , sni be the sequence
+of states in S that correspond to the labels as-
+signed to words in the input sequence o. Linear-
+chain CRFs define the conditional probability of
+a state sequence given an input sequence to be:
+</bodyText>
+<equation confidence="0.995366545454546">
+P(s|o) =
+1
+Zo
+exp
+n
+X
+i=1
+m
+X
+j=1
+jfj(si1, si, o, i)
+</equation>
+<bodyText confidence="0.997511863636364">
+where Zo is a normalization factor of all state
+sequences, fj(si1, si, o, i) is one of m functions
+that describes a feature, and j is a learned
+weight for each such feature function. This pa-
+per considers the case of CRFs that use a first-
+order Markov independence assumption with
+binary feature functions. For example, a fea-
+ture may have a value of 0 in most cases, but
+given the text the ATPase it has the value 1
+along the transition where si1 corresponds to
+a state with the label OTHER, si corresponds to a
+state with the label PROTEIN, and fj is the fea-
+ture function Word=ATPase o at position
+i in the sequence. Other feature functions that
+could have the value 1 along this transition are
+Capitalized, MixedCase, and Suffix=ase.
+Intuitively, the learned feature weight j
+for each feature fj should be positive for fea-
+tures that are correlated with the target label,
+negative for features that are anti-correlated
+with the label, and near zero for relatively
+uninformative features. These weights are
+</bodyText>
+<page confidence="0.999437">
+104
+</page>
+<bodyText confidence="0.845771666666667">
+\x0cset to maximize the conditional log likelihood
+of labeled sequences in a training set D =
+{ho, li(1), . . . , ho, li(n)}:
+</bodyText>
+<equation confidence="0.991915615384615">
+LL(D) =
+n
+X
+i=1
+log
+\x10
+P(l(i)|o(i))
+\x11
+m
+X
+j=1
+2
+j
+</equation>
+<page confidence="0.705299">
+22
+</page>
+<bodyText confidence="0.971755571428571">
+.
+When the training state sequences are fully
+labeled and unambiguous, the objective func-
+tion is convex, thus the model is guaranteed
+to find the optimal weight settings in terms of
+LL(D). Once these settings are found, the la-
+beling for an new, unlabeled sequence can be
+done using a modified Viterbi algorithm. CRFs
+are presented in more complete detail by Laf-
+ferty et al. (2001).
+These experiments use the MALLET imple-
+mentation of CRFs (McCallum, 2002), which
+uses a quasi-Newton method called L-BFGS to
+find these feature weights efficiently.
+</bodyText>
+<sectionHeader confidence="0.994613" genericHeader="method">
+3 Feature Set
+</sectionHeader>
+<bodyText confidence="0.9984434">
+One property that makes feature based statisti-
+cal models like CRFs so attractive is that they
+reduce the problem to finding an appropriate
+feature set. This section outlines the two main
+types of features used in these experiments.
+</bodyText>
+<subsectionHeader confidence="0.99837">
+3.1 Orthographic Features
+</subsectionHeader>
+<bodyText confidence="0.978786615384615">
+The simplest and most obvious feature set is the
+vocabulary from the training data. Generaliza-
+tions over how these words appear (e.g. capital-
+ization, affixes, etc.) are also important. The
+present model includes training vocabulary, 17
+orthographic features based on regular expres-
+sions (e.g. Alphanumeric, HasDash, Ro-
+manNumeral) as well as prefixes and suffixes
+in the character length range [3,5].
+Words are also assigned a generalized word
+class similar to Collins (2002), which replaces
+capital letters with A, lowercase letters with
+a, digits with 0, and all other characters
+with . There is a similar brief word class
+feature which collapses consecutive identical
+characters into one. Thus the words IL5
+and SH3 would both be given the features
+WC=AA0 and BWC=A0, while F-actin and
+T-cells would both be assigned WC=A aaaaa
+and BWC=A a.
+To model local context simply, neighboring
+words in the window [-1,1] are also added as
+features. For instance, the middle token in the
+sequence human UDG promoter would have
+features Word=UDG, Neighbor=human and
+Neighbor=promoter.
+</bodyText>
+<subsectionHeader confidence="0.997445">
+3.2 Semantic Features
+</subsectionHeader>
+<bodyText confidence="0.998055604166667">
+In addition to orthography, the model could also
+benefit from generalized semantic word groups.
+If training sequences contain PML/RAR al-
+pha, beta 2-M, and kappa B-specific DNA
+binding protein all labeled with PROTEIN, the
+model might learn that the words alpha,
+beta, and kappa are indicative of pro-
+teins, but cannot capture the fact that they
+are all semantically related because they are
+Greek letters. Similarly, words with the feature
+WC=Aaa are often part of protein names, such
+as Rab, Alu, and Gag. But the model
+may have a difficult time setting the weights
+for this feature when confronted with words like
+Phe, Arg, and Cys, which are amino acid
+abbreviations and not often labeled as part of a
+protein name.
+This sort of semantic domain knowledge can
+be provided in the form of lexicons. I pre-
+pared a total of 17 such lexicons, which include
+7 that were entered by hand (Greek letters,
+amino acids, chemical elements, known viruses,
+plus abbreviations of all these), and 4 corre-
+sponding to genes, chromosome locations, pro-
+teins, and cell lines, drawn from online public
+databases (Cancer GeneticsWeb,2 BBID,3 Swis-
+sProt,4 and the Cell Line Database5). Feature
+functions for the lexicons are set to 1 if they
+match words in the input sequence exactly. For
+lexicon entries that are multi-word, all words
+are required to match in the input sequence.
+Since no suitable database of terms for the
+CELL-TYPE class was found online, a lexicon was
+constructed by utilizing Google Sets,6 an online
+tool which takes a few seed examples and lever-
+ages Googles web index to return other terms
+that appear in similar formatting and context
+as the seeds on web pages across the Internet.
+Several examples from the training data (e.g.
+lymphocyte and neutrophil) were used as
+seeds and new cell types (e.g. chondroblast,
+which doesnt even occur in the training data),
+were returned. The process was repeated until
+the lexicon grew to roughly 50 entries, though
+it could probably be more complete.
+With all this information at the models dis-
+posal, it can still be difficult to properly dis-
+ambiguate between these entities. For exam-
+</bodyText>
+<figure confidence="0.9627875">
+2
+http://www.cancerindex.org/geneweb/
+3
+http://bbid.grc.nia.nih.gov/bbidgene.html
+4
+http://us.expasy.org/sprot/
+5
+http://www.biotech.ist.unige.it/interlab/cldb.html
+6
+http://labs.google.com/sets
+</figure>
+<page confidence="0.999374">
+105
+</page>
+<bodyText confidence="0.9893476">
+\x0cple, the acronym EPC appears in these static
+lexicons both as a protein (eosinophil cationic
+protein [sic]) and as a cell line (epithelioma
+papulosum cyprini). Furthermore, a single
+word like transcript is sometimes all that
+disambiguates between RNA and DNA mentions
+(e.g. BMLF1 transcript). The CRF can learn
+weights for these individual words, but it may
+help to build general, dynamic keyword lexi-
+cons that are associated with each label to assist
+in disambiguating between similar classes (and
+perhaps boost performance on low-frequency la-
+bels, such as RNA and CELL-LINE, for which
+training data are sparse).
+These keyword lexicons are generated auto-
+matically as follows. All of the labeled terms are
+extracted from the training set and separated
+into five lists (one for each entity class). Stop
+words, Greek letters, and digits are filtered, and
+remaining words are tallied for raw frequency
+counts under each entity class label. These fre-
+quencies are then subjected to a 2 test, where
+the null hypothesis is that a words frequency is
+the same for a given entity as it is for any other
+entity of interest (i.e. PROTEIN vs. DNA + RNA
+</bodyText>
+<equation confidence="0.539022">
++ CELL-LINE + CELL-TYPE, such that there is
+</equation>
+<bodyText confidence="0.6778008">
+only one degree of freedom). All words for which
+the null hypothesis is rejected with a p-value
+&lt; 0.005 are added to the keyword lexicon for
+its majority class. Some example keywords are
+listed in table 1.
+</bodyText>
+<table confidence="0.983215157894737">
+Keyword 2 value Lexicon
+protein 1121.5 PROTEIN
+gene 984.3 DNA
+line 618.1 CELL-LINE
+promoter 613.4 DNA
+factor 563.2 PROTEIN
+site 399.8 DNA
+receptor 338.7 PROTEIN
+complex 312.8 PROTEIN
+mRNA 292.2 RNA
+sequence 196.5 DNA
+peripheral 57.8 CELL-TYPE
+lineage 56.1 CELL-TYPE
+jurkat 45.2 CELL-LINE
+culture 41.3 CELL-LINE
+transcript 40.9 RNA
+clone 38.1 CELL-LINE
+mononuclear 30.2 CELL-TYPE
+messenger 12.3 RNA
+</table>
+<tableCaption confidence="0.95139">
+Table 1: A sample of high-ranking semantic key-
+words and the lexicons to which they belong.
+</tableCaption>
+<table confidence="0.997576875">
+Orthographic Features Only
+Entity R P F1 L-F1 R-F1
+PROTEIN 76.3 68.4 72.1 77.4 79.2
+DNA 62.4 68.2 65.2 68.5 73.8
+RNA 61.9 62.9 62.4 64.9 75.2
+CELL-LINE 53.8 54.0 53.9 58.5 65.1
+CELL-TYPE 63.6 78.5 70.3 72.6 80.4
+Overall 70.3 69.3 69.8 74.2 77.9
+Complete Feature Set
+Entity R P F1 L-F1 R-F1
+PROTEIN 76.1 68.2 72.0 77.3 79.2
+DNA 62.1 67.9 64.9 67.7 74.1
+RNA 65.3 64.2 64.7 66.4 73.9
+CELL-LINE 57.4 54.1 55.7 59.2 64.2
+CELL-TYPE 61.7 78.4 69.1 71.3 79.7
+Overall 70.0 69.0 69.5 73.7 77.7
+</table>
+<tableCaption confidence="0.99887">
+Table 2: Detailed performance of the two fea-
+</tableCaption>
+<bodyText confidence="0.7743335">
+tures sets. Relaxed F1-scores using left- and
+right-boundary matching are also reported.
+</bodyText>
+<sectionHeader confidence="0.999747" genericHeader="evaluation">
+4 Results and Discussion
+</sectionHeader>
+<bodyText confidence="0.999669">
+Two experiments were completed in the time
+allotted: one CRF model using only the ortho-
+graphic features described in section 3.1, and a
+second system using all the semantic lexicons
+from 3.2 as well. Detailed results are presented
+in table 2. The orthographic model achieves an
+overall F1 measure of 69.8 on the evaluation set
+(88.9 on the training set), converging after 230
+training iterations and approximately 18 hours
+of computation. The complete model, however,
+only reached an overall F1 of 69.5 on the evalu-
+ation set (86.7 on the training set), converging
+after 152 iterations in approximately 9 hours.
+The deleterious effect of the semantic lexi-
+cons is surprising and puzzling.7 However, even
+though semantic lexicons slightly decrease over-
+all performance, it is worthwhile to note that
+adding lexicons actually improves both recall
+and precision for the RNA and CELL-LINE en-
+tities. These happen to be the two lowest fre-
+quency class labels in the data, together com-
+prising less than 10% of the mentions in either
+the training or evaluation set. Error analysis
+shows that several of the orthographic models
+false negatives for these entities are of the form
+messenger accumulation (RNA) or nonadher-
+ent culture (CELL-LINE). It may be that key-
+word lexicons contributed to the model identify-
+ing these low frequency terms more accurately.
+</bodyText>
+<page confidence="0.980604">
+7
+</page>
+<bodyText confidence="0.994335">
+Note, however, that these figures are on a single
+training/evaluation split without cross-validation, so dif-
+ferences are likely not statistically significant.
+</bodyText>
+<page confidence="0.991836">
+106
+</page>
+<bodyText confidence="0.999746142857143">
+\x0cAlso of note is that, in both experiments, the
+CRF framework achieves somewhat comparable
+performance across all entities. In a previous
+attempt to use a Hidden Markov Model to si-
+multaneously recognize multiple biomedical en-
+tities (Collier et al., 2000), HMM performance
+for a particular entity seemed more or less pro-
+portional to its frequency in the data. The ad-
+vantage of the CRF here may be due to the
+fact that HMMs are generative models trained
+to learn the joint probability P(o, l) where
+data for l may be sparse and use Bayes rule
+to predict the best label. CRFs are discrimina-
+tive models trained to maximize P(l|o) directly.
+</bodyText>
+<sectionHeader confidence="0.997159" genericHeader="conclusions">
+5 Conclusions and Future Work
+</sectionHeader>
+<bodyText confidence="0.99544135483871">
+In short, I have presented in detail a frame-
+work for recognizing multiple entity classes
+in biomedical abstracts with Conditional Ran-
+dom Fields. I have shown that a CRF-based
+model with only simple orthographic features
+can achieve performance near the current state
+of the art, while using semantic lexicons (as
+presented here) do not positively affect perfor-
+mance.8
+While the system presented here shows
+promise, there is still much to be explored.
+Richer syntactic information such as shallow
+parsing may be useful. The method introduced
+in section 3.2 to generate semantic keywords can
+also be adapted to generate features for entity-
+specific morphology (e.g. affixes) and context,
+both linearly (e.g. neighboring words) and hi-
+erarchically (e.g. from a parse).
+Most interesting, though, might be to inves-
+tigate why the lexicons do not generally help.
+One explanation is simply an issue of tokeniza-
+tion. While one abstract refers to IL12, oth-
+ers may write IL-12 or IL 12. Similarly,
+the generalization of entities to groups (e.g. x
+antibody vs. x antibodies) can cause prob-
+lems for these rigid lexicons that require exact
+matching. Enumerating all such variants for ev-
+ery entry in a lexicon is absurd. Perhaps relax-
+ing the matching criteria and standardizing to-
+kenization for both the input and lexicons will
+improve their utility.
+</bodyText>
+<page confidence="0.971679">
+8
+</page>
+<bodyText confidence="0.999686285714286">
+More recent work (not submitted for evaluation) in-
+dicates that lexicons are indeed useful, but mainly when
+training data are limited. I have also found that using
+orthographic features with part-of-speech tags and only
+the RNA and CELL-LINE (rare class) lexicons can boost
+overall F1 to 70.3 on the evaluation data, with particu-
+lar improvements for the RNA and CELL-LINE entities.
+</bodyText>
+<sectionHeader confidence="0.962681" genericHeader="acknowledgments">
+Acknowledgements
+</sectionHeader>
+<bodyText confidence="0.997240833333333">
+I would like to thank my advisor Mark Craven for
+his advice and guidance, as well as Andrew McCal-
+lum and Aron Culotta for answering my questions
+about the MALLET system. This work is supported
+by NLM training grant 5T15LM007359-02 and NIH
+grant R01 LM07050-01.
+</bodyText>
+<sectionHeader confidence="0.990715" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.999622972222222">
+Nigel Collier, Chikashi Nobata, and Jun ichi Tsu-
+jii. 2000. Extracting the names of genes and gene
+products with a hidden markov model. In Pro-
+ceedings of the International Conference on Com-
+putational Linguistics, pages 201207. Saarbru-
+ucken, Germany.
+Michael Collins. 2002. Ranking algorithms for
+named-entity extraction: Boosting and the voted
+perceptron. In Proceedings of the Association
+for Computational Linguistics Conference, pages
+489496. Philadelphia, USA.
+John Lafferty, Andrew McCallum, and Fernando
+Pereira. 2001. Conditional random fields: Prob-
+abilistic models for segmenting and labeling se-
+quence data. In Proceedings of the International
+Conference on Machine Learning. Williamstown,
+MA, USA.
+Andrew McCallum and Wei Li. 2003. Early results
+for named entity recognition with conditional ran-
+dom fields, feature induction and web-enhanced
+lexicons. In Proceedings of the Conference on Nat-
+ural Language Learning, pages 188191. Edmon-
+ton, Canada.
+Andrew McCallum. 2002. Mallet: A
+machine learning for language toolkit.
+http://mallet.cs.umass.edu.
+Ryan McDonald and Fernando Pereira. 2004. Iden-
+tifying gene and protein mentions in text us-
+ing conditional random fields. In Proceedings of
+BioCreative: Critical Assessment for Information
+Extraction in Biology. Grenada, Spain.
+Fei Sha and Fernando Pereira. 2003. Shallow pars-
+ing with conditional random fields. In Proceedings
+of the Human Language Technology and North
+American Association for Computational Linguis-
+tics Conference. Edmonton, Canada.
+</reference>
+<page confidence="0.994004">
+107
+</page>
+<figure confidence="0.246702">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.990901">
+<title confidence="0.9987415">b&amp;apos;Biomedical Named Entity Recognition Using Conditional Random Fields and Rich Feature Sets</title>
+<author confidence="0.999524">Burr Settles</author>
+<affiliation confidence="0.999721333333333">Department of Computer Sciences Department of Biostatistics and Medical Informatics University of Wisconsin-Madison</affiliation>
+<address confidence="0.998866">Madison, WI, USA</address>
+<email confidence="0.995757">bsettles@cs.wisc.edu</email>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Nigel Collier</author>
+<author>Chikashi Nobata</author>
+<author>Jun ichi Tsujii</author>
+</authors>
+<title>Extracting the names of genes and gene products with a hidden markov model.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the International Conference on Computational Linguistics,</booktitle>
+<pages>201207</pages>
+<location>Saarbruucken, Germany.</location>
+<contexts>
+<context position="12672" citStr="Collier et al., 2000" startWordPosition="2079" endWordPosition="2082">ities are of the form messenger accumulation (RNA) or nonadherent culture (CELL-LINE). It may be that keyword lexicons contributed to the model identifying these low frequency terms more accurately. 7 Note, however, that these figures are on a single training/evaluation split without cross-validation, so differences are likely not statistically significant. 106 \x0cAlso of note is that, in both experiments, the CRF framework achieves somewhat comparable performance across all entities. In a previous attempt to use a Hidden Markov Model to simultaneously recognize multiple biomedical entities (Collier et al., 2000), HMM performance for a particular entity seemed more or less proportional to its frequency in the data. The advantage of the CRF here may be due to the fact that HMMs are generative models trained to learn the joint probability P(o, l) where data for l may be sparse and use Bayes rule to predict the best label. CRFs are discriminative models trained to maximize P(l|o) directly. 5 Conclusions and Future Work In short, I have presented in detail a framework for recognizing multiple entity classes in biomedical abstracts with Conditional Random Fields. I have shown that a CRF-based model with on</context>
+</contexts>
+<marker>Collier, Nobata, Tsujii, 2000</marker>
+<rawString>Nigel Collier, Chikashi Nobata, and Jun ichi Tsujii. 2000. Extracting the names of genes and gene products with a hidden markov model. In Proceedings of the International Conference on Computational Linguistics, pages 201207. Saarbruucken, Germany.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+</authors>
+<title>Ranking algorithms for named-entity extraction: Boosting and the voted perceptron.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the Association for Computational Linguistics Conference,</booktitle>
+<pages>489496</pages>
+<location>Philadelphia, USA.</location>
+<contexts>
+<context position="5439" citStr="Collins (2002)" startWordPosition="913" endWordPosition="914">nding an appropriate feature set. This section outlines the two main types of features used in these experiments. 3.1 Orthographic Features The simplest and most obvious feature set is the vocabulary from the training data. Generalizations over how these words appear (e.g. capitalization, affixes, etc.) are also important. The present model includes training vocabulary, 17 orthographic features based on regular expressions (e.g. Alphanumeric, HasDash, RomanNumeral) as well as prefixes and suffixes in the character length range [3,5]. Words are also assigned a generalized word class similar to Collins (2002), which replaces capital letters with A, lowercase letters with a, digits with 0, and all other characters with . There is a similar brief word class feature which collapses consecutive identical characters into one. Thus the words IL5 and SH3 would both be given the features WC=AA0 and BWC=A0, while F-actin and T-cells would both be assigned WC=A aaaaa and BWC=A a. To model local context simply, neighboring words in the window [-1,1] are also added as features. For instance, the middle token in the sequence human UDG promoter would have features Word=UDG, Neighbor=human and Neighbor=promoter.</context>
+</contexts>
+<marker>Collins, 2002</marker>
+<rawString>Michael Collins. 2002. Ranking algorithms for named-entity extraction: Boosting and the voted perceptron. In Proceedings of the Association for Computational Linguistics Conference, pages 489496. Philadelphia, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>John Lafferty</author>
+<author>Andrew McCallum</author>
+<author>Fernando Pereira</author>
+</authors>
+<title>Conditional random fields: Probabilistic models for segmenting and labeling sequence data.</title>
+<date>2001</date>
+<booktitle>In Proceedings of the International Conference on Machine Learning.</booktitle>
+<location>Williamstown, MA, USA.</location>
+<contexts>
+<context position="2198" citStr="Lafferty et al., 2001" startWordPosition="340" endWordPosition="343">, or OTHER1). Conditional Random Fields (CRFs) are undirected statistical graphical models, a special case of which is a linear chain that corresponds to a conditionally trained finite-state machine. Such models are well suited to sequence analysis, and CRFs in 1 More accurately, the data is in IOB format. B-DNA labels the first word of a DNA mention, I-DNA labels all subsequent words (likewise for other entities), and O labels non-entities. For simplicity, this paper only refers to the entities, not all the IOB label variants. particular have been shown to be useful in partof-speech tagging (Lafferty et al., 2001), shallow parsing (Sha and Pereira, 2003), and named entity recognition for newswire data (McCallum and Li, 2003). They have also just recently been applied to the more limited task of finding gene and protein mentions (McDonald and Pereira, 2004), with promising early results. Let o = ho1, o2, . . . , oni be an sequence of observed words of length n. Let S be a set of states in a finite state machine, each corresponding to a label l L (e.g. PROTEIN, DNA, etc.). Let s = hs1, s2, . . . , sni be the sequence of states in S that correspond to the labels assigned to words in the input sequence o. </context>
+<context position="4527" citStr="Lafferty et al. (2001)" startWordPosition="770" endWordPosition="774"> relatively uninformative features. These weights are 104 \x0cset to maximize the conditional log likelihood of labeled sequences in a training set D = {ho, li(1), . . . , ho, li(n)}: LL(D) = n X i=1 log \x10 P(l(i)|o(i)) \x11 m X j=1 2 j 22 . When the training state sequences are fully labeled and unambiguous, the objective function is convex, thus the model is guaranteed to find the optimal weight settings in terms of LL(D). Once these settings are found, the labeling for an new, unlabeled sequence can be done using a modified Viterbi algorithm. CRFs are presented in more complete detail by Lafferty et al. (2001). These experiments use the MALLET implementation of CRFs (McCallum, 2002), which uses a quasi-Newton method called L-BFGS to find these feature weights efficiently. 3 Feature Set One property that makes feature based statistical models like CRFs so attractive is that they reduce the problem to finding an appropriate feature set. This section outlines the two main types of features used in these experiments. 3.1 Orthographic Features The simplest and most obvious feature set is the vocabulary from the training data. Generalizations over how these words appear (e.g. capitalization, affixes, etc</context>
+</contexts>
+<marker>Lafferty, McCallum, Pereira, 2001</marker>
+<rawString>John Lafferty, Andrew McCallum, and Fernando Pereira. 2001. Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In Proceedings of the International Conference on Machine Learning. Williamstown, MA, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andrew McCallum</author>
+<author>Wei Li</author>
+</authors>
+<title>Early results for named entity recognition with conditional random fields, feature induction and web-enhanced lexicons.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the Conference on Natural Language Learning,</booktitle>
+<pages>188191</pages>
+<location>Edmonton, Canada.</location>
+<contexts>
+<context position="2311" citStr="McCallum and Li, 2003" startWordPosition="358" endWordPosition="361">ch is a linear chain that corresponds to a conditionally trained finite-state machine. Such models are well suited to sequence analysis, and CRFs in 1 More accurately, the data is in IOB format. B-DNA labels the first word of a DNA mention, I-DNA labels all subsequent words (likewise for other entities), and O labels non-entities. For simplicity, this paper only refers to the entities, not all the IOB label variants. particular have been shown to be useful in partof-speech tagging (Lafferty et al., 2001), shallow parsing (Sha and Pereira, 2003), and named entity recognition for newswire data (McCallum and Li, 2003). They have also just recently been applied to the more limited task of finding gene and protein mentions (McDonald and Pereira, 2004), with promising early results. Let o = ho1, o2, . . . , oni be an sequence of observed words of length n. Let S be a set of states in a finite state machine, each corresponding to a label l L (e.g. PROTEIN, DNA, etc.). Let s = hs1, s2, . . . , sni be the sequence of states in S that correspond to the labels assigned to words in the input sequence o. Linearchain CRFs define the conditional probability of a state sequence given an input sequence to be: P(s|o) = 1</context>
+</contexts>
+<marker>McCallum, Li, 2003</marker>
+<rawString>Andrew McCallum and Wei Li. 2003. Early results for named entity recognition with conditional random fields, feature induction and web-enhanced lexicons. In Proceedings of the Conference on Natural Language Learning, pages 188191. Edmonton, Canada.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andrew McCallum</author>
+</authors>
+<title>Mallet: A machine learning for language toolkit.</title>
+<date>2002</date>
+<note>http://mallet.cs.umass.edu.</note>
+<contexts>
+<context position="4601" citStr="McCallum, 2002" startWordPosition="784" endWordPosition="785"> conditional log likelihood of labeled sequences in a training set D = {ho, li(1), . . . , ho, li(n)}: LL(D) = n X i=1 log \x10 P(l(i)|o(i)) \x11 m X j=1 2 j 22 . When the training state sequences are fully labeled and unambiguous, the objective function is convex, thus the model is guaranteed to find the optimal weight settings in terms of LL(D). Once these settings are found, the labeling for an new, unlabeled sequence can be done using a modified Viterbi algorithm. CRFs are presented in more complete detail by Lafferty et al. (2001). These experiments use the MALLET implementation of CRFs (McCallum, 2002), which uses a quasi-Newton method called L-BFGS to find these feature weights efficiently. 3 Feature Set One property that makes feature based statistical models like CRFs so attractive is that they reduce the problem to finding an appropriate feature set. This section outlines the two main types of features used in these experiments. 3.1 Orthographic Features The simplest and most obvious feature set is the vocabulary from the training data. Generalizations over how these words appear (e.g. capitalization, affixes, etc.) are also important. The present model includes training vocabulary, 17 </context>
+</contexts>
+<marker>McCallum, 2002</marker>
+<rawString>Andrew McCallum. 2002. Mallet: A machine learning for language toolkit. http://mallet.cs.umass.edu.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ryan McDonald</author>
+<author>Fernando Pereira</author>
+</authors>
+<title>Identifying gene and protein mentions in text using conditional random fields.</title>
+<date>2004</date>
+<booktitle>In Proceedings of BioCreative: Critical Assessment for Information Extraction in Biology. Grenada,</booktitle>
+<contexts>
+<context position="2445" citStr="McDonald and Pereira, 2004" startWordPosition="380" endWordPosition="383">alysis, and CRFs in 1 More accurately, the data is in IOB format. B-DNA labels the first word of a DNA mention, I-DNA labels all subsequent words (likewise for other entities), and O labels non-entities. For simplicity, this paper only refers to the entities, not all the IOB label variants. particular have been shown to be useful in partof-speech tagging (Lafferty et al., 2001), shallow parsing (Sha and Pereira, 2003), and named entity recognition for newswire data (McCallum and Li, 2003). They have also just recently been applied to the more limited task of finding gene and protein mentions (McDonald and Pereira, 2004), with promising early results. Let o = ho1, o2, . . . , oni be an sequence of observed words of length n. Let S be a set of states in a finite state machine, each corresponding to a label l L (e.g. PROTEIN, DNA, etc.). Let s = hs1, s2, . . . , sni be the sequence of states in S that correspond to the labels assigned to words in the input sequence o. Linearchain CRFs define the conditional probability of a state sequence given an input sequence to be: P(s|o) = 1 Zo exp n X i=1 m X j=1 jfj(si1, si, o, i) where Zo is a normalization factor of all state sequences, fj(si1, si, o, i) is one of m fu</context>
+</contexts>
+<marker>McDonald, Pereira, 2004</marker>
+<rawString>Ryan McDonald and Fernando Pereira. 2004. Identifying gene and protein mentions in text using conditional random fields. In Proceedings of BioCreative: Critical Assessment for Information Extraction in Biology. Grenada, Spain.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Fei Sha</author>
+<author>Fernando Pereira</author>
+</authors>
+<title>Shallow parsing with conditional random fields.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the Human Language Technology and North American Association for Computational Linguistics Conference.</booktitle>
+<location>Edmonton, Canada.</location>
+<contexts>
+<context position="2239" citStr="Sha and Pereira, 2003" startWordPosition="346" endWordPosition="349">CRFs) are undirected statistical graphical models, a special case of which is a linear chain that corresponds to a conditionally trained finite-state machine. Such models are well suited to sequence analysis, and CRFs in 1 More accurately, the data is in IOB format. B-DNA labels the first word of a DNA mention, I-DNA labels all subsequent words (likewise for other entities), and O labels non-entities. For simplicity, this paper only refers to the entities, not all the IOB label variants. particular have been shown to be useful in partof-speech tagging (Lafferty et al., 2001), shallow parsing (Sha and Pereira, 2003), and named entity recognition for newswire data (McCallum and Li, 2003). They have also just recently been applied to the more limited task of finding gene and protein mentions (McDonald and Pereira, 2004), with promising early results. Let o = ho1, o2, . . . , oni be an sequence of observed words of length n. Let S be a set of states in a finite state machine, each corresponding to a label l L (e.g. PROTEIN, DNA, etc.). Let s = hs1, s2, . . . , sni be the sequence of states in S that correspond to the labels assigned to words in the input sequence o. Linearchain CRFs define the conditional p</context>
+</contexts>
+<marker>Sha, Pereira, 2003</marker>
+<rawString>Fei Sha and Fernando Pereira. 2003. Shallow parsing with conditional random fields. In Proceedings of the Human Language Technology and North American Association for Computational Linguistics Conference. Edmonton, Canada.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

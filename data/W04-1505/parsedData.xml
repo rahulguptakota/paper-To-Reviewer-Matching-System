@@ -1,0 +1,1661 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<title confidence="0.652318">
+b&amp;apos;Fast, Deep-Linguistic Statistical Dependency Parsing
+</title>
+<author confidence="0.988407">
+Gerold Schneider, Fabio Rinaldi, James Dowdall
+</author>
+<affiliation confidence="0.991609">
+Institute of Computational Linguistics, University of Zurich
+</affiliation>
+<email confidence="0.979883">
+fgschneid,rinaldig@ifi.unizh.ch, j.m.dowdall@sussex.ac.uk
+</email>
+<sectionHeader confidence="0.990526" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.9933797">
+We present and evaluate an implemented sta-
+tistical minimal parsing strategy exploiting DG
+charateristics to permit fast, robust, deep-
+linguistic analysis of unrestricted text, and com-
+pare its probability model to (Collins, 1999) and
+an adaptation, (Dubey and Keller, 2003). We
+show that DG allows for the expression of the
+majority of English LDDs in a context-free way
+and o\x0bers simple yet powerful statistical mod-
+els.
+</bodyText>
+<sectionHeader confidence="0.9981" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.989617609375">
+We present a fast, deep-linguistic statistical
+parser that pro\x0cts from DG characteristics and
+that uses am minimal parsing strategy. First,
+we rely on \x0cnite-state based approaches as long
+as possible, secondly where parsing is neces-
+sary we keep it context-free as long as possible1.
+For low-level syntactic tasks, tagging and base-
+NP chunking is used, parsing only takes place
+between heads of chunks. Robust, successful
+parsers (Abney, 1995; Collins, 1999) have shown
+that this division of labour is particularly at-
+tractive for DG.
+Deep-linguistic, Formal Grammar parsers
+have carefully crafted grammars written by pro-
+fessional linguists. But unrestricted real-world
+texts still pose a problem to NLP systems that
+are based on Formal Grammars. Few hand-
+crafted, deep linguistic grammars achieve the
+coverage and robustness needed to parse large
+corpora (see (Riezler et al., 2002), (Burke et al.,
+2004) and (Hockenmaier and Steedman, 2002)
+for exceptions), and speed remains a serious
+challenge. The typical problems can be grouped
+as follows.
+Grammar complexity Fully comprehensive
+grammars are dicult to maintain and consid-
+1Non-subject WH-question pronouns and support
+verbs cannot be treated context-free with our approach.
+We use a simple pre-parsing step to analyze them
+erably increase parsing complexity.
+Parsing complexity Typical formal gram-
+mar parser complexity is much higher than
+the O(n
+3) for CFG. The complexity of some
+formal grammars is still unknown.2 Pars-
+ing algorithms able to treat completely un-
+restricted long-distance dependencies are NP-
+complete (Neuhaus and Br\x7f
+oker, 1997).
+Ranking Returning all syntactically possible
+analyses for a sentence is not what is expected
+of a syntactic analyzer. A clear indication of
+preference is needed.
+Pruning In order to keep search spaces man-
+ageable it is necessary to discard unconvincing
+alternatives already during the parsing process.
+A number of robust statistical parsers that
+o\x0ber solutions to these problems have become
+available (Charniak, 2000; Collins, 1999; Hen-
+derson, 2003). In a statistical parser, the rank-
+ing of intermediate structures occurs naturally
+and based on empirical grounds, while most
+rule-based systems rely on ad hoc heuristics.
+With an aggressive beam for parse-time prun-
+ing (so in our parser), real-world parsing time
+can be reduced to near-linear. If one were to
+assume a constantly full \x0cxed beam, or uses an
+oracle (Nivre, 2004) it is linear in practice3.
+Also worst-case complexity for exhaustive
+parsing is low, as these parsers are CFG-
+based (Eisner, 2000)4. But they typically pro-
+duce CFG constituency data as output, trees
+that do not express long-distance dependen-
+cies. Although grammatical function and empty
+</bodyText>
+<footnote confidence="0.956931">
+2For Tree-Adjoining Grammars (TAG) it is O(n7) or
+O(n8) depending on the implementation (Eisner, 2000).
+(Sarkar et al., 2000) state that the theoretical bound of
+worst time complexity for Head-Driven Phrase Structure
+Grammar (HPSG) parsing is exponential.
+3In practical terms, beam or oracle approach have
+very similar e\x0bects
+4Parsing complexity of the original Collins Models is
+O(n5), but theoretically O(n3) would be possible
+\x0cAntecedent POS Label Count Description Example
+1 NP NP * 22,734 NP trace Sam was seen *
+</footnote>
+<listItem confidence="0.901715888888889">
+2 NP * 12,172 NP PRO * to sleep is nice
+3 WHNP NP *T* 10,659 WH trace the woman who you saw *T*
+(4) *U* 9,202 Empty units $ 25 *U*
+(5) 0 7,057 Empty complementizers Sam said 0 Sasha snores
+(6) S S *T* 5,035 Moved clauses Sam had to go, Sasha said *T*
+7 WHADVP ADVP *T* 3,181 WH-trace Sam explained how to leave *T*
+(8) SBAR 2,513 Empty clauses Sam had to go, said Sasha (SBAR)
+(9) WHNP 0 2,139 Empty relative pronouns the woman 0 we saw
+(10) WHADVP 0 726 Empty relative pronouns the reason 0 to leave
+</listItem>
+<tableCaption confidence="0.859">
+Table 1: The distribution of the 10 most frequent types of empty nodes and their antecedents in
+</tableCaption>
+<bodyText confidence="0.9366265">
+the Penn Treebank (adapted from (Johnson, 2002)). Bracketed line numbers only involve LDDs as
+grammar artifact
+nodes annotation expressing long-distance de-
+pendencies are provided in Treebanks such as
+the Penn Treebank (Marcus et al., 1993), most
+statistical Treebank trained parsers fully or
+largely ignore them5, which entails two prob-
+lems: \x0crst, the training cannot pro\x0ct from valu-
+able annotation data. Second, the extraction
+of long-distance dependencies (LDD) and the
+mapping to shallow semantic representations is
+not always possible from the output of these
+parsers. This limitation is aggravated by a lack
+of co-indexation information and parsing errors
+across an LDD. In fact, some syntactic relations
+cannot be recovered on con\x0cgurational grounds
+only. For these reasons, (Johnson, 2002) refers
+to them as \\half-grammars&amp;quot;.
+An approach that relies heavily on DG char-
+acteristics is explored in this paper. It uses
+a hand-written DG grammar and a lexicalized
+probability model. It combines the low com-
+plexity of a CFG parser, the pruning and rank-
+ing advantages of statistical parsers and the
+ability to express the majority of LDDs of For-
+mal Grammars. After presenting the DG bene-
+\x0cts, we de\x0cne our DG and introduce our statis-
+tical model. Then, we give an evaluation.
+</bodyText>
+<sectionHeader confidence="0.988348" genericHeader="method">
+2 The Bene\x0ct of DG Characteristics
+</sectionHeader>
+<bodyText confidence="0.996705555555556">
+In addition to some obvious bene\x0cts, such as
+the integration of chunking and parsing (Abney,
+1995), where a chunk largely corresponds to a
+nucleus (Tesni\x12
+ere, 1959), or that in an endocen-
+tric theory projection can never fail, we present
+eight characteristics in more detail, which in
+their combination allow us to treat the majority
+of English long-distance dependencies (LDD) in
+our DG parser Pro3Gres in a context-fee way.
+5(Collins, 1999) Model 2 uses some of the functional
+labels, and Model 3 some long-distance dependencies
+The ten most frequent types of empty nodes
+cover more than 60,000 of the approximately
+64,000 empty nodes of sections 2-21 of the Penn
+Treebank. Table 1, reproduced from (Johnson,
+2002) [line numbers and counts from the whole
+Treebank added], gives an overview.
+</bodyText>
+<subsectionHeader confidence="0.996579">
+2.1 No Empty Nodes
+</subsectionHeader>
+<bodyText confidence="0.926374">
+The fact that traditional DG does not know
+empty nodes allows a DG parser to use the e-
+</bodyText>
+<listItem confidence="0.441376">
+cient 0(n
+3) CYK algorithm.
+</listItem>
+<subsectionHeader confidence="0.9736">
+2.2 Only Content Words are Nuclei
+</subsectionHeader>
+<bodyText confidence="0.997717571428572">
+Only content words can be nuclei in a tradi-
+tional DG. This means that empty units, empty
+complementizers and empty relative pronouns
+[lines 4,5,9,10] pose no problem for DG as they
+are optional, non-head material. For example, a
+complementizer is an optional dependent of the
+subordinated verb.
+</bodyText>
+<subsectionHeader confidence="0.999069">
+2.3 No External Argument, ID/LP
+</subsectionHeader>
+<bodyText confidence="0.99873">
+Moved clauses [line 6] are mostly PPs or clausal
+complements of verbs of utterance. Only verbs
+of utterance allow subject-verb inversion in af-
+\x0crmative clauses [line 8]. Our hand-written
+grammar provides rules with appropriate re-
+strictions for them, allowing an inversion of the
+\\canonical&amp;quot; dependency direction under well-
+de\x0cned conditions, distinguishing between or-
+dre lin\x13
+eaire (linear precedence(LP)) and ordre
+structural (immediate dominance(ID)). Fronted
+positions are available locally to the verb in a
+theory that does not posit a distinction between
+internal and external arguments.
+</bodyText>
+<subsectionHeader confidence="0.998007">
+2.4 Exploiting Functional DG Labels
+</subsectionHeader>
+<bodyText confidence="0.95823325">
+The fact that dependencies are often labeled is
+a main di\x0berence between DG and constituency.
+We exploit this by using dedicated labels to
+model a range of constituency LDDs, relations
+</bodyText>
+<footnote confidence="0.5586295">
+\x0cRelation Label Example
+verb{subject subj he sleeps
+verb{\x0crst object obj sees it
+verb{second object obj2 gave (her) kisses
+</footnote>
+<bodyText confidence="0.888560285714286">
+verb{adjunct adj ate yesterday
+verb{subord. clause sentobj saw (they) came
+verb{prep. phrase pobj slept in bed
+noun{prep. phrase modpp draft of paper
+noun{participle modpart report written
+verb{complementizer compl to eat apples
+noun{preposition prep to the house
+</bodyText>
+<tableCaption confidence="0.861361">
+Table 2: Important Pro3Gres Dependency
+</tableCaption>
+<subsectionHeader confidence="0.309832">
+types
+</subsectionHeader>
+<bodyText confidence="0.998325285714286">
+spanning several constituency levels, including
+empty nodes and functional Penn Treebank la-
+bels, by a purely local DG relation6. The selec-
+tive mapping patterns for MLE counts of pas-
+sive subjects and control subjects from the Penn
+Treebank, the most frequent NP traces [line 1],
+are e.g. (@ stands for arbitrary nestedness):
+</bodyText>
+<equation confidence="0.686487595238095">
+?hhhh
+h
+(
+(
+(
+(
+(
+NP-SBJ-X@
+noun
+VP@
+hh
+h
+(
+(
+(
+V
+passive verb
+NP
+-NONE-
+*-X
+?
+hhhh
+h
+(
+(
+(
+(
+(
+NP-SBJ-X@
+noun
+VP@
+hh
+h
+(
+(
+(
+V
+control-verb
+S
+NP-SBJ
+-NONE-
+*-X
+</equation>
+<bodyText confidence="0.949915714285714">
+Our approach employs \x0cnite-state approxima-
+tions of long-distance dependencies, described
+in (Schneider, 2003) for DG and (Cahill et al.,
+2004) for Lexical Functional Grammar (LFG)It
+leaves empty nodes underspeci\x0ced but largely
+recoverable. Table 2 gives an overview of im-
+portant dependencies.
+</bodyText>
+<subsectionHeader confidence="0.958624">
+2.5 Monostratalism and Functionalism
+</subsectionHeader>
+<bodyText confidence="0.993900117647059">
+While multistratal DGs exist and several de-
+pendency levels can be distinguished (Mel\&amp;apos;\x14
+cuk,
+1988) we follow a conservative view close to the
+original (Tesni\x12
+ere, 1959), which basically parses
+directly for a simple LFG f-structure without
+needing a c-structure detour.
+6In addition to taking less decisions due to the gained
+high-level shallowness, it is ensured that the lexical in-
+formation that matters is available in one central place,
+allowing the parser to take one well-informed decision in-
+stead of several brittle decisions plagued by sparseness.
+Collapsing deeply nested structures into a single depen-
+dency relation is less complex but has a similar e\x0bect as
+selecting what goes in to the parse history in history-
+based approaches.
+</bodyText>
+<subsectionHeader confidence="0.984831">
+2.6 Graphs
+</subsectionHeader>
+<bodyText confidence="0.9991202">
+DG theory often conceives of DG structures
+as graphs instead of trees (Hudson, 1984). A
+statistical lexicalized post-processing module
+in Pro3Gres transforms selected subtrees into
+graphs, e.g. in order to express control.
+</bodyText>
+<subsectionHeader confidence="0.97714">
+2.7 Transformation to Semantic Layer
+</subsectionHeader>
+<bodyText confidence="0.979006333333333">
+Pro3Gres is currently being applied in a Ques-
+tion Answering system speci\x0ccally targeted at
+technical domains (Rinaldi et al., 2004b). One
+of the main advantages of a DG parser such as
+Pro3Gres over other parsing approaches is that
+a mapping from the syntactic layer to a seman-
+tic layer (meaning representation) is partly sim-
+pli\x0ced (Moll\x13
+a et al., 2000).
+</bodyText>
+<subsectionHeader confidence="0.833108">
+2.8 Tesni\x12
+ere\&amp;apos;s Translations
+</subsectionHeader>
+<bodyText confidence="0.988733615384615">
+The possible functional changes of a word called
+translations (Tesni\x12
+ere, 1959) are an exception
+to endocentricity. They are an important con-
+tribution to a traceless theory. Gerunds (af-
+ter winning/VBG the race) or in\x0cnitives [line
+2] may function as nouns, obviating the need
+for an empty subject. In nounless NPs such as
+the poor, adjectives function as nouns, obviating
+the need for an empty noun head. Participles
+may function as adjectives (Western industrial-
+ized/VBN countries), again obviating the need
+for an empty subject.
+</bodyText>
+<sectionHeader confidence="0.963611" genericHeader="method">
+3 The Statistical Dependency Model
+</sectionHeader>
+<bodyText confidence="0.976685333333334">
+Most successful deep-linguistic Dependency
+Parsers (Lin, 1998; Tapanainen and J\x7f
+arvinen,
+1997) do not have a statistical base. But one
+DG advantage is precisely that it o\x0bers simple
+but powerful statistical Maximum Likelihood
+Estimation (MLE) models. We now de\x0cne our
+DG and the probability model.
+The rules of a context-free, unlabeled DG
+are equivalent to binary-branching CFG rewrite
+rules in which the head and the mother node are
+isomorphic. When converting DG structures to
+CFG, the order of application of these rules is
+not necessarily known, but in a labeled DG, the
+set of rules can specify the order (Covington,
+1994). Fig. 1 shows such two structures, equiv-
+alent except for the absence of functional la-
+bels in CFG. Subj (but not P P ) has been used
+in this example conversion to specify the appli-
+cation order, hence we get a repetition of the
+eat/V node, mirroring a traditional CFG S and
+</bodyText>
+<figure confidence="0.967849461538461">
+VP distinction.
+In a binary CFG, any two constituents A and
+B which are adjacent during parsing are candi-
+\x0cROOT the man eats apples with a fork
+W
+SENT
+\x0f
+Subj
+\x0f
+Det
+W
+Obj
+W
+PP
+W
+PObj
+\x0f
+Det
+eat/V
+hhhhh
+h
+(
+(
+(
+(
+(
+(
+man/N
+XX
+\x18
+\x18
+the/D
+the
+man/N
+man
+eat/V
+hhhhh
+\x11
+\x11
+(
+(
+(
+(
+(
+eat/V
+eats
+apple/N
+apples
+with/P
+hh
+h
+(
+(
+(
+with/P
+with
+fork/N
+X
+X
+\x18
+\x18
+a/D
+a
+fork/N
+fork
+</figure>
+<figureCaption confidence="0.999927">
+Figure 1: DG and CFG representation
+</figureCaption>
+<bodyText confidence="0.922607">
+dates for the RHS of a rewrite rule. As terminal
+types we use word tags.
+X ! AB; e:g:N P ! DT N N (1)
+In DG, one of these is isomorphic to the LHS,
+i.e. the head. This grammar is also a Bare
+Phrase Structure grammar known from Mini-
+malism (Chomsky, 1995).
+B ! AB; e:g: N N ! DT N N (2)
+A ! AB; e:g: V B ! V B P P (3)
+Labeled DG rules additionally use a syntactic
+relation label R. A non-lexicalized model would
+be:
+</bodyText>
+<equation confidence="0.996843333333333">
+p(RjA ! AB) \x18
+= #(R; A ! AB)
+#(A ! AB) (4)
+</equation>
+<bodyText confidence="0.957786333333333">
+Research on PCFG and PP-attachment has
+shown the importance of probabilizing on lexical
+heads (a and b).
+</bodyText>
+<equation confidence="0.955995375">
+p(RjA ! AB; a; b) \x18
+= #(R; A ! AB; a; b)
+#(A ! AB; a; b) (5)
+All that A ! AB expresses is that the depen-
+dency relation is towards the right.
+p(Rjright; a; b) \x18
+= #(R; right; a; b)
+#(right; a; b) (6)
+</equation>
+<bodyText confidence="0.937145666666667">
+e.g. for the Verb-PP attachment relation pobj
+(following (Collins and Brooks, 1995) including
+the description noun7)
+</bodyText>
+<equation confidence="0.94821475">
+p(pobjjright; verb; prep; desc:noun) \x18
+=
+#(pobj; right; verb; prep; desc:noun)
+#(right; verb; prep; desc:noun)
+</equation>
+<bodyText confidence="0.998242666666667">
+The distance (measured in chunks) between a
+head and a dependent is a limiting factor for the
+probability of a dependency between them.
+</bodyText>
+<equation confidence="0.996262666666667">
+p(R; distjright; a; b) \x18
+= #(R; dist; right; a; b)
+#(right; a; b) (7)
+</equation>
+<bodyText confidence="0.945839333333333">
+7PP is considered to be an exocentric category, since
+both the preposition and the description noun can be
+seen as head; in LFG they appear as double-head
+Many relations are only allowed towards one di-
+rection, the left/right factor is absent for them.
+Typical distances mainly depend on the rela-
+tion. Objects usually immediately follow the
+verb, while a PP attached to the verb may easily
+follow only at the second or third position, after
+the object and other PPs etc. By application of
+the chain rule and assuming that distance is in-
+dependent of the lexical heads we get:
+</bodyText>
+<equation confidence="0.996279">
+p(R; distja; b) \x18
+= #(R; a; b)
+#(a; b) \x01 #(R; dist)
+#R
+(8)
+</equation>
+<bodyText confidence="0.999036333333333">
+We now explore Pro3Gres\&amp;apos; main probability
+model by comparing it to (Collins, 1999), and
+an adaptation of it, (Dubey and Keller, 2003).
+</bodyText>
+<subsectionHeader confidence="0.995591">
+3.1 Relation of Pro3Gres to Collins
+</subsectionHeader>
+<bodyText confidence="0.700295">
+Model 1
+We will \x0crst consider the non-generative Model
+</bodyText>
+<equation confidence="0.4123865">
+1 (Collins, 1999). Both (Collins, 1999) Model
+1 and Pro3Gres are mainly dependency-based
+</equation>
+<bodyText confidence="0.981901">
+statistical parsers over heads of chunks, a
+close relation can thus be expected. The
+(Collins, 1999) Model 1 MLE estimation is:
+</bodyText>
+<equation confidence="0.97101025">
+P (Rjha; atagi; hb; btagi; dist) \x18
+=
+#(R; ha; atagi; hb; btagi; dist)
+#(ha; atagi; hb; btagi; dist) (9)
+</equation>
+<footnote confidence="0.908174857142857">
+Di\x0berences in comparison to (8) are:
+\x0f Pro3Gres does not use tag information.
+This is because, \x0crst, the licensing hand-
+written grammar is based on Penn tags.
+\x0f The second reason for not using tag infor-
+mation is because Pro3Gres backs o\x0b to se-
+mantic WordNet classes (Fellbaum, 1998)
+</footnote>
+<bodyText confidence="0.986787025316456">
+for nouns and to Levin classes (Levin, 1993)
+for verbs instead of to tags, which has the
+advantage of being more \x0cne-grained.
+\x0f Pro3Gres uses real distances, measured in
+chunks, instead of a feature vector. Dis-
+tance is assumed to be dependent only on
+R, which reduces the sparse data problem.
+(Chung and Rim, 2003) made similar ob-
+servations for Korean.
+\x0f The co-occurrence count in the MLE de-
+nominator is not the sentence-context, but
+the sum of counts of competing relations.
+E.g. the object and adjunct relation are
+in competition, as they are licensed by the
+same tag sequence V B\x03 N N \x03. Pro3Gres
+models attachment (thus decision) proba-
+bilities, viewing parsing as a decision pro-
+cess.
+\x0f Relations (R) have a Functional DG de\x0c-
+nition, including LDDs.
+\x0c3.2 Relation to Collins Model 2
+(Collins, 1999) Model 2 extends the parser to in-
+clude a complement/adjunct distinction for NPs
+and subordinated clauses, and it includes a sub-
+categorisation frame model.
+For the subcategorisation-dependent genera-
+tion of dependencies in Model 2, \x0crst the prob-
+abilities of the possible subcat frames are calcu-
+lated and the selected subcat frame is added as
+a condition. Once a subcategorized constituent
+has been found, it is removed from the subcat
+frame, ensuring that non-subcategorized con-
+stituents cannot be attached as complement,
+which is one of the two major function of a
+subcat frame. The other major function of a
+subcat frame is to \x0cnd all the subcategorized
+constituents. In order to ensure this, the prob-
+ability when a rewrite rule can stop expanding
+is calculated. Importantly, the probability of
+a rewrite rule with a non-empty subcat frame
+to stop expanding is low, the probability of a
+rewrite rule with an empty subcat frame to stop
+expanding is high.
+Pro3Gres includes a complement/adjunct dis-
+tinction for NPs. The examples given in sup-
+port of the subcategorisation frame model in
+(Collins, 1999) Model 2 are dealt with by the
+hand-written grammar in Pro3Gres.
+Every complement relation type, namely
+subj, obj, obj2, sentobj, can only occur once per
+verb, which ensures one of the two major func-
+tions of a subcat frame, that non-subcategorized
+constituents cannot be attached as comple-
+ments. This amounts to keeping separate sub-
+cat frames for each relation type, where the se-
+lection of the appropriate frame and removing
+the found constituent coincide, which has the
+advantage of a reduced search space: no hy-
+pothesized, but unfound subcat frame elements
+need to be managed. As for the second major
+function of subcat frames { to ensure that if pos-
+sible all subcategorized constituents are found {
+the same principle applies: selection of subcat
+frame and removing of found constituents coin-
+cide; lexical information on the verb argument
+candidate is available at frame selection time al-
+ready. This implies that Collins Model 2 takes
+an unnecessary detour.
+As for the probability of stopping the expan-
+sion of a rule { since DG rules are always binary
+{ it is always 0 before and 1 after the attach-
+ment. But what is needed in place of interrela-
+tions of constituents of the same rewrite rule is
+proper cooperation of the di\x0berent subcat types.
+For example, the grammar rules only allow a
+noun to be obj2 once obj has been found, or a
+verb is required to have a subject unless it is
+non-\x0cnite or a participle, or all objects need to
+be closer to the verb than a subordinate clause.
+</bodyText>
+<subsectionHeader confidence="0.997675">
+3.3 Relation to Dubey &amp; Keller 03
+</subsectionHeader>
+<bodyText confidence="0.9608096">
+(Dubey and Keller, 2003) address the ques-
+tion whether models such as Collins also im-
+prove performance on freer word order lan-
+guages, in their case German. German is con-
+siderably more in
+ectional which means that
+discarding functional information is more harm-
+ful, and which explains why the NEGRA an-
+notation has been conceived to be quite
+at
+(Skut et al., 1997). (Dubey and Keller, 2003)
+observe that models such as Collins when ap-
+plied directly perform worse than an unlexical-
+ized PCFG baseline. The fact that learning
+curves converge early indicates that this is not
+mainly a sparse data e\x0bect. They suggest a lin-
+guistically motivated change, which is shown to
+outperform the baseline.
+The (Collins, 1999) Model 2 rule generation
+model for P ! Lm:::L1HR1:::Rn, is
+</bodyText>
+<equation confidence="0.984167818181818">
+P (RHSjLHS) = Ph(HjP; t(P ); l(P ))
+\x01
+m
+Y
+i=0
+Pl(Li; t(Li); l(Li)jP; H; t(H); l(H); d(i))
+\x01
+n
+Y
+i=0
+Pr(Ri; t(Ri ); l(Ri)jP; H; t(H); l(H); d(i))
+</equation>
+<table confidence="0.7621076">
+Ph P of head t(H) tag of H head word
+LHS left-hand side RHS right-hand side
+Pl:1::m P(words left of head) Pr:1::n P(words right of head)
+H LHS Head Category P RHS Mother Category
+L left Constit. Cat. R right Constit. Cat.
+</table>
+<bodyText confidence="0.959986666666667">
+l(H) head word of H d distance measure
+Dubey &amp; Keller suggest the following change
+in order to respect the NEGRA
+atness: Ph is
+left unchanged, but Pl and Pr are conditioned
+on the preceding sister instead of on the head:
+</bodyText>
+<equation confidence="0.999880090909091">
+P (RHSjLHS) = Ph(HjP; t(P ); l(P ))
+\x01
+m
+Y
+i=0
+Pl(Li; t(Li ); l(Li)jP; Li 1; t(Li 1); l(Li 1); d(i))
+\x01
+n
+Y
+i=0
+Pr (Ri; t(Ri ); l(Ri)jP; Ri 1; t(Ri 1); l(Ri 1); d(i))
+</equation>
+<bodyText confidence="0.97513218">
+Their new model performs considerably better
+and also outperforms the unlexicalized baseline.
+The authors state that \\[u]sing sister-head re-
+lationships is a way of counteracting the
+at-
+ness of the grammar productions; it implicitly
+adds binary branching to the grammar.&amp;quot; (ibid.).
+DG is binary branching by de\x0cnition; adding
+binary branching implicitly converts the CFG
+rules into an ad-hoc DG.
+\x0cWhether the combination ((Chomsky, 1995)
+merge) of two binary constituents directly
+projects to a \\real&amp;quot; CFG rule LHS or an im-
+plicit intermediate constituent does not matter.
+Observations
+\x0f What counts is each individual Functional
+DG dependency, no matter whether it is ex-
+pressed as a sister-head or a head-head de-
+pendency, or stretches across several CFG
+levels (control, modpart etc.)
+\x0f Not adjacency (i,i-1) but headedness
+counts. Instead of conditioning on the pre-
+ceding (i-1) sister, conditioning on the real
+DG head is linguistically more motivated8.
+\x0f Not adjacency (i,i-1) but the type of GR
+counts: the question why Dubey &amp; Keller
+did not use the NEGRA GR labels has to
+arise when discussing a strongly in
+ectional
+language such as German.
+\x0f The use of a generative model, calculating
+the probability of a rule and ultimately the
+probability of producing a sentence given
+the grammar only has theoretical advan-
+tages. For practical purposes, modeling
+parsetime decision probabilities is as valid.
+With these observations in mind, we can com-
+pare Pro3Gres to (Dubey and Keller, 2003).
+As for the Base-NP Model, Pro3Gres only re-
+spects the best tagging &amp; chunking result re-
+ported to it { a major source of errors (see sec-
+tion 4). In DG, projection (although not ex-
+pansion) is deterministic. H and P are usually
+isomorphic, if not Tesni\x12
+ere-translations are rule-
+based. Since in DG, only lexical nodes are cat-
+egories, P=t(P). Ph is thus l(h), the prior, we
+ignore it for maximizing. In analogy, also cat-
+egory (L/R) and their tags are identical. The
+revised formula is
+</bodyText>
+<equation confidence="0.999145583333333">
+P (RHSjLHS) \x18
+= l(h)
+\x01
+m
+Y
+i=0
+Pl(t(Li ); l(Li)jP; t(Li 1); l(Li 1); d(i))
+\x01
+n
+Y
+i=0
+Pr(t(Ri ); l(Ri)jP; t(Ri 1); l(Ri 1); d(i))
+</equation>
+<bodyText confidence="0.9517774">
+If a DG rule is head-right, P is Li or Ri, if
+it is head-left, P is Li 1 or Ri 1, respectively.
+8In primarily right-branching languages such as En-
+glish or German (i-1) actually amounts to being the head
+in the majority of, but not all cases. In a more functional
+DG perspective such as the one taken in Pro3Gres, these
+languages turn out to be less right-branching, however,
+with prepositions or determiners analyzed as markers to
+the nominal head or complementizers or relative pro-
+nouns as markers to the verbal head of the subclause.
+Headedness and not direction matters. Li/Ri
+is replaced by Hi and L/Ri 1=i+1 by H\&amp;apos;. H\&amp;apos; is
+understood to be the DG dependent, although,
+as mentioned, H\&amp;apos; could also be the DG head in
+this implicit ad-hoc DG.
+</bodyText>
+<equation confidence="0.997309785714286">
+P (RHSjLHS) \x18
+= l(h)
+\x01
+n+m
+Y
+i=0
+Pl;r(t(Hi ); l(Hi)jt(Hi ); t(H
+0
+i ); l(H
+0
+i); d(i))
+P (t(Hi)jt(Hi); t(H
+0
+i
+</equation>
+<bodyText confidence="0.985767">
+)) is a projection or
+attachment grammar model modeling the
+unlexicalized probability of t(H) and t(H\&amp;apos;)
+participating in a binary rule with t(H) as
+head { the merge probability in Bare Phrase
+Structure (Chomsky, 1995); an unlabeled ver-
+sion of (4). P (t(Hi); l(Hi)jt(Hi); t(H
+</bodyText>
+<equation confidence="0.9339605">
+0
+i
+); l(H
+0
+i
+))
+</equation>
+<bodyText confidence="0.9613725">
+is a lexicalized version of the same pro-
+jection or attachment grammar model;
+</bodyText>
+<equation confidence="0.985669285714286">
+P (t(Hi); l(Hi)jt(Hi); t(H
+0
+i
+); l(H
+0
+i
+; d(i))) in
+</equation>
+<bodyText confidence="0.995051">
+addition conditions on the distance9. Pro3Gres
+expresses the unlexicalized rules by licensing
+grammar rules for relation R. Tags are not used
+in Pro3Gres\&amp;apos; model, because semantic backo\x0bs
+and tag-based licensing rules are used.
+</bodyText>
+<equation confidence="0.998469">
+P (d(i)jl(Hi); l(H
+0
+i )) (10)
+The Pro3Gres main MLE estimation (8)
+(l(H) = a; l(H
+0) = b) di\x0bers from (10) by using
+</equation>
+<bodyText confidence="0.9851225">
+labeled DG, and thus from the Dubey &amp; Keller
+Model by using a consistent functional DG.
+</bodyText>
+<sectionHeader confidence="0.998421" genericHeader="method">
+4 Evaluation
+</sectionHeader>
+<bodyText confidence="0.991209823529412">
+(Lin, 1995; Carroll et al., 1999) suggest eval-
+uating on the linguistically meaningful level of
+dependency relations. Two such evaluations are
+reported now.
+First, a general-purpose evaluation using a
+hand-compiled gold standard corpus (Carroll et
+al., 1999), which contains the grammatical re-
+lation data of 500 random sentences from the
+Susanne corpus. The performance (table 3), ac-
+cording to (Preiss, 2003), is similar to a large
+selection of statistical parsers and a grammat-
+ical relation \x0cnder. Relations involving LDDs
+form part of these relations. A selection of them
+is also given: WH-Subject (WHS), WH-Object
+(WHO), passive Subject (PSubj), control Sub-
+ject (CSubj), and the anaphor of the relative
+clause pronoun (RclSubjA).
+</bodyText>
+<equation confidence="0.946247272727273">
+9Since normalized probabilities are used
+P (t(Hi ); l(Hi)jt(Hi); t(H
+0
+i ); l(H
+0
+i ; d(i))) =
+P (t(Hi ); d(i)jt(Hi ); t(H
+0
+i ); l(Hi); l(H
+0
+i ))
+</equation>
+<table confidence="0.962399125">
+\x0cCARROLL Percentages for some relations, general, on Carroll testset only LDD-involving
+Subject Object noun-PP verb-PP subord. clause WHS WHO PSubj CSubj RclSubjA
+Precision 91 89 73 74 68 92 60 n/a 80 89
+Recall 81 83 67 83 n/a 90 86 83 n/a 63
+GENIA Percentages for some relations, general, on GENIA corpus
+Subject Object noun-PP verb-PP subord. clause
+Precision 90 94 83 82 71
+Recall 86 95 82 84 75
+</table>
+<tableCaption confidence="0.9997">
+Table 3: Evaluation on Carroll\&amp;apos;s test suite on subj, obj, PP-attachment and clause subord. relations
+</tableCaption>
+<bodyText confidence="0.997145071428571">
+and a selection of 5 LDD relations, and on the terminology-annotated GENIA corpus
+Secondly, to answer how the parser performs
+over domains markedly di\x0berent to the train-
+ing corpus, to test whether terminology is the
+key to a successful parsing system, and to assess
+the impact of chunking errors, the parser has
+been applied to the GENIA corpus (Kim et al.,
+2003), 2000 MEDLINE abstracts of more than
+400,000 words describing the results of Biomed-
+ical research, which is annotated for multi-word
+terms and thus contains near-perfect chunking.
+100 random sentences from the GENIA corpus
+have been manually annotated and compared to
+the parser output (Rinaldi et al., 2004a).
+</bodyText>
+<sectionHeader confidence="0.999152" genericHeader="method">
+5 Conclusions
+</sectionHeader>
+<bodyText confidence="0.999857333333333">
+We have discussed how DG allows the expres-
+sion of the majority of LDDs in a context-
+free way and shown that DG allows for simple
+but powerful statistical models. An evaluation
+shows that the performance of its implementa-
+tion is state-of-the-art10. Its parsing speed of
+about 300,000 words per hour is very good for a
+deep-linguistic parser and makes it fast enough
+for unlimited application.
+</bodyText>
+<sectionHeader confidence="0.907978" genericHeader="method">
+References
+</sectionHeader>
+<bodyText confidence="0.772594411764706">
+Steven Abney. 1995. Chunks and dependen-
+cies: Bringing processing evidence to bear
+on syntax. In Jennifer Cole, Georgia Green,
+and Jerry Morgan, editors, Computational
+Linguistics and the Foundations of Linguis-
+tic Theory, pages 145{164. CSLI.
+M. Burke, A. Cahill, R. O\&amp;apos;Donovan, J. van
+Genabith, and A. Way. 2004. Treebank-
+based acquisistion of wide-coverage, proba-
+bilistic LFG resources: Project overview, re-
+sults and evaluation. In The First Interna-
+tional Joint Conference on Natural Language
+Processing (IJCNLP-04), Workshop &amp;quot;Beyond
+shallow analyses - Formalisms and statisti-
+cal modeling for deep analyses&amp;quot;, Sanya City,
+China.
+10We are currently starting evaluation on the PARC
+</bodyText>
+<sectionHeader confidence="0.248549" genericHeader="method">
+700 corpus
+</sectionHeader>
+<reference confidence="0.995251050955414">
+Aoife Cahill, Michael Burke, Ruth O\&amp;apos;Donovan,
+Josef van Genabith, and Andy Way. 2004.
+Long-distance dependency resolution in au-
+tomatically acquired wide-coverage PCFG-
+based LFG approximations. In Proceedings of
+ACL-2004, Barcelona, Spain.
+John Carroll, Guido Minnen, and Ted Briscoe.
+1999. Corpus annotation for parser evalua-
+tion. In Proceedings of the EACL-99 Post-
+Conference Workshop on Linguistically Inter-
+preted Corpora, Bergen, Norway.
+Eugene Charniak. 2000. A maximum-entropy-
+inspired parser. In Proceedings of the North
+American Chapter of the ACL, pages 132{
+139.
+Noam Chomsky. 1995. The Minimalist Pro-
+gram. The MIT Press, Cambridge, Mas-
+sachusetts.
+Hoojung Chung and Hae-Chang Rim. 2003. A
+new probabilistic dependency parsing model
+for head-\x0cnal, free word order languages. IE-
+ICE Transaction on Information &amp; System,
+E86-D, No. 11:2490{2493.
+Michael Collins and James Brooks. 1995.
+Prepositional attachment through a backed-
+o\x0b model. In Proceedings of the Third Work-
+shop on Very Large Corpora, Cambridge,
+MA.
+Michael Collins. 1999. Head-Driven Statistical
+Models for Natural Language Parsing. Ph.D.
+thesis, University of Pennsylvania, Philadel-
+phia, PA.
+Michael A. Covington. 1994. An empirically
+motivated reinterpretation of Dependency
+Grammar. Technical Report AI1994-01, Uni-
+versity of Georgia, Athens, Georgia.
+Amit Dubey and Frank Keller. 2003. Proba-
+bilistic parsing for German using sister-head
+dependencies. In Proceedings of the 41st An-
+nual Meeting of the Association for Compu-
+tational Linguistics, Sapporo.
+Jason Eisner. 2000. Bilexical grammars and
+their cubic-time parsing algorithms. In Harry
+\x0cBunt and Anton Nijholt, editors, Advances in
+Probabilistic and Other Parsing Technologies.
+Kluwer.
+Christiane Fellbaum, editor. 1998. WordNet:
+An Electronic Lexical Database. MIT Press,
+Cambridge, MA.
+James Henderson. 2003. Inducing history
+representations for broad coverage statisti-
+cal parsing. In Proceedings of HLT-NAACL
+2003, Edmonton, Canada.
+Julia Hockenmaier and Mark Steedman. 2002.
+Generative models for statistical parsing with
+combinatory categorial grammar. In Proceed-
+ings of 40th Annual Meeting of the Associa-
+tion for Computational Linguistics, Philadel-
+phia.
+Richard Hudson. 1984. Word Grammar. Basil
+Blackwell, Oxford.
+Mark Johnson. 2002. A simple pattern-
+matching algorithm for recovering empty
+nodes and their antecedents. In Proceedings
+of the 40th Meeting of the ACL, University of
+Pennsylvania, Philadelphia.
+J.D. Kim, T. Ohta, Y. Tateisi, and J. Tsu-
+jii. 2003. Genia corpus - a semantically an-
+notated corpus for bio-textmining. Bioinfor-
+matics, 19(1):i180{i182.
+Beth C. Levin. 1993. English Verb Classes
+and Alternations: a Preliminary Investiga-
+tion. University of Chicago Press, Chicago,
+IL.
+Dekang Lin. 1995. A dependency-based
+method for evaluating broad-coverage
+parsers. In Proceedings of IJCAI-95, Mon-
+treal.
+Dekang Lin. 1998. Dependency-based evalua-
+tion of MINIPAR. In Workshop on the Eval-
+uation of Parsing Systems, Granada, Spain.
+Mitch Marcus, Beatrice Santorini, and M.A.
+Marcinkiewicz. 1993. Building a large anno-
+tated corpus of English: the Penn Treebank.
+Computational Linguistics, 19:313{330.
+Igor Mel\&amp;apos;\x14
+cuk. 1988. Dependency Syntax: theory
+and practice. State University of New York
+Press, New York.
+Diego Moll\x13
+a, Gerold Schneider, Rolf Schwit-
+ter, and Michael Hess. 2000. Answer
+Extraction using a Dependency Grammar
+in ExtrAns. Traitement Automatique de
+Langues (T.A.L.), Special Issue on Depen-
+dency Grammar, 41(1):127{156.
+Peter Neuhaus and Norbert Br\x7f
+oker. 1997. The
+complexity of recognition of linguistically ad-
+equate dependency grammars. In Proceedings
+of the 35th ACL and 8th EACL, pages 337{
+343, Madrid, Spain.
+Joakim Nivre. 2004. Inductive dependency
+parsing. In Proceedings of Promote IT, Karl-
+stad University.
+Judita Preiss. 2003. Using grammatical rela-
+tions to compare parsers. In Proc. of EACL
+03, Budapest, Hungary.
+Stefan Riezler, Tracy H. King, Ronald M. Ka-
+plan, Richard Crouch, John T. Maxwell,
+and Mark Johnson. 2002. Parsing the Wall
+Street Journal using a Lexical-Functional
+Grammar and discriminative estimation tech-
+niques. In Proc. of the 40th Annual Meet-
+ing of the Association for Computational Lin-
+guistics (ACL\&amp;apos;02), Philadephia, PA.
+Fabio Rinaldi, James Dowdall, Gerold Schnei-
+der, and Andreas Persidis. 2004a. Answer-
+ing Questions in the Genomics Domain. In
+ACL 2004 Workshop on Question Answering
+in restricted domains, Barcelona, Spain, 21{
+26 July.
+Fabio Rinaldi, Michael Hess, James Dowdall,
+Diego Moll\x13
+a, and Rolf Schwitter. 2004b.
+Question answering in terminology-rich tech-
+nical domains. In Mark Maybury, edi-
+tor, New Directions in Question Answering.
+MIT/AAAI Press.
+Anoop Sarkar, Fei Xia, and Aravind Joshi.
+2000. Some experiments on indicators of
+parsing complexity for lexicalized grammars.
+In Proc. of COLING.
+Gerold Schneider. 2003. Extracting and using
+trace-free Functional Dependencies from the
+Penn Treebank to reduce parsing complex-
+ity. In Proceedings of Treebanks and Linguis-
+tic Theories (TLT) 2003, V\x7f
+axj\x7f
+o, Sweden.
+Wojciech Skut, Brigitte Krenn, Thorsten
+Brants, and Hans Uszkoreit. 1997. An anno-
+tation scheme for free word order languages.
+In Proceedings of the Fifth Conference on Ap-
+plied Natural Language Processing (ANLP-
+97), Washington, DC.
+Pasi Tapanainen and Timo J\x7f
+arvinen. 1997. A
+non-projective dependency parser. In Pro-
+ceedings of the 5th Conference on Applied
+Natural Language Processing, pages 64{71.
+Association for Computational Linguistics.
+Lucien Tesni\x12
+ere. 1959. El\x13
+ements de Syntaxe
+Structurale. Librairie Klincksieck, Paris.
+\x0c&amp;apos;
+</reference>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.743273">
+<title confidence="0.999692">b&amp;apos;Fast, Deep-Linguistic Statistical Dependency Parsing</title>
+<author confidence="0.998782">Gerold Schneider</author>
+<author confidence="0.998782">Fabio Rinaldi</author>
+<author confidence="0.998782">James Dowdall</author>
+<affiliation confidence="0.999912">Institute of Computational Linguistics, University of Zurich</affiliation>
+<email confidence="0.998786">fgschneid,rinaldig@ifi.unizh.ch,j.m.dowdall@sussex.ac.uk</email>
+<abstract confidence="0.976516636363636">We present and evaluate an implemented statistical minimal parsing strategy exploiting DG charateristics to permit fast, robust, deeplinguistic analysis of unrestricted text, and compare its probability model to (Collins, 1999) and an adaptation, (Dubey and Keller, 2003). We show that DG allows for the expression of the majority of English LDDs in a context-free way and o\x0bers simple yet powerful statistical models.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Aoife Cahill</author>
+<author>Michael Burke</author>
+<author>Ruth O\&amp;apos;Donovan</author>
+<author>Josef van Genabith</author>
+<author>Andy Way</author>
+</authors>
+<date>2004</date>
+<marker>Cahill, Burke, O\&amp;apos;Donovan, van Genabith, Way, 2004</marker>
+<rawString>Aoife Cahill, Michael Burke, Ruth O\&amp;apos;Donovan, Josef van Genabith, and Andy Way. 2004.</rawString>
+</citation>
+<citation valid="true">
+<title>Long-distance dependency resolution in automatically acquired wide-coverage PCFGbased LFG approximations.</title>
+<date></date>
+<booktitle>In Proceedings of ACL-2004,</booktitle>
+<location>Barcelona,</location>
+<marker></marker>
+<rawString>Long-distance dependency resolution in automatically acquired wide-coverage PCFGbased LFG approximations. In Proceedings of ACL-2004, Barcelona, Spain.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>John Carroll</author>
+<author>Guido Minnen</author>
+<author>Ted Briscoe</author>
+</authors>
+<title>Corpus annotation for parser evaluation.</title>
+<date>1999</date>
+<booktitle>In Proceedings of the EACL-99 PostConference Workshop on Linguistically Interpreted Corpora,</booktitle>
+<location>Bergen, Norway.</location>
+<contexts>
+<context position="24127" citStr="Carroll et al., 1999" startWordPosition="4026" endWordPosition="4029">i )) is a lexicalized version of the same projection or attachment grammar model; P (t(Hi); l(Hi)jt(Hi); t(H 0 i ); l(H 0 i ; d(i))) in addition conditions on the distance9. Pro3Gres expresses the unlexicalized rules by licensing grammar rules for relation R. Tags are not used in Pro3Gres\&amp;apos; model, because semantic backo\x0bs and tag-based licensing rules are used. P (d(i)jl(Hi); l(H 0 i )) (10) The Pro3Gres main MLE estimation (8) (l(H) = a; l(H 0) = b) di\x0bers from (10) by using labeled DG, and thus from the Dubey &amp; Keller Model by using a consistent functional DG. 4 Evaluation (Lin, 1995; Carroll et al., 1999) suggest evaluating on the linguistically meaningful level of dependency relations. Two such evaluations are reported now. First, a general-purpose evaluation using a hand-compiled gold standard corpus (Carroll et al., 1999), which contains the grammatical relation data of 500 random sentences from the Susanne corpus. The performance (table 3), according to (Preiss, 2003), is similar to a large selection of statistical parsers and a grammatical relation \x0cnder. Relations involving LDDs form part of these relations. A selection of them is also given: WH-Subject (WHS), WH-Object (WHO), passive</context>
+</contexts>
+<marker>Carroll, Minnen, Briscoe, 1999</marker>
+<rawString>John Carroll, Guido Minnen, and Ted Briscoe. 1999. Corpus annotation for parser evaluation. In Proceedings of the EACL-99 PostConference Workshop on Linguistically Interpreted Corpora, Bergen, Norway.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eugene Charniak</author>
+</authors>
+<title>A maximum-entropyinspired parser.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the North American Chapter of the ACL,</booktitle>
+<pages>132--139</pages>
+<contexts>
+<context position="2692" citStr="Charniak, 2000" startWordPosition="391" endWordPosition="392"> CFG. The complexity of some formal grammars is still unknown.2 Parsing algorithms able to treat completely unrestricted long-distance dependencies are NPcomplete (Neuhaus and Br\x7f oker, 1997). Ranking Returning all syntactically possible analyses for a sentence is not what is expected of a syntactic analyzer. A clear indication of preference is needed. Pruning In order to keep search spaces manageable it is necessary to discard unconvincing alternatives already during the parsing process. A number of robust statistical parsers that o\x0ber solutions to these problems have become available (Charniak, 2000; Collins, 1999; Henderson, 2003). In a statistical parser, the ranking of intermediate structures occurs naturally and based on empirical grounds, while most rule-based systems rely on ad hoc heuristics. With an aggressive beam for parse-time pruning (so in our parser), real-world parsing time can be reduced to near-linear. If one were to assume a constantly full \x0cxed beam, or uses an oracle (Nivre, 2004) it is linear in practice3. Also worst-case complexity for exhaustive parsing is low, as these parsers are CFGbased (Eisner, 2000)4. But they typically produce CFG constituency data as out</context>
+</contexts>
+<marker>Charniak, 2000</marker>
+<rawString>Eugene Charniak. 2000. A maximum-entropyinspired parser. In Proceedings of the North American Chapter of the ACL, pages 132{ 139.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Noam Chomsky</author>
+</authors>
+<title>The Minimalist Program.</title>
+<date>1995</date>
+<publisher>The MIT Press,</publisher>
+<location>Cambridge, Massachusetts.</location>
+<contexts>
+<context position="12795" citStr="Chomsky, 1995" startWordPosition="2051" endWordPosition="2052">h are adjacent during parsing are candi\x0cROOT the man eats apples with a fork W SENT \x0f Subj \x0f Det W Obj W PP W PObj \x0f Det eat/V hhhhh h ( ( ( ( ( ( man/N XX \x18 \x18 the/D the man/N man eat/V hhhhh \x11 \x11 ( ( ( ( ( eat/V eats apple/N apples with/P hh h ( ( ( with/P with fork/N X X \x18 \x18 a/D a fork/N fork Figure 1: DG and CFG representation dates for the RHS of a rewrite rule. As terminal types we use word tags. X ! AB; e:g:N P ! DT N N (1) In DG, one of these is isomorphic to the LHS, i.e. the head. This grammar is also a Bare Phrase Structure grammar known from Minimalism (Chomsky, 1995). B ! AB; e:g: N N ! DT N N (2) A ! AB; e:g: V B ! V B P P (3) Labeled DG rules additionally use a syntactic relation label R. A non-lexicalized model would be: p(RjA ! AB) \x18 = #(R; A ! AB) #(A ! AB) (4) Research on PCFG and PP-attachment has shown the importance of probabilizing on lexical heads (a and b). p(RjA ! AB; a; b) \x18 = #(R; A ! AB; a; b) #(A ! AB; a; b) (5) All that A ! AB expresses is that the dependency relation is towards the right. p(Rjright; a; b) \x18 = #(R; right; a; b) #(right; a; b) (6) e.g. for the Verb-PP attachment relation pobj (following (Collins and Brooks, 1995)</context>
+<context position="20669" citStr="Chomsky, 1995" startWordPosition="3420" endWordPosition="3421">: P (RHSjLHS) = Ph(HjP; t(P ); l(P )) \x01 m Y i=0 Pl(Li; t(Li ); l(Li)jP; Li 1; t(Li 1); l(Li 1); d(i)) \x01 n Y i=0 Pr (Ri; t(Ri ); l(Ri)jP; Ri 1; t(Ri 1); l(Ri 1); d(i)) Their new model performs considerably better and also outperforms the unlexicalized baseline. The authors state that \\[u]sing sister-head relationships is a way of counteracting the atness of the grammar productions; it implicitly adds binary branching to the grammar.&amp;quot; (ibid.). DG is binary branching by de\x0cnition; adding binary branching implicitly converts the CFG rules into an ad-hoc DG. \x0cWhether the combination ((Chomsky, 1995) merge) of two binary constituents directly projects to a \\real&amp;quot; CFG rule LHS or an implicit intermediate constituent does not matter. Observations \x0f What counts is each individual Functional DG dependency, no matter whether it is expressed as a sister-head or a head-head dependency, or stretches across several CFG levels (control, modpart etc.) \x0f Not adjacency (i,i-1) but headedness counts. Instead of conditioning on the preceding (i-1) sister, conditioning on the real DG head is linguistically more motivated8. \x0f Not adjacency (i,i-1) but the type of GR counts: the question why Dube</context>
+<context position="23435" citStr="Chomsky, 1995" startWordPosition="3903" endWordPosition="3904"> or relative pronouns as markers to the verbal head of the subclause. Headedness and not direction matters. Li/Ri is replaced by Hi and L/Ri 1=i+1 by H\&amp;apos;. H\&amp;apos; is understood to be the DG dependent, although, as mentioned, H\&amp;apos; could also be the DG head in this implicit ad-hoc DG. P (RHSjLHS) \x18 = l(h) \x01 n+m Y i=0 Pl;r(t(Hi ); l(Hi)jt(Hi ); t(H 0 i ); l(H 0 i); d(i)) P (t(Hi)jt(Hi); t(H 0 i )) is a projection or attachment grammar model modeling the unlexicalized probability of t(H) and t(H\&amp;apos;) participating in a binary rule with t(H) as head { the merge probability in Bare Phrase Structure (Chomsky, 1995); an unlabeled version of (4). P (t(Hi); l(Hi)jt(Hi); t(H 0 i ); l(H 0 i )) is a lexicalized version of the same projection or attachment grammar model; P (t(Hi); l(Hi)jt(Hi); t(H 0 i ); l(H 0 i ; d(i))) in addition conditions on the distance9. Pro3Gres expresses the unlexicalized rules by licensing grammar rules for relation R. Tags are not used in Pro3Gres\&amp;apos; model, because semantic backo\x0bs and tag-based licensing rules are used. P (d(i)jl(Hi); l(H 0 i )) (10) The Pro3Gres main MLE estimation (8) (l(H) = a; l(H 0) = b) di\x0bers from (10) by using labeled DG, and thus from the Dubey &amp; Kell</context>
+</contexts>
+<marker>Chomsky, 1995</marker>
+<rawString>Noam Chomsky. 1995. The Minimalist Program. The MIT Press, Cambridge, Massachusetts.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hoojung Chung</author>
+<author>Hae-Chang Rim</author>
+</authors>
+<title>A new probabilistic dependency parsing model for head-\x0cnal, free word order languages.</title>
+<date>2003</date>
+<journal>IEICE Transaction on Information &amp; System,</journal>
+<volume>86</volume>
+<pages>11--2490</pages>
+<contexts>
+<context position="15562" citStr="Chung and Rim, 2003" startWordPosition="2544" endWordPosition="2547">9) Di\x0berences in comparison to (8) are: \x0f Pro3Gres does not use tag information. This is because, \x0crst, the licensing handwritten grammar is based on Penn tags. \x0f The second reason for not using tag information is because Pro3Gres backs o\x0b to semantic WordNet classes (Fellbaum, 1998) for nouns and to Levin classes (Levin, 1993) for verbs instead of to tags, which has the advantage of being more \x0cne-grained. \x0f Pro3Gres uses real distances, measured in chunks, instead of a feature vector. Distance is assumed to be dependent only on R, which reduces the sparse data problem. (Chung and Rim, 2003) made similar observations for Korean. \x0f The co-occurrence count in the MLE denominator is not the sentence-context, but the sum of counts of competing relations. E.g. the object and adjunct relation are in competition, as they are licensed by the same tag sequence V B\x03 N N \x03. Pro3Gres models attachment (thus decision) probabilities, viewing parsing as a decision process. \x0f Relations (R) have a Functional DG de\x0cnition, including LDDs. \x0c3.2 Relation to Collins Model 2 (Collins, 1999) Model 2 extends the parser to include a complement/adjunct distinction for NPs and subordinate</context>
+</contexts>
+<marker>Chung, Rim, 2003</marker>
+<rawString>Hoojung Chung and Hae-Chang Rim. 2003. A new probabilistic dependency parsing model for head-\x0cnal, free word order languages. IEICE Transaction on Information &amp; System, E86-D, No. 11:2490{2493.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+<author>James Brooks</author>
+</authors>
+<title>Prepositional attachment through a backedo\x0b model.</title>
+<date>1995</date>
+<booktitle>In Proceedings of the Third Workshop on Very Large Corpora,</booktitle>
+<location>Cambridge, MA.</location>
+<contexts>
+<context position="13395" citStr="Collins and Brooks, 1995" startWordPosition="2177" endWordPosition="2180">inimalism (Chomsky, 1995). B ! AB; e:g: N N ! DT N N (2) A ! AB; e:g: V B ! V B P P (3) Labeled DG rules additionally use a syntactic relation label R. A non-lexicalized model would be: p(RjA ! AB) \x18 = #(R; A ! AB) #(A ! AB) (4) Research on PCFG and PP-attachment has shown the importance of probabilizing on lexical heads (a and b). p(RjA ! AB; a; b) \x18 = #(R; A ! AB; a; b) #(A ! AB; a; b) (5) All that A ! AB expresses is that the dependency relation is towards the right. p(Rjright; a; b) \x18 = #(R; right; a; b) #(right; a; b) (6) e.g. for the Verb-PP attachment relation pobj (following (Collins and Brooks, 1995) including the description noun7) p(pobjjright; verb; prep; desc:noun) \x18 = #(pobj; right; verb; prep; desc:noun) #(right; verb; prep; desc:noun) The distance (measured in chunks) between a head and a dependent is a limiting factor for the probability of a dependency between them. p(R; distjright; a; b) \x18 = #(R; dist; right; a; b) #(right; a; b) (7) 7PP is considered to be an exocentric category, since both the preposition and the description noun can be seen as head; in LFG they appear as double-head Many relations are only allowed towards one direction, the left/right factor is absent f</context>
+</contexts>
+<marker>Collins, Brooks, 1995</marker>
+<rawString>Michael Collins and James Brooks. 1995. Prepositional attachment through a backedo\x0b model. In Proceedings of the Third Workshop on Very Large Corpora, Cambridge, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+</authors>
+<title>Head-Driven Statistical Models for Natural Language Parsing.</title>
+<date>1999</date>
+<tech>Ph.D. thesis,</tech>
+<institution>University of Pennsylvania,</institution>
+<location>Philadelphia, PA.</location>
+<contexts>
+<context position="1129" citStr="Collins, 1999" startWordPosition="157" endWordPosition="158"> DG allows for the expression of the majority of English LDDs in a context-free way and o\x0bers simple yet powerful statistical models. 1 Introduction We present a fast, deep-linguistic statistical parser that pro\x0cts from DG characteristics and that uses am minimal parsing strategy. First, we rely on \x0cnite-state based approaches as long as possible, secondly where parsing is necessary we keep it context-free as long as possible1. For low-level syntactic tasks, tagging and baseNP chunking is used, parsing only takes place between heads of chunks. Robust, successful parsers (Abney, 1995; Collins, 1999) have shown that this division of labour is particularly attractive for DG. Deep-linguistic, Formal Grammar parsers have carefully crafted grammars written by professional linguists. But unrestricted real-world texts still pose a problem to NLP systems that are based on Formal Grammars. Few handcrafted, deep linguistic grammars achieve the coverage and robustness needed to parse large corpora (see (Riezler et al., 2002), (Burke et al., 2004) and (Hockenmaier and Steedman, 2002) for exceptions), and speed remains a serious challenge. The typical problems can be grouped as follows. Grammar compl</context>
+<context position="2707" citStr="Collins, 1999" startWordPosition="393" endWordPosition="394">xity of some formal grammars is still unknown.2 Parsing algorithms able to treat completely unrestricted long-distance dependencies are NPcomplete (Neuhaus and Br\x7f oker, 1997). Ranking Returning all syntactically possible analyses for a sentence is not what is expected of a syntactic analyzer. A clear indication of preference is needed. Pruning In order to keep search spaces manageable it is necessary to discard unconvincing alternatives already during the parsing process. A number of robust statistical parsers that o\x0ber solutions to these problems have become available (Charniak, 2000; Collins, 1999; Henderson, 2003). In a statistical parser, the ranking of intermediate structures occurs naturally and based on empirical grounds, while most rule-based systems rely on ad hoc heuristics. With an aggressive beam for parse-time pruning (so in our parser), real-world parsing time can be reduced to near-linear. If one were to assume a constantly full \x0cxed beam, or uses an oracle (Nivre, 2004) it is linear in practice3. Also worst-case complexity for exhaustive parsing is low, as these parsers are CFGbased (Eisner, 2000)4. But they typically produce CFG constituency data as output, trees that</context>
+<context position="6287" citStr="Collins, 1999" startWordPosition="980" endWordPosition="981">mmars. After presenting the DG bene\x0cts, we de\x0cne our DG and introduce our statistical model. Then, we give an evaluation. 2 The Bene\x0ct of DG Characteristics In addition to some obvious bene\x0cts, such as the integration of chunking and parsing (Abney, 1995), where a chunk largely corresponds to a nucleus (Tesni\x12 ere, 1959), or that in an endocentric theory projection can never fail, we present eight characteristics in more detail, which in their combination allow us to treat the majority of English long-distance dependencies (LDD) in our DG parser Pro3Gres in a context-fee way. 5(Collins, 1999) Model 2 uses some of the functional labels, and Model 3 some long-distance dependencies The ten most frequent types of empty nodes cover more than 60,000 of the approximately 64,000 empty nodes of sections 2-21 of the Penn Treebank. Table 1, reproduced from (Johnson, 2002) [line numbers and counts from the whole Treebank added], gives an overview. 2.1 No Empty Nodes The fact that traditional DG does not know empty nodes allows a DG parser to use the ecient 0(n 3) CYK algorithm. 2.2 Only Content Words are Nuclei Only content words can be nuclei in a traditional DG. This means that empty units,</context>
+<context position="14474" citStr="Collins, 1999" startWordPosition="2364" endWordPosition="2365">een as head; in LFG they appear as double-head Many relations are only allowed towards one direction, the left/right factor is absent for them. Typical distances mainly depend on the relation. Objects usually immediately follow the verb, while a PP attached to the verb may easily follow only at the second or third position, after the object and other PPs etc. By application of the chain rule and assuming that distance is independent of the lexical heads we get: p(R; distja; b) \x18 = #(R; a; b) #(a; b) \x01 #(R; dist) #R (8) We now explore Pro3Gres\&amp;apos; main probability model by comparing it to (Collins, 1999), and an adaptation of it, (Dubey and Keller, 2003). 3.1 Relation of Pro3Gres to Collins Model 1 We will \x0crst consider the non-generative Model 1 (Collins, 1999). Both (Collins, 1999) Model 1 and Pro3Gres are mainly dependency-based statistical parsers over heads of chunks, a close relation can thus be expected. The (Collins, 1999) Model 1 MLE estimation is: P (Rjha; atagi; hb; btagi; dist) \x18 = #(R; ha; atagi; hb; btagi; dist) #(ha; atagi; hb; btagi; dist) (9) Di\x0berences in comparison to (8) are: \x0f Pro3Gres does not use tag information. This is because, \x0crst, the licensing handw</context>
+<context position="16067" citStr="Collins, 1999" startWordPosition="2629" endWordPosition="2630">. Distance is assumed to be dependent only on R, which reduces the sparse data problem. (Chung and Rim, 2003) made similar observations for Korean. \x0f The co-occurrence count in the MLE denominator is not the sentence-context, but the sum of counts of competing relations. E.g. the object and adjunct relation are in competition, as they are licensed by the same tag sequence V B\x03 N N \x03. Pro3Gres models attachment (thus decision) probabilities, viewing parsing as a decision process. \x0f Relations (R) have a Functional DG de\x0cnition, including LDDs. \x0c3.2 Relation to Collins Model 2 (Collins, 1999) Model 2 extends the parser to include a complement/adjunct distinction for NPs and subordinated clauses, and it includes a subcategorisation frame model. For the subcategorisation-dependent generation of dependencies in Model 2, \x0crst the probabilities of the possible subcat frames are calculated and the selected subcat frame is added as a condition. Once a subcategorized constituent has been found, it is removed from the subcat frame, ensuring that non-subcategorized constituents cannot be attached as complement, which is one of the two major function of a subcat frame. The other major fun</context>
+<context position="19404" citStr="Collins, 1999" startWordPosition="3193" endWordPosition="3194">rmance on freer word order languages, in their case German. German is considerably more in ectional which means that discarding functional information is more harmful, and which explains why the NEGRA annotation has been conceived to be quite at (Skut et al., 1997). (Dubey and Keller, 2003) observe that models such as Collins when applied directly perform worse than an unlexicalized PCFG baseline. The fact that learning curves converge early indicates that this is not mainly a sparse data e\x0bect. They suggest a linguistically motivated change, which is shown to outperform the baseline. The (Collins, 1999) Model 2 rule generation model for P ! Lm:::L1HR1:::Rn, is P (RHSjLHS) = Ph(HjP; t(P ); l(P )) \x01 m Y i=0 Pl(Li; t(Li); l(Li)jP; H; t(H); l(H); d(i)) \x01 n Y i=0 Pr(Ri; t(Ri ); l(Ri)jP; H; t(H); l(H); d(i)) Ph P of head t(H) tag of H head word LHS left-hand side RHS right-hand side Pl:1::m P(words left of head) Pr:1::n P(words right of head) H LHS Head Category P RHS Mother Category L left Constit. Cat. R right Constit. Cat. l(H) head word of H d distance measure Dubey &amp; Keller suggest the following change in order to respect the NEGRA atness: Ph is left unchanged, but Pl and Pr are conditi</context>
+</contexts>
+<marker>Collins, 1999</marker>
+<rawString>Michael Collins. 1999. Head-Driven Statistical Models for Natural Language Parsing. Ph.D. thesis, University of Pennsylvania, Philadelphia, PA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael A Covington</author>
+</authors>
+<title>An empirically motivated reinterpretation of Dependency Grammar.</title>
+<date>1994</date>
+<tech>Technical Report AI1994-01,</tech>
+<institution>University of Georgia,</institution>
+<location>Athens,</location>
+<contexts>
+<context position="11842" citStr="Covington, 1994" startWordPosition="1852" endWordPosition="1853">inguistic Dependency Parsers (Lin, 1998; Tapanainen and J\x7f arvinen, 1997) do not have a statistical base. But one DG advantage is precisely that it o\x0bers simple but powerful statistical Maximum Likelihood Estimation (MLE) models. We now de\x0cne our DG and the probability model. The rules of a context-free, unlabeled DG are equivalent to binary-branching CFG rewrite rules in which the head and the mother node are isomorphic. When converting DG structures to CFG, the order of application of these rules is not necessarily known, but in a labeled DG, the set of rules can specify the order (Covington, 1994). Fig. 1 shows such two structures, equivalent except for the absence of functional labels in CFG. Subj (but not P P ) has been used in this example conversion to specify the application order, hence we get a repetition of the eat/V node, mirroring a traditional CFG S and VP distinction. In a binary CFG, any two constituents A and B which are adjacent during parsing are candi\x0cROOT the man eats apples with a fork W SENT \x0f Subj \x0f Det W Obj W PP W PObj \x0f Det eat/V hhhhh h ( ( ( ( ( ( man/N XX \x18 \x18 the/D the man/N man eat/V hhhhh \x11 \x11 ( ( ( ( ( eat/V eats apple/N apples with/</context>
+</contexts>
+<marker>Covington, 1994</marker>
+<rawString>Michael A. Covington. 1994. An empirically motivated reinterpretation of Dependency Grammar. Technical Report AI1994-01, University of Georgia, Athens, Georgia.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Amit Dubey</author>
+<author>Frank Keller</author>
+</authors>
+<title>Probabilistic parsing for German using sister-head dependencies.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the 41st Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<location>Sapporo.</location>
+<contexts>
+<context position="14525" citStr="Dubey and Keller, 2003" startWordPosition="2371" endWordPosition="2374">head Many relations are only allowed towards one direction, the left/right factor is absent for them. Typical distances mainly depend on the relation. Objects usually immediately follow the verb, while a PP attached to the verb may easily follow only at the second or third position, after the object and other PPs etc. By application of the chain rule and assuming that distance is independent of the lexical heads we get: p(R; distja; b) \x18 = #(R; a; b) #(a; b) \x01 #(R; dist) #R (8) We now explore Pro3Gres\&amp;apos; main probability model by comparing it to (Collins, 1999), and an adaptation of it, (Dubey and Keller, 2003). 3.1 Relation of Pro3Gres to Collins Model 1 We will \x0crst consider the non-generative Model 1 (Collins, 1999). Both (Collins, 1999) Model 1 and Pro3Gres are mainly dependency-based statistical parsers over heads of chunks, a close relation can thus be expected. The (Collins, 1999) Model 1 MLE estimation is: P (Rjha; atagi; hb; btagi; dist) \x18 = #(R; ha; atagi; hb; btagi; dist) #(ha; atagi; hb; btagi; dist) (9) Di\x0berences in comparison to (8) are: \x0f Pro3Gres does not use tag information. This is because, \x0crst, the licensing handwritten grammar is based on Penn tags. \x0f The seco</context>
+<context position="18719" citStr="Dubey and Keller, 2003" startWordPosition="3076" endWordPosition="3079">Model 2 takes an unnecessary detour. As for the probability of stopping the expansion of a rule { since DG rules are always binary { it is always 0 before and 1 after the attachment. But what is needed in place of interrelations of constituents of the same rewrite rule is proper cooperation of the di\x0berent subcat types. For example, the grammar rules only allow a noun to be obj2 once obj has been found, or a verb is required to have a subject unless it is non-\x0cnite or a participle, or all objects need to be closer to the verb than a subordinate clause. 3.3 Relation to Dubey &amp; Keller 03 (Dubey and Keller, 2003) address the question whether models such as Collins also improve performance on freer word order languages, in their case German. German is considerably more in ectional which means that discarding functional information is more harmful, and which explains why the NEGRA annotation has been conceived to be quite at (Skut et al., 1997). (Dubey and Keller, 2003) observe that models such as Collins when applied directly perform worse than an unlexicalized PCFG baseline. The fact that learning curves converge early indicates that this is not mainly a sparse data e\x0bect. They suggest a linguistic</context>
+<context position="21732" citStr="Dubey and Keller, 2003" startWordPosition="3590" endWordPosition="3593">ng (i-1) sister, conditioning on the real DG head is linguistically more motivated8. \x0f Not adjacency (i,i-1) but the type of GR counts: the question why Dubey &amp; Keller did not use the NEGRA GR labels has to arise when discussing a strongly in ectional language such as German. \x0f The use of a generative model, calculating the probability of a rule and ultimately the probability of producing a sentence given the grammar only has theoretical advantages. For practical purposes, modeling parsetime decision probabilities is as valid. With these observations in mind, we can compare Pro3Gres to (Dubey and Keller, 2003). As for the Base-NP Model, Pro3Gres only respects the best tagging &amp; chunking result reported to it { a major source of errors (see section 4). In DG, projection (although not expansion) is deterministic. H and P are usually isomorphic, if not Tesni\x12 ere-translations are rulebased. Since in DG, only lexical nodes are categories, P=t(P). Ph is thus l(h), the prior, we ignore it for maximizing. In analogy, also category (L/R) and their tags are identical. The revised formula is P (RHSjLHS) \x18 = l(h) \x01 m Y i=0 Pl(t(Li ); l(Li)jP; t(Li 1); l(Li 1); d(i)) \x01 n Y i=0 Pr(t(Ri ); l(Ri)jP; t</context>
+</contexts>
+<marker>Dubey, Keller, 2003</marker>
+<rawString>Amit Dubey and Frank Keller. 2003. Probabilistic parsing for German using sister-head dependencies. In Proceedings of the 41st Annual Meeting of the Association for Computational Linguistics, Sapporo.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jason Eisner</author>
+</authors>
+<title>Bilexical grammars and their cubic-time parsing algorithms.</title>
+<date>2000</date>
+<booktitle>In Harry \x0cBunt and Anton Nijholt, editors, Advances in Probabilistic and Other Parsing Technologies.</booktitle>
+<publisher>Kluwer.</publisher>
+<contexts>
+<context position="3234" citStr="Eisner, 2000" startWordPosition="479" endWordPosition="480">x0ber solutions to these problems have become available (Charniak, 2000; Collins, 1999; Henderson, 2003). In a statistical parser, the ranking of intermediate structures occurs naturally and based on empirical grounds, while most rule-based systems rely on ad hoc heuristics. With an aggressive beam for parse-time pruning (so in our parser), real-world parsing time can be reduced to near-linear. If one were to assume a constantly full \x0cxed beam, or uses an oracle (Nivre, 2004) it is linear in practice3. Also worst-case complexity for exhaustive parsing is low, as these parsers are CFGbased (Eisner, 2000)4. But they typically produce CFG constituency data as output, trees that do not express long-distance dependencies. Although grammatical function and empty 2For Tree-Adjoining Grammars (TAG) it is O(n7) or O(n8) depending on the implementation (Eisner, 2000). (Sarkar et al., 2000) state that the theoretical bound of worst time complexity for Head-Driven Phrase Structure Grammar (HPSG) parsing is exponential. 3In practical terms, beam or oracle approach have very similar e\x0bects 4Parsing complexity of the original Collins Models is O(n5), but theoretically O(n3) would be possible \x0cAnteced</context>
+</contexts>
+<marker>Eisner, 2000</marker>
+<rawString>Jason Eisner. 2000. Bilexical grammars and their cubic-time parsing algorithms. In Harry \x0cBunt and Anton Nijholt, editors, Advances in Probabilistic and Other Parsing Technologies. Kluwer.</rawString>
+</citation>
+<citation valid="true">
+<title>WordNet: An Electronic Lexical Database.</title>
+<date>1998</date>
+<editor>Christiane Fellbaum, editor.</editor>
+<publisher>MIT Press,</publisher>
+<location>Cambridge, MA.</location>
+<marker>1998</marker>
+<rawString>Christiane Fellbaum, editor. 1998. WordNet: An Electronic Lexical Database. MIT Press, Cambridge, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>James Henderson</author>
+</authors>
+<title>Inducing history representations for broad coverage statistical parsing.</title>
+<date>2003</date>
+<booktitle>In Proceedings of HLT-NAACL 2003,</booktitle>
+<location>Edmonton, Canada.</location>
+<contexts>
+<context position="2725" citStr="Henderson, 2003" startWordPosition="395" endWordPosition="397">rmal grammars is still unknown.2 Parsing algorithms able to treat completely unrestricted long-distance dependencies are NPcomplete (Neuhaus and Br\x7f oker, 1997). Ranking Returning all syntactically possible analyses for a sentence is not what is expected of a syntactic analyzer. A clear indication of preference is needed. Pruning In order to keep search spaces manageable it is necessary to discard unconvincing alternatives already during the parsing process. A number of robust statistical parsers that o\x0ber solutions to these problems have become available (Charniak, 2000; Collins, 1999; Henderson, 2003). In a statistical parser, the ranking of intermediate structures occurs naturally and based on empirical grounds, while most rule-based systems rely on ad hoc heuristics. With an aggressive beam for parse-time pruning (so in our parser), real-world parsing time can be reduced to near-linear. If one were to assume a constantly full \x0cxed beam, or uses an oracle (Nivre, 2004) it is linear in practice3. Also worst-case complexity for exhaustive parsing is low, as these parsers are CFGbased (Eisner, 2000)4. But they typically produce CFG constituency data as output, trees that do not express lo</context>
+</contexts>
+<marker>Henderson, 2003</marker>
+<rawString>James Henderson. 2003. Inducing history representations for broad coverage statistical parsing. In Proceedings of HLT-NAACL 2003, Edmonton, Canada.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Julia Hockenmaier</author>
+<author>Mark Steedman</author>
+</authors>
+<title>Generative models for statistical parsing with combinatory categorial grammar.</title>
+<date>2002</date>
+<booktitle>In Proceedings of 40th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<location>Philadelphia.</location>
+<contexts>
+<context position="1611" citStr="Hockenmaier and Steedman, 2002" startWordPosition="228" endWordPosition="231">tasks, tagging and baseNP chunking is used, parsing only takes place between heads of chunks. Robust, successful parsers (Abney, 1995; Collins, 1999) have shown that this division of labour is particularly attractive for DG. Deep-linguistic, Formal Grammar parsers have carefully crafted grammars written by professional linguists. But unrestricted real-world texts still pose a problem to NLP systems that are based on Formal Grammars. Few handcrafted, deep linguistic grammars achieve the coverage and robustness needed to parse large corpora (see (Riezler et al., 2002), (Burke et al., 2004) and (Hockenmaier and Steedman, 2002) for exceptions), and speed remains a serious challenge. The typical problems can be grouped as follows. Grammar complexity Fully comprehensive grammars are dicult to maintain and consid1Non-subject WH-question pronouns and support verbs cannot be treated context-free with our approach. We use a simple pre-parsing step to analyze them erably increase parsing complexity. Parsing complexity Typical formal grammar parser complexity is much higher than the O(n 3) for CFG. The complexity of some formal grammars is still unknown.2 Parsing algorithms able to treat completely unrestricted long-distanc</context>
+</contexts>
+<marker>Hockenmaier, Steedman, 2002</marker>
+<rawString>Julia Hockenmaier and Mark Steedman. 2002. Generative models for statistical parsing with combinatory categorial grammar. In Proceedings of 40th Annual Meeting of the Association for Computational Linguistics, Philadelphia.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Richard Hudson</author>
+</authors>
+<title>Word Grammar.</title>
+<date>1984</date>
+<publisher>Basil Blackwell,</publisher>
+<location>Oxford.</location>
+<contexts>
+<context position="10057" citStr="Hudson, 1984" startWordPosition="1575" endWordPosition="1576">cture without needing a c-structure detour. 6In addition to taking less decisions due to the gained high-level shallowness, it is ensured that the lexical information that matters is available in one central place, allowing the parser to take one well-informed decision instead of several brittle decisions plagued by sparseness. Collapsing deeply nested structures into a single dependency relation is less complex but has a similar e\x0bect as selecting what goes in to the parse history in historybased approaches. 2.6 Graphs DG theory often conceives of DG structures as graphs instead of trees (Hudson, 1984). A statistical lexicalized post-processing module in Pro3Gres transforms selected subtrees into graphs, e.g. in order to express control. 2.7 Transformation to Semantic Layer Pro3Gres is currently being applied in a Question Answering system speci\x0ccally targeted at technical domains (Rinaldi et al., 2004b). One of the main advantages of a DG parser such as Pro3Gres over other parsing approaches is that a mapping from the syntactic layer to a semantic layer (meaning representation) is partly simpli\x0ced (Moll\x13 a et al., 2000). 2.8 Tesni\x12 ere\&amp;apos;s Translations The possible functional ch</context>
+</contexts>
+<marker>Hudson, 1984</marker>
+<rawString>Richard Hudson. 1984. Word Grammar. Basil Blackwell, Oxford.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mark Johnson</author>
+</authors>
+<title>A simple patternmatching algorithm for recovering empty nodes and their antecedents.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the 40th Meeting of the ACL,</booktitle>
+<institution>University of Pennsylvania,</institution>
+<location>Philadelphia.</location>
+<contexts>
+<context position="4559" citStr="Johnson, 2002" startWordPosition="710" endWordPosition="711">p is nice 3 WHNP NP *T* 10,659 WH trace the woman who you saw *T* (4) *U* 9,202 Empty units $ 25 *U* (5) 0 7,057 Empty complementizers Sam said 0 Sasha snores (6) S S *T* 5,035 Moved clauses Sam had to go, Sasha said *T* 7 WHADVP ADVP *T* 3,181 WH-trace Sam explained how to leave *T* (8) SBAR 2,513 Empty clauses Sam had to go, said Sasha (SBAR) (9) WHNP 0 2,139 Empty relative pronouns the woman 0 we saw (10) WHADVP 0 726 Empty relative pronouns the reason 0 to leave Table 1: The distribution of the 10 most frequent types of empty nodes and their antecedents in the Penn Treebank (adapted from (Johnson, 2002)). Bracketed line numbers only involve LDDs as grammar artifact nodes annotation expressing long-distance dependencies are provided in Treebanks such as the Penn Treebank (Marcus et al., 1993), most statistical Treebank trained parsers fully or largely ignore them5, which entails two problems: \x0crst, the training cannot pro\x0ct from valuable annotation data. Second, the extraction of long-distance dependencies (LDD) and the mapping to shallow semantic representations is not always possible from the output of these parsers. This limitation is aggravated by a lack of co-indexation information</context>
+<context position="6561" citStr="Johnson, 2002" startWordPosition="1025" endWordPosition="1026"> a chunk largely corresponds to a nucleus (Tesni\x12 ere, 1959), or that in an endocentric theory projection can never fail, we present eight characteristics in more detail, which in their combination allow us to treat the majority of English long-distance dependencies (LDD) in our DG parser Pro3Gres in a context-fee way. 5(Collins, 1999) Model 2 uses some of the functional labels, and Model 3 some long-distance dependencies The ten most frequent types of empty nodes cover more than 60,000 of the approximately 64,000 empty nodes of sections 2-21 of the Penn Treebank. Table 1, reproduced from (Johnson, 2002) [line numbers and counts from the whole Treebank added], gives an overview. 2.1 No Empty Nodes The fact that traditional DG does not know empty nodes allows a DG parser to use the ecient 0(n 3) CYK algorithm. 2.2 Only Content Words are Nuclei Only content words can be nuclei in a traditional DG. This means that empty units, empty complementizers and empty relative pronouns [lines 4,5,9,10] pose no problem for DG as they are optional, non-head material. For example, a complementizer is an optional dependent of the subordinated verb. 2.3 No External Argument, ID/LP Moved clauses [line 6] are mo</context>
+</contexts>
+<marker>Johnson, 2002</marker>
+<rawString>Mark Johnson. 2002. A simple patternmatching algorithm for recovering empty nodes and their antecedents. In Proceedings of the 40th Meeting of the ACL, University of Pennsylvania, Philadelphia.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J D Kim</author>
+<author>T Ohta</author>
+<author>Y Tateisi</author>
+<author>J Tsujii</author>
+</authors>
+<title>Genia corpus - a semantically annotated corpus for bio-textmining.</title>
+<date>2003</date>
+<journal>Bioinformatics,</journal>
+<volume>19</volume>
+<issue>1</issue>
+<contexts>
+<context position="25847" citStr="Kim et al., 2003" startWordPosition="4312" endWordPosition="4315">ercentages for some relations, general, on GENIA corpus Subject Object noun-PP verb-PP subord. clause Precision 90 94 83 82 71 Recall 86 95 82 84 75 Table 3: Evaluation on Carroll\&amp;apos;s test suite on subj, obj, PP-attachment and clause subord. relations and a selection of 5 LDD relations, and on the terminology-annotated GENIA corpus Secondly, to answer how the parser performs over domains markedly di\x0berent to the training corpus, to test whether terminology is the key to a successful parsing system, and to assess the impact of chunking errors, the parser has been applied to the GENIA corpus (Kim et al., 2003), 2000 MEDLINE abstracts of more than 400,000 words describing the results of Biomedical research, which is annotated for multi-word terms and thus contains near-perfect chunking. 100 random sentences from the GENIA corpus have been manually annotated and compared to the parser output (Rinaldi et al., 2004a). 5 Conclusions We have discussed how DG allows the expression of the majority of LDDs in a contextfree way and shown that DG allows for simple but powerful statistical models. An evaluation shows that the performance of its implementation is state-of-the-art10. Its parsing speed of about 3</context>
+</contexts>
+<marker>Kim, Ohta, Tateisi, Tsujii, 2003</marker>
+<rawString>J.D. Kim, T. Ohta, Y. Tateisi, and J. Tsujii. 2003. Genia corpus - a semantically annotated corpus for bio-textmining. Bioinformatics, 19(1):i180{i182.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Beth C Levin</author>
+</authors>
+<title>English Verb Classes and Alternations: a Preliminary Investigation.</title>
+<date>1993</date>
+<publisher>University of Chicago Press,</publisher>
+<location>Chicago, IL.</location>
+<contexts>
+<context position="15286" citStr="Levin, 1993" startWordPosition="2499" endWordPosition="2500">ro3Gres are mainly dependency-based statistical parsers over heads of chunks, a close relation can thus be expected. The (Collins, 1999) Model 1 MLE estimation is: P (Rjha; atagi; hb; btagi; dist) \x18 = #(R; ha; atagi; hb; btagi; dist) #(ha; atagi; hb; btagi; dist) (9) Di\x0berences in comparison to (8) are: \x0f Pro3Gres does not use tag information. This is because, \x0crst, the licensing handwritten grammar is based on Penn tags. \x0f The second reason for not using tag information is because Pro3Gres backs o\x0b to semantic WordNet classes (Fellbaum, 1998) for nouns and to Levin classes (Levin, 1993) for verbs instead of to tags, which has the advantage of being more \x0cne-grained. \x0f Pro3Gres uses real distances, measured in chunks, instead of a feature vector. Distance is assumed to be dependent only on R, which reduces the sparse data problem. (Chung and Rim, 2003) made similar observations for Korean. \x0f The co-occurrence count in the MLE denominator is not the sentence-context, but the sum of counts of competing relations. E.g. the object and adjunct relation are in competition, as they are licensed by the same tag sequence V B\x03 N N \x03. Pro3Gres models attachment (thus deci</context>
+</contexts>
+<marker>Levin, 1993</marker>
+<rawString>Beth C. Levin. 1993. English Verb Classes and Alternations: a Preliminary Investigation. University of Chicago Press, Chicago, IL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Dekang Lin</author>
+</authors>
+<title>A dependency-based method for evaluating broad-coverage parsers.</title>
+<date>1995</date>
+<booktitle>In Proceedings of IJCAI-95,</booktitle>
+<location>Montreal.</location>
+<contexts>
+<context position="24104" citStr="Lin, 1995" startWordPosition="4024" endWordPosition="4025">i ); l(H 0 i )) is a lexicalized version of the same projection or attachment grammar model; P (t(Hi); l(Hi)jt(Hi); t(H 0 i ); l(H 0 i ; d(i))) in addition conditions on the distance9. Pro3Gres expresses the unlexicalized rules by licensing grammar rules for relation R. Tags are not used in Pro3Gres\&amp;apos; model, because semantic backo\x0bs and tag-based licensing rules are used. P (d(i)jl(Hi); l(H 0 i )) (10) The Pro3Gres main MLE estimation (8) (l(H) = a; l(H 0) = b) di\x0bers from (10) by using labeled DG, and thus from the Dubey &amp; Keller Model by using a consistent functional DG. 4 Evaluation (Lin, 1995; Carroll et al., 1999) suggest evaluating on the linguistically meaningful level of dependency relations. Two such evaluations are reported now. First, a general-purpose evaluation using a hand-compiled gold standard corpus (Carroll et al., 1999), which contains the grammatical relation data of 500 random sentences from the Susanne corpus. The performance (table 3), according to (Preiss, 2003), is similar to a large selection of statistical parsers and a grammatical relation \x0cnder. Relations involving LDDs form part of these relations. A selection of them is also given: WH-Subject (WHS), W</context>
+</contexts>
+<marker>Lin, 1995</marker>
+<rawString>Dekang Lin. 1995. A dependency-based method for evaluating broad-coverage parsers. In Proceedings of IJCAI-95, Montreal.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Dekang Lin</author>
+</authors>
+<title>Dependency-based evaluation of MINIPAR.</title>
+<date>1998</date>
+<booktitle>In Workshop on the Evaluation of Parsing Systems,</booktitle>
+<location>Granada,</location>
+<contexts>
+<context position="11265" citStr="Lin, 1998" startWordPosition="1758" endWordPosition="1759">hanges of a word called translations (Tesni\x12 ere, 1959) are an exception to endocentricity. They are an important contribution to a traceless theory. Gerunds (after winning/VBG the race) or in\x0cnitives [line 2] may function as nouns, obviating the need for an empty subject. In nounless NPs such as the poor, adjectives function as nouns, obviating the need for an empty noun head. Participles may function as adjectives (Western industrialized/VBN countries), again obviating the need for an empty subject. 3 The Statistical Dependency Model Most successful deep-linguistic Dependency Parsers (Lin, 1998; Tapanainen and J\x7f arvinen, 1997) do not have a statistical base. But one DG advantage is precisely that it o\x0bers simple but powerful statistical Maximum Likelihood Estimation (MLE) models. We now de\x0cne our DG and the probability model. The rules of a context-free, unlabeled DG are equivalent to binary-branching CFG rewrite rules in which the head and the mother node are isomorphic. When converting DG structures to CFG, the order of application of these rules is not necessarily known, but in a labeled DG, the set of rules can specify the order (Covington, 1994). Fig. 1 shows such two</context>
+</contexts>
+<marker>Lin, 1998</marker>
+<rawString>Dekang Lin. 1998. Dependency-based evaluation of MINIPAR. In Workshop on the Evaluation of Parsing Systems, Granada, Spain.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mitch Marcus</author>
+<author>Beatrice Santorini</author>
+<author>M A Marcinkiewicz</author>
+</authors>
+<title>Building a large annotated corpus of English: the Penn Treebank. Computational Linguistics,</title>
+<date>1993</date>
+<contexts>
+<context position="4751" citStr="Marcus et al., 1993" startWordPosition="736" endWordPosition="739">uses Sam had to go, Sasha said *T* 7 WHADVP ADVP *T* 3,181 WH-trace Sam explained how to leave *T* (8) SBAR 2,513 Empty clauses Sam had to go, said Sasha (SBAR) (9) WHNP 0 2,139 Empty relative pronouns the woman 0 we saw (10) WHADVP 0 726 Empty relative pronouns the reason 0 to leave Table 1: The distribution of the 10 most frequent types of empty nodes and their antecedents in the Penn Treebank (adapted from (Johnson, 2002)). Bracketed line numbers only involve LDDs as grammar artifact nodes annotation expressing long-distance dependencies are provided in Treebanks such as the Penn Treebank (Marcus et al., 1993), most statistical Treebank trained parsers fully or largely ignore them5, which entails two problems: \x0crst, the training cannot pro\x0ct from valuable annotation data. Second, the extraction of long-distance dependencies (LDD) and the mapping to shallow semantic representations is not always possible from the output of these parsers. This limitation is aggravated by a lack of co-indexation information and parsing errors across an LDD. In fact, some syntactic relations cannot be recovered on con\x0cgurational grounds only. For these reasons, (Johnson, 2002) refers to them as \\half-grammars</context>
+</contexts>
+<marker>Marcus, Santorini, Marcinkiewicz, 1993</marker>
+<rawString>Mitch Marcus, Beatrice Santorini, and M.A. Marcinkiewicz. 1993. Building a large annotated corpus of English: the Penn Treebank. Computational Linguistics, 19:313{330.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Igor Mel\&amp;apos;\x14 cuk</author>
+</authors>
+<title>Dependency Syntax: theory and practice.</title>
+<date>1988</date>
+<publisher>Press,</publisher>
+<institution>State University of New York</institution>
+<location>New York.</location>
+<contexts>
+<context position="9313" citStr="cuk, 1988" startWordPosition="1457" endWordPosition="1458">ry nestedness): ?hhhh h ( ( ( ( ( NP-SBJ-X@ noun VP@ hh h ( ( ( V passive verb NP -NONE*-X ? hhhh h ( ( ( ( ( NP-SBJ-X@ noun VP@ hh h ( ( ( V control-verb S NP-SBJ -NONE*-X Our approach employs \x0cnite-state approximations of long-distance dependencies, described in (Schneider, 2003) for DG and (Cahill et al., 2004) for Lexical Functional Grammar (LFG)It leaves empty nodes underspeci\x0ced but largely recoverable. Table 2 gives an overview of important dependencies. 2.5 Monostratalism and Functionalism While multistratal DGs exist and several dependency levels can be distinguished (Mel\&amp;apos;\x14 cuk, 1988) we follow a conservative view close to the original (Tesni\x12 ere, 1959), which basically parses directly for a simple LFG f-structure without needing a c-structure detour. 6In addition to taking less decisions due to the gained high-level shallowness, it is ensured that the lexical information that matters is available in one central place, allowing the parser to take one well-informed decision instead of several brittle decisions plagued by sparseness. Collapsing deeply nested structures into a single dependency relation is less complex but has a similar e\x0bect as selecting what goes in </context>
+</contexts>
+<marker>cuk, 1988</marker>
+<rawString>Igor Mel\&amp;apos;\x14 cuk. 1988. Dependency Syntax: theory and practice. State University of New York Press, New York.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Diego Moll\x13 a</author>
+<author>Gerold Schneider</author>
+<author>Rolf Schwitter</author>
+<author>Michael Hess</author>
+</authors>
+<title>Answer Extraction using a Dependency Grammar in ExtrAns.</title>
+<date>2000</date>
+<journal>Traitement Automatique de Langues (T.A.L.), Special Issue on Dependency Grammar,</journal>
+<volume>41</volume>
+<issue>1</issue>
+<contexts>
+<context position="10595" citStr="a et al., 2000" startWordPosition="1656" endWordPosition="1659">ry often conceives of DG structures as graphs instead of trees (Hudson, 1984). A statistical lexicalized post-processing module in Pro3Gres transforms selected subtrees into graphs, e.g. in order to express control. 2.7 Transformation to Semantic Layer Pro3Gres is currently being applied in a Question Answering system speci\x0ccally targeted at technical domains (Rinaldi et al., 2004b). One of the main advantages of a DG parser such as Pro3Gres over other parsing approaches is that a mapping from the syntactic layer to a semantic layer (meaning representation) is partly simpli\x0ced (Moll\x13 a et al., 2000). 2.8 Tesni\x12 ere\&amp;apos;s Translations The possible functional changes of a word called translations (Tesni\x12 ere, 1959) are an exception to endocentricity. They are an important contribution to a traceless theory. Gerunds (after winning/VBG the race) or in\x0cnitives [line 2] may function as nouns, obviating the need for an empty subject. In nounless NPs such as the poor, adjectives function as nouns, obviating the need for an empty noun head. Participles may function as adjectives (Western industrialized/VBN countries), again obviating the need for an empty subject. 3 The Statistical Dependen</context>
+</contexts>
+<marker>a, Schneider, Schwitter, Hess, 2000</marker>
+<rawString>Diego Moll\x13 a, Gerold Schneider, Rolf Schwitter, and Michael Hess. 2000. Answer Extraction using a Dependency Grammar in ExtrAns. Traitement Automatique de Langues (T.A.L.), Special Issue on Dependency Grammar, 41(1):127{156.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Peter Neuhaus</author>
+<author>Norbert Br\x7f oker</author>
+</authors>
+<title>The complexity of recognition of linguistically adequate dependency grammars.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the 35th ACL and 8th EACL,</booktitle>
+<pages>337--343</pages>
+<location>Madrid,</location>
+<marker>Neuhaus, oker, 1997</marker>
+<rawString>Peter Neuhaus and Norbert Br\x7f oker. 1997. The complexity of recognition of linguistically adequate dependency grammars. In Proceedings of the 35th ACL and 8th EACL, pages 337{ 343, Madrid, Spain.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Joakim Nivre</author>
+</authors>
+<title>Inductive dependency parsing.</title>
+<date>2004</date>
+<booktitle>In Proceedings of Promote IT,</booktitle>
+<institution>Karlstad University.</institution>
+<contexts>
+<context position="3104" citStr="Nivre, 2004" startWordPosition="458" endWordPosition="459">necessary to discard unconvincing alternatives already during the parsing process. A number of robust statistical parsers that o\x0ber solutions to these problems have become available (Charniak, 2000; Collins, 1999; Henderson, 2003). In a statistical parser, the ranking of intermediate structures occurs naturally and based on empirical grounds, while most rule-based systems rely on ad hoc heuristics. With an aggressive beam for parse-time pruning (so in our parser), real-world parsing time can be reduced to near-linear. If one were to assume a constantly full \x0cxed beam, or uses an oracle (Nivre, 2004) it is linear in practice3. Also worst-case complexity for exhaustive parsing is low, as these parsers are CFGbased (Eisner, 2000)4. But they typically produce CFG constituency data as output, trees that do not express long-distance dependencies. Although grammatical function and empty 2For Tree-Adjoining Grammars (TAG) it is O(n7) or O(n8) depending on the implementation (Eisner, 2000). (Sarkar et al., 2000) state that the theoretical bound of worst time complexity for Head-Driven Phrase Structure Grammar (HPSG) parsing is exponential. 3In practical terms, beam or oracle approach have very si</context>
+</contexts>
+<marker>Nivre, 2004</marker>
+<rawString>Joakim Nivre. 2004. Inductive dependency parsing. In Proceedings of Promote IT, Karlstad University.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Judita Preiss</author>
+</authors>
+<title>Using grammatical relations to compare parsers.</title>
+<date>2003</date>
+<booktitle>In Proc. of EACL 03,</booktitle>
+<location>Budapest, Hungary.</location>
+<contexts>
+<context position="24501" citStr="Preiss, 2003" startWordPosition="4083" endWordPosition="4084">l(H 0 i )) (10) The Pro3Gres main MLE estimation (8) (l(H) = a; l(H 0) = b) di\x0bers from (10) by using labeled DG, and thus from the Dubey &amp; Keller Model by using a consistent functional DG. 4 Evaluation (Lin, 1995; Carroll et al., 1999) suggest evaluating on the linguistically meaningful level of dependency relations. Two such evaluations are reported now. First, a general-purpose evaluation using a hand-compiled gold standard corpus (Carroll et al., 1999), which contains the grammatical relation data of 500 random sentences from the Susanne corpus. The performance (table 3), according to (Preiss, 2003), is similar to a large selection of statistical parsers and a grammatical relation \x0cnder. Relations involving LDDs form part of these relations. A selection of them is also given: WH-Subject (WHS), WH-Object (WHO), passive Subject (PSubj), control Subject (CSubj), and the anaphor of the relative clause pronoun (RclSubjA). 9Since normalized probabilities are used P (t(Hi ); l(Hi)jt(Hi); t(H 0 i ); l(H 0 i ; d(i))) = P (t(Hi ); d(i)jt(Hi ); t(H 0 i ); l(Hi); l(H 0 i )) \x0cCARROLL Percentages for some relations, general, on Carroll testset only LDD-involving Subject Object noun-PP verb-PP su</context>
+</contexts>
+<marker>Preiss, 2003</marker>
+<rawString>Judita Preiss. 2003. Using grammatical relations to compare parsers. In Proc. of EACL 03, Budapest, Hungary.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Stefan Riezler</author>
+<author>Tracy H King</author>
+<author>Ronald M Kaplan</author>
+<author>Richard Crouch</author>
+<author>John T Maxwell</author>
+<author>Mark Johnson</author>
+</authors>
+<title>Parsing the Wall Street Journal using a Lexical-Functional Grammar and discriminative estimation techniques.</title>
+<date>2002</date>
+<booktitle>In Proc. of the 40th Annual Meeting of the Association for Computational Linguistics (ACL\&amp;apos;02),</booktitle>
+<location>Philadephia, PA.</location>
+<contexts>
+<context position="1552" citStr="Riezler et al., 2002" startWordPosition="219" endWordPosition="222">ee as long as possible1. For low-level syntactic tasks, tagging and baseNP chunking is used, parsing only takes place between heads of chunks. Robust, successful parsers (Abney, 1995; Collins, 1999) have shown that this division of labour is particularly attractive for DG. Deep-linguistic, Formal Grammar parsers have carefully crafted grammars written by professional linguists. But unrestricted real-world texts still pose a problem to NLP systems that are based on Formal Grammars. Few handcrafted, deep linguistic grammars achieve the coverage and robustness needed to parse large corpora (see (Riezler et al., 2002), (Burke et al., 2004) and (Hockenmaier and Steedman, 2002) for exceptions), and speed remains a serious challenge. The typical problems can be grouped as follows. Grammar complexity Fully comprehensive grammars are dicult to maintain and consid1Non-subject WH-question pronouns and support verbs cannot be treated context-free with our approach. We use a simple pre-parsing step to analyze them erably increase parsing complexity. Parsing complexity Typical formal grammar parser complexity is much higher than the O(n 3) for CFG. The complexity of some formal grammars is still unknown.2 Parsing al</context>
+</contexts>
+<marker>Riezler, King, Kaplan, Crouch, Maxwell, Johnson, 2002</marker>
+<rawString>Stefan Riezler, Tracy H. King, Ronald M. Kaplan, Richard Crouch, John T. Maxwell, and Mark Johnson. 2002. Parsing the Wall Street Journal using a Lexical-Functional Grammar and discriminative estimation techniques. In Proc. of the 40th Annual Meeting of the Association for Computational Linguistics (ACL\&amp;apos;02), Philadephia, PA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Fabio Rinaldi</author>
+<author>James Dowdall</author>
+<author>Gerold Schneider</author>
+<author>Andreas Persidis</author>
+</authors>
+<date>2004</date>
+<booktitle>Answering Questions in the Genomics Domain. In ACL 2004 Workshop on Question Answering in restricted domains,</booktitle>
+<pages>26</pages>
+<location>Barcelona,</location>
+<contexts>
+<context position="10366" citStr="Rinaldi et al., 2004" startWordPosition="1616" endWordPosition="1619">ions plagued by sparseness. Collapsing deeply nested structures into a single dependency relation is less complex but has a similar e\x0bect as selecting what goes in to the parse history in historybased approaches. 2.6 Graphs DG theory often conceives of DG structures as graphs instead of trees (Hudson, 1984). A statistical lexicalized post-processing module in Pro3Gres transforms selected subtrees into graphs, e.g. in order to express control. 2.7 Transformation to Semantic Layer Pro3Gres is currently being applied in a Question Answering system speci\x0ccally targeted at technical domains (Rinaldi et al., 2004b). One of the main advantages of a DG parser such as Pro3Gres over other parsing approaches is that a mapping from the syntactic layer to a semantic layer (meaning representation) is partly simpli\x0ced (Moll\x13 a et al., 2000). 2.8 Tesni\x12 ere\&amp;apos;s Translations The possible functional changes of a word called translations (Tesni\x12 ere, 1959) are an exception to endocentricity. They are an important contribution to a traceless theory. Gerunds (after winning/VBG the race) or in\x0cnitives [line 2] may function as nouns, obviating the need for an empty subject. In nounless NPs such as the po</context>
+<context position="26154" citStr="Rinaldi et al., 2004" startWordPosition="4359" endWordPosition="4362">ology-annotated GENIA corpus Secondly, to answer how the parser performs over domains markedly di\x0berent to the training corpus, to test whether terminology is the key to a successful parsing system, and to assess the impact of chunking errors, the parser has been applied to the GENIA corpus (Kim et al., 2003), 2000 MEDLINE abstracts of more than 400,000 words describing the results of Biomedical research, which is annotated for multi-word terms and thus contains near-perfect chunking. 100 random sentences from the GENIA corpus have been manually annotated and compared to the parser output (Rinaldi et al., 2004a). 5 Conclusions We have discussed how DG allows the expression of the majority of LDDs in a contextfree way and shown that DG allows for simple but powerful statistical models. An evaluation shows that the performance of its implementation is state-of-the-art10. Its parsing speed of about 300,000 words per hour is very good for a deep-linguistic parser and makes it fast enough for unlimited application. References Steven Abney. 1995. Chunks and dependencies: Bringing processing evidence to bear on syntax. In Jennifer Cole, Georgia Green, and Jerry Morgan, editors, Computational Linguistics a</context>
+</contexts>
+<marker>Rinaldi, Dowdall, Schneider, Persidis, 2004</marker>
+<rawString>Fabio Rinaldi, James Dowdall, Gerold Schneider, and Andreas Persidis. 2004a. Answering Questions in the Genomics Domain. In ACL 2004 Workshop on Question Answering in restricted domains, Barcelona, Spain, 21{ 26 July.</rawString>
+</citation>
+<citation valid="false">
+<authors>
+<author>Fabio Rinaldi</author>
+<author>Michael Hess</author>
+<author>James Dowdall</author>
+</authors>
+<title>Diego Moll\x13 a, and Rolf Schwitter. 2004b. Question answering in terminology-rich technical domains.</title>
+<booktitle>New Directions in Question Answering.</booktitle>
+<editor>In Mark Maybury, editor,</editor>
+<publisher>MIT/AAAI Press.</publisher>
+<marker>Rinaldi, Hess, Dowdall, </marker>
+<rawString>Fabio Rinaldi, Michael Hess, James Dowdall, Diego Moll\x13 a, and Rolf Schwitter. 2004b. Question answering in terminology-rich technical domains. In Mark Maybury, editor, New Directions in Question Answering. MIT/AAAI Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Anoop Sarkar</author>
+<author>Fei Xia</author>
+<author>Aravind Joshi</author>
+</authors>
+<title>Some experiments on indicators of parsing complexity for lexicalized grammars.</title>
+<date>2000</date>
+<booktitle>In Proc. of COLING.</booktitle>
+<contexts>
+<context position="3516" citStr="Sarkar et al., 2000" startWordPosition="519" endWordPosition="522"> With an aggressive beam for parse-time pruning (so in our parser), real-world parsing time can be reduced to near-linear. If one were to assume a constantly full \x0cxed beam, or uses an oracle (Nivre, 2004) it is linear in practice3. Also worst-case complexity for exhaustive parsing is low, as these parsers are CFGbased (Eisner, 2000)4. But they typically produce CFG constituency data as output, trees that do not express long-distance dependencies. Although grammatical function and empty 2For Tree-Adjoining Grammars (TAG) it is O(n7) or O(n8) depending on the implementation (Eisner, 2000). (Sarkar et al., 2000) state that the theoretical bound of worst time complexity for Head-Driven Phrase Structure Grammar (HPSG) parsing is exponential. 3In practical terms, beam or oracle approach have very similar e\x0bects 4Parsing complexity of the original Collins Models is O(n5), but theoretically O(n3) would be possible \x0cAntecedent POS Label Count Description Example 1 NP NP * 22,734 NP trace Sam was seen * 2 NP * 12,172 NP PRO * to sleep is nice 3 WHNP NP *T* 10,659 WH trace the woman who you saw *T* (4) *U* 9,202 Empty units $ 25 *U* (5) 0 7,057 Empty complementizers Sam said 0 Sasha snores (6) S S *T* </context>
+</contexts>
+<marker>Sarkar, Xia, Joshi, 2000</marker>
+<rawString>Anoop Sarkar, Fei Xia, and Aravind Joshi. 2000. Some experiments on indicators of parsing complexity for lexicalized grammars. In Proc. of COLING.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Gerold Schneider</author>
+</authors>
+<title>Extracting and using trace-free Functional Dependencies from the Penn Treebank to reduce parsing complexity.</title>
+<date>2003</date>
+<booktitle>In Proceedings of Treebanks and Linguistic Theories (TLT) 2003, V\x7f axj\x7f o,</booktitle>
+<contexts>
+<context position="8988" citStr="Schneider, 2003" startWordPosition="1410" endWordPosition="1411">3Gres Dependency types spanning several constituency levels, including empty nodes and functional Penn Treebank labels, by a purely local DG relation6. The selective mapping patterns for MLE counts of passive subjects and control subjects from the Penn Treebank, the most frequent NP traces [line 1], are e.g. (@ stands for arbitrary nestedness): ?hhhh h ( ( ( ( ( NP-SBJ-X@ noun VP@ hh h ( ( ( V passive verb NP -NONE*-X ? hhhh h ( ( ( ( ( NP-SBJ-X@ noun VP@ hh h ( ( ( V control-verb S NP-SBJ -NONE*-X Our approach employs \x0cnite-state approximations of long-distance dependencies, described in (Schneider, 2003) for DG and (Cahill et al., 2004) for Lexical Functional Grammar (LFG)It leaves empty nodes underspeci\x0ced but largely recoverable. Table 2 gives an overview of important dependencies. 2.5 Monostratalism and Functionalism While multistratal DGs exist and several dependency levels can be distinguished (Mel\&amp;apos;\x14 cuk, 1988) we follow a conservative view close to the original (Tesni\x12 ere, 1959), which basically parses directly for a simple LFG f-structure without needing a c-structure detour. 6In addition to taking less decisions due to the gained high-level shallowness, it is ensured that t</context>
+</contexts>
+<marker>Schneider, 2003</marker>
+<rawString>Gerold Schneider. 2003. Extracting and using trace-free Functional Dependencies from the Penn Treebank to reduce parsing complexity. In Proceedings of Treebanks and Linguistic Theories (TLT) 2003, V\x7f axj\x7f o, Sweden.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Wojciech Skut</author>
+<author>Brigitte Krenn</author>
+<author>Thorsten Brants</author>
+<author>Hans Uszkoreit</author>
+</authors>
+<title>An annotation scheme for free word order languages.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the Fifth Conference on Applied Natural Language Processing (ANLP97),</booktitle>
+<location>Washington, DC.</location>
+<contexts>
+<context position="19055" citStr="Skut et al., 1997" startWordPosition="3135" endWordPosition="3138"> grammar rules only allow a noun to be obj2 once obj has been found, or a verb is required to have a subject unless it is non-\x0cnite or a participle, or all objects need to be closer to the verb than a subordinate clause. 3.3 Relation to Dubey &amp; Keller 03 (Dubey and Keller, 2003) address the question whether models such as Collins also improve performance on freer word order languages, in their case German. German is considerably more in ectional which means that discarding functional information is more harmful, and which explains why the NEGRA annotation has been conceived to be quite at (Skut et al., 1997). (Dubey and Keller, 2003) observe that models such as Collins when applied directly perform worse than an unlexicalized PCFG baseline. The fact that learning curves converge early indicates that this is not mainly a sparse data e\x0bect. They suggest a linguistically motivated change, which is shown to outperform the baseline. The (Collins, 1999) Model 2 rule generation model for P ! Lm:::L1HR1:::Rn, is P (RHSjLHS) = Ph(HjP; t(P ); l(P )) \x01 m Y i=0 Pl(Li; t(Li); l(Li)jP; H; t(H); l(H); d(i)) \x01 n Y i=0 Pr(Ri; t(Ri ); l(Ri)jP; H; t(H); l(H); d(i)) Ph P of head t(H) tag of H head word LHS </context>
+</contexts>
+<marker>Skut, Krenn, Brants, Uszkoreit, 1997</marker>
+<rawString>Wojciech Skut, Brigitte Krenn, Thorsten Brants, and Hans Uszkoreit. 1997. An annotation scheme for free word order languages. In Proceedings of the Fifth Conference on Applied Natural Language Processing (ANLP97), Washington, DC.</rawString>
+</citation>
+<citation valid="true">
+<title>Pasi Tapanainen and Timo J\x7f arvinen.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the 5th Conference on Applied Natural Language Processing,</booktitle>
+<pages>64--71</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<marker>1997</marker>
+<rawString>Pasi Tapanainen and Timo J\x7f arvinen. 1997. A non-projective dependency parser. In Proceedings of the 5th Conference on Applied Natural Language Processing, pages 64{71. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Lucien Tesni\x12 ere</author>
+</authors>
+<date>1959</date>
+<booktitle>El\x13 ements de Syntaxe Structurale. Librairie Klincksieck,</booktitle>
+<location>Paris. \x0c&amp;apos;</location>
+<contexts>
+<context position="6010" citStr="ere, 1959" startWordPosition="936" endWordPosition="937">ristics is explored in this paper. It uses a hand-written DG grammar and a lexicalized probability model. It combines the low complexity of a CFG parser, the pruning and ranking advantages of statistical parsers and the ability to express the majority of LDDs of Formal Grammars. After presenting the DG bene\x0cts, we de\x0cne our DG and introduce our statistical model. Then, we give an evaluation. 2 The Bene\x0ct of DG Characteristics In addition to some obvious bene\x0cts, such as the integration of chunking and parsing (Abney, 1995), where a chunk largely corresponds to a nucleus (Tesni\x12 ere, 1959), or that in an endocentric theory projection can never fail, we present eight characteristics in more detail, which in their combination allow us to treat the majority of English long-distance dependencies (LDD) in our DG parser Pro3Gres in a context-fee way. 5(Collins, 1999) Model 2 uses some of the functional labels, and Model 3 some long-distance dependencies The ten most frequent types of empty nodes cover more than 60,000 of the approximately 64,000 empty nodes of sections 2-21 of the Penn Treebank. Table 1, reproduced from (Johnson, 2002) [line numbers and counts from the whole Treebank</context>
+<context position="9387" citStr="ere, 1959" startWordPosition="1469" endWordPosition="1470">verb NP -NONE*-X ? hhhh h ( ( ( ( ( NP-SBJ-X@ noun VP@ hh h ( ( ( V control-verb S NP-SBJ -NONE*-X Our approach employs \x0cnite-state approximations of long-distance dependencies, described in (Schneider, 2003) for DG and (Cahill et al., 2004) for Lexical Functional Grammar (LFG)It leaves empty nodes underspeci\x0ced but largely recoverable. Table 2 gives an overview of important dependencies. 2.5 Monostratalism and Functionalism While multistratal DGs exist and several dependency levels can be distinguished (Mel\&amp;apos;\x14 cuk, 1988) we follow a conservative view close to the original (Tesni\x12 ere, 1959), which basically parses directly for a simple LFG f-structure without needing a c-structure detour. 6In addition to taking less decisions due to the gained high-level shallowness, it is ensured that the lexical information that matters is available in one central place, allowing the parser to take one well-informed decision instead of several brittle decisions plagued by sparseness. Collapsing deeply nested structures into a single dependency relation is less complex but has a similar e\x0bect as selecting what goes in to the parse history in historybased approaches. 2.6 Graphs DG theory ofte</context>
+<context position="10714" citStr="ere, 1959" startWordPosition="1674" endWordPosition="1675">ule in Pro3Gres transforms selected subtrees into graphs, e.g. in order to express control. 2.7 Transformation to Semantic Layer Pro3Gres is currently being applied in a Question Answering system speci\x0ccally targeted at technical domains (Rinaldi et al., 2004b). One of the main advantages of a DG parser such as Pro3Gres over other parsing approaches is that a mapping from the syntactic layer to a semantic layer (meaning representation) is partly simpli\x0ced (Moll\x13 a et al., 2000). 2.8 Tesni\x12 ere\&amp;apos;s Translations The possible functional changes of a word called translations (Tesni\x12 ere, 1959) are an exception to endocentricity. They are an important contribution to a traceless theory. Gerunds (after winning/VBG the race) or in\x0cnitives [line 2] may function as nouns, obviating the need for an empty subject. In nounless NPs such as the poor, adjectives function as nouns, obviating the need for an empty noun head. Participles may function as adjectives (Western industrialized/VBN countries), again obviating the need for an empty subject. 3 The Statistical Dependency Model Most successful deep-linguistic Dependency Parsers (Lin, 1998; Tapanainen and J\x7f arvinen, 1997) do not have</context>
+</contexts>
+<marker>ere, 1959</marker>
+<rawString>Lucien Tesni\x12 ere. 1959. El\x13 ements de Syntaxe Structurale. Librairie Klincksieck, Paris. \x0c&amp;apos;</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

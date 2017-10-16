@@ -1,0 +1,2358 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<affiliation confidence="0.177321">
+b&apos;Transactions of the Association for Computational Linguistics, 1 (2013) 179192. Action Editor: Johan Bos.
+</affiliation>
+<address confidence="0.169063">
+Submitted 1/2013; Revised 3/2013; Published 5/2013. c
+</address>
+<title confidence="0.6441455">
+2013 Association for Computational Linguistics.
+Combined Distributional and Logical Semantics
+</title>
+<author confidence="0.934213">
+Mike Lewis
+</author>
+<affiliation confidence="0.9881855">
+School of Informatics
+University of Edinburgh
+</affiliation>
+<address confidence="0.970718">
+Edinburgh, EH8 9AB, UK
+</address>
+<email confidence="0.993331">
+mike.lewis@ed.ac.uk
+</email>
+<author confidence="0.990959">
+Mark Steedman
+</author>
+<affiliation confidence="0.995042">
+School of Informatics
+University of Edinburgh
+</affiliation>
+<address confidence="0.971186">
+Edinburgh, EH8 9AB, UK
+</address>
+<email confidence="0.995675">
+steedman@inf.ed.ac.uk
+</email>
+<sectionHeader confidence="0.990759" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.99982505">
+We introduce a new approach to semantics
+which combines the benefits of distributional
+and formal logical semantics. Distributional
+models have been successful in modelling the
+meanings of content words, but logical se-
+mantics is necessary to adequately represent
+many function words. We follow formal se-
+mantics in mapping language to logical rep-
+resentations, but differ in that the relational
+constants used are induced by offline distri-
+butional clustering at the level of predicate-
+argument structure. Our clustering algorithm
+is highly scalable, allowing us to run on cor-
+pora the size of Gigaword. Different senses of
+a word are disambiguated based on their in-
+duced types. We outperform a variety of ex-
+isting approaches on a wide-coverage question
+answering task, and demonstrate the ability to
+make complex multi-sentence inferences in-
+volving quantifiers on the FraCaS suite.
+</bodyText>
+<sectionHeader confidence="0.998272" genericHeader="keywords">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.996114823529411">
+Mapping natural language to meaning representa-
+tions is a central challenge of NLP. There has been
+much recent progress in unsupervised distributional
+semantics, in which the meaning of a word is in-
+duced based on its usage in large corpora. This ap-
+proach is useful for a range of key applications in-
+cluding question answering and relation extraction
+(Lin and Pantel, 2001; Poon and Domingos, 2009;
+Yao et al., 2011). Because such a semantics can be
+automically induced, it escapes the limitation of de-
+pending on relations from hand-built training data,
+knowledge bases or ontologies, which have proved
+of limited use in capturing the huge variety of mean-
+ings that can be expressed in language.
+However, distributional semantics has largely de-
+veloped in isolation from the formal semantics liter-
+ature. Whilst distributional semantics has been ef-
+fective in modelling the meanings of content words
+such as nouns and verbs, it is less clear that it can be
+applied to the meanings of function words. Semantic
+operators, such as determiners, negation, conjunc-
+tions, modals, tense, mood, aspect, and plurals are
+ubiquitous in natural language, and are crucial for
+high performance on many practical applications
+but current distributional models struggle to capture
+even simple examples. Conversely, computational
+models of formal semantics have shown low recall
+on practical applications, stemming from their re-
+liance on ontologies such as WordNet (Miller, 1995)
+to model the meanings of content words (Bobrow et
+al., 2007; Bos and Markert, 2005).
+For example, consider what is needed to answer
+a question like Did Google buy YouTube? from the
+following sentences:
+</bodyText>
+<listItem confidence="0.9978625">
+1. Google purchased YouTube
+2. Googles acquisition of YouTube
+3. Google acquired every company
+4. YouTube may be sold to Google
+5. Google will buy YouTube or Microsoft
+6. Google didnt takeover YouTube
+</listItem>
+<bodyText confidence="0.758084">
+All of these require knowledge of lexical seman-
+tics (e.g. that buy and purchase are synonyms), but
+some also need interpretation of quantifiers, nega-
+tives, modals and disjunction. It seems unlikely that
+</bodyText>
+<page confidence="0.997879">
+179
+</page>
+<bodyText confidence="0.999057769230769">
+\x0cdistributional or formal approaches can accomplish
+the task alone.
+We propose a method for mapping natural lan-
+guage to first-order logic representations capable of
+capturing the meanings of function words such as
+every, not and or, but which also uses distributional
+statistics to model the meaning of content words.
+Our approach differs from standard formal seman-
+tics in that the non-logical symbols used in the log-
+ical form are cluster identifiers. Where standard se-
+mantic formalisms would map the verb write to a
+write symbol, we map it to a cluster identifier such
+as relation37, which the noun author may also map
+to. This mapping is learnt by offline clustering.
+Unlike previous distributional approaches, we
+perform clustering at the level of predicate-argument
+structure, rather than syntactic dependency struc-
+ture. This means that we abstract away from many
+syntactic differences that are not present in the se-
+mantics, such as conjunctions, passives, relative
+clauses, and long-range dependencies. This signifi-
+cantly reduces sparsity, so we have fewer predicates
+to cluster and more observations for each.
+Of course, many practical inferences rely heavily
+on background knowledge about the worldsuch
+knowledge falls outside the scope of this work.
+</bodyText>
+<sectionHeader confidence="0.994529" genericHeader="introduction">
+2 Background
+</sectionHeader>
+<bodyText confidence="0.9842904">
+Our approach is based on Combinatory Categorial
+Grammar (CCG; Steedman, 2000), a strongly lexi-
+calised theory of language in which lexical entries
+for words contain all language-specific information.
+The lexical entry for each word contains a syntactic
+category, which determines which other categories
+the word may combine with, and a semantic inter-
+pretation, which defines the compositional seman-
+tics. For example, the lexicon may contain the entry:
+write ` (S\\NP)/NP : yx.write0(x,y)
+Crucially, there is a transparent interface between
+the syntactic category and the semantics. For ex-
+ample the transitive verb entry above defines the
+verb syntactically as a function mapping two noun-
+phrases to a sentence, and semantically as a bi-
+nary relation between its two argument entities.
+This means that it is relatively straightforward to
+deterministically map parser output to a logical
+form, as in the Boxer system (Bos, 2008). This
+Every dog barks
+</bodyText>
+<sectionHeader confidence="0.849333" genericHeader="method">
+NP/N N S\\NP
+</sectionHeader>
+<equation confidence="0.985703857142857">
+pq.x[p(x) = q(x)] x.dog0(x) x.bark0(x)
+&gt;
+NP
+q.x[dog0(x) = q(x)]
+&gt;
+S
+x[dog0(x) = bark0(x)]
+</equation>
+<figureCaption confidence="0.998958">
+Figure 1: A standard logical form derivation using CCG.
+</figureCaption>
+<bodyText confidence="0.96555275">
+The NP notation means that the subject is type-raised,
+and taking the verb-phrase as an argumentso is an ab-
+breviation of S/(S\\NP). This is necessary in part to sup-
+port a correct semantics for quantifiers.
+</bodyText>
+<figure confidence="0.971695666666667">
+Input Sentence
+Shakespeare wrote Macbeth
+Intial semantic analysis
+writearg0,arg1(shakespeare, macbeth)
+Entity Typing
+writearg0:PER,arg1:BOOK(shakespeare:PER,
+macbeth:BOOK)
+Distributional semantic analysis
+relation37(shakespeare:PER, macbeth:BOOK)
+</figure>
+<figureCaption confidence="0.998156">
+Figure 2: Layers used in our model.
+</figureCaption>
+<bodyText confidence="0.995176375">
+form of semantics captures the underlying predicate-
+argument structure, but fails to license many impor-
+tant inferencesas, for example, write and author
+do not map to the same predicate.
+In addition to the lexicon, there is a small set of
+binary combinators and unary rules, which have a
+syntactic and semantic interpretation. Figure 1 gives
+an example CCG derivation.
+</bodyText>
+<sectionHeader confidence="0.977116" genericHeader="method">
+3 Overview of Approach
+</sectionHeader>
+<bodyText confidence="0.998049333333333">
+We attempt to learn a CCG lexicon which maps
+equivalent words onto the same logical formfor
+example learning entries such as:
+</bodyText>
+<equation confidence="0.6613415">
+author ` N/PP[of] : xy.relation37(x,y)
+write ` (S\\NP)/NP : xy.relation37(x,y)
+</equation>
+<bodyText confidence="0.9990185">
+The only change to the standard CCG derivation is
+that the symbols used in the logical form are arbi-
+trary relation identifiers. We learn these by first map-
+ping to a deterministic logical form (using predicates
+</bodyText>
+<page confidence="0.993961">
+180
+</page>
+<bodyText confidence="0.993453022727273">
+\x0csuch as author and write), using a process simi-
+lar to Boxer, and then clustering predicates based on
+their arguments. This lexicon can then be used to
+parse new sentences, and integrates seamlessly with
+CCG theories of formal semantics.
+Typing predicatesfor example, determining that
+writing is a relation between people and books
+has become standard in relation clustering (Schoen-
+mackers et al., 2010; Berant et al., 2011; Yao et
+al., 2012). We demonstate how to build a typing
+model into the CCG derivation, by subcategorizing
+all terms representing entities in the logical form
+with a more detailed type. These types are also in-
+duced from text, as explained in Section 5, but for
+convenience we describe them with human-readable
+labels, such as PER, LOC and BOOK.
+A key advantage of typing is that it allows us to
+model ambiguous predicates. Following Berant et
+al. (2011), we assume that different type signatures
+of the same predicate have different meanings, but
+given a type signature a predicate is unambiguous.
+For example a different lexical entry for the verb
+born is used in the contexts Obama was born in
+Hawaii and Obama was born in 1961, reflecting a
+distinction in the semantics that is not obvious in the
+syntax1. Typing also greatly improves the efficiency
+of clustering, as we only need to compare predicates
+with the same type during clustering (for example,
+we do not have to consider clustering a predicate
+between people and places with predicates between
+people and dates).
+In this work, we focus on inducing binary rela-
+tions. Many existing approaches have shown how
+to produce good clusterings of (non-event) nouns
+(Brown et al., 1992), any of which could be sim-
+ply integrated into our semanticsbut relation clus-
+tering remains an open problem (see Section 9).
+N-ary relations are binarized, by creating a bi-
+nary relation between each pair of arguments. For
+example, for the sentence Russia sold Alaska to
+the United States, the system creates three binary
+relations corresponding to sellToSomeone(Russia,
+Alaska), buyFromSomeone(US, Alaska), sellSome-
+thingTo(Russia, US). This transformation does not
+</bodyText>
+<page confidence="0.939732">
+1
+</page>
+<bodyText confidence="0.999337090909091">
+Whilst this assumption is very useful, it does not always hold
+for example, the genitive in Shakespeares book is ambigu-
+ous between ownership and authorship relations even given the
+types of the arguments.
+exactly preserve meaning, but still captures the most
+important relations. Note that this allows us to
+compare semantic relations across different syntac-
+tic typesfor example, both transitive verbs and
+argument-taking nouns can be seen as expressing bi-
+nary semantic relations between entities.
+Figure 2 shows the layers used in our model.
+</bodyText>
+<sectionHeader confidence="0.9925" genericHeader="method">
+4 Initial Semantic Analysis
+</sectionHeader>
+<bodyText confidence="0.998786333333334">
+The initial semantic analysis maps parser output
+onto a logical form, in a similar way to Boxer. The
+semantic formalism is based on Steedman (2012).
+The first step is syntactic parsing. We use the
+C&amp;C parser (Clark and Curran, 2004), trained on
+CCGBank (Hockenmaier and Steedman, 2007), us-
+ing the refined version of Honnibal et al. (2010)
+which brings the syntax closer to the predicate-
+argument structure. An automatic post-processing
+step makes a number of minor changes to the parser
+output, which converts the grammar into one more
+suitable for our semantics. PP (prepositional phrase)
+and PR (phrasal verb complement) categories are
+sub-categorised with the relevant preposition. Noun
+compounds with the same MUC named-entity type
+(Chinchor and Robinson, 1997) are merged into a
+single non-compositional node2 (we otherwise ig-
+nore named-entity types). All argument NPs and
+PPs are type-raised, allowing us to represent quanti-
+fiers. All prepositional phrases are treated as core ar-
+guments (i.e. given the category PP, not adjunct cat-
+egories like (N\\N)/NP or ((S\\NP)\\(S\\NP))/NP),
+as it is difficult for the parser to distinguish argu-
+ments and adjuncts.
+Initial semantic lexical entries for almost all
+words can be generated automatically from the
+syntactic category and POS tag (obtained from
+the parser), as the syntactic category captures the
+underlying predicate-argument structure. We use
+a Davidsonian-style representation of arguments
+(Davidson, 1967), which we binarize by creating a
+separate predicate for each pair of arguments of a
+word. These predicates are labelled with the lemma
+of the head word and a Propbank-style argument key
+(Kingsbury and Palmer, 2002), e.g. arg0, argIn. We
+distinguish noun and verb predicates based on POS
+</bodyText>
+<page confidence="0.98024">
+2
+</page>
+<bodyText confidence="0.983617333333333">
+For example, this allows us to give Barack Obama the seman-
+tics x.barack obama(x) instead of x.barack(x) obama(x),
+which is more convenient for collecting distributional statistics.
+</bodyText>
+<page confidence="0.994103">
+181
+</page>
+<table confidence="0.5526874">
+\x0cWord Category Semantics
+Automatic author N/PP[of] xy.authorarg0,argOf (y,x)
+write (S\\NP)/NP xy.writearg0,arg1(y,x)
+Manual every NP/N pq.x[p(x) q(x)]
+not (S\\NP)/(S\\NP) px.p(x)
+</table>
+<figureCaption confidence="0.99758">
+Figure 3: Example initial lexical entries
+</figureCaption>
+<bodyText confidence="0.9963575">
+tagso, for example, we have different predicates
+for effect as a noun or verb.
+This algorithm can be overridden with man-
+ual lexical entries for specific closed-class function
+words. Whilst it may be possible to learn these
+from data, our approach is pragmatic as there are
+relatively few such words, and the complex logical
+forms required would be difficult to induce from dis-
+tributional statistics. We add a small number of lexi-
+cal entries for words such as negatives (no, not etc.),
+and quantifiers (numbers, each, every, all, etc.).
+Some example initial lexical entries are shown in
+</bodyText>
+<figureCaption confidence="0.844524">
+Figure 3.
+</figureCaption>
+<sectionHeader confidence="0.995396" genericHeader="method">
+5 Entity Typing Model
+</sectionHeader>
+<bodyText confidence="0.999496083333333">
+Our entity-typing model assigns types to nouns,
+which is useful for disambiguating polysemous
+predicates. Our approach is similar to OSeaghdha
+(2010) in that we aim to cluster entities based on
+the noun and unary predicates applied to them (it
+is simple to convert from the binary predicates
+to unary predicates). For example, we want the
+pair (bornargIn, 1961) to map to a DAT type, and
+(bornargIn, Hawaii) to map to a LOC type. This is
+non-trivial, as both the predicates and arguments can
+be ambiguous between multiple typesbut topic
+models offer a good solution (described below).
+</bodyText>
+<subsectionHeader confidence="0.823413">
+5.1 Topic Model
+</subsectionHeader>
+<bodyText confidence="0.999574548387097">
+We assume that the type of each argument of a pred-
+icate depends only on the predicate and argument,
+although Ritter et al. (2010) demonstrate an advan-
+tage of modelling the joint probability of the types
+of multiple arguments of the same predicate. We use
+the standard Latent Dirichlet Allocation model (Blei
+et al., 2003), which performs comparably to more
+complex models proposed in OSeaghdha (2010).
+In topic-modelling terminology, we construct a
+document for each unary predicate (e.g. bornargIn),
+based on all of its argument entities (words). We as-
+sume that these arguments are drawn from a small
+number of types (topics), such as PER, DAT or
+LOC3. Each type j has a multinomial distribution
+j over arguments (for example, a LOC type is more
+likely to generate Hawaii than 1961). Each unary
+predicate i has a multinomial distribution i over
+topics, so the bornargIn predicate will normally gen-
+erate a DAT or LOC type. Sparse Dirichlet priors
+and on the multinomials bias the distributions
+to be peaky. The parameters are estimated by Gibbs
+sampling, using the Mallet implementation (McCal-
+lum, 2002).
+The generative story to create the data is:
+For every type k:
+Draw the p(arg|k) distribution k from Dir()
+For every unary predicate i:
+Draw the p(type|i) distribution i from Dir()
+For every argument j:
+Draw a type zi j from Mult(i)
+Draw an argument wi j from Mult(i )
+</bodyText>
+<subsectionHeader confidence="0.998571">
+5.2 Typing in Logical Form
+</subsectionHeader>
+<bodyText confidence="0.9997273">
+In the logical form, all constants and variables repre-
+senting entities x can be assigned a distribution over
+types px(t) using the type model. An initial type
+distribution is applied in the lexicon, using the
+distributions for the types of nouns, and the i dis-
+tributions for the type of arguments of binary predi-
+cates (inverted using Bayes rule). Then at each -
+reduction in the derivation, we update probabilities
+of the types to be the product of the type distribu-
+tions of the terms being reduced. If two terms x and
+</bodyText>
+<page confidence="0.989258">
+3
+</page>
+<bodyText confidence="0.9700795">
+Types are induced from the text, but we give human-readable
+labels here for convenience.
+</bodyText>
+<page confidence="0.975445">
+182
+</page>
+<figure confidence="0.998787743589743">
+\x0cfile a suit
+(S\\NP)/NP NP
+y:
+(
+DOC=0.5
+LEGAL=0.4
+CLOTHES=0.01
+...
+)
+x:
+\x1a
+PER = 0.7
+ORG = 0.2
+...
+\x1b
+.filearg0,arg1(x,y) p.y:
+(
+CLOTHES = 0.6
+LEGAL = 0.3
+DOC=0.001
+...
+)
+[suit0(y) p(y)]
+&amp;lt;
+S\\NP
+x:
+\x1a
+PER = 0.7
+ORG = 0.2
+...
+\x1b
+y:
+(
+LEGAL = 0.94
+CLOTHES = 0.05
+DOC = 0.004
+...
+)
+)[suit0(y) filearg0,arg1(x,y)]
+</figure>
+<figureCaption confidence="0.999553">
+Figure 4: Using the type model for disambiguation in the derivation of file a suit. Type distributions are shown after
+</figureCaption>
+<bodyText confidence="0.985845">
+the variable declarations. Both suit and the object of file are lexically ambiguous between different types, but after the
+-reduction only one interpretation is likely. If the verb were wear, a different interpretation would be preferred.
+y combine to a term z:
+</bodyText>
+<equation confidence="0.999355">
+pz(t) =
+px(t)py(t)
+t0 px(t0)py(t0)
+</equation>
+<bodyText confidence="0.985831875">
+For example, in wore a suit and file a suit, the vari-
+able representing suit may be lexically ambiguous
+between CLOTHES and LEGAL types, but the vari-
+ables representing the objects of wear and file will
+have preferences that allow us to choose the correct
+type when the terms combine. Figure 4 shows an
+example derivation using the type model for disam-
+biguation4.
+</bodyText>
+<sectionHeader confidence="0.861388" genericHeader="method">
+6 Distributional Relation Clustering
+</sectionHeader>
+<bodyText confidence="0.888053166666667">
+Model
+The typed binary predicates can be grouped
+into clusters, each of which represents a dis-
+tinct semantic relation. Note that because we
+cluster typed predicates, bornarg0:PER,argIn:LOC and
+bornarg0:PER,argIn:DAT can be clustered separately.
+</bodyText>
+<subsectionHeader confidence="0.997884">
+6.1 Corpus statistics
+</subsectionHeader>
+<bodyText confidence="0.968634666666667">
+Typed binary predicates are clustered based on the
+expected number of times they hold between each
+argument-pair in the corpus. This means we cre-
+ate a single vector of argument-pair counts for each
+predicate (not a separate vector for each argument).
+For example, the vector for the typed predicate
+writearg0:PER,arg1:BOOK may contain non-zero counts
+for entity-pairs such as (Shakespeare, Macbeth),
+(Dickens, Oliver Twist) and (Rowling, Harry Potter).
+</bodyText>
+<page confidence="0.986171">
+4
+</page>
+<bodyText confidence="0.970474576923077">
+Our implementation follows Steedman (2012) in using Gener-
+alized Skolem Terms rather than existential quantifiers, in order
+to capture quantifier scope alternations monotonically, but we
+omit these from the example to avoid introducing new notation.
+The entity-pair counts for authorarg0:PER,argOf:BOOK
+may be similar, on the assumption that both are sam-
+ples from the same underlying semantic relation.
+To find the expected number of occurrences of
+argument-pairs for typed binary predicates in a cor-
+pus, we first apply the type model to the derivation
+of each sentence, as described in Section 5.2. This
+outputs untyped binary predicates, with distributions
+over the types of their arguments. The type of the
+predicate must match the type of its arguments, so
+the type distribution of a binary predicate is simply
+the joint distribution of the two argument type dis-
+tributions.
+For example, if the arguments in a
+bornarg0,argIn(obama,hawaii) derivation have the
+respective type distributions (PER=0.9, LOC=0.1)
+and (LOC=0.7, DAT=0.3), the distribution over bi-
+nary typed predicates is (bornarg0:PER,argIn:LOC=0.63,
+bornarg0:PER,argIn:DAT =0.27, etc.) The expected
+counts for (obama,hawaii) in the vectors for
+bornarg0:PER,argIn:LOC and bornarg0:PER,argIn:DAT are
+then incremented by these probabilities.
+</bodyText>
+<subsectionHeader confidence="0.996655">
+6.2 Clustering
+</subsectionHeader>
+<bodyText confidence="0.958629909090909">
+Many algorithms have been proposed for cluster-
+ing predicates based on their arguments (Poon and
+Domingos, 2009; Yao et al., 2012). The number of
+relations in the corpus is unbounded, so the cluster-
+ing algorithm should be non-parametric. It is also
+important that it remains tractable for very large
+numbers of predicates and arguments, in order to
+give us a greater coverage of language than can be
+achieved by hand-built ontologies.
+We cluster the typed predicate vectors using the
+Chinese Whispers algorithm (Biemann, 2006)
+</bodyText>
+<page confidence="0.995824">
+183
+</page>
+<bodyText confidence="0.9961295">
+\x0calthough somewhat ad-hoc, it is both non-parametric
+and highly scalable5. This has previously been used
+for noun-clustering by Fountain and Lapata (2011),
+who argue it is a cognitively plausible model for
+language acquisition. The collection of predicates
+and arguments is converted into a graph with one
+node per predicate, and edge weights representing
+the similarity between predicates. Predicates with
+different types have zero-similarity, and otherwise
+similarity is computed as the cosine-similarity of the
+tf-idf vectors of argument-pairs. We prune nodes oc-
+curring fewer than 20 times, edges with weights less
+than 103, and a short list of stop predicates.
+The algorithm proceeds as follows:
+</bodyText>
+<listItem confidence="0.752975">
+1. Each predicate p is assigned to a different se-
+mantic relation rp
+2. Iterate over the predicates p in a random order
+3. Set rp = argmax
+r
+p0 1r=rp0 sim(p, p0), where
+sim(p, p0) is the distributional similarity be-
+tween p and p0, and 1r=r0 is 1 iff r=r and 0
+otherwise.
+4. Repeat (2.) to convergence.
+7 Semantic Parsing using Relation
+</listItem>
+<subsubsectionHeader confidence="0.347474">
+Clusters
+</subsubsectionHeader>
+<bodyText confidence="0.980786470588235">
+The final phase is to use our relation clusters in the
+lexical entries of the CCG semantic derivation. This
+is slightly complicated by the fact that our predi-
+cates are lexically ambiguous between all the pos-
+sible types they could take, and hence the relations
+they could express. For example, the system can-
+not tell whether born in is expressing a birthplace
+or birthdate relation until later in the derivation,
+when it combines with its arguments. However, all
+the possible logical forms are identical except for
+the symbols used, which means we can produce a
+packed logical form capturing the full distribution
+over logical forms. To do this, we make the predi-
+cate a function from argument types to relations.
+For each word, we first take the lexical semantic
+definition produced by the algorithm in Section 4.
+For binary predicates in this definition (which will
+</bodyText>
+<page confidence="0.937439">
+5
+</page>
+<bodyText confidence="0.981551428571429">
+We also experimented with a Dirichlet Process Mixture Model
+(Neal, 2000), but even with the efficient A* search algorithms
+introduced by Daume III (2007), the cost of inference was found
+to be prohibitively high when run at large scale.
+be untyped), we perform a deterministic lookup in
+the cluster model learned in Section 6, using all pos-
+sible corresponding typed predicates. This allows us
+to represent the binary predicates as packed predi-
+cates: functions from argument types to relations.
+For example, if the clustering maps
+bornarg0:PER,argIn:LOC to rel49 (birthplace)
+and bornarg0:PER,argIn:DAT to rel53 (birthdate), our
+lexicon contains the following packed lexical entry
+(type-distributions on the variables are suppressed):
+</bodyText>
+<equation confidence="0.760403142857143">
+born ` (S\\NP)/PP[in] :
+yx.
+\x1a
+(x: PER,y:LOC)rel49
+(x: PER,y:DAT)rel53
+\x1b
+(x,y)
+</equation>
+<bodyText confidence="0.8194779">
+The distributions over argument types then imply
+a distribution over relations. For example, if the
+packed-predicate for bornarg0,argIn is applied to ar-
+guments Obama and Hawaii, with respective type
+distributions (PER=0.9, LOC=0.1) and (LOC=0.7,
+DAT=0.3)6, the distribution over relations will be
+(rel49=0.63, rel53=0.27, etc.).
+If 1961 has a type-distribution (LOC=0.1,
+DAT=0.9), the output packed-logical form for
+Obama was born in Hawaii in 1961 will be:
+</bodyText>
+<figure confidence="0.987664875">
+rel49=0.63
+rel53=0.27
+...
+(ob,hw)
+rel49=0.09
+rel53=0.81
+...
+(ob,1961)
+</figure>
+<bodyText confidence="0.895775">
+The probability of a given logical form can be read
+from this packed logical form.
+</bodyText>
+<sectionHeader confidence="0.997073" genericHeader="evaluation">
+8 Experiments
+</sectionHeader>
+<bodyText confidence="0.998279222222222">
+Our approach aims to offer a strong model of both
+formal and lexical semantics. We perform two eval-
+uations, aiming to target each of these separately, but
+using the same semantic representations in each.
+We train our system on Gigaword (Graff et al.,
+2003), which contains around 4 billion words of
+newswire. The type-model is trained using 15
+types7, and 5,000 iterations of Gibbs sampling (us-
+ing the distributions from the final sample). Table 1
+</bodyText>
+<page confidence="0.981984">
+6
+</page>
+<bodyText confidence="0.9967305">
+These distributions are composed from the type-distributions
+for both the predicate and argument, as explained in Section 5
+</bodyText>
+<page confidence="0.989945">
+7
+</page>
+<bodyText confidence="0.9910876">
+This number was chosen by examination of models trained
+with different numbers of types. The algorithm produces se-
+mantically coherent clusters for much larger numbers of types,
+but many of these are fine-grained categories of people, which
+introduces sparsity in the relation clustering.
+</bodyText>
+<page confidence="0.990931">
+184
+</page>
+<footnote confidence="0.933233666666667">
+\x0cType Top Words
+1 suspect, assailant, fugitive, accomplice
+2 author, singer, actress, actor, dad
+5 city, area, country, region, town, capital
+8 subsidiary, automaker, airline, Co., GM
+10 musical, thriller, sequel, special
+</footnote>
+<tableCaption confidence="0.861977">
+Table 1: Most probable terms in some clusters induced
+</tableCaption>
+<bodyText confidence="0.970728166666667">
+by the Type Model.
+shows some example types. The relation clustering
+uses only proper nouns, to improve precision (spar-
+sity problems are partly offset by the large input cor-
+pus). Aside from parsing, the pipeline takes around
+a day to run using 12 cores.
+</bodyText>
+<subsectionHeader confidence="0.998922">
+8.1 Question Answering Experiments
+</subsectionHeader>
+<bodyText confidence="0.984022142857143">
+As yet, there is no standard way of evaluating lexical
+semantics. Existing tasks like Recognising Textual
+Entailment (RTE; Dagan et al., 2006) rely heavily on
+background knowledge, which is beyond the scope
+of this work. Intrinsic evaluations of entailment rela-
+tions have low inter-annotator agreement (Szpektor
+et al., 2007), due to the difficulty of evaluating rela-
+tions out of context.
+Our evaluation is based on that performed by
+Poon and Domingos (2009). We automatically con-
+struct a set of questions by sampling from text,
+and then evaluate how many answers can be found
+in a different corpus. From dependency-parsed
+newswire, we sample either X
+</bodyText>
+<equation confidence="0.934818">
+nsub j
+verb
+dobj
+Y, X
+nsub j
+verb
+pobj
+Y or X
+nsubj
+be
+dobj
+noun
+pobj
+Y patterns,
+</equation>
+<bodyText confidence="0.976335111111111">
+where X and Y are proper nouns and the verb is
+not on a list of stop verbs, and deterministically con-
+vert these to questions. For example, from Google
+bought YouTube we create the questions What did
+Google buy? and What bought YouTube?. The task
+is to find proper-noun answers to these questions in
+a different corpus, which are then evaluated by hu-
+man annotators based on the sentence the answer
+was retrieved from8. Systems can return multiple
+</bodyText>
+<page confidence="0.991889">
+8
+</page>
+<bodyText confidence="0.9235994">
+Common nouns are filtered automatically. To focus on evalu-
+ating the semantics, annotators ignored garbled sentences due
+to errors pre-processing the corpus (these are excluded from
+the results). We also automatically exclude weekday and
+month answers, which are overwhelmingly syntax errors for
+all systemse.g. treating Tuesday as an object in Obama an-
+nounced Tuesday that...
+answers to the same question (e.g. What did Google
+buy? may have many valid answers), and all of
+these contribute to the result. As none of the systems
+model tense or temporal semantics, annotators were
+instructed to annotate answers as correct if they were
+true at any time. This approach means we evaluate
+on relations in proportion to corpus frequency. We
+sample 1000 questions from the New York Times
+subset of Gigaword from 2010, and search for an-
+swers in the New York Times from 2009.
+We evaluate the following approaches:
+CCG-Baseline The logical form produced by
+our CCG derivation, without the clustering.
+CCG-WordNet The CCG logical form, plus
+WordNet as a model of lexical semantics.
+CCG-Distributional The logical form includ-
+ing the type model and clusters.
+Relational LDA An LDA based model for
+clustering dependency paths (Yao et al., 2011).
+We train on New York Times subset of Giga-
+word9, using their setup of 50 iterations with
+100 relation types.
+Reverb A sophisticated Open Information Ex-
+traction system (Fader et al., 2011).
+Unsupervised Semantic Parsing (USP; Poon and
+Domingos, 2009; USP; Poon and Domingos, 2010;
+USP; Titov and Klementiev, 2011) would be another
+obvious baseline. However, memory requirements
+mean it is not possible to run at this scale (our system
+is trained on 4 orders of magnitude more data than
+the USP evaluation). Yao et al. (2011) found it had
+comparable performance to Relational LDA.
+For the CCG models, rather than performing full
+first-order inference on a large corpus, we simply
+test whether the question predicate subsumes a can-
+didate answer predicate, and whether the arguments
+match10. In the case of CCG-Distributional, we cal-
+culate the probability that the two packed-predicates
+</bodyText>
+<page confidence="0.979485">
+9
+</page>
+<bodyText confidence="0.998233">
+This is around 35% of Gigaword, and was the largest scale
+possible on our resources.
+</bodyText>
+<page confidence="0.995937">
+10
+</page>
+<bodyText confidence="0.9802404">
+We do this as it is much more efficient than full first-order
+theorem-proving. We could in principle make additional in-
+ferences with theorem-proving, such as answering What did
+Google buy? from Google bought the largest video website and
+YouTube is the largest video website.
+</bodyText>
+<page confidence="0.998127">
+185
+</page>
+<table confidence="0.996087857142857">
+\x0cSystem Answers Correct
+Relational-LDA 7046 11.6%
+Reverb 180 89.4%
+CCG-Baseline 203 95.8%
+CCG-WordNet 211 94.8%
+CCG-Distributional@250 250 94.1%
+CCG-Distributional@500 500 82.0%
+</table>
+<tableCaption confidence="0.996897">
+Table 2: Results on wide-coverage Question Answer-
+</tableCaption>
+<bodyText confidence="0.9748405">
+ing task. CCG-Distributional ranks question/answer pairs
+by confidence@250 means we evaluate the top 250 of
+these. It is not possible to give a recall figure, as the total
+number of correct answers in the corpus is unknown.
+are in the same cluster, marginalizing over their ar-
+gument types. Answers are ranked by this proba-
+bility. For CCG-WordNet, we check if the ques-
+tion predicate is a hypernym of the candidate answer
+predicate (using any WordNet sense of either term).
+Results are shown in Table 2. Relational-LDA in-
+duces many meaningful clusters, but predicates must
+be assigned to one of 100 relations, so results are
+dominated by large, noisy clusters (it is not possi-
+ble to take the N-best answers as the cluster assign-
+ments do not have a confidence score). The CCG-
+Baseline errors are mainly caused by parser errors,
+or relations in the scope of non-factive operators.
+CCG-WordNet adds few answers to CCG-Baseline,
+reflecting the limitations of hand-built ontologies.
+CCG-Distributional substantially improves recall
+over other approaches whilst retaining good preci-
+sion, demonstrating that we have learnt a powerful
+model of lexical semantics. Table 3 shows some
+correctly answered questions. The system improves
+over the baseline by mapping expressions such as
+merge with and acquisition of to the same relation
+cluster. Many of the errors are caused by conflating
+predicates where the entailment only holds in one
+direction, such as was elected to with ran for. Hier-
+archical clustering could be used to address this.
+</bodyText>
+<subsectionHeader confidence="0.746827">
+8.2 Experiments on the FraCaS Suite
+</subsectionHeader>
+<bodyText confidence="0.999246816326531">
+We are also interested in evaluating our approach
+as a model of formal semanticsdemonstrating that
+it is possible to integrate the formal semantics of
+Steedman (2012) with our distributional clusters.
+The FraCaS suite (Cooper et al., 1996)11 contains
+a hand-built set of entailment problems designed to
+be challenging in terms of formal semantics. We
+use Section 1, which contains 74 problems requiring
+an understanding of quantifiers12. They do not re-
+quire any knowledge of lexical semantics, meaning
+we can evaluate the formal component of our system
+in isolation. However, we use the same representa-
+tions as in our previous experiment, even though the
+clusters provide no benefit on this task. Figure 5
+gives an example problem.
+The only previous work we are aware of on
+this dataset is by MacCartney and Manning (2007).
+This approach learns the monotonicity properties
+of words from a hand-built training set, and uses
+this to transform a sentence into a polarity anno-
+tated string. The system then aims to transform the
+premise string into a hypothesis. Positively polar-
+ized words can be replaced with less specific ones
+(e.g. by deleting adjuncts), whereas negatively po-
+larized words can be replaced with more specific
+ones (e.g. by adding adjuncts). Whilst this is high-
+precision and often useful, this logic is unable to per-
+form inferences with multiple premise sentences (in
+contrast to our first-order logic).
+Development consists of adding entries to our lex-
+icon for quantifiers. For simplicity, we treat multi-
+word quantifiers like at least a few, as being multi-
+word expressionsalthough a more compositional
+analysis may be possible. Following MacCartney
+and Manning (2007), we do not use held-out data
+each problem is designed to test a different issue, so
+it is not possible to generalize from one subset of the
+suite to another. As we are interested in evaluating
+the semantics, not the parser, we manually supply
+gold-standard lexical categories for sentences with
+parser errors (any syntactic mistake causes incorrect
+semantics). Our derivations produce a distribution
+over logical formswe license the inference if it
+holds in any interpretation with non-zero probabil-
+ity. We use the Prover9 (McCune, 2005) theorem
+prover for inference, returning yes if the premise im-
+plies the hypothesis, no if it implies the negation of
+the hypothesis, and unknown otherwise.
+Results are shown in Table 4. Our system im-
+</bodyText>
+<page confidence="0.998448">
+11
+</page>
+<bodyText confidence="0.8948715">
+We use the version converted to machine readable format by
+MacCartney and Manning (2007)
+</bodyText>
+<page confidence="0.985703">
+12
+</page>
+<bodyText confidence="0.940432">
+Excluding 6 problems without a defined solution.
+</bodyText>
+<page confidence="0.995071">
+186
+</page>
+<table confidence="0.912432166666667">
+\x0cQuestion Answer Sentence
+What did Delta merge with? Northwest The 747 freighters came with Deltas acquisition of Northwest
+What spoke with Hu Jintao? Obama Obama conveyed his respect for the Dalai Lama to Chinas
+president Hu Jintao during their first meeting...
+What arrived in Colorado? Zazi Zazi flew back to Colorado...
+What ran for Congress? Young ... Young was elected to Congress in 1972
+</table>
+<tableCaption confidence="0.981014">
+Table 3: Example questions correctly answered by CCG-Distributional.
+</tableCaption>
+<bodyText confidence="0.67524575">
+Premises: Every European has the right to live in Europe.
+Every European is a person.
+Every person who has the right to live in Europe can travel freely within Europe.
+Hypothesis: Every European can travel freely within Europe
+</bodyText>
+<subsectionHeader confidence="0.208719">
+Solution: Yes
+</subsectionHeader>
+<figureCaption confidence="0.864194">
+Figure 5: Example problem from the FraCaS suite.
+</figureCaption>
+<table confidence="0.960278166666667">
+System Single Multiple
+Premise Premises
+MacCartney&amp;Manning 07 84% -
+MacCartney&amp;Manning 08 98% -
+CCG-Dist (parser syntax) 70% 50%
+CCG-Dist (gold syntax) 89% 80%
+</table>
+<tableCaption confidence="0.998627">
+Table 4: Accuracy on Section 1 of the FraCaS suite.
+</tableCaption>
+<bodyText confidence="0.978445619047619">
+Problems are divided into those with one premise sen-
+tence (44) and those with multiple premises (30).
+proves on previous work by making multi-sentence
+inferences. Causes of errors include missing a dis-
+tinct lexical entry for plural the, only taking existen-
+tial interpretations of bare plurals, failing to inter-
+pret mass-noun determiners such as a lot of, and not
+providing a good semantics for non-monotone de-
+terminers such as most. We believe these problems
+will be surmountable with more work. Almost all er-
+rors are due to incorrectly predicting unknown the
+system makes just one error on yes or no predictions
+(with or without gold syntax). This suggests that
+making first-order logic inferences in applications
+will not harm precision. We are less robust than
+MacCartney and Manning (2007) to syntax errors
+but, conversely, we are able to attempt more of the
+problems (i.e. those with multi-sentence premises).
+Other approaches based on distributional semantics
+seem unable to tackle any of these problems, as they
+do not represent quantifiers or negation.
+</bodyText>
+<sectionHeader confidence="0.996929" genericHeader="related work">
+9 Related Work
+</sectionHeader>
+<bodyText confidence="0.996818724137931">
+Much work on semantics has taken place in a su-
+pervised settingfor example the GeoQuery (Zelle
+and Mooney, 1996) and ATIS (Dahl et al., 1994) se-
+mantic parsing tasks. This approach makes sense for
+generating queries for a specific database, but means
+the semantic representations do not generalize to
+other datasets. There have been several attempts
+to annotate larger corpora with semanticssuch as
+Ontonotes (Hovy et al., 2006) or the Groningen
+Meaning Bank (Basile et al., 2012). These typically
+map words onto senses in ontologies such as Word-
+Net, VerbNet (Kipper et al., 2000) and FrameNet
+(Baker et al., 1998). However, limitations of these
+ontologies mean that they do not support inferences
+such as X is the author of Y X wrote Y.
+Given the difficulty of annotating large amounts
+of text with semantics, various approaches have at-
+tempted to learn meaning without annotated text.
+Distant Supervision approaches leverage existing
+knowledge bases, such as Freebase (Bollacker et al.,
+2008), to learn semantics (Mintz et al., 2009; Krish-
+namurthy and Mitchell, 2012). Dependency-based
+Compositional Semantics (Liang et al., 2011) learns
+the meaning of questions by using their answers as
+denotationsbut this appears to be specific to ques-
+tion parsing. Such approaches can only learn the
+pre-specified relations in the knowledge base.
+The approaches discussed so far in this section
+have all attempted to map language onto some pre-
+</bodyText>
+<page confidence="0.993785">
+187
+</page>
+<bodyText confidence="0.999129298507463">
+\x0cspecified set of relations. Various attempts have
+been made to instead induce relations from text by
+clustering predicates based on their arguments. For
+example, Yao et al. (2011) propose a series of LDA-
+based models which cluster relations between en-
+tities based on a variety of lexical, syntactic and
+semantic features. Unsupervised Semantic Pars-
+ing (Poon and Domingos, 2009) recursively clusters
+fragments of dependency trees based on their argu-
+ments. Although USP is an elegant model, it is too
+computationally expensive to run on large corpora.
+It is also based on frame semantics, so does not clus-
+ter equivalent predicates with different frames. To
+our knowledge, our work is the first such approach
+to be integrated within a linguistic theory supporting
+formal semantics for logical operators.
+Vector space models represent words by vectors
+based on co-occurrence counts. Recent work has
+tackled the problem of composing these matrices
+to build up the semantics of phrases or sentences
+(Mitchell and Lapata, 2008). Another strand (Co-
+ecke et al., 2010; Grefenstette et al., 2011) has
+shown how to represent meanings as tensors, whose
+order depends on the syntactic category, allowing
+an elegant correspondence between syntactic and
+semantic types. Socher et al. (2012) train a com-
+position function using a neural networkhowever
+their method requires annotated data. It is also not
+obvious how to represent logical relations such as
+quantification in vector-space models. Baroni et al.
+(2012) make progress towards this by learning a
+classifier that can recognise entailments such as all
+dogs = some dogs, but this remains some way
+from the power of first-order theorem proving of the
+kind required by the problem in Figure 5.
+An alternative strand of research has attempted
+to build computational models of linguistic theories
+based on formal compositional semantics, such as
+the CCG-based Boxer (Bos, 2008) and the LFG-
+based XLE (Bobrow et al., 2007). Such approaches
+convert parser output into formal semantic repre-
+sentations, and have demonstrated some ability to
+model complex phenomena such as negation. For
+lexical semantics, they typically compile lexical re-
+sources such as VerbNet and WordNet into inference
+rulesbut still achieve only low recall on open-
+domain tasks, such as RTE, mostly due to the low
+coverage of such resources. Garrette et al. (2011)
+use distributional statistics to determine the proba-
+bility that a WordNet-derived inference rule is valid
+in a given context. Our approach differs in that
+we learn inference rules not present in WordNet.
+Our lexical semantics is integrated into the lexicon,
+rather than being implemented as additional infer-
+ence rules, meaning that inference is more efficient,
+as equivalent statements have the same logical form.
+Natural Logic (MacCartney and Manning, 2007)
+offers an interesting alternative to symbolic logics,
+and has been shown to be able to capture complex
+logical inferences by simply identifying the scope of
+negation in text. This approach achieves similar pre-
+cision and much higher recall than Boxer on the RTE
+task. Their approach also suffers from such limita-
+tions as only being able to make inferences between
+two sentences. It is also sensitive to word order, so
+cannot make inferences such as Shakespeare wrote
+Macbeth = Macbeth was written by Shakespeare.
+</bodyText>
+<sectionHeader confidence="0.983305" genericHeader="conclusions">
+10 Conclusions and Future Work
+</sectionHeader>
+<bodyText confidence="0.99978175">
+This is the first work we are aware of that combines a
+distributionally induced lexicon with formal seman-
+tics. Experiments suggest our approach compares
+favourably with existing work in both areas.
+Many potential areas for improvement remain.
+Hierachical clustering would allow us to capture
+hypernym relations, rather than the synonyms cap-
+tured by our flat clustering. There is much potential
+for integrating existing hand-built resources, such
+as Ontonotes and WordNet, to improve the accu-
+racy of clustering. There are cases where the ex-
+isting CCGBank grammar does not match the re-
+quired predicate-argument structurefor example
+in the case of light verbs. It may be possible to re-
+bank CCGBank, in a way similar to Honnibal et al.
+(2010), to improve it on this point.
+</bodyText>
+<sectionHeader confidence="0.945135" genericHeader="acknowledgments">
+Acknowledgements
+</sectionHeader>
+<bodyText confidence="0.8150184">
+We thank Christos Christodoulopoulos, Tejaswini
+Deoskar, Mark Granroth-Wilding, Ewan Klein, Ka-
+trin Erk, Johan Bos and the anonymous reviewers
+for their helpful comments, and Limin Yao for shar-
+ing code. This work was funded by ERC Advanced
+</bodyText>
+<table confidence="0.2308175">
+Fellowship 249520 GRAMPLUS and IP EC-FP7-
+270273 Xperience.
+</table>
+<page confidence="0.942196">
+188
+</page>
+<reference confidence="0.994103490566038">
+\x0cReferences
+C.F. Baker, C.J. Fillmore, and J.B. Lowe. 1998. The
+berkeley framenet project. In Proceedings of the
+36th Annual Meeting of the Association for Computa-
+tional Linguistics and 17th International Conference
+on Computational Linguistics-Volume 1, pages 8690.
+Association for Computational Linguistics.
+M. Baroni, R. Bernardi, N.Q. Do, and C. Shan. 2012.
+Entailment above the word level in distributional se-
+mantics. In Proceedings of EACL, pages 2332. Cite-
+seer.
+V. Basile, J. Bos, K. Evang, and N. Venhuizen. 2012.
+Developing a large semantically annotated corpus. In
+Proceedings of the Eighth International Conference
+on Language Resources and Evaluation (LREC12). To
+appear.
+Jonathan Berant, Ido Dagan, and Jacob Goldberger.
+2011. Global learning of typed entailment rules. In
+Proceedings of the 49th Annual Meeting of the Asso-
+ciation for Computational Linguistics: Human Lan-
+guage Technologies - Volume 1, HLT 11, pages 610
+619. Association for Computational Linguistics.
+C. Biemann. 2006. Chinese whispers: an efficient graph
+clustering algorithm and its application to natural lan-
+guage processing problems. In Proceedings of the
+First Workshop on Graph Based Methods for Natural
+Language Processing, pages 7380. Association for
+Computational Linguistics.
+D.M. Blei, A.Y. Ng, and M.I. Jordan. 2003. Latent
+dirichlet allocation. the Journal of machine Learning
+research, 3:9931022.
+D. G. Bobrow, C. Condoravdi, R. Crouch, V. De Paiva,
+L. Karttunen, T. H. King, R. Nairn, L. Price, and
+A. Zaenen. 2007. Precision-focused textual inference.
+In Proceedings of the ACL-PASCAL Workshop on Tex-
+tual Entailment and Paraphrasing, RTE 07, pages
+1621. Association for Computational Linguistics.
+Kurt Bollacker, Colin Evans, Praveen Paritosh, Tim
+Sturge, and Jamie Taylor. 2008. Freebase: a col-
+laboratively created graph database for structuring hu-
+man knowledge. In Proceedings of the 2008 ACM
+SIGMOD international conference on Management of
+data, SIGMOD 08, pages 12471250, New York, NY,
+USA. ACM.
+J. Bos and K. Markert. 2005. Recognising textual en-
+tailment with logical inference. In Proceedings of
+the conference on Human Language Technology and
+Empirical Methods in Natural Language Processing,
+pages 628635. Association for Computational Lin-
+guistics.
+Johan Bos. 2008. Wide-coverage semantic analysis with
+boxer. In Johan Bos and Rodolfo Delmonte, editors,
+Semantics in Text Processing. STEP 2008 Conference
+Proceedings, Research in Computational Semantics,
+pages 277286. College Publications.
+P.F. Brown, P.V. Desouza, R.L. Mercer, V.J.D. Pietra, and
+J.C. Lai. 1992. Class-based n-gram models of natural
+language. Computational linguistics, 18(4):467479.
+N. Chinchor and P. Robinson. 1997. Muc-7 named entity
+task definition. In Proceedings of the 7th Conference
+on Message Understanding.
+Stephen Clark and James R. Curran. 2004. Parsing the
+WSJ using CCG and log-linear models. In Proceed-
+ings of the 42nd Annual Meeting on Association for
+Computational Linguistics, ACL 04. Association for
+Computational Linguistics.
+Bob Coecke, Mehrnoosh Sadrzadeh, and Stephen Clark.
+2010. Mathematical foundations for a compositional
+distributional model of meaning. Linguistic Analysis:
+A Festschrift for Joachim Lambek, 36(1-4):345384.
+Robin Cooper, Dick Crouch, Jan Van Eijck, Chris Fox,
+Johan Van Genabith, Jan Jaspars, Hans Kamp, David
+Milward, Manfred Pinkal, Massimo Poesio, et al.
+1996. Using the framework. FraCaS Deliverable D,
+16.
+Ido Dagan, O. Glickman, and B. Magnini. 2006. The
+PASCAL recognising textual entailment challenge.
+Machine Learning Challenges. Evaluating Predictive
+Uncertainty, Visual Object Classification, and Recog-
+nising Tectual Entailment, pages 177190.
+D.A. Dahl, M. Bates, M. Brown, W. Fisher, K. Hunicke-
+Smith, D. Pallett, C. Pao, A. Rudnicky, and
+E. Shriberg. 1994. Expanding the scope of the ATIS
+task: The ATIS-3 corpus. In Proceedings of the work-
+shop on Human Language Technology, pages 4348.
+Association for Computational Linguistics.
+Hal Daume III. 2007. Fast search for dirichlet process
+mixture models. In Proceedings of the Eleventh In-
+ternational Conference on Artificial Intelligence and
+Statistics (AIStats), San Juan, Puerto Rico.
+D. Davidson. 1967. 6. the logical form of action sen-
+tences. Essays on actions and events, 1(9):105149.
+Anthony Fader, Stephen Soderland, and Oren Etzioni.
+2011. Identifying relations for open information
+extraction. In Proceedings of the Conference on
+Empirical Methods in Natural Language Processing,
+EMNLP 11, pages 15351545. Association for Com-
+putational Linguistics.
+T. Fountain and M. Lapata. 2011. Incremental models of
+natural language category acquisition. In Proceedings
+of the 32st Annual Conference of the Cognitive Science
+Society.
+D. Garrette, K. Erk, and R. Mooney. 2011. Integrating
+logical representations with probabilistic information
+using markov logic. In Proceedings of the Ninth In-
+ternational Conference on Computational Semantics,
+</reference>
+<page confidence="0.976668">
+189
+</page>
+<reference confidence="0.999604075471698">
+\x0cpages 105114. Association for Computational Lin-
+guistics.
+D. Graff, J. Kong, K. Chen, and K. Maeda. 2003. English
+gigaword. Linguistic Data Consortium, Philadelphia.
+Edward Grefenstette, Mehrnoosh Sadrzadeh, Stephen
+Clark, Bob Coecke, and Stephen Pulman. 2011. Con-
+crete sentence spaces for compositional distributional
+models of meaning. Computational Semantics IWCS
+2011, page 125.
+Julia Hockenmaier and Mark Steedman. 2007. CCG-
+bank: a corpus of CCG derivations and dependency
+structures extracted from the penn treebank. Compu-
+tational Linguistics, 33(3):355396.
+M. Honnibal, J.R. Curran, and J. Bos. 2010. Rebanking
+CCGbank for improved NP interpretation. In Proceed-
+ings of the 48th Annual Meeting of the Association for
+Computational Linguistics, pages 207215. Associa-
+tion for Computational Linguistics.
+E. Hovy, M. Marcus, M. Palmer, L. Ramshaw, and
+R. Weischedel. 2006. Ontonotes: the 90% solution.
+In Proceedings of the Human Language Technology
+Conference of the NAACL, Companion Volume: Short
+Papers, pages 5760. Association for Computational
+Linguistics.
+P. Kingsbury and M. Palmer. 2002. From treebank to
+propbank. In Proceedings of the 3rd International
+Conference on Language Resources and Evaluation
+(LREC-2002), pages 19891993. Citeseer.
+K. Kipper, H.T. Dang, and M. Palmer. 2000. Class-based
+construction of a verb lexicon. In Proceedings of the
+National Conference on Artificial Intelligence, pages
+691696. Menlo Park, CA; Cambridge, MA; London;
+AAAI Press; MIT Press; 1999.
+Jayant Krishnamurthy and Tom M. Mitchell. 2012.
+Weakly supervised training of semantic parsers. In
+Proceedings of the 2012 Joint Conference on Empir-
+ical Methods in Natural Language Processing and
+Computational Natural Language Learning, EMNLP-
+CoNLL 12, pages 754765. Association for Compu-
+tational Linguistics.
+P. Liang, M.I. Jordan, and D. Klein. 2011. Learning
+dependency-based compositional semantics. In Proc.
+Association for Computational Linguistics (ACL).
+Dekang Lin and Patrick Pantel. 2001. DIRT - Discovery
+of Inference Rules from Text. In In Proceedings of the
+ACM SIGKDD Conference on Knowledge Discovery
+and Data Mining, pages 323328.
+Bill MacCartney and Christopher D. Manning. 2007.
+Natural logic for textual inference. In Proceedings
+of the ACL-PASCAL Workshop on Textual Entailment
+and Paraphrasing, RTE 07, pages 193200. Associa-
+tion for Computational Linguistics.
+Andrew Kachites McCallum. 2002. Mal-
+let: A machine learning for language toolkit.
+http://mallet.cs.umass.edu.
+W. McCune. 2005. Prover9 and Mace4.
+http://cs.unm.edu/ mccune/mace4/.
+G.A. Miller. 1995. Wordnet: a lexical database for en-
+glish. Communications of the ACM, 38(11):3941.
+M. Mintz, S. Bills, R. Snow, and D. Jurafsky. 2009. Dis-
+tant supervision for relation extraction without labeled
+data. In Proceedings of the Joint Conference of the
+47th Annual Meeting of the ACL and the 4th Interna-
+tional Joint Conference on Natural Language Process-
+ing of the AFNLP: Volume 2-Volume 2, pages 1003
+1011. Association for Computational Linguistics.
+J. Mitchell and M. Lapata. 2008. Vector-based models of
+semantic composition. proceedings of ACL-08: HLT,
+pages 236244.
+R.M. Neal. 2000. Markov chain sampling methods for
+dirichlet process mixture models. Journal of compu-
+tational and graphical statistics, 9(2):249265.
+D.O. OSeaghdha. 2010. Latent variable models of se-
+lectional preference. In Proceedings of the 48th An-
+nual Meeting of the Association for Computational
+Linguistics, pages 435444. Association for Compu-
+tational Linguistics.
+Hoifung Poon and Pedro Domingos. 2009. Unsuper-
+vised semantic parsing. In Proceedings of the 2009
+Conference on Empirical Methods in Natural Lan-
+guage Processing: Volume 1 - Volume 1, EMNLP 09,
+pages 110. Association for Computational Linguis-
+tics.
+Hoifung Poon and Pedro Domingos. 2010. Unsuper-
+vised ontology induction from text. In Proceedings of
+the 48th Annual Meeting of the Association for Com-
+putational Linguistics, ACL 10, pages 296305. As-
+sociation for Computational Linguistics.
+A. Ritter, O. Etzioni, et al. 2010. A latent dirichlet allo-
+cation method for selectional preferences. In Proceed-
+ings of the 48th Annual Meeting of the Association for
+Computational Linguistics, pages 424434. Associa-
+tion for Computational Linguistics.
+Stefan Schoenmackers, Oren Etzioni, Daniel S. Weld,
+and Jesse Davis. 2010. Learning first-order horn
+clauses from web text. In Proceedings of the 2010
+Conference on Empirical Methods in Natural Lan-
+guage Processing, EMNLP 10, pages 10881098.
+Association for Computational Linguistics.
+R. Socher, B. Huval, C.D. Manning, and A.Y. Ng. 2012.
+Semantic compositionality through recursive matrix-
+vector spaces. In Proceedings of the 2012 Joint
+Conference on Empirical Methods in Natural Lan-
+guage Processing and Computational Natural Lan-
+guage Learning, pages 12011211. Association for
+Computational Linguistics.
+</reference>
+<page confidence="0.897945">
+190
+</page>
+<reference confidence="0.999537148148148">
+\x0cMark Steedman. 2000. The Syntactic Process. MIT
+Press.
+Mark Steedman. 2012. Taking Scope: The Natural Se-
+mantics of Quantifiers. MIT Press.
+Idan Szpektor, Eyal Shnarch, and Ido Dagan. 2007.
+Instance-based evaluation of entailment rule acquisi-
+tion. In In Proceedings of ACL 2007, volume 45, page
+456.
+Ivan Titov and Alexandre Klementiev. 2011. A bayesian
+model for unsupervised semantic parsing. In Proceed-
+ings of the 49th Annual Meeting of the Association for
+Computational Linguistics: Human Language Tech-
+nologies, pages 14451455, Portland, Oregon, USA,
+June. Association for Computational Linguistics.
+Limin Yao, Aria Haghighi, Sebastian Riedel, and Andrew
+McCallum. 2011. Structured relation discovery using
+generative models. In Proceedings of the Conference
+on Empirical Methods in Natural Language Process-
+ing, EMNLP 11, pages 14561466. Association for
+Computational Linguistics.
+Limin Yao, Sebastian Riedel, and Andrew McCallum.
+2012. Unsupervised relation discovery with sense dis-
+ambiguation. In ACL (1), pages 712720.
+J.M. Zelle and R.J. Mooney. 1996. Learning to parse
+database queries using inductive logic programming.
+In Proceedings of the National Conference on Artifi-
+cial Intelligence, pages 10501055.
+</reference>
+<page confidence="0.964048">
+191
+</page>
+<figure confidence="0.8733045">
+\x0c192
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.437122">
+<note confidence="0.86862675">b&apos;Transactions of the Association for Computational Linguistics, 1 (2013) 179192. Action Editor: Johan Bos. Submitted 1/2013; Revised 3/2013; Published 5/2013. c 2013 Association for Computational Linguistics. Combined Distributional and Logical Semantics</note>
+<author confidence="0.966505">Mike Lewis</author>
+<affiliation confidence="0.9996065">School of Informatics University of Edinburgh</affiliation>
+<address confidence="0.998457">Edinburgh, EH8 9AB, UK</address>
+<email confidence="0.995611">mike.lewis@ed.ac.uk</email>
+<author confidence="0.999998">Mark Steedman</author>
+<affiliation confidence="0.999869">School of Informatics University of Edinburgh</affiliation>
+<address confidence="0.999551">Edinburgh, EH8 9AB, UK</address>
+<email confidence="0.998046">steedman@inf.ed.ac.uk</email>
+<abstract confidence="0.997218380952381">We introduce a new approach to semantics which combines the benefits of distributional and formal logical semantics. Distributional models have been successful in modelling the meanings of content words, but logical semantics is necessary to adequately represent many function words. We follow formal semantics in mapping language to logical representations, but differ in that the relational constants used are induced by offline distributional clustering at the level of predicateargument structure. Our clustering algorithm is highly scalable, allowing us to run on corpora the size of Gigaword. Different senses of a word are disambiguated based on their induced types. We outperform a variety of existing approaches on a wide-coverage question answering task, and demonstrate the ability to make complex multi-sentence inferences involving quantifiers on the FraCaS suite.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>\x0cReferences C F Baker</author>
+<author>C J Fillmore</author>
+<author>J B Lowe</author>
+</authors>
+<title>The berkeley framenet project.</title>
+<date>1998</date>
+<booktitle>In Proceedings of the 36th Annual Meeting of the Association for Computational Linguistics and 17th International Conference on Computational Linguistics-Volume 1,</booktitle>
+<pages>8690</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="34385" citStr="Baker et al., 1998" startWordPosition="5423" endWordPosition="5426">d Work Much work on semantics has taken place in a supervised settingfor example the GeoQuery (Zelle and Mooney, 1996) and ATIS (Dahl et al., 1994) semantic parsing tasks. This approach makes sense for generating queries for a specific database, but means the semantic representations do not generalize to other datasets. There have been several attempts to annotate larger corpora with semanticssuch as Ontonotes (Hovy et al., 2006) or the Groningen Meaning Bank (Basile et al., 2012). These typically map words onto senses in ontologies such as WordNet, VerbNet (Kipper et al., 2000) and FrameNet (Baker et al., 1998). However, limitations of these ontologies mean that they do not support inferences such as X is the author of Y X wrote Y. Given the difficulty of annotating large amounts of text with semantics, various approaches have attempted to learn meaning without annotated text. Distant Supervision approaches leverage existing knowledge bases, such as Freebase (Bollacker et al., 2008), to learn semantics (Mintz et al., 2009; Krishnamurthy and Mitchell, 2012). Dependency-based Compositional Semantics (Liang et al., 2011) learns the meaning of questions by using their answers as denotationsbut this appe</context>
+</contexts>
+<marker>Baker, Fillmore, Lowe, 1998</marker>
+<rawString>\x0cReferences C.F. Baker, C.J. Fillmore, and J.B. Lowe. 1998. The berkeley framenet project. In Proceedings of the 36th Annual Meeting of the Association for Computational Linguistics and 17th International Conference on Computational Linguistics-Volume 1, pages 8690. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Baroni</author>
+<author>R Bernardi</author>
+<author>N Q Do</author>
+<author>C Shan</author>
+</authors>
+<date>2012</date>
+<contexts>
+<context position="36707" citStr="Baroni et al. (2012)" startWordPosition="5784" endWordPosition="5787">. Recent work has tackled the problem of composing these matrices to build up the semantics of phrases or sentences (Mitchell and Lapata, 2008). Another strand (Coecke et al., 2010; Grefenstette et al., 2011) has shown how to represent meanings as tensors, whose order depends on the syntactic category, allowing an elegant correspondence between syntactic and semantic types. Socher et al. (2012) train a composition function using a neural networkhowever their method requires annotated data. It is also not obvious how to represent logical relations such as quantification in vector-space models. Baroni et al. (2012) make progress towards this by learning a classifier that can recognise entailments such as all dogs = some dogs, but this remains some way from the power of first-order theorem proving of the kind required by the problem in Figure 5. An alternative strand of research has attempted to build computational models of linguistic theories based on formal compositional semantics, such as the CCG-based Boxer (Bos, 2008) and the LFGbased XLE (Bobrow et al., 2007). Such approaches convert parser output into formal semantic representations, and have demonstrated some ability to model complex phenomena s</context>
+</contexts>
+<marker>Baroni, Bernardi, Do, Shan, 2012</marker>
+<rawString>M. Baroni, R. Bernardi, N.Q. Do, and C. Shan. 2012.</rawString>
+</citation>
+<citation valid="false">
+<title>Entailment above the word level in distributional semantics.</title>
+<booktitle>In Proceedings of EACL,</booktitle>
+<pages>2332</pages>
+<publisher>Citeseer.</publisher>
+<marker></marker>
+<rawString>Entailment above the word level in distributional semantics. In Proceedings of EACL, pages 2332. Citeseer.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>V Basile</author>
+<author>J Bos</author>
+<author>K Evang</author>
+<author>N Venhuizen</author>
+</authors>
+<title>Developing a large semantically annotated corpus.</title>
+<date>2012</date>
+<booktitle>In Proceedings of the Eighth International Conference on Language Resources and Evaluation (LREC12).</booktitle>
+<note>To appear.</note>
+<contexts>
+<context position="34251" citStr="Basile et al., 2012" startWordPosition="5400" endWordPosition="5403">sed on distributional semantics seem unable to tackle any of these problems, as they do not represent quantifiers or negation. 9 Related Work Much work on semantics has taken place in a supervised settingfor example the GeoQuery (Zelle and Mooney, 1996) and ATIS (Dahl et al., 1994) semantic parsing tasks. This approach makes sense for generating queries for a specific database, but means the semantic representations do not generalize to other datasets. There have been several attempts to annotate larger corpora with semanticssuch as Ontonotes (Hovy et al., 2006) or the Groningen Meaning Bank (Basile et al., 2012). These typically map words onto senses in ontologies such as WordNet, VerbNet (Kipper et al., 2000) and FrameNet (Baker et al., 1998). However, limitations of these ontologies mean that they do not support inferences such as X is the author of Y X wrote Y. Given the difficulty of annotating large amounts of text with semantics, various approaches have attempted to learn meaning without annotated text. Distant Supervision approaches leverage existing knowledge bases, such as Freebase (Bollacker et al., 2008), to learn semantics (Mintz et al., 2009; Krishnamurthy and Mitchell, 2012). Dependency</context>
+</contexts>
+<marker>Basile, Bos, Evang, Venhuizen, 2012</marker>
+<rawString>V. Basile, J. Bos, K. Evang, and N. Venhuizen. 2012. Developing a large semantically annotated corpus. In Proceedings of the Eighth International Conference on Language Resources and Evaluation (LREC12). To appear.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jonathan Berant</author>
+<author>Ido Dagan</author>
+<author>Jacob Goldberger</author>
+</authors>
+<title>Global learning of typed entailment rules.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics: Human Language Technologies - Volume 1, HLT 11,</booktitle>
+<pages>610--619</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="7532" citStr="Berant et al., 2011" startWordPosition="1147" endWordPosition="1150">e standard CCG derivation is that the symbols used in the logical form are arbitrary relation identifiers. We learn these by first mapping to a deterministic logical form (using predicates 180 \x0csuch as author and write), using a process similar to Boxer, and then clustering predicates based on their arguments. This lexicon can then be used to parse new sentences, and integrates seamlessly with CCG theories of formal semantics. Typing predicatesfor example, determining that writing is a relation between people and books has become standard in relation clustering (Schoenmackers et al., 2010; Berant et al., 2011; Yao et al., 2012). We demonstate how to build a typing model into the CCG derivation, by subcategorizing all terms representing entities in the logical form with a more detailed type. These types are also induced from text, as explained in Section 5, but for convenience we describe them with human-readable labels, such as PER, LOC and BOOK. A key advantage of typing is that it allows us to model ambiguous predicates. Following Berant et al. (2011), we assume that different type signatures of the same predicate have different meanings, but given a type signature a predicate is unambiguous. Fo</context>
+</contexts>
+<marker>Berant, Dagan, Goldberger, 2011</marker>
+<rawString>Jonathan Berant, Ido Dagan, and Jacob Goldberger. 2011. Global learning of typed entailment rules. In Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics: Human Language Technologies - Volume 1, HLT 11, pages 610 619. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C Biemann</author>
+</authors>
+<title>Chinese whispers: an efficient graph clustering algorithm and its application to natural language processing problems.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the First Workshop on Graph Based Methods for Natural Language Processing,</booktitle>
+<pages>7380</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="18903" citStr="Biemann, 2006" startWordPosition="2954" endWordPosition="2955">C and bornarg0:PER,argIn:DAT are then incremented by these probabilities. 6.2 Clustering Many algorithms have been proposed for clustering predicates based on their arguments (Poon and Domingos, 2009; Yao et al., 2012). The number of relations in the corpus is unbounded, so the clustering algorithm should be non-parametric. It is also important that it remains tractable for very large numbers of predicates and arguments, in order to give us a greater coverage of language than can be achieved by hand-built ontologies. We cluster the typed predicate vectors using the Chinese Whispers algorithm (Biemann, 2006) 183 \x0calthough somewhat ad-hoc, it is both non-parametric and highly scalable5. This has previously been used for noun-clustering by Fountain and Lapata (2011), who argue it is a cognitively plausible model for language acquisition. The collection of predicates and arguments is converted into a graph with one node per predicate, and edge weights representing the similarity between predicates. Predicates with different types have zero-similarity, and otherwise similarity is computed as the cosine-similarity of the tf-idf vectors of argument-pairs. We prune nodes occurring fewer than 20 times</context>
+</contexts>
+<marker>Biemann, 2006</marker>
+<rawString>C. Biemann. 2006. Chinese whispers: an efficient graph clustering algorithm and its application to natural language processing problems. In Proceedings of the First Workshop on Graph Based Methods for Natural Language Processing, pages 7380. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D M Blei</author>
+<author>A Y Ng</author>
+<author>M I Jordan</author>
+</authors>
+<title>Latent dirichlet allocation.</title>
+<date>2003</date>
+<journal>the Journal of machine Learning research,</journal>
+<pages>3--9931022</pages>
+<contexts>
+<context position="13510" citStr="Blei et al., 2003" startWordPosition="2090" endWordPosition="2093">dicates). For example, we want the pair (bornargIn, 1961) to map to a DAT type, and (bornargIn, Hawaii) to map to a LOC type. This is non-trivial, as both the predicates and arguments can be ambiguous between multiple typesbut topic models offer a good solution (described below). 5.1 Topic Model We assume that the type of each argument of a predicate depends only on the predicate and argument, although Ritter et al. (2010) demonstrate an advantage of modelling the joint probability of the types of multiple arguments of the same predicate. We use the standard Latent Dirichlet Allocation model (Blei et al., 2003), which performs comparably to more complex models proposed in OSeaghdha (2010). In topic-modelling terminology, we construct a document for each unary predicate (e.g. bornargIn), based on all of its argument entities (words). We assume that these arguments are drawn from a small number of types (topics), such as PER, DAT or LOC3. Each type j has a multinomial distribution j over arguments (for example, a LOC type is more likely to generate Hawaii than 1961). Each unary predicate i has a multinomial distribution i over topics, so the bornargIn predicate will normally generate a DAT or LOC type</context>
+</contexts>
+<marker>Blei, Ng, Jordan, 2003</marker>
+<rawString>D.M. Blei, A.Y. Ng, and M.I. Jordan. 2003. Latent dirichlet allocation. the Journal of machine Learning research, 3:9931022.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D G Bobrow</author>
+<author>C Condoravdi</author>
+<author>R Crouch</author>
+<author>V De Paiva</author>
+<author>L Karttunen</author>
+<author>T H King</author>
+<author>R Nairn</author>
+<author>L Price</author>
+<author>A Zaenen</author>
+</authors>
+<date>2007</date>
+<note>Precision-focused textual inference.</note>
+<marker>Bobrow, Condoravdi, Crouch, De Paiva, Karttunen, King, Nairn, Price, Zaenen, 2007</marker>
+<rawString>D. G. Bobrow, C. Condoravdi, R. Crouch, V. De Paiva, L. Karttunen, T. H. King, R. Nairn, L. Price, and A. Zaenen. 2007. Precision-focused textual inference.</rawString>
+</citation>
+<citation valid="false">
+<booktitle>In Proceedings of the ACL-PASCAL Workshop on Textual Entailment and Paraphrasing, RTE 07,</booktitle>
+<pages>1621</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<marker></marker>
+<rawString>In Proceedings of the ACL-PASCAL Workshop on Textual Entailment and Paraphrasing, RTE 07, pages 1621. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kurt Bollacker</author>
+<author>Colin Evans</author>
+<author>Praveen Paritosh</author>
+<author>Tim Sturge</author>
+<author>Jamie Taylor</author>
+</authors>
+<title>Freebase: a collaboratively created graph database for structuring human knowledge.</title>
+<date>2008</date>
+<booktitle>In Proceedings of the 2008 ACM SIGMOD international conference on Management of data, SIGMOD 08,</booktitle>
+<pages>12471250</pages>
+<publisher>ACM.</publisher>
+<location>New York, NY, USA.</location>
+<contexts>
+<context position="34764" citStr="Bollacker et al., 2008" startWordPosition="5482" endWordPosition="5485">orpora with semanticssuch as Ontonotes (Hovy et al., 2006) or the Groningen Meaning Bank (Basile et al., 2012). These typically map words onto senses in ontologies such as WordNet, VerbNet (Kipper et al., 2000) and FrameNet (Baker et al., 1998). However, limitations of these ontologies mean that they do not support inferences such as X is the author of Y X wrote Y. Given the difficulty of annotating large amounts of text with semantics, various approaches have attempted to learn meaning without annotated text. Distant Supervision approaches leverage existing knowledge bases, such as Freebase (Bollacker et al., 2008), to learn semantics (Mintz et al., 2009; Krishnamurthy and Mitchell, 2012). Dependency-based Compositional Semantics (Liang et al., 2011) learns the meaning of questions by using their answers as denotationsbut this appears to be specific to question parsing. Such approaches can only learn the pre-specified relations in the knowledge base. The approaches discussed so far in this section have all attempted to map language onto some pre187 \x0cspecified set of relations. Various attempts have been made to instead induce relations from text by clustering predicates based on their arguments. For </context>
+</contexts>
+<marker>Bollacker, Evans, Paritosh, Sturge, Taylor, 2008</marker>
+<rawString>Kurt Bollacker, Colin Evans, Praveen Paritosh, Tim Sturge, and Jamie Taylor. 2008. Freebase: a collaboratively created graph database for structuring human knowledge. In Proceedings of the 2008 ACM SIGMOD international conference on Management of data, SIGMOD 08, pages 12471250, New York, NY, USA. ACM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Bos</author>
+<author>K Markert</author>
+</authors>
+<title>Recognising textual entailment with logical inference.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the conference on Human Language Technology and Empirical Methods in Natural Language Processing,</booktitle>
+<pages>628635</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="2902" citStr="Bos and Markert, 2005" startWordPosition="434" endWordPosition="437">, it is less clear that it can be applied to the meanings of function words. Semantic operators, such as determiners, negation, conjunctions, modals, tense, mood, aspect, and plurals are ubiquitous in natural language, and are crucial for high performance on many practical applications but current distributional models struggle to capture even simple examples. Conversely, computational models of formal semantics have shown low recall on practical applications, stemming from their reliance on ontologies such as WordNet (Miller, 1995) to model the meanings of content words (Bobrow et al., 2007; Bos and Markert, 2005). For example, consider what is needed to answer a question like Did Google buy YouTube? from the following sentences: 1. Google purchased YouTube 2. Googles acquisition of YouTube 3. Google acquired every company 4. YouTube may be sold to Google 5. Google will buy YouTube or Microsoft 6. Google didnt takeover YouTube All of these require knowledge of lexical semantics (e.g. that buy and purchase are synonyms), but some also need interpretation of quantifiers, negatives, modals and disjunction. It seems unlikely that 179 \x0cdistributional or formal approaches can accomplish the task alone. We</context>
+</contexts>
+<marker>Bos, Markert, 2005</marker>
+<rawString>J. Bos and K. Markert. 2005. Recognising textual entailment with logical inference. In Proceedings of the conference on Human Language Technology and Empirical Methods in Natural Language Processing, pages 628635. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Johan Bos</author>
+</authors>
+<title>Wide-coverage semantic analysis with boxer.</title>
+<date>2008</date>
+<booktitle>Semantics in Text Processing. STEP 2008 Conference Proceedings, Research in Computational Semantics,</booktitle>
+<pages>277286</pages>
+<editor>In Johan Bos and Rodolfo Delmonte, editors,</editor>
+<publisher>College Publications.</publisher>
+<contexts>
+<context position="5626" citStr="Bos, 2008" startWordPosition="859" endWordPosition="860">y combine with, and a semantic interpretation, which defines the compositional semantics. For example, the lexicon may contain the entry: write ` (S\\NP)/NP : yx.write0(x,y) Crucially, there is a transparent interface between the syntactic category and the semantics. For example the transitive verb entry above defines the verb syntactically as a function mapping two nounphrases to a sentence, and semantically as a binary relation between its two argument entities. This means that it is relatively straightforward to deterministically map parser output to a logical form, as in the Boxer system (Bos, 2008). This Every dog barks NP/N N S\\NP pq.x[p(x) = q(x)] x.dog0(x) x.bark0(x) &gt; NP q.x[dog0(x) = q(x)] &gt; S x[dog0(x) = bark0(x)] Figure 1: A standard logical form derivation using CCG. The NP notation means that the subject is type-raised, and taking the verb-phrase as an argumentso is an abbreviation of S/(S\\NP). This is necessary in part to support a correct semantics for quantifiers. Input Sentence Shakespeare wrote Macbeth Intial semantic analysis writearg0,arg1(shakespeare, macbeth) Entity Typing writearg0:PER,arg1:BOOK(shakespeare:PER, macbeth:BOOK) Distributional semantic analysis relatio</context>
+<context position="37123" citStr="Bos, 2008" startWordPosition="5853" endWordPosition="5854"> using a neural networkhowever their method requires annotated data. It is also not obvious how to represent logical relations such as quantification in vector-space models. Baroni et al. (2012) make progress towards this by learning a classifier that can recognise entailments such as all dogs = some dogs, but this remains some way from the power of first-order theorem proving of the kind required by the problem in Figure 5. An alternative strand of research has attempted to build computational models of linguistic theories based on formal compositional semantics, such as the CCG-based Boxer (Bos, 2008) and the LFGbased XLE (Bobrow et al., 2007). Such approaches convert parser output into formal semantic representations, and have demonstrated some ability to model complex phenomena such as negation. For lexical semantics, they typically compile lexical resources such as VerbNet and WordNet into inference rulesbut still achieve only low recall on opendomain tasks, such as RTE, mostly due to the low coverage of such resources. Garrette et al. (2011) use distributional statistics to determine the probability that a WordNet-derived inference rule is valid in a given context. Our approach differs</context>
+</contexts>
+<marker>Bos, 2008</marker>
+<rawString>Johan Bos. 2008. Wide-coverage semantic analysis with boxer. In Johan Bos and Rodolfo Delmonte, editors, Semantics in Text Processing. STEP 2008 Conference Proceedings, Research in Computational Semantics, pages 277286. College Publications.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P F Brown</author>
+<author>P V Desouza</author>
+<author>R L Mercer</author>
+<author>V J D Pietra</author>
+<author>J C Lai</author>
+</authors>
+<title>Class-based n-gram models of natural language.</title>
+<date>1992</date>
+<journal>Computational linguistics,</journal>
+<volume>18</volume>
+<issue>4</issue>
+<contexts>
+<context position="8770" citStr="Brown et al., 1992" startWordPosition="1355" endWordPosition="1358">nt lexical entry for the verb born is used in the contexts Obama was born in Hawaii and Obama was born in 1961, reflecting a distinction in the semantics that is not obvious in the syntax1. Typing also greatly improves the efficiency of clustering, as we only need to compare predicates with the same type during clustering (for example, we do not have to consider clustering a predicate between people and places with predicates between people and dates). In this work, we focus on inducing binary relations. Many existing approaches have shown how to produce good clusterings of (non-event) nouns (Brown et al., 1992), any of which could be simply integrated into our semanticsbut relation clustering remains an open problem (see Section 9). N-ary relations are binarized, by creating a binary relation between each pair of arguments. For example, for the sentence Russia sold Alaska to the United States, the system creates three binary relations corresponding to sellToSomeone(Russia, Alaska), buyFromSomeone(US, Alaska), sellSomethingTo(Russia, US). This transformation does not 1 Whilst this assumption is very useful, it does not always hold for example, the genitive in Shakespeares book is ambiguous between ow</context>
+</contexts>
+<marker>Brown, Desouza, Mercer, Pietra, Lai, 1992</marker>
+<rawString>P.F. Brown, P.V. Desouza, R.L. Mercer, V.J.D. Pietra, and J.C. Lai. 1992. Class-based n-gram models of natural language. Computational linguistics, 18(4):467479.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N Chinchor</author>
+<author>P Robinson</author>
+</authors>
+<title>Muc-7 named entity task definition.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the 7th Conference on Message Understanding.</booktitle>
+<contexts>
+<context position="10572" citStr="Chinchor and Robinson, 1997" startWordPosition="1630" endWordPosition="1633">dman (2012). The first step is syntactic parsing. We use the C&amp;C parser (Clark and Curran, 2004), trained on CCGBank (Hockenmaier and Steedman, 2007), using the refined version of Honnibal et al. (2010) which brings the syntax closer to the predicateargument structure. An automatic post-processing step makes a number of minor changes to the parser output, which converts the grammar into one more suitable for our semantics. PP (prepositional phrase) and PR (phrasal verb complement) categories are sub-categorised with the relevant preposition. Noun compounds with the same MUC named-entity type (Chinchor and Robinson, 1997) are merged into a single non-compositional node2 (we otherwise ignore named-entity types). All argument NPs and PPs are type-raised, allowing us to represent quantifiers. All prepositional phrases are treated as core arguments (i.e. given the category PP, not adjunct categories like (N\\N)/NP or ((S\\NP)\\(S\\NP))/NP), as it is difficult for the parser to distinguish arguments and adjuncts. Initial semantic lexical entries for almost all words can be generated automatically from the syntactic category and POS tag (obtained from the parser), as the syntactic category captures the underlying pr</context>
+</contexts>
+<marker>Chinchor, Robinson, 1997</marker>
+<rawString>N. Chinchor and P. Robinson. 1997. Muc-7 named entity task definition. In Proceedings of the 7th Conference on Message Understanding.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Stephen Clark</author>
+<author>James R Curran</author>
+</authors>
+<title>Parsing the WSJ using CCG and log-linear models.</title>
+<date>2004</date>
+<booktitle>In Proceedings of the 42nd Annual Meeting on Association for Computational Linguistics, ACL 04. Association for Computational Linguistics.</booktitle>
+<contexts>
+<context position="10040" citStr="Clark and Curran, 2004" startWordPosition="1551" endWordPosition="1554"> types of the arguments. exactly preserve meaning, but still captures the most important relations. Note that this allows us to compare semantic relations across different syntactic typesfor example, both transitive verbs and argument-taking nouns can be seen as expressing binary semantic relations between entities. Figure 2 shows the layers used in our model. 4 Initial Semantic Analysis The initial semantic analysis maps parser output onto a logical form, in a similar way to Boxer. The semantic formalism is based on Steedman (2012). The first step is syntactic parsing. We use the C&amp;C parser (Clark and Curran, 2004), trained on CCGBank (Hockenmaier and Steedman, 2007), using the refined version of Honnibal et al. (2010) which brings the syntax closer to the predicateargument structure. An automatic post-processing step makes a number of minor changes to the parser output, which converts the grammar into one more suitable for our semantics. PP (prepositional phrase) and PR (phrasal verb complement) categories are sub-categorised with the relevant preposition. Noun compounds with the same MUC named-entity type (Chinchor and Robinson, 1997) are merged into a single non-compositional node2 (we otherwise igno</context>
+</contexts>
+<marker>Clark, Curran, 2004</marker>
+<rawString>Stephen Clark and James R. Curran. 2004. Parsing the WSJ using CCG and log-linear models. In Proceedings of the 42nd Annual Meeting on Association for Computational Linguistics, ACL 04. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Bob Coecke</author>
+<author>Mehrnoosh Sadrzadeh</author>
+<author>Stephen Clark</author>
+</authors>
+<title>Mathematical foundations for a compositional distributional model of meaning. Linguistic Analysis: A Festschrift for Joachim Lambek,</title>
+<date>2010</date>
+<pages>36--1</pages>
+<contexts>
+<context position="36267" citStr="Coecke et al., 2010" startWordPosition="5717" endWordPosition="5721">their arguments. Although USP is an elegant model, it is too computationally expensive to run on large corpora. It is also based on frame semantics, so does not cluster equivalent predicates with different frames. To our knowledge, our work is the first such approach to be integrated within a linguistic theory supporting formal semantics for logical operators. Vector space models represent words by vectors based on co-occurrence counts. Recent work has tackled the problem of composing these matrices to build up the semantics of phrases or sentences (Mitchell and Lapata, 2008). Another strand (Coecke et al., 2010; Grefenstette et al., 2011) has shown how to represent meanings as tensors, whose order depends on the syntactic category, allowing an elegant correspondence between syntactic and semantic types. Socher et al. (2012) train a composition function using a neural networkhowever their method requires annotated data. It is also not obvious how to represent logical relations such as quantification in vector-space models. Baroni et al. (2012) make progress towards this by learning a classifier that can recognise entailments such as all dogs = some dogs, but this remains some way from the power of fi</context>
+</contexts>
+<marker>Coecke, Sadrzadeh, Clark, 2010</marker>
+<rawString>Bob Coecke, Mehrnoosh Sadrzadeh, and Stephen Clark. 2010. Mathematical foundations for a compositional distributional model of meaning. Linguistic Analysis: A Festschrift for Joachim Lambek, 36(1-4):345384.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Robin Cooper</author>
+<author>Dick Crouch</author>
+<author>Jan Van Eijck</author>
+<author>Chris Fox</author>
+<author>Johan Van Genabith</author>
+<author>Jan Jaspars</author>
+<author>Hans Kamp</author>
+<author>David Milward</author>
+<author>Manfred Pinkal</author>
+<author>Massimo Poesio</author>
+</authors>
+<title>Using the framework.</title>
+<date>1996</date>
+<journal>FraCaS Deliverable D,</journal>
+<volume>16</volume>
+<marker>Cooper, Crouch, Van Eijck, Fox, Van Genabith, Jaspars, Kamp, Milward, Pinkal, Poesio, 1996</marker>
+<rawString>Robin Cooper, Dick Crouch, Jan Van Eijck, Chris Fox, Johan Van Genabith, Jan Jaspars, Hans Kamp, David Milward, Manfred Pinkal, Massimo Poesio, et al. 1996. Using the framework. FraCaS Deliverable D, 16.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ido Dagan</author>
+<author>O Glickman</author>
+<author>B Magnini</author>
+</authors>
+<title>The PASCAL recognising textual entailment challenge. Machine Learning Challenges. Evaluating Predictive Uncertainty, Visual Object Classification, and Recognising Tectual Entailment,</title>
+<date>2006</date>
+<pages>177190</pages>
+<contexts>
+<context position="23844" citStr="Dagan et al., 2006" startWordPosition="3728" endWordPosition="3731">tor, dad 5 city, area, country, region, town, capital 8 subsidiary, automaker, airline, Co., GM 10 musical, thriller, sequel, special Table 1: Most probable terms in some clusters induced by the Type Model. shows some example types. The relation clustering uses only proper nouns, to improve precision (sparsity problems are partly offset by the large input corpus). Aside from parsing, the pipeline takes around a day to run using 12 cores. 8.1 Question Answering Experiments As yet, there is no standard way of evaluating lexical semantics. Existing tasks like Recognising Textual Entailment (RTE; Dagan et al., 2006) rely heavily on background knowledge, which is beyond the scope of this work. Intrinsic evaluations of entailment relations have low inter-annotator agreement (Szpektor et al., 2007), due to the difficulty of evaluating relations out of context. Our evaluation is based on that performed by Poon and Domingos (2009). We automatically construct a set of questions by sampling from text, and then evaluate how many answers can be found in a different corpus. From dependency-parsed newswire, we sample either X nsub j verb dobj Y, X nsub j verb pobj Y or X nsubj be dobj noun pobj Y patterns, where X </context>
+</contexts>
+<marker>Dagan, Glickman, Magnini, 2006</marker>
+<rawString>Ido Dagan, O. Glickman, and B. Magnini. 2006. The PASCAL recognising textual entailment challenge. Machine Learning Challenges. Evaluating Predictive Uncertainty, Visual Object Classification, and Recognising Tectual Entailment, pages 177190.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D A Dahl</author>
+<author>M Bates</author>
+<author>M Brown</author>
+<author>W Fisher</author>
+<author>K HunickeSmith</author>
+<author>D Pallett</author>
+<author>C Pao</author>
+<author>A Rudnicky</author>
+<author>E Shriberg</author>
+</authors>
+<title>Expanding the scope of the ATIS task: The ATIS-3 corpus.</title>
+<date>1994</date>
+<booktitle>In Proceedings of the workshop on Human Language Technology,</booktitle>
+<pages>4348</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="33913" citStr="Dahl et al., 1994" startWordPosition="5348" endWordPosition="5351">no predictions (with or without gold syntax). This suggests that making first-order logic inferences in applications will not harm precision. We are less robust than MacCartney and Manning (2007) to syntax errors but, conversely, we are able to attempt more of the problems (i.e. those with multi-sentence premises). Other approaches based on distributional semantics seem unable to tackle any of these problems, as they do not represent quantifiers or negation. 9 Related Work Much work on semantics has taken place in a supervised settingfor example the GeoQuery (Zelle and Mooney, 1996) and ATIS (Dahl et al., 1994) semantic parsing tasks. This approach makes sense for generating queries for a specific database, but means the semantic representations do not generalize to other datasets. There have been several attempts to annotate larger corpora with semanticssuch as Ontonotes (Hovy et al., 2006) or the Groningen Meaning Bank (Basile et al., 2012). These typically map words onto senses in ontologies such as WordNet, VerbNet (Kipper et al., 2000) and FrameNet (Baker et al., 1998). However, limitations of these ontologies mean that they do not support inferences such as X is the author of Y X wrote Y. Give</context>
+</contexts>
+<marker>Dahl, Bates, Brown, Fisher, HunickeSmith, Pallett, Pao, Rudnicky, Shriberg, 1994</marker>
+<rawString>D.A. Dahl, M. Bates, M. Brown, W. Fisher, K. HunickeSmith, D. Pallett, C. Pao, A. Rudnicky, and E. Shriberg. 1994. Expanding the scope of the ATIS task: The ATIS-3 corpus. In Proceedings of the workshop on Human Language Technology, pages 4348. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hal Daume</author>
+</authors>
+<title>Fast search for dirichlet process mixture models.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the Eleventh International Conference on Artificial Intelligence and Statistics (AIStats),</booktitle>
+<location>San Juan, Puerto Rico.</location>
+<marker>Daume, 2007</marker>
+<rawString>Hal Daume III. 2007. Fast search for dirichlet process mixture models. In Proceedings of the Eleventh International Conference on Artificial Intelligence and Statistics (AIStats), San Juan, Puerto Rico.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Davidson</author>
+</authors>
+<title>6. the logical form of action sentences.</title>
+<date>1967</date>
+<booktitle>Essays on actions and events,</booktitle>
+<pages>1--9</pages>
+<contexts>
+<context position="11271" citStr="Davidson, 1967" startWordPosition="1734" endWordPosition="1735">types). All argument NPs and PPs are type-raised, allowing us to represent quantifiers. All prepositional phrases are treated as core arguments (i.e. given the category PP, not adjunct categories like (N\\N)/NP or ((S\\NP)\\(S\\NP))/NP), as it is difficult for the parser to distinguish arguments and adjuncts. Initial semantic lexical entries for almost all words can be generated automatically from the syntactic category and POS tag (obtained from the parser), as the syntactic category captures the underlying predicate-argument structure. We use a Davidsonian-style representation of arguments (Davidson, 1967), which we binarize by creating a separate predicate for each pair of arguments of a word. These predicates are labelled with the lemma of the head word and a Propbank-style argument key (Kingsbury and Palmer, 2002), e.g. arg0, argIn. We distinguish noun and verb predicates based on POS 2 For example, this allows us to give Barack Obama the semantics x.barack obama(x) instead of x.barack(x) obama(x), which is more convenient for collecting distributional statistics. 181 \x0cWord Category Semantics Automatic author N/PP[of] xy.authorarg0,argOf (y,x) write (S\\NP)/NP xy.writearg0,arg1(y,x) Manua</context>
+</contexts>
+<marker>Davidson, 1967</marker>
+<rawString>D. Davidson. 1967. 6. the logical form of action sentences. Essays on actions and events, 1(9):105149.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Anthony Fader</author>
+<author>Stephen Soderland</author>
+<author>Oren Etzioni</author>
+</authors>
+<title>Identifying relations for open information extraction.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the Conference on Empirical Methods in Natural Language Processing, EMNLP 11,</booktitle>
+<pages>15351545</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="26302" citStr="Fader et al., 2011" startWordPosition="4137" endWordPosition="4140"> from 2010, and search for answers in the New York Times from 2009. We evaluate the following approaches: CCG-Baseline The logical form produced by our CCG derivation, without the clustering. CCG-WordNet The CCG logical form, plus WordNet as a model of lexical semantics. CCG-Distributional The logical form including the type model and clusters. Relational LDA An LDA based model for clustering dependency paths (Yao et al., 2011). We train on New York Times subset of Gigaword9, using their setup of 50 iterations with 100 relation types. Reverb A sophisticated Open Information Extraction system (Fader et al., 2011). Unsupervised Semantic Parsing (USP; Poon and Domingos, 2009; USP; Poon and Domingos, 2010; USP; Titov and Klementiev, 2011) would be another obvious baseline. However, memory requirements mean it is not possible to run at this scale (our system is trained on 4 orders of magnitude more data than the USP evaluation). Yao et al. (2011) found it had comparable performance to Relational LDA. For the CCG models, rather than performing full first-order inference on a large corpus, we simply test whether the question predicate subsumes a candidate answer predicate, and whether the arguments match10.</context>
+</contexts>
+<marker>Fader, Soderland, Etzioni, 2011</marker>
+<rawString>Anthony Fader, Stephen Soderland, and Oren Etzioni. 2011. Identifying relations for open information extraction. In Proceedings of the Conference on Empirical Methods in Natural Language Processing, EMNLP 11, pages 15351545. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Fountain</author>
+<author>M Lapata</author>
+</authors>
+<title>Incremental models of natural language category acquisition.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the 32st Annual Conference of the Cognitive Science Society.</booktitle>
+<contexts>
+<context position="19065" citStr="Fountain and Lapata (2011)" startWordPosition="2975" endWordPosition="2978">based on their arguments (Poon and Domingos, 2009; Yao et al., 2012). The number of relations in the corpus is unbounded, so the clustering algorithm should be non-parametric. It is also important that it remains tractable for very large numbers of predicates and arguments, in order to give us a greater coverage of language than can be achieved by hand-built ontologies. We cluster the typed predicate vectors using the Chinese Whispers algorithm (Biemann, 2006) 183 \x0calthough somewhat ad-hoc, it is both non-parametric and highly scalable5. This has previously been used for noun-clustering by Fountain and Lapata (2011), who argue it is a cognitively plausible model for language acquisition. The collection of predicates and arguments is converted into a graph with one node per predicate, and edge weights representing the similarity between predicates. Predicates with different types have zero-similarity, and otherwise similarity is computed as the cosine-similarity of the tf-idf vectors of argument-pairs. We prune nodes occurring fewer than 20 times, edges with weights less than 103, and a short list of stop predicates. The algorithm proceeds as follows: 1. Each predicate p is assigned to a different semanti</context>
+</contexts>
+<marker>Fountain, Lapata, 2011</marker>
+<rawString>T. Fountain and M. Lapata. 2011. Incremental models of natural language category acquisition. In Proceedings of the 32st Annual Conference of the Cognitive Science Society.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Garrette</author>
+<author>K Erk</author>
+<author>R Mooney</author>
+</authors>
+<title>Integrating logical representations with probabilistic information using markov logic.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the Ninth International Conference on Computational Semantics, \x0cpages 105114. Association for Computational Linguistics.</booktitle>
+<contexts>
+<context position="37576" citStr="Garrette et al. (2011)" startWordPosition="5924" endWordPosition="5927">ve strand of research has attempted to build computational models of linguistic theories based on formal compositional semantics, such as the CCG-based Boxer (Bos, 2008) and the LFGbased XLE (Bobrow et al., 2007). Such approaches convert parser output into formal semantic representations, and have demonstrated some ability to model complex phenomena such as negation. For lexical semantics, they typically compile lexical resources such as VerbNet and WordNet into inference rulesbut still achieve only low recall on opendomain tasks, such as RTE, mostly due to the low coverage of such resources. Garrette et al. (2011) use distributional statistics to determine the probability that a WordNet-derived inference rule is valid in a given context. Our approach differs in that we learn inference rules not present in WordNet. Our lexical semantics is integrated into the lexicon, rather than being implemented as additional inference rules, meaning that inference is more efficient, as equivalent statements have the same logical form. Natural Logic (MacCartney and Manning, 2007) offers an interesting alternative to symbolic logics, and has been shown to be able to capture complex logical inferences by simply identify</context>
+</contexts>
+<marker>Garrette, Erk, Mooney, 2011</marker>
+<rawString>D. Garrette, K. Erk, and R. Mooney. 2011. Integrating logical representations with probabilistic information using markov logic. In Proceedings of the Ninth International Conference on Computational Semantics, \x0cpages 105114. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Graff</author>
+<author>J Kong</author>
+<author>K Chen</author>
+<author>K Maeda</author>
+</authors>
+<date>2003</date>
+<booktitle>English gigaword. Linguistic Data Consortium,</booktitle>
+<location>Philadelphia.</location>
+<contexts>
+<context position="22522" citStr="Graff et al., 2003" startWordPosition="3522" endWordPosition="3525">istribution over relations will be (rel49=0.63, rel53=0.27, etc.). If 1961 has a type-distribution (LOC=0.1, DAT=0.9), the output packed-logical form for Obama was born in Hawaii in 1961 will be: rel49=0.63 rel53=0.27 ... (ob,hw) rel49=0.09 rel53=0.81 ... (ob,1961) The probability of a given logical form can be read from this packed logical form. 8 Experiments Our approach aims to offer a strong model of both formal and lexical semantics. We perform two evaluations, aiming to target each of these separately, but using the same semantic representations in each. We train our system on Gigaword (Graff et al., 2003), which contains around 4 billion words of newswire. The type-model is trained using 15 types7, and 5,000 iterations of Gibbs sampling (using the distributions from the final sample). Table 1 6 These distributions are composed from the type-distributions for both the predicate and argument, as explained in Section 5 7 This number was chosen by examination of models trained with different numbers of types. The algorithm produces semantically coherent clusters for much larger numbers of types, but many of these are fine-grained categories of people, which introduces sparsity in the relation clus</context>
+</contexts>
+<marker>Graff, Kong, Chen, Maeda, 2003</marker>
+<rawString>D. Graff, J. Kong, K. Chen, and K. Maeda. 2003. English gigaword. Linguistic Data Consortium, Philadelphia.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Edward Grefenstette</author>
+<author>Mehrnoosh Sadrzadeh</author>
+<author>Stephen Clark</author>
+<author>Bob Coecke</author>
+<author>Stephen Pulman</author>
+</authors>
+<title>Concrete sentence spaces for compositional distributional models of meaning.</title>
+<date>2011</date>
+<booktitle>Computational Semantics IWCS 2011,</booktitle>
+<pages>125</pages>
+<contexts>
+<context position="36295" citStr="Grefenstette et al., 2011" startWordPosition="5722" endWordPosition="5725">ough USP is an elegant model, it is too computationally expensive to run on large corpora. It is also based on frame semantics, so does not cluster equivalent predicates with different frames. To our knowledge, our work is the first such approach to be integrated within a linguistic theory supporting formal semantics for logical operators. Vector space models represent words by vectors based on co-occurrence counts. Recent work has tackled the problem of composing these matrices to build up the semantics of phrases or sentences (Mitchell and Lapata, 2008). Another strand (Coecke et al., 2010; Grefenstette et al., 2011) has shown how to represent meanings as tensors, whose order depends on the syntactic category, allowing an elegant correspondence between syntactic and semantic types. Socher et al. (2012) train a composition function using a neural networkhowever their method requires annotated data. It is also not obvious how to represent logical relations such as quantification in vector-space models. Baroni et al. (2012) make progress towards this by learning a classifier that can recognise entailments such as all dogs = some dogs, but this remains some way from the power of first-order theorem proving of</context>
+</contexts>
+<marker>Grefenstette, Sadrzadeh, Clark, Coecke, Pulman, 2011</marker>
+<rawString>Edward Grefenstette, Mehrnoosh Sadrzadeh, Stephen Clark, Bob Coecke, and Stephen Pulman. 2011. Concrete sentence spaces for compositional distributional models of meaning. Computational Semantics IWCS 2011, page 125.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Julia Hockenmaier</author>
+<author>Mark Steedman</author>
+</authors>
+<title>CCGbank: a corpus of CCG derivations and dependency structures extracted from the penn treebank.</title>
+<date>2007</date>
+<journal>Computational Linguistics,</journal>
+<volume>33</volume>
+<issue>3</issue>
+<contexts>
+<context position="10093" citStr="Hockenmaier and Steedman, 2007" startWordPosition="1558" endWordPosition="1561">ning, but still captures the most important relations. Note that this allows us to compare semantic relations across different syntactic typesfor example, both transitive verbs and argument-taking nouns can be seen as expressing binary semantic relations between entities. Figure 2 shows the layers used in our model. 4 Initial Semantic Analysis The initial semantic analysis maps parser output onto a logical form, in a similar way to Boxer. The semantic formalism is based on Steedman (2012). The first step is syntactic parsing. We use the C&amp;C parser (Clark and Curran, 2004), trained on CCGBank (Hockenmaier and Steedman, 2007), using the refined version of Honnibal et al. (2010) which brings the syntax closer to the predicateargument structure. An automatic post-processing step makes a number of minor changes to the parser output, which converts the grammar into one more suitable for our semantics. PP (prepositional phrase) and PR (phrasal verb complement) categories are sub-categorised with the relevant preposition. Noun compounds with the same MUC named-entity type (Chinchor and Robinson, 1997) are merged into a single non-compositional node2 (we otherwise ignore named-entity types). All argument NPs and PPs are </context>
+</contexts>
+<marker>Hockenmaier, Steedman, 2007</marker>
+<rawString>Julia Hockenmaier and Mark Steedman. 2007. CCGbank: a corpus of CCG derivations and dependency structures extracted from the penn treebank. Computational Linguistics, 33(3):355396.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Honnibal</author>
+<author>J R Curran</author>
+<author>J Bos</author>
+</authors>
+<title>Rebanking CCGbank for improved NP interpretation.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<pages>207215</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="10146" citStr="Honnibal et al. (2010)" startWordPosition="1568" endWordPosition="1571">at this allows us to compare semantic relations across different syntactic typesfor example, both transitive verbs and argument-taking nouns can be seen as expressing binary semantic relations between entities. Figure 2 shows the layers used in our model. 4 Initial Semantic Analysis The initial semantic analysis maps parser output onto a logical form, in a similar way to Boxer. The semantic formalism is based on Steedman (2012). The first step is syntactic parsing. We use the C&amp;C parser (Clark and Curran, 2004), trained on CCGBank (Hockenmaier and Steedman, 2007), using the refined version of Honnibal et al. (2010) which brings the syntax closer to the predicateargument structure. An automatic post-processing step makes a number of minor changes to the parser output, which converts the grammar into one more suitable for our semantics. PP (prepositional phrase) and PR (phrasal verb complement) categories are sub-categorised with the relevant preposition. Noun compounds with the same MUC named-entity type (Chinchor and Robinson, 1997) are merged into a single non-compositional node2 (we otherwise ignore named-entity types). All argument NPs and PPs are type-raised, allowing us to represent quantifiers. Al</context>
+</contexts>
+<marker>Honnibal, Curran, Bos, 2010</marker>
+<rawString>M. Honnibal, J.R. Curran, and J. Bos. 2010. Rebanking CCGbank for improved NP interpretation. In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics, pages 207215. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Hovy</author>
+<author>M Marcus</author>
+<author>M Palmer</author>
+<author>L Ramshaw</author>
+<author>R Weischedel</author>
+</authors>
+<title>Ontonotes: the 90% solution.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the Human Language Technology Conference of the NAACL, Companion Volume: Short Papers,</booktitle>
+<pages>5760</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="34199" citStr="Hovy et al., 2006" startWordPosition="5391" endWordPosition="5394">with multi-sentence premises). Other approaches based on distributional semantics seem unable to tackle any of these problems, as they do not represent quantifiers or negation. 9 Related Work Much work on semantics has taken place in a supervised settingfor example the GeoQuery (Zelle and Mooney, 1996) and ATIS (Dahl et al., 1994) semantic parsing tasks. This approach makes sense for generating queries for a specific database, but means the semantic representations do not generalize to other datasets. There have been several attempts to annotate larger corpora with semanticssuch as Ontonotes (Hovy et al., 2006) or the Groningen Meaning Bank (Basile et al., 2012). These typically map words onto senses in ontologies such as WordNet, VerbNet (Kipper et al., 2000) and FrameNet (Baker et al., 1998). However, limitations of these ontologies mean that they do not support inferences such as X is the author of Y X wrote Y. Given the difficulty of annotating large amounts of text with semantics, various approaches have attempted to learn meaning without annotated text. Distant Supervision approaches leverage existing knowledge bases, such as Freebase (Bollacker et al., 2008), to learn semantics (Mintz et al.,</context>
+</contexts>
+<marker>Hovy, Marcus, Palmer, Ramshaw, Weischedel, 2006</marker>
+<rawString>E. Hovy, M. Marcus, M. Palmer, L. Ramshaw, and R. Weischedel. 2006. Ontonotes: the 90% solution. In Proceedings of the Human Language Technology Conference of the NAACL, Companion Volume: Short Papers, pages 5760. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P Kingsbury</author>
+<author>M Palmer</author>
+</authors>
+<title>From treebank to propbank.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the 3rd International Conference on Language Resources and Evaluation (LREC-2002),</booktitle>
+<pages>19891993</pages>
+<publisher>Citeseer.</publisher>
+<contexts>
+<context position="11486" citStr="Kingsbury and Palmer, 2002" startWordPosition="1768" endWordPosition="1771">\\N)/NP or ((S\\NP)\\(S\\NP))/NP), as it is difficult for the parser to distinguish arguments and adjuncts. Initial semantic lexical entries for almost all words can be generated automatically from the syntactic category and POS tag (obtained from the parser), as the syntactic category captures the underlying predicate-argument structure. We use a Davidsonian-style representation of arguments (Davidson, 1967), which we binarize by creating a separate predicate for each pair of arguments of a word. These predicates are labelled with the lemma of the head word and a Propbank-style argument key (Kingsbury and Palmer, 2002), e.g. arg0, argIn. We distinguish noun and verb predicates based on POS 2 For example, this allows us to give Barack Obama the semantics x.barack obama(x) instead of x.barack(x) obama(x), which is more convenient for collecting distributional statistics. 181 \x0cWord Category Semantics Automatic author N/PP[of] xy.authorarg0,argOf (y,x) write (S\\NP)/NP xy.writearg0,arg1(y,x) Manual every NP/N pq.x[p(x) q(x)] not (S\\NP)/(S\\NP) px.p(x) Figure 3: Example initial lexical entries tagso, for example, we have different predicates for effect as a noun or verb. This algorithm can be overridden with</context>
+</contexts>
+<marker>Kingsbury, Palmer, 2002</marker>
+<rawString>P. Kingsbury and M. Palmer. 2002. From treebank to propbank. In Proceedings of the 3rd International Conference on Language Resources and Evaluation (LREC-2002), pages 19891993. Citeseer.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K Kipper</author>
+<author>H T Dang</author>
+<author>M Palmer</author>
+</authors>
+<title>Class-based construction of a verb lexicon.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the National Conference on Artificial Intelligence,</booktitle>
+<pages>691696</pages>
+<publisher>AAAI Press; MIT Press;</publisher>
+<location>Menlo Park, CA; Cambridge, MA; London;</location>
+<contexts>
+<context position="34351" citStr="Kipper et al., 2000" startWordPosition="5417" endWordPosition="5420">t quantifiers or negation. 9 Related Work Much work on semantics has taken place in a supervised settingfor example the GeoQuery (Zelle and Mooney, 1996) and ATIS (Dahl et al., 1994) semantic parsing tasks. This approach makes sense for generating queries for a specific database, but means the semantic representations do not generalize to other datasets. There have been several attempts to annotate larger corpora with semanticssuch as Ontonotes (Hovy et al., 2006) or the Groningen Meaning Bank (Basile et al., 2012). These typically map words onto senses in ontologies such as WordNet, VerbNet (Kipper et al., 2000) and FrameNet (Baker et al., 1998). However, limitations of these ontologies mean that they do not support inferences such as X is the author of Y X wrote Y. Given the difficulty of annotating large amounts of text with semantics, various approaches have attempted to learn meaning without annotated text. Distant Supervision approaches leverage existing knowledge bases, such as Freebase (Bollacker et al., 2008), to learn semantics (Mintz et al., 2009; Krishnamurthy and Mitchell, 2012). Dependency-based Compositional Semantics (Liang et al., 2011) learns the meaning of questions by using their a</context>
+</contexts>
+<marker>Kipper, Dang, Palmer, 2000</marker>
+<rawString>K. Kipper, H.T. Dang, and M. Palmer. 2000. Class-based construction of a verb lexicon. In Proceedings of the National Conference on Artificial Intelligence, pages 691696. Menlo Park, CA; Cambridge, MA; London; AAAI Press; MIT Press; 1999.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jayant Krishnamurthy</author>
+<author>Tom M Mitchell</author>
+</authors>
+<date>2012</date>
+<contexts>
+<context position="34839" citStr="Krishnamurthy and Mitchell, 2012" startWordPosition="5493" endWordPosition="5497"> Groningen Meaning Bank (Basile et al., 2012). These typically map words onto senses in ontologies such as WordNet, VerbNet (Kipper et al., 2000) and FrameNet (Baker et al., 1998). However, limitations of these ontologies mean that they do not support inferences such as X is the author of Y X wrote Y. Given the difficulty of annotating large amounts of text with semantics, various approaches have attempted to learn meaning without annotated text. Distant Supervision approaches leverage existing knowledge bases, such as Freebase (Bollacker et al., 2008), to learn semantics (Mintz et al., 2009; Krishnamurthy and Mitchell, 2012). Dependency-based Compositional Semantics (Liang et al., 2011) learns the meaning of questions by using their answers as denotationsbut this appears to be specific to question parsing. Such approaches can only learn the pre-specified relations in the knowledge base. The approaches discussed so far in this section have all attempted to map language onto some pre187 \x0cspecified set of relations. Various attempts have been made to instead induce relations from text by clustering predicates based on their arguments. For example, Yao et al. (2011) propose a series of LDAbased models which cluste</context>
+</contexts>
+<marker>Krishnamurthy, Mitchell, 2012</marker>
+<rawString>Jayant Krishnamurthy and Tom M. Mitchell. 2012.</rawString>
+</citation>
+<citation valid="false">
+<title>Weakly supervised training of semantic parsers.</title>
+<booktitle>In Proceedings of the 2012 Joint Conference on Empirical Methods in Natural Language Processing and Computational Natural Language Learning, EMNLPCoNLL 12,</booktitle>
+<pages>754765</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<marker></marker>
+<rawString>Weakly supervised training of semantic parsers. In Proceedings of the 2012 Joint Conference on Empirical Methods in Natural Language Processing and Computational Natural Language Learning, EMNLPCoNLL 12, pages 754765. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P Liang</author>
+<author>M I Jordan</author>
+<author>D Klein</author>
+</authors>
+<title>Learning dependency-based compositional semantics.</title>
+<date>2011</date>
+<booktitle>In Proc. Association for Computational Linguistics (ACL).</booktitle>
+<contexts>
+<context position="34902" citStr="Liang et al., 2011" startWordPosition="5501" endWordPosition="5504"> senses in ontologies such as WordNet, VerbNet (Kipper et al., 2000) and FrameNet (Baker et al., 1998). However, limitations of these ontologies mean that they do not support inferences such as X is the author of Y X wrote Y. Given the difficulty of annotating large amounts of text with semantics, various approaches have attempted to learn meaning without annotated text. Distant Supervision approaches leverage existing knowledge bases, such as Freebase (Bollacker et al., 2008), to learn semantics (Mintz et al., 2009; Krishnamurthy and Mitchell, 2012). Dependency-based Compositional Semantics (Liang et al., 2011) learns the meaning of questions by using their answers as denotationsbut this appears to be specific to question parsing. Such approaches can only learn the pre-specified relations in the knowledge base. The approaches discussed so far in this section have all attempted to map language onto some pre187 \x0cspecified set of relations. Various attempts have been made to instead induce relations from text by clustering predicates based on their arguments. For example, Yao et al. (2011) propose a series of LDAbased models which cluster relations between entities based on a variety of lexical, syn</context>
+</contexts>
+<marker>Liang, Jordan, Klein, 2011</marker>
+<rawString>P. Liang, M.I. Jordan, and D. Klein. 2011. Learning dependency-based compositional semantics. In Proc. Association for Computational Linguistics (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Dekang Lin</author>
+<author>Patrick Pantel</author>
+</authors>
+<title>DIRT - Discovery of Inference Rules from Text. In</title>
+<date>2001</date>
+<booktitle>In Proceedings of the ACM SIGKDD Conference on Knowledge Discovery and Data Mining,</booktitle>
+<pages>323328</pages>
+<contexts>
+<context position="1733" citStr="Lin and Pantel, 2001" startWordPosition="253" endWordPosition="256"> based on their induced types. We outperform a variety of existing approaches on a wide-coverage question answering task, and demonstrate the ability to make complex multi-sentence inferences involving quantifiers on the FraCaS suite. 1 Introduction Mapping natural language to meaning representations is a central challenge of NLP. There has been much recent progress in unsupervised distributional semantics, in which the meaning of a word is induced based on its usage in large corpora. This approach is useful for a range of key applications including question answering and relation extraction (Lin and Pantel, 2001; Poon and Domingos, 2009; Yao et al., 2011). Because such a semantics can be automically induced, it escapes the limitation of depending on relations from hand-built training data, knowledge bases or ontologies, which have proved of limited use in capturing the huge variety of meanings that can be expressed in language. However, distributional semantics has largely developed in isolation from the formal semantics literature. Whilst distributional semantics has been effective in modelling the meanings of content words such as nouns and verbs, it is less clear that it can be applied to the mean</context>
+</contexts>
+<marker>Lin, Pantel, 2001</marker>
+<rawString>Dekang Lin and Patrick Pantel. 2001. DIRT - Discovery of Inference Rules from Text. In In Proceedings of the ACM SIGKDD Conference on Knowledge Discovery and Data Mining, pages 323328.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Bill MacCartney</author>
+<author>Christopher D Manning</author>
+</authors>
+<title>Natural logic for textual inference.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the ACL-PASCAL Workshop on Textual Entailment and Paraphrasing, RTE 07,</booktitle>
+<pages>193200</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="29983" citStr="MacCartney and Manning (2007)" startWordPosition="4720" endWordPosition="4723">usters. The FraCaS suite (Cooper et al., 1996)11 contains a hand-built set of entailment problems designed to be challenging in terms of formal semantics. We use Section 1, which contains 74 problems requiring an understanding of quantifiers12. They do not require any knowledge of lexical semantics, meaning we can evaluate the formal component of our system in isolation. However, we use the same representations as in our previous experiment, even though the clusters provide no benefit on this task. Figure 5 gives an example problem. The only previous work we are aware of on this dataset is by MacCartney and Manning (2007). This approach learns the monotonicity properties of words from a hand-built training set, and uses this to transform a sentence into a polarity annotated string. The system then aims to transform the premise string into a hypothesis. Positively polarized words can be replaced with less specific ones (e.g. by deleting adjuncts), whereas negatively polarized words can be replaced with more specific ones (e.g. by adding adjuncts). Whilst this is highprecision and often useful, this logic is unable to perform inferences with multiple premise sentences (in contrast to our first-order logic). Deve</context>
+<context position="31671" citStr="MacCartney and Manning (2007)" startWordPosition="4989" endWordPosition="4992">emantics, not the parser, we manually supply gold-standard lexical categories for sentences with parser errors (any syntactic mistake causes incorrect semantics). Our derivations produce a distribution over logical formswe license the inference if it holds in any interpretation with non-zero probability. We use the Prover9 (McCune, 2005) theorem prover for inference, returning yes if the premise implies the hypothesis, no if it implies the negation of the hypothesis, and unknown otherwise. Results are shown in Table 4. Our system im11 We use the version converted to machine readable format by MacCartney and Manning (2007) 12 Excluding 6 problems without a defined solution. 186 \x0cQuestion Answer Sentence What did Delta merge with? Northwest The 747 freighters came with Deltas acquisition of Northwest What spoke with Hu Jintao? Obama Obama conveyed his respect for the Dalai Lama to Chinas president Hu Jintao during their first meeting... What arrived in Colorado? Zazi Zazi flew back to Colorado... What ran for Congress? Young ... Young was elected to Congress in 1972 Table 3: Example questions correctly answered by CCG-Distributional. Premises: Every European has the right to live in Europe. Every European is </context>
+<context position="33490" citStr="MacCartney and Manning (2007)" startWordPosition="5279" endWordPosition="5282">auses of errors include missing a distinct lexical entry for plural the, only taking existential interpretations of bare plurals, failing to interpret mass-noun determiners such as a lot of, and not providing a good semantics for non-monotone determiners such as most. We believe these problems will be surmountable with more work. Almost all errors are due to incorrectly predicting unknown the system makes just one error on yes or no predictions (with or without gold syntax). This suggests that making first-order logic inferences in applications will not harm precision. We are less robust than MacCartney and Manning (2007) to syntax errors but, conversely, we are able to attempt more of the problems (i.e. those with multi-sentence premises). Other approaches based on distributional semantics seem unable to tackle any of these problems, as they do not represent quantifiers or negation. 9 Related Work Much work on semantics has taken place in a supervised settingfor example the GeoQuery (Zelle and Mooney, 1996) and ATIS (Dahl et al., 1994) semantic parsing tasks. This approach makes sense for generating queries for a specific database, but means the semantic representations do not generalize to other datasets. Th</context>
+<context position="38035" citStr="MacCartney and Manning, 2007" startWordPosition="5993" endWordPosition="5996">d WordNet into inference rulesbut still achieve only low recall on opendomain tasks, such as RTE, mostly due to the low coverage of such resources. Garrette et al. (2011) use distributional statistics to determine the probability that a WordNet-derived inference rule is valid in a given context. Our approach differs in that we learn inference rules not present in WordNet. Our lexical semantics is integrated into the lexicon, rather than being implemented as additional inference rules, meaning that inference is more efficient, as equivalent statements have the same logical form. Natural Logic (MacCartney and Manning, 2007) offers an interesting alternative to symbolic logics, and has been shown to be able to capture complex logical inferences by simply identifying the scope of negation in text. This approach achieves similar precision and much higher recall than Boxer on the RTE task. Their approach also suffers from such limitations as only being able to make inferences between two sentences. It is also sensitive to word order, so cannot make inferences such as Shakespeare wrote Macbeth = Macbeth was written by Shakespeare. 10 Conclusions and Future Work This is the first work we are aware of that combines a d</context>
+</contexts>
+<marker>MacCartney, Manning, 2007</marker>
+<rawString>Bill MacCartney and Christopher D. Manning. 2007. Natural logic for textual inference. In Proceedings of the ACL-PASCAL Workshop on Textual Entailment and Paraphrasing, RTE 07, pages 193200. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andrew Kachites McCallum</author>
+</authors>
+<title>Mallet: A machine learning for language toolkit.</title>
+<date>2002</date>
+<note>http://mallet.cs.umass.edu.</note>
+<contexts>
+<context position="14292" citStr="McCallum, 2002" startWordPosition="2218" endWordPosition="2220"> bornargIn), based on all of its argument entities (words). We assume that these arguments are drawn from a small number of types (topics), such as PER, DAT or LOC3. Each type j has a multinomial distribution j over arguments (for example, a LOC type is more likely to generate Hawaii than 1961). Each unary predicate i has a multinomial distribution i over topics, so the bornargIn predicate will normally generate a DAT or LOC type. Sparse Dirichlet priors and on the multinomials bias the distributions to be peaky. The parameters are estimated by Gibbs sampling, using the Mallet implementation (McCallum, 2002). The generative story to create the data is: For every type k: Draw the p(arg|k) distribution k from Dir() For every unary predicate i: Draw the p(type|i) distribution i from Dir() For every argument j: Draw a type zi j from Mult(i) Draw an argument wi j from Mult(i ) 5.2 Typing in Logical Form In the logical form, all constants and variables representing entities x can be assigned a distribution over types px(t) using the type model. An initial type distribution is applied in the lexicon, using the distributions for the types of nouns, and the i distributions for the type of arguments of bin</context>
+</contexts>
+<marker>McCallum, 2002</marker>
+<rawString>Andrew Kachites McCallum. 2002. Mallet: A machine learning for language toolkit. http://mallet.cs.umass.edu.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W McCune</author>
+</authors>
+<date>2005</date>
+<booktitle>Prover9 and Mace4. http://cs.unm.edu/ mccune/mace4/.</booktitle>
+<contexts>
+<context position="31381" citStr="McCune, 2005" startWordPosition="4942" endWordPosition="4943">ositional analysis may be possible. Following MacCartney and Manning (2007), we do not use held-out data each problem is designed to test a different issue, so it is not possible to generalize from one subset of the suite to another. As we are interested in evaluating the semantics, not the parser, we manually supply gold-standard lexical categories for sentences with parser errors (any syntactic mistake causes incorrect semantics). Our derivations produce a distribution over logical formswe license the inference if it holds in any interpretation with non-zero probability. We use the Prover9 (McCune, 2005) theorem prover for inference, returning yes if the premise implies the hypothesis, no if it implies the negation of the hypothesis, and unknown otherwise. Results are shown in Table 4. Our system im11 We use the version converted to machine readable format by MacCartney and Manning (2007) 12 Excluding 6 problems without a defined solution. 186 \x0cQuestion Answer Sentence What did Delta merge with? Northwest The 747 freighters came with Deltas acquisition of Northwest What spoke with Hu Jintao? Obama Obama conveyed his respect for the Dalai Lama to Chinas president Hu Jintao during their firs</context>
+</contexts>
+<marker>McCune, 2005</marker>
+<rawString>W. McCune. 2005. Prover9 and Mace4. http://cs.unm.edu/ mccune/mace4/.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>G A Miller</author>
+</authors>
+<title>Wordnet: a lexical database for english.</title>
+<date>1995</date>
+<journal>Communications of the ACM,</journal>
+<volume>38</volume>
+<issue>11</issue>
+<contexts>
+<context position="2818" citStr="Miller, 1995" startWordPosition="421" endWordPosition="422">ffective in modelling the meanings of content words such as nouns and verbs, it is less clear that it can be applied to the meanings of function words. Semantic operators, such as determiners, negation, conjunctions, modals, tense, mood, aspect, and plurals are ubiquitous in natural language, and are crucial for high performance on many practical applications but current distributional models struggle to capture even simple examples. Conversely, computational models of formal semantics have shown low recall on practical applications, stemming from their reliance on ontologies such as WordNet (Miller, 1995) to model the meanings of content words (Bobrow et al., 2007; Bos and Markert, 2005). For example, consider what is needed to answer a question like Did Google buy YouTube? from the following sentences: 1. Google purchased YouTube 2. Googles acquisition of YouTube 3. Google acquired every company 4. YouTube may be sold to Google 5. Google will buy YouTube or Microsoft 6. Google didnt takeover YouTube All of these require knowledge of lexical semantics (e.g. that buy and purchase are synonyms), but some also need interpretation of quantifiers, negatives, modals and disjunction. It seems unlikel</context>
+</contexts>
+<marker>Miller, 1995</marker>
+<rawString>G.A. Miller. 1995. Wordnet: a lexical database for english. Communications of the ACM, 38(11):3941.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Mintz</author>
+<author>S Bills</author>
+<author>R Snow</author>
+<author>D Jurafsky</author>
+</authors>
+<title>Distant supervision for relation extraction without labeled data.</title>
+<date>2009</date>
+<booktitle>In Proceedings of the Joint Conference of the 47th Annual Meeting of the ACL and the 4th International Joint Conference on Natural Language Processing of the AFNLP: Volume</booktitle>
+<volume>2</volume>
+<pages>1003--1011</pages>
+<institution>Association for Computational Linguistics.</institution>
+<contexts>
+<context position="34804" citStr="Mintz et al., 2009" startWordPosition="5489" endWordPosition="5492">et al., 2006) or the Groningen Meaning Bank (Basile et al., 2012). These typically map words onto senses in ontologies such as WordNet, VerbNet (Kipper et al., 2000) and FrameNet (Baker et al., 1998). However, limitations of these ontologies mean that they do not support inferences such as X is the author of Y X wrote Y. Given the difficulty of annotating large amounts of text with semantics, various approaches have attempted to learn meaning without annotated text. Distant Supervision approaches leverage existing knowledge bases, such as Freebase (Bollacker et al., 2008), to learn semantics (Mintz et al., 2009; Krishnamurthy and Mitchell, 2012). Dependency-based Compositional Semantics (Liang et al., 2011) learns the meaning of questions by using their answers as denotationsbut this appears to be specific to question parsing. Such approaches can only learn the pre-specified relations in the knowledge base. The approaches discussed so far in this section have all attempted to map language onto some pre187 \x0cspecified set of relations. Various attempts have been made to instead induce relations from text by clustering predicates based on their arguments. For example, Yao et al. (2011) propose a ser</context>
+</contexts>
+<marker>Mintz, Bills, Snow, Jurafsky, 2009</marker>
+<rawString>M. Mintz, S. Bills, R. Snow, and D. Jurafsky. 2009. Distant supervision for relation extraction without labeled data. In Proceedings of the Joint Conference of the 47th Annual Meeting of the ACL and the 4th International Joint Conference on Natural Language Processing of the AFNLP: Volume 2-Volume 2, pages 1003 1011. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Mitchell</author>
+<author>M Lapata</author>
+</authors>
+<title>Vector-based models of semantic composition. proceedings of ACL-08: HLT,</title>
+<date>2008</date>
+<pages>236244</pages>
+<contexts>
+<context position="36230" citStr="Mitchell and Lapata, 2008" startWordPosition="5711" endWordPosition="5714">ters fragments of dependency trees based on their arguments. Although USP is an elegant model, it is too computationally expensive to run on large corpora. It is also based on frame semantics, so does not cluster equivalent predicates with different frames. To our knowledge, our work is the first such approach to be integrated within a linguistic theory supporting formal semantics for logical operators. Vector space models represent words by vectors based on co-occurrence counts. Recent work has tackled the problem of composing these matrices to build up the semantics of phrases or sentences (Mitchell and Lapata, 2008). Another strand (Coecke et al., 2010; Grefenstette et al., 2011) has shown how to represent meanings as tensors, whose order depends on the syntactic category, allowing an elegant correspondence between syntactic and semantic types. Socher et al. (2012) train a composition function using a neural networkhowever their method requires annotated data. It is also not obvious how to represent logical relations such as quantification in vector-space models. Baroni et al. (2012) make progress towards this by learning a classifier that can recognise entailments such as all dogs = some dogs, but this </context>
+</contexts>
+<marker>Mitchell, Lapata, 2008</marker>
+<rawString>J. Mitchell and M. Lapata. 2008. Vector-based models of semantic composition. proceedings of ACL-08: HLT, pages 236244.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R M Neal</author>
+</authors>
+<title>Markov chain sampling methods for dirichlet process mixture models.</title>
+<date>2000</date>
+<journal>Journal of computational and graphical statistics,</journal>
+<pages>9--2</pages>
+<contexts>
+<context position="20895" citStr="Neal, 2000" startWordPosition="3281" endWordPosition="3282">in is expressing a birthplace or birthdate relation until later in the derivation, when it combines with its arguments. However, all the possible logical forms are identical except for the symbols used, which means we can produce a packed logical form capturing the full distribution over logical forms. To do this, we make the predicate a function from argument types to relations. For each word, we first take the lexical semantic definition produced by the algorithm in Section 4. For binary predicates in this definition (which will 5 We also experimented with a Dirichlet Process Mixture Model (Neal, 2000), but even with the efficient A* search algorithms introduced by Daume III (2007), the cost of inference was found to be prohibitively high when run at large scale. be untyped), we perform a deterministic lookup in the cluster model learned in Section 6, using all possible corresponding typed predicates. This allows us to represent the binary predicates as packed predicates: functions from argument types to relations. For example, if the clustering maps bornarg0:PER,argIn:LOC to rel49 (birthplace) and bornarg0:PER,argIn:DAT to rel53 (birthdate), our lexicon contains the following packed lexica</context>
+</contexts>
+<marker>Neal, 2000</marker>
+<rawString>R.M. Neal. 2000. Markov chain sampling methods for dirichlet process mixture models. Journal of computational and graphical statistics, 9(2):249265.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D O OSeaghdha</author>
+</authors>
+<title>Latent variable models of selectional preference.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<pages>435444</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="12737" citStr="OSeaghdha (2010)" startWordPosition="1959" endWordPosition="1960">c closed-class function words. Whilst it may be possible to learn these from data, our approach is pragmatic as there are relatively few such words, and the complex logical forms required would be difficult to induce from distributional statistics. We add a small number of lexical entries for words such as negatives (no, not etc.), and quantifiers (numbers, each, every, all, etc.). Some example initial lexical entries are shown in Figure 3. 5 Entity Typing Model Our entity-typing model assigns types to nouns, which is useful for disambiguating polysemous predicates. Our approach is similar to OSeaghdha (2010) in that we aim to cluster entities based on the noun and unary predicates applied to them (it is simple to convert from the binary predicates to unary predicates). For example, we want the pair (bornargIn, 1961) to map to a DAT type, and (bornargIn, Hawaii) to map to a LOC type. This is non-trivial, as both the predicates and arguments can be ambiguous between multiple typesbut topic models offer a good solution (described below). 5.1 Topic Model We assume that the type of each argument of a predicate depends only on the predicate and argument, although Ritter et al. (2010) demonstrate an adv</context>
+</contexts>
+<marker>OSeaghdha, 2010</marker>
+<rawString>D.O. OSeaghdha. 2010. Latent variable models of selectional preference. In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics, pages 435444. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hoifung Poon</author>
+<author>Pedro Domingos</author>
+</authors>
+<title>Unsupervised semantic parsing.</title>
+<date>2009</date>
+<booktitle>In Proceedings of the 2009 Conference on Empirical Methods in Natural Language Processing: Volume 1 - Volume 1, EMNLP 09,</booktitle>
+<pages>110</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="1758" citStr="Poon and Domingos, 2009" startWordPosition="257" endWordPosition="260">d types. We outperform a variety of existing approaches on a wide-coverage question answering task, and demonstrate the ability to make complex multi-sentence inferences involving quantifiers on the FraCaS suite. 1 Introduction Mapping natural language to meaning representations is a central challenge of NLP. There has been much recent progress in unsupervised distributional semantics, in which the meaning of a word is induced based on its usage in large corpora. This approach is useful for a range of key applications including question answering and relation extraction (Lin and Pantel, 2001; Poon and Domingos, 2009; Yao et al., 2011). Because such a semantics can be automically induced, it escapes the limitation of depending on relations from hand-built training data, knowledge bases or ontologies, which have proved of limited use in capturing the huge variety of meanings that can be expressed in language. However, distributional semantics has largely developed in isolation from the formal semantics literature. Whilst distributional semantics has been effective in modelling the meanings of content words such as nouns and verbs, it is less clear that it can be applied to the meanings of function words. S</context>
+<context position="18488" citStr="Poon and Domingos, 2009" startWordPosition="2885" endWordPosition="2888">is simply the joint distribution of the two argument type distributions. For example, if the arguments in a bornarg0,argIn(obama,hawaii) derivation have the respective type distributions (PER=0.9, LOC=0.1) and (LOC=0.7, DAT=0.3), the distribution over binary typed predicates is (bornarg0:PER,argIn:LOC=0.63, bornarg0:PER,argIn:DAT =0.27, etc.) The expected counts for (obama,hawaii) in the vectors for bornarg0:PER,argIn:LOC and bornarg0:PER,argIn:DAT are then incremented by these probabilities. 6.2 Clustering Many algorithms have been proposed for clustering predicates based on their arguments (Poon and Domingos, 2009; Yao et al., 2012). The number of relations in the corpus is unbounded, so the clustering algorithm should be non-parametric. It is also important that it remains tractable for very large numbers of predicates and arguments, in order to give us a greater coverage of language than can be achieved by hand-built ontologies. We cluster the typed predicate vectors using the Chinese Whispers algorithm (Biemann, 2006) 183 \x0calthough somewhat ad-hoc, it is both non-parametric and highly scalable5. This has previously been used for noun-clustering by Fountain and Lapata (2011), who argue it is a cog</context>
+<context position="24160" citStr="Poon and Domingos (2009)" startWordPosition="3778" endWordPosition="3781"> problems are partly offset by the large input corpus). Aside from parsing, the pipeline takes around a day to run using 12 cores. 8.1 Question Answering Experiments As yet, there is no standard way of evaluating lexical semantics. Existing tasks like Recognising Textual Entailment (RTE; Dagan et al., 2006) rely heavily on background knowledge, which is beyond the scope of this work. Intrinsic evaluations of entailment relations have low inter-annotator agreement (Szpektor et al., 2007), due to the difficulty of evaluating relations out of context. Our evaluation is based on that performed by Poon and Domingos (2009). We automatically construct a set of questions by sampling from text, and then evaluate how many answers can be found in a different corpus. From dependency-parsed newswire, we sample either X nsub j verb dobj Y, X nsub j verb pobj Y or X nsubj be dobj noun pobj Y patterns, where X and Y are proper nouns and the verb is not on a list of stop verbs, and deterministically convert these to questions. For example, from Google bought YouTube we create the questions What did Google buy? and What bought YouTube?. The task is to find proper-noun answers to these questions in a different corpus, which</context>
+<context position="26363" citStr="Poon and Domingos, 2009" startWordPosition="4145" endWordPosition="4148">from 2009. We evaluate the following approaches: CCG-Baseline The logical form produced by our CCG derivation, without the clustering. CCG-WordNet The CCG logical form, plus WordNet as a model of lexical semantics. CCG-Distributional The logical form including the type model and clusters. Relational LDA An LDA based model for clustering dependency paths (Yao et al., 2011). We train on New York Times subset of Gigaword9, using their setup of 50 iterations with 100 relation types. Reverb A sophisticated Open Information Extraction system (Fader et al., 2011). Unsupervised Semantic Parsing (USP; Poon and Domingos, 2009; USP; Poon and Domingos, 2010; USP; Titov and Klementiev, 2011) would be another obvious baseline. However, memory requirements mean it is not possible to run at this scale (our system is trained on 4 orders of magnitude more data than the USP evaluation). Yao et al. (2011) found it had comparable performance to Relational LDA. For the CCG models, rather than performing full first-order inference on a large corpus, we simply test whether the question predicate subsumes a candidate answer predicate, and whether the arguments match10. In the case of CCG-Distributional, we calculate the probabil</context>
+<context position="35587" citStr="Poon and Domingos, 2009" startWordPosition="5610" endWordPosition="5613">notationsbut this appears to be specific to question parsing. Such approaches can only learn the pre-specified relations in the knowledge base. The approaches discussed so far in this section have all attempted to map language onto some pre187 \x0cspecified set of relations. Various attempts have been made to instead induce relations from text by clustering predicates based on their arguments. For example, Yao et al. (2011) propose a series of LDAbased models which cluster relations between entities based on a variety of lexical, syntactic and semantic features. Unsupervised Semantic Parsing (Poon and Domingos, 2009) recursively clusters fragments of dependency trees based on their arguments. Although USP is an elegant model, it is too computationally expensive to run on large corpora. It is also based on frame semantics, so does not cluster equivalent predicates with different frames. To our knowledge, our work is the first such approach to be integrated within a linguistic theory supporting formal semantics for logical operators. Vector space models represent words by vectors based on co-occurrence counts. Recent work has tackled the problem of composing these matrices to build up the semantics of phras</context>
+</contexts>
+<marker>Poon, Domingos, 2009</marker>
+<rawString>Hoifung Poon and Pedro Domingos. 2009. Unsupervised semantic parsing. In Proceedings of the 2009 Conference on Empirical Methods in Natural Language Processing: Volume 1 - Volume 1, EMNLP 09, pages 110. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hoifung Poon</author>
+<author>Pedro Domingos</author>
+</authors>
+<title>Unsupervised ontology induction from text.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics, ACL 10,</booktitle>
+<pages>296305</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="26393" citStr="Poon and Domingos, 2010" startWordPosition="4150" endWordPosition="4153">lowing approaches: CCG-Baseline The logical form produced by our CCG derivation, without the clustering. CCG-WordNet The CCG logical form, plus WordNet as a model of lexical semantics. CCG-Distributional The logical form including the type model and clusters. Relational LDA An LDA based model for clustering dependency paths (Yao et al., 2011). We train on New York Times subset of Gigaword9, using their setup of 50 iterations with 100 relation types. Reverb A sophisticated Open Information Extraction system (Fader et al., 2011). Unsupervised Semantic Parsing (USP; Poon and Domingos, 2009; USP; Poon and Domingos, 2010; USP; Titov and Klementiev, 2011) would be another obvious baseline. However, memory requirements mean it is not possible to run at this scale (our system is trained on 4 orders of magnitude more data than the USP evaluation). Yao et al. (2011) found it had comparable performance to Relational LDA. For the CCG models, rather than performing full first-order inference on a large corpus, we simply test whether the question predicate subsumes a candidate answer predicate, and whether the arguments match10. In the case of CCG-Distributional, we calculate the probability that the two packed-predic</context>
+</contexts>
+<marker>Poon, Domingos, 2010</marker>
+<rawString>Hoifung Poon and Pedro Domingos. 2010. Unsupervised ontology induction from text. In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics, ACL 10, pages 296305. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Ritter</author>
+<author>O Etzioni</author>
+</authors>
+<title>A latent dirichlet allocation method for selectional preferences.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<pages>424434</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<marker>Ritter, Etzioni, 2010</marker>
+<rawString>A. Ritter, O. Etzioni, et al. 2010. A latent dirichlet allocation method for selectional preferences. In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics, pages 424434. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Stefan Schoenmackers</author>
+<author>Oren Etzioni</author>
+<author>Daniel S Weld</author>
+<author>Jesse Davis</author>
+</authors>
+<title>Learning first-order horn clauses from web text.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 2010 Conference on Empirical Methods in Natural Language Processing, EMNLP 10,</booktitle>
+<pages>10881098</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="7511" citStr="Schoenmackers et al., 2010" startWordPosition="1142" endWordPosition="1146">7(x,y) The only change to the standard CCG derivation is that the symbols used in the logical form are arbitrary relation identifiers. We learn these by first mapping to a deterministic logical form (using predicates 180 \x0csuch as author and write), using a process similar to Boxer, and then clustering predicates based on their arguments. This lexicon can then be used to parse new sentences, and integrates seamlessly with CCG theories of formal semantics. Typing predicatesfor example, determining that writing is a relation between people and books has become standard in relation clustering (Schoenmackers et al., 2010; Berant et al., 2011; Yao et al., 2012). We demonstate how to build a typing model into the CCG derivation, by subcategorizing all terms representing entities in the logical form with a more detailed type. These types are also induced from text, as explained in Section 5, but for convenience we describe them with human-readable labels, such as PER, LOC and BOOK. A key advantage of typing is that it allows us to model ambiguous predicates. Following Berant et al. (2011), we assume that different type signatures of the same predicate have different meanings, but given a type signature a predica</context>
+</contexts>
+<marker>Schoenmackers, Etzioni, Weld, Davis, 2010</marker>
+<rawString>Stefan Schoenmackers, Oren Etzioni, Daniel S. Weld, and Jesse Davis. 2010. Learning first-order horn clauses from web text. In Proceedings of the 2010 Conference on Empirical Methods in Natural Language Processing, EMNLP 10, pages 10881098. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Socher</author>
+<author>B Huval</author>
+<author>C D Manning</author>
+<author>A Y Ng</author>
+</authors>
+<date>2012</date>
+<contexts>
+<context position="36484" citStr="Socher et al. (2012)" startWordPosition="5750" endWordPosition="5753"> our knowledge, our work is the first such approach to be integrated within a linguistic theory supporting formal semantics for logical operators. Vector space models represent words by vectors based on co-occurrence counts. Recent work has tackled the problem of composing these matrices to build up the semantics of phrases or sentences (Mitchell and Lapata, 2008). Another strand (Coecke et al., 2010; Grefenstette et al., 2011) has shown how to represent meanings as tensors, whose order depends on the syntactic category, allowing an elegant correspondence between syntactic and semantic types. Socher et al. (2012) train a composition function using a neural networkhowever their method requires annotated data. It is also not obvious how to represent logical relations such as quantification in vector-space models. Baroni et al. (2012) make progress towards this by learning a classifier that can recognise entailments such as all dogs = some dogs, but this remains some way from the power of first-order theorem proving of the kind required by the problem in Figure 5. An alternative strand of research has attempted to build computational models of linguistic theories based on formal compositional semantics, </context>
+</contexts>
+<marker>Socher, Huval, Manning, Ng, 2012</marker>
+<rawString>R. Socher, B. Huval, C.D. Manning, and A.Y. Ng. 2012.</rawString>
+</citation>
+<citation valid="false">
+<title>Semantic compositionality through recursive matrixvector spaces.</title>
+<booktitle>In Proceedings of the 2012 Joint Conference on Empirical Methods in Natural Language Processing and Computational Natural Language Learning,</booktitle>
+<pages>12011211</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<marker></marker>
+<rawString>Semantic compositionality through recursive matrixvector spaces. In Proceedings of the 2012 Joint Conference on Empirical Methods in Natural Language Processing and Computational Natural Language Learning, pages 12011211. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>\x0cMark Steedman</author>
+</authors>
+<title>The Syntactic Process.</title>
+<date>2000</date>
+<publisher>MIT Press.</publisher>
+<contexts>
+<context position="4780" citStr="Steedman, 2000" startWordPosition="728" endWordPosition="729">g at the level of predicate-argument structure, rather than syntactic dependency structure. This means that we abstract away from many syntactic differences that are not present in the semantics, such as conjunctions, passives, relative clauses, and long-range dependencies. This significantly reduces sparsity, so we have fewer predicates to cluster and more observations for each. Of course, many practical inferences rely heavily on background knowledge about the worldsuch knowledge falls outside the scope of this work. 2 Background Our approach is based on Combinatory Categorial Grammar (CCG; Steedman, 2000), a strongly lexicalised theory of language in which lexical entries for words contain all language-specific information. The lexical entry for each word contains a syntactic category, which determines which other categories the word may combine with, and a semantic interpretation, which defines the compositional semantics. For example, the lexicon may contain the entry: write ` (S\\NP)/NP : yx.write0(x,y) Crucially, there is a transparent interface between the syntactic category and the semantics. For example the transitive verb entry above defines the verb syntactically as a function mapping</context>
+</contexts>
+<marker>Steedman, 2000</marker>
+<rawString>\x0cMark Steedman. 2000. The Syntactic Process. MIT Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mark Steedman</author>
+</authors>
+<title>Taking Scope: The Natural Semantics of Quantifiers.</title>
+<date>2012</date>
+<publisher>MIT Press.</publisher>
+<contexts>
+<context position="9955" citStr="Steedman (2012)" startWordPosition="1538" endWordPosition="1539">s book is ambiguous between ownership and authorship relations even given the types of the arguments. exactly preserve meaning, but still captures the most important relations. Note that this allows us to compare semantic relations across different syntactic typesfor example, both transitive verbs and argument-taking nouns can be seen as expressing binary semantic relations between entities. Figure 2 shows the layers used in our model. 4 Initial Semantic Analysis The initial semantic analysis maps parser output onto a logical form, in a similar way to Boxer. The semantic formalism is based on Steedman (2012). The first step is syntactic parsing. We use the C&amp;C parser (Clark and Curran, 2004), trained on CCGBank (Hockenmaier and Steedman, 2007), using the refined version of Honnibal et al. (2010) which brings the syntax closer to the predicateargument structure. An automatic post-processing step makes a number of minor changes to the parser output, which converts the grammar into one more suitable for our semantics. PP (prepositional phrase) and PR (phrasal verb complement) categories are sub-categorised with the relevant preposition. Noun compounds with the same MUC named-entity type (Chinchor an</context>
+<context position="17103" citStr="Steedman (2012)" startWordPosition="2688" endWordPosition="2689">yped predicates, bornarg0:PER,argIn:LOC and bornarg0:PER,argIn:DAT can be clustered separately. 6.1 Corpus statistics Typed binary predicates are clustered based on the expected number of times they hold between each argument-pair in the corpus. This means we create a single vector of argument-pair counts for each predicate (not a separate vector for each argument). For example, the vector for the typed predicate writearg0:PER,arg1:BOOK may contain non-zero counts for entity-pairs such as (Shakespeare, Macbeth), (Dickens, Oliver Twist) and (Rowling, Harry Potter). 4 Our implementation follows Steedman (2012) in using Generalized Skolem Terms rather than existential quantifiers, in order to capture quantifier scope alternations monotonically, but we omit these from the example to avoid introducing new notation. The entity-pair counts for authorarg0:PER,argOf:BOOK may be similar, on the assumption that both are samples from the same underlying semantic relation. To find the expected number of occurrences of argument-pairs for typed binary predicates in a corpus, we first apply the type model to the derivation of each sentence, as described in Section 5.2. This outputs untyped binary predicates, wit</context>
+<context position="29327" citStr="Steedman (2012)" startWordPosition="4615" endWordPosition="4616"> powerful model of lexical semantics. Table 3 shows some correctly answered questions. The system improves over the baseline by mapping expressions such as merge with and acquisition of to the same relation cluster. Many of the errors are caused by conflating predicates where the entailment only holds in one direction, such as was elected to with ran for. Hierarchical clustering could be used to address this. 8.2 Experiments on the FraCaS Suite We are also interested in evaluating our approach as a model of formal semanticsdemonstrating that it is possible to integrate the formal semantics of Steedman (2012) with our distributional clusters. The FraCaS suite (Cooper et al., 1996)11 contains a hand-built set of entailment problems designed to be challenging in terms of formal semantics. We use Section 1, which contains 74 problems requiring an understanding of quantifiers12. They do not require any knowledge of lexical semantics, meaning we can evaluate the formal component of our system in isolation. However, we use the same representations as in our previous experiment, even though the clusters provide no benefit on this task. Figure 5 gives an example problem. The only previous work we are awar</context>
+</contexts>
+<marker>Steedman, 2012</marker>
+<rawString>Mark Steedman. 2012. Taking Scope: The Natural Semantics of Quantifiers. MIT Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Idan Szpektor</author>
+</authors>
+<title>Eyal Shnarch, and Ido Dagan.</title>
+<date>2007</date>
+<marker>Szpektor, 2007</marker>
+<rawString>Idan Szpektor, Eyal Shnarch, and Ido Dagan. 2007.</rawString>
+</citation>
+<citation valid="true">
+<title>Instance-based evaluation of entailment rule acquisition. In</title>
+<date>2007</date>
+<booktitle>In Proceedings of ACL</booktitle>
+<volume>45</volume>
+<pages>456</pages>
+<contexts>
+<context position="20976" citStr="(2007)" startWordPosition="3295" endWordPosition="3295">n it combines with its arguments. However, all the possible logical forms are identical except for the symbols used, which means we can produce a packed logical form capturing the full distribution over logical forms. To do this, we make the predicate a function from argument types to relations. For each word, we first take the lexical semantic definition produced by the algorithm in Section 4. For binary predicates in this definition (which will 5 We also experimented with a Dirichlet Process Mixture Model (Neal, 2000), but even with the efficient A* search algorithms introduced by Daume III (2007), the cost of inference was found to be prohibitively high when run at large scale. be untyped), we perform a deterministic lookup in the cluster model learned in Section 6, using all possible corresponding typed predicates. This allows us to represent the binary predicates as packed predicates: functions from argument types to relations. For example, if the clustering maps bornarg0:PER,argIn:LOC to rel49 (birthplace) and bornarg0:PER,argIn:DAT to rel53 (birthdate), our lexicon contains the following packed lexical entry (type-distributions on the variables are suppressed): born ` (S\\NP)/PP[i</context>
+<context position="29983" citStr="(2007)" startWordPosition="4723" endWordPosition="4723">e (Cooper et al., 1996)11 contains a hand-built set of entailment problems designed to be challenging in terms of formal semantics. We use Section 1, which contains 74 problems requiring an understanding of quantifiers12. They do not require any knowledge of lexical semantics, meaning we can evaluate the formal component of our system in isolation. However, we use the same representations as in our previous experiment, even though the clusters provide no benefit on this task. Figure 5 gives an example problem. The only previous work we are aware of on this dataset is by MacCartney and Manning (2007). This approach learns the monotonicity properties of words from a hand-built training set, and uses this to transform a sentence into a polarity annotated string. The system then aims to transform the premise string into a hypothesis. Positively polarized words can be replaced with less specific ones (e.g. by deleting adjuncts), whereas negatively polarized words can be replaced with more specific ones (e.g. by adding adjuncts). Whilst this is highprecision and often useful, this logic is unable to perform inferences with multiple premise sentences (in contrast to our first-order logic). Deve</context>
+<context position="31671" citStr="(2007)" startWordPosition="4992" endWordPosition="4992">r, we manually supply gold-standard lexical categories for sentences with parser errors (any syntactic mistake causes incorrect semantics). Our derivations produce a distribution over logical formswe license the inference if it holds in any interpretation with non-zero probability. We use the Prover9 (McCune, 2005) theorem prover for inference, returning yes if the premise implies the hypothesis, no if it implies the negation of the hypothesis, and unknown otherwise. Results are shown in Table 4. Our system im11 We use the version converted to machine readable format by MacCartney and Manning (2007) 12 Excluding 6 problems without a defined solution. 186 \x0cQuestion Answer Sentence What did Delta merge with? Northwest The 747 freighters came with Deltas acquisition of Northwest What spoke with Hu Jintao? Obama Obama conveyed his respect for the Dalai Lama to Chinas president Hu Jintao during their first meeting... What arrived in Colorado? Zazi Zazi flew back to Colorado... What ran for Congress? Young ... Young was elected to Congress in 1972 Table 3: Example questions correctly answered by CCG-Distributional. Premises: Every European has the right to live in Europe. Every European is </context>
+<context position="33490" citStr="(2007)" startWordPosition="5282" endWordPosition="5282"> missing a distinct lexical entry for plural the, only taking existential interpretations of bare plurals, failing to interpret mass-noun determiners such as a lot of, and not providing a good semantics for non-monotone determiners such as most. We believe these problems will be surmountable with more work. Almost all errors are due to incorrectly predicting unknown the system makes just one error on yes or no predictions (with or without gold syntax). This suggests that making first-order logic inferences in applications will not harm precision. We are less robust than MacCartney and Manning (2007) to syntax errors but, conversely, we are able to attempt more of the problems (i.e. those with multi-sentence premises). Other approaches based on distributional semantics seem unable to tackle any of these problems, as they do not represent quantifiers or negation. 9 Related Work Much work on semantics has taken place in a supervised settingfor example the GeoQuery (Zelle and Mooney, 1996) and ATIS (Dahl et al., 1994) semantic parsing tasks. This approach makes sense for generating queries for a specific database, but means the semantic representations do not generalize to other datasets. Th</context>
+</contexts>
+<marker>2007</marker>
+<rawString>Instance-based evaluation of entailment rule acquisition. In In Proceedings of ACL 2007, volume 45, page 456.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ivan Titov</author>
+<author>Alexandre Klementiev</author>
+</authors>
+<title>A bayesian model for unsupervised semantic parsing.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics: Human Language Technologies,</booktitle>
+<pages>14451455</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Portland, Oregon, USA,</location>
+<contexts>
+<context position="26427" citStr="Titov and Klementiev, 2011" startWordPosition="4155" endWordPosition="4158">e The logical form produced by our CCG derivation, without the clustering. CCG-WordNet The CCG logical form, plus WordNet as a model of lexical semantics. CCG-Distributional The logical form including the type model and clusters. Relational LDA An LDA based model for clustering dependency paths (Yao et al., 2011). We train on New York Times subset of Gigaword9, using their setup of 50 iterations with 100 relation types. Reverb A sophisticated Open Information Extraction system (Fader et al., 2011). Unsupervised Semantic Parsing (USP; Poon and Domingos, 2009; USP; Poon and Domingos, 2010; USP; Titov and Klementiev, 2011) would be another obvious baseline. However, memory requirements mean it is not possible to run at this scale (our system is trained on 4 orders of magnitude more data than the USP evaluation). Yao et al. (2011) found it had comparable performance to Relational LDA. For the CCG models, rather than performing full first-order inference on a large corpus, we simply test whether the question predicate subsumes a candidate answer predicate, and whether the arguments match10. In the case of CCG-Distributional, we calculate the probability that the two packed-predicates 9 This is around 35% of Gigaw</context>
+</contexts>
+<marker>Titov, Klementiev, 2011</marker>
+<rawString>Ivan Titov and Alexandre Klementiev. 2011. A bayesian model for unsupervised semantic parsing. In Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics: Human Language Technologies, pages 14451455, Portland, Oregon, USA, June. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Limin Yao</author>
+<author>Aria Haghighi</author>
+<author>Sebastian Riedel</author>
+<author>Andrew McCallum</author>
+</authors>
+<title>Structured relation discovery using generative models.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the Conference on Empirical Methods in Natural Language Processing, EMNLP 11,</booktitle>
+<pages>14561466</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="1777" citStr="Yao et al., 2011" startWordPosition="261" endWordPosition="264">variety of existing approaches on a wide-coverage question answering task, and demonstrate the ability to make complex multi-sentence inferences involving quantifiers on the FraCaS suite. 1 Introduction Mapping natural language to meaning representations is a central challenge of NLP. There has been much recent progress in unsupervised distributional semantics, in which the meaning of a word is induced based on its usage in large corpora. This approach is useful for a range of key applications including question answering and relation extraction (Lin and Pantel, 2001; Poon and Domingos, 2009; Yao et al., 2011). Because such a semantics can be automically induced, it escapes the limitation of depending on relations from hand-built training data, knowledge bases or ontologies, which have proved of limited use in capturing the huge variety of meanings that can be expressed in language. However, distributional semantics has largely developed in isolation from the formal semantics literature. Whilst distributional semantics has been effective in modelling the meanings of content words such as nouns and verbs, it is less clear that it can be applied to the meanings of function words. Semantic operators, </context>
+<context position="26114" citStr="Yao et al., 2011" startWordPosition="4105" endWordPosition="4108">correct if they were true at any time. This approach means we evaluate on relations in proportion to corpus frequency. We sample 1000 questions from the New York Times subset of Gigaword from 2010, and search for answers in the New York Times from 2009. We evaluate the following approaches: CCG-Baseline The logical form produced by our CCG derivation, without the clustering. CCG-WordNet The CCG logical form, plus WordNet as a model of lexical semantics. CCG-Distributional The logical form including the type model and clusters. Relational LDA An LDA based model for clustering dependency paths (Yao et al., 2011). We train on New York Times subset of Gigaword9, using their setup of 50 iterations with 100 relation types. Reverb A sophisticated Open Information Extraction system (Fader et al., 2011). Unsupervised Semantic Parsing (USP; Poon and Domingos, 2009; USP; Poon and Domingos, 2010; USP; Titov and Klementiev, 2011) would be another obvious baseline. However, memory requirements mean it is not possible to run at this scale (our system is trained on 4 orders of magnitude more data than the USP evaluation). Yao et al. (2011) found it had comparable performance to Relational LDA. For the CCG models, </context>
+<context position="35390" citStr="Yao et al. (2011)" startWordPosition="5579" endWordPosition="5582">n semantics (Mintz et al., 2009; Krishnamurthy and Mitchell, 2012). Dependency-based Compositional Semantics (Liang et al., 2011) learns the meaning of questions by using their answers as denotationsbut this appears to be specific to question parsing. Such approaches can only learn the pre-specified relations in the knowledge base. The approaches discussed so far in this section have all attempted to map language onto some pre187 \x0cspecified set of relations. Various attempts have been made to instead induce relations from text by clustering predicates based on their arguments. For example, Yao et al. (2011) propose a series of LDAbased models which cluster relations between entities based on a variety of lexical, syntactic and semantic features. Unsupervised Semantic Parsing (Poon and Domingos, 2009) recursively clusters fragments of dependency trees based on their arguments. Although USP is an elegant model, it is too computationally expensive to run on large corpora. It is also based on frame semantics, so does not cluster equivalent predicates with different frames. To our knowledge, our work is the first such approach to be integrated within a linguistic theory supporting formal semantics fo</context>
+</contexts>
+<marker>Yao, Haghighi, Riedel, McCallum, 2011</marker>
+<rawString>Limin Yao, Aria Haghighi, Sebastian Riedel, and Andrew McCallum. 2011. Structured relation discovery using generative models. In Proceedings of the Conference on Empirical Methods in Natural Language Processing, EMNLP 11, pages 14561466. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Limin Yao</author>
+<author>Sebastian Riedel</author>
+<author>Andrew McCallum</author>
+</authors>
+<title>Unsupervised relation discovery with sense disambiguation.</title>
+<date>2012</date>
+<booktitle>In ACL (1),</booktitle>
+<pages>712720</pages>
+<contexts>
+<context position="7551" citStr="Yao et al., 2012" startWordPosition="1151" endWordPosition="1154">tion is that the symbols used in the logical form are arbitrary relation identifiers. We learn these by first mapping to a deterministic logical form (using predicates 180 \x0csuch as author and write), using a process similar to Boxer, and then clustering predicates based on their arguments. This lexicon can then be used to parse new sentences, and integrates seamlessly with CCG theories of formal semantics. Typing predicatesfor example, determining that writing is a relation between people and books has become standard in relation clustering (Schoenmackers et al., 2010; Berant et al., 2011; Yao et al., 2012). We demonstate how to build a typing model into the CCG derivation, by subcategorizing all terms representing entities in the logical form with a more detailed type. These types are also induced from text, as explained in Section 5, but for convenience we describe them with human-readable labels, such as PER, LOC and BOOK. A key advantage of typing is that it allows us to model ambiguous predicates. Following Berant et al. (2011), we assume that different type signatures of the same predicate have different meanings, but given a type signature a predicate is unambiguous. For example a differe</context>
+<context position="18507" citStr="Yao et al., 2012" startWordPosition="2889" endWordPosition="2892">ibution of the two argument type distributions. For example, if the arguments in a bornarg0,argIn(obama,hawaii) derivation have the respective type distributions (PER=0.9, LOC=0.1) and (LOC=0.7, DAT=0.3), the distribution over binary typed predicates is (bornarg0:PER,argIn:LOC=0.63, bornarg0:PER,argIn:DAT =0.27, etc.) The expected counts for (obama,hawaii) in the vectors for bornarg0:PER,argIn:LOC and bornarg0:PER,argIn:DAT are then incremented by these probabilities. 6.2 Clustering Many algorithms have been proposed for clustering predicates based on their arguments (Poon and Domingos, 2009; Yao et al., 2012). The number of relations in the corpus is unbounded, so the clustering algorithm should be non-parametric. It is also important that it remains tractable for very large numbers of predicates and arguments, in order to give us a greater coverage of language than can be achieved by hand-built ontologies. We cluster the typed predicate vectors using the Chinese Whispers algorithm (Biemann, 2006) 183 \x0calthough somewhat ad-hoc, it is both non-parametric and highly scalable5. This has previously been used for noun-clustering by Fountain and Lapata (2011), who argue it is a cognitively plausible </context>
+</contexts>
+<marker>Yao, Riedel, McCallum, 2012</marker>
+<rawString>Limin Yao, Sebastian Riedel, and Andrew McCallum. 2012. Unsupervised relation discovery with sense disambiguation. In ACL (1), pages 712720.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J M Zelle</author>
+<author>R J Mooney</author>
+</authors>
+<title>Learning to parse database queries using inductive logic programming.</title>
+<date>1996</date>
+<booktitle>In Proceedings of the National Conference on Artificial Intelligence,</booktitle>
+<pages>10501055</pages>
+<contexts>
+<context position="33884" citStr="Zelle and Mooney, 1996" startWordPosition="5342" endWordPosition="5345">em makes just one error on yes or no predictions (with or without gold syntax). This suggests that making first-order logic inferences in applications will not harm precision. We are less robust than MacCartney and Manning (2007) to syntax errors but, conversely, we are able to attempt more of the problems (i.e. those with multi-sentence premises). Other approaches based on distributional semantics seem unable to tackle any of these problems, as they do not represent quantifiers or negation. 9 Related Work Much work on semantics has taken place in a supervised settingfor example the GeoQuery (Zelle and Mooney, 1996) and ATIS (Dahl et al., 1994) semantic parsing tasks. This approach makes sense for generating queries for a specific database, but means the semantic representations do not generalize to other datasets. There have been several attempts to annotate larger corpora with semanticssuch as Ontonotes (Hovy et al., 2006) or the Groningen Meaning Bank (Basile et al., 2012). These typically map words onto senses in ontologies such as WordNet, VerbNet (Kipper et al., 2000) and FrameNet (Baker et al., 1998). However, limitations of these ontologies mean that they do not support inferences such as X is th</context>
+</contexts>
+<marker>Zelle, Mooney, 1996</marker>
+<rawString>J.M. Zelle and R.J. Mooney. 1996. Learning to parse database queries using inductive logic programming. In Proceedings of the National Conference on Artificial Intelligence, pages 10501055.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

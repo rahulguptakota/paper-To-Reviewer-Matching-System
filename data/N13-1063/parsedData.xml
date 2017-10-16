@@ -1,0 +1,1188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<table confidence="0.914797888888889">
+b&apos;Proceedings of NAACL-HLT 2013, pages 563568,
+Atlanta, Georgia, 914 June 2013. c
+2013 Association for Computational Linguistics
+Compound Embedding Features for Semi-supervised Learning
+Mo Yu1
+, Tiejun Zhao1
+, Daxiang Dong2
+, Hao Tian2
+and Dianhai Yu2
+</table>
+<affiliation confidence="0.55838">
+Harbin Institute of Technology, Harbin, China
+</affiliation>
+<address confidence="0.472738">
+Baidu Inc., Beijing, China
+</address>
+<email confidence="0.9860405">
+{yumo,tjzhao}@mtlab.hit.edu.cn
+{dongdaxiang,tianhao,yudianhai}@baidu.com
+</email>
+<sectionHeader confidence="0.990567" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999684823529412">
+To solve data sparsity problem, recently there
+has been a trend in discriminative methods of
+NLP to use representations of lexical items
+learned from unlabeled data as features. In
+this paper, we investigated the usage of word
+representations learned by neural language
+models, i.e. word embeddings. The direct us-
+age has disadvantages such as large amount of
+computation, inadequacy with dealing word
+ambiguity and rare-words, and the problem of
+linear non-separability. To overcome these
+problems, we instead built compound features
+from continuous word embeddings based on
+clustering. Experiments showed that the com-
+pound features not only improved the perfor-
+mances on several NLP tasks, but also ran
+faster, suggesting the potential of embeddings.
+</bodyText>
+<sectionHeader confidence="0.998308" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999651192307692">
+Supervised learning methods have achieved great
+successes in the field of Natural Language Pro-
+cessing (NLP). However, in practice most methods
+are usually limited by the problem of data sparsity,
+since it is impossible to obtain sufficient labeled
+data for all NLP tasks. In these situations semi-
+supervised learning can help to make use of both
+labeled data and easy-to-obtain unlabeled data.
+The semi-supervised framework that is widely
+applied to NLP is to first learn word representa-
+tions, which are feature vectors of lexical items,
+from unlabeled data and then plug them into a su-
+pervised system. These methods are very effective
+in utilizing large-scale unlabeled data and have
+successfully improved performances of state-of-
+the-art supervised systems on a variety of tasks
+(Koo et al., 2008; Huang and Yates, 2009; Tack-
+strom et al., 2012).
+With the development of neural language mod-
+els (NLM) (Bengio et al., 2003; Mnih and Hinton,
+2009), recently researchers become interested in
+word representations (also called word embed-
+dings) learned by these models. Word embeddings
+are dense low dimensional real-valued vectors.
+They are composed of some latent features, which
+are expected to capture useful syntactic and seman-
+tic properties. Word embeddings are usually served
+as the first layer in deep learning systems for NLP
+(Collobert and Weston, 2008; Socher et al., 2011a,
+2011b) and help these systems perform compara-
+bly with the state-of-the-art models based on hand-
+crafted features. They also have been directly
+added as features to the state-of-the-art models of
+chunking and NER, and have achieved significant
+improvements (Turian et al. 2010).
+Although the direct usage of continuous embed-
+dings has been proved to be an effective method
+for enhancing the state-of-the-art supervised mod-
+els, it has some disadvantages, which made them
+be out-performed by simpler Brown cluster fea-
+tures (Turian et al, 2010) and made them computa-
+tionally complicated. Firstly, embeddings of rare
+words are insufficiently trained since they are only
+updated few times and are close to their random
+initial values. As shown in (Turian et al, 2010), this
+is the main reason that models with embedding
+features made more errors than those with Brown
+cluster features. Secondly, in NLMs, each word
+has its unique representation, so it is difficult to
+represent different senses for ambiguous words.
+Thirdly, word embeddings are unsuitable for linear
+models in some tasks as will be proved in Section
+</bodyText>
+<page confidence="0.994871">
+563
+</page>
+<bodyText confidence="0.99955712962963">
+\x0c4.2. This is possibly because in these tasks, either
+the target labels are correlated with combinations
+of different dimensions of word embeddings, or
+discriminative information may be coded in differ-
+ent intervals in the same dimension. So treating
+embeddings directly as inputs to a linear model
+could not fully utilize them. Moreover, since em-
+beddings are dense vectors, it will introduce large
+amount of computations when they are directly
+used as inputs, making the method impractical.
+In this paper, we first introduced the idea of
+clustering embeddings to overcome the last two
+disadvantages discussed above. The high-
+dimensional cluster features make samples from
+different classes better separated by linear models.
+And models with these features can still run fast
+because the clusters are sparse and discrete.
+Second, we proposed the compound features
+based on clustering. Compound features, which are
+conjunctive features of neighboring words, have
+been widely used in NLP models for improving the
+performances because they are more discriminative.
+Compound features of embeddings can also help a
+model to better predict labels associated with rare-
+words and ambiguous words, because compound
+features composed of embeddings of nearby words
+can help to better describe the property of these
+words. Compound features are difficult to build on
+dense embeddings. However they are easy to in-
+duce from the sparse embedding clusters proposed
+in this paper.
+Experiments on chunking and NER showed that
+based on the same embeddings, the compound fea-
+tures managed to achieve better performances.
+Moreover, we proposed analyses to reveal the rea-
+sons for the improvements of embedding-clusters
+and compound features. They suggest that these
+features can better deal with rare-words and word
+ambiguity, and are more suitable for linear models.
+In addition, although Brown clustering was con-
+sidered better in (Turian et al 2010), our experi-
+ment results and comparisons showed that our
+compound features from embedding clustering is at
+least comparable with those from Brown clustering.
+Since embeddings can greatly benefit from the im-
+provement and developing of deep learning in the
+future, we believe that our proposed method has a
+large space of performance growth and will benefit
+more applications in NLP.
+In the rest of the paper, Section 2 introduces
+how compound embedding features were obtained.
+Section 3 gives experimental results. In Section 4,
+we give analysis about the advantages of com-
+pound features. Section 5 gives the conclusions.
+</bodyText>
+<sectionHeader confidence="0.805912" genericHeader="method">
+2 Clustering of Word Embeddings
+</sectionHeader>
+<subsectionHeader confidence="0.946511">
+2.1 Learning Word Embeddings
+</subsectionHeader>
+<bodyText confidence="0.99877725">
+Word embeddings in this paper were trained by
+NLMs (Bengio et al., 2003). The model predicts
+the scores of probabilities of words given their
+context information in the sentences. It first con-
+verts the current word and its context words (e.g.
+n-1 words before it as in n-gram models) into em-
+beddings. Then these embeddings are put together
+and propagate forward on the network to compute
+the score of current word. After minimizing the
+loss on training data, embeddings are learned and
+can be further used as smoothing representations
+for words.
+</bodyText>
+<subsectionHeader confidence="0.999615">
+2.2 Clustering of embeddings
+</subsectionHeader>
+<bodyText confidence="0.999655">
+In order to get compound features of embeddings,
+we first induce discrete clusters from the embed-
+dings. Concretely, the k-means clustering algo-
+rithm is used. Each word is treated as a single
+sample. A cluster is represented as the mean of the
+embeddings of words assigned to it. Similarities
+between words and clusters are measured by Eu-
+clidean distance. As discussed and experimented
+later, different numbers of ks contain information
+of different granularity. So we combine clustering
+results achieved by different ks as features to better
+utilize the embeddings.
+</bodyText>
+<subsectionHeader confidence="0.994215">
+2.3 Compound features
+</subsectionHeader>
+<bodyText confidence="0.999846769230769">
+Based on embedding clusters, more powerful com-
+pound features can be built. Compound features
+are conjunctions between basic features of words
+and their contexts, which are widely used in NLP.
+Koo et al. (2008) also observed that compound
+features of Brown clusters achieved more im-
+provements on parsing.
+It is also necessary to build compound embed-
+ding features since they can better deal with rare-
+words and ambiguous words. For example, alt-
+hough embedding of a rare-word is not fully
+trained and hence inaccurate, embeddings of its
+context words can still be accurate as long as they
+</bodyText>
+<page confidence="0.997888">
+564
+</page>
+<bodyText confidence="0.938643888888889">
+\x0care not rare and are fully trained. So we could uti-
+lize the combination of embeddings before and
+after the word to predict its tag correctly. We con-
+ducted analysis to verify our theory in Section4.
+We combined the compound features together
+with other state-of-the-art human-craft features in
+supervised models. Examples of the resulted fea-
+ture templates in chunking and NER are shown in
+Table 1 &amp; 2. The feature 1
+</bodyText>
+<equation confidence="0.6500265">
+1
+0
+1 c
+c
+y
+y
+</equation>
+<bodyText confidence="0.979475142857143">
+in the last
+row is an example of compound feature made up
+of the embedding clusters of words before and af-
+ter current word. Compound feature extraction can
+similarly be applied to form compound features of
+Brown clusters. For example, Brown clusters can
+replace embedding clusters in 3th row of Table 1.
+</bodyText>
+<figure confidence="0.9837564">
+Words }
+1
+,
+0
+{
+,
+1
+}
+2
+:
+</figure>
+<page confidence="0.418131">
+2
+</page>
+<equation confidence="0.760925931034483">
+{
+, ,
+i
+i
+i
+i
+i w
+w
+w
+POS }
+2
+,
+1
+{
+,
+1
+}
+2
+:
+2
+{
+, ,
+i
+i
+i
+i
+i p
+p
+p
+</equation>
+<figure confidence="0.90036875">
+Cluster 1
+1
+}
+1
+,
+0
+{
+,
+1
+}
+2
+:
+</figure>
+<page confidence="0.332886">
+2
+</page>
+<equation confidence="0.858831375">
+{
+, ,
+, c
+c
+c
+c
+c i
+i
+i
+i
+i
+Transition }
+,
+,
+,
+{ 1
+</equation>
+<figure confidence="0.778911">
+1
+0
+0
+0
+0
+1 c
+c
+c
+p
+w
+y
+y
+</figure>
+<tableCaption confidence="0.6739925">
+Table 1: Chunking features. Cluster features are suitable
+for both Brown clusters and embedding clusters. Sym-
+</tableCaption>
+<figure confidence="0.940826642857143">
+bol i
+y is the tag predicted on word i
+w .
+Words }
+1
+,
+0
+{
+,
+1
+}
+2
+:
+2
+</figure>
+<equation confidence="0.918566">
+{
+, ,
+i
+i
+i
+i
+i w
+w
+w
+Pre/suffix 1
+</equation>
+<figure confidence="0.882244764705882">
+:
+}
+4
+:
+1
+{
+,
+0
+:
+1
+}
+4
+:
+2
+{
+,
+0 ,
+</figure>
+<equation confidence="0.896838">
+i
+i
+i
+i w
+w
+Orthography ( ) ( )
+</equation>
+<figure confidence="0.962285125">
+0
+0 , w
+Cap
+w
+Hyp
+POS }
+2
+,
+1
+{
+,
+1
+}
+2
+:
+2
+</figure>
+<equation confidence="0.887267">
+{
+, ,
+i
+i
+i
+i
+i p
+p
+p
+</equation>
+<figure confidence="0.845479">
+Chunking }
+2
+,
+1
+{
+,
+1
+}
+2
+:
+2
+</figure>
+<equation confidence="0.932593">
+{
+, ,
+i
+i
+i
+i
+i b
+</equation>
+<figure confidence="0.917032466666667">
+b
+b
+Cluster 1
+1
+}
+1
+,
+0
+{
+,
+1
+}
+2
+:
+2
+</figure>
+<equation confidence="0.646866321428572">
+{
+, ,
+, c
+c
+c
+c
+c i
+i
+i
+i
+i
+Transition }
+,
+,
+,
+{ 1
+1
+0
+0
+0
+0
+1 c
+c
+c
+p
+w
+y
+y
+</equation>
+<tableCaption confidence="0.979895">
+Table 2: NER features. Hyp indicates if word contains
+hyphen and Cap indicates if first letter is capitalized.
+</tableCaption>
+<sectionHeader confidence="0.99168" genericHeader="method">
+3 Experiments
+</sectionHeader>
+<subsectionHeader confidence="0.98973">
+3.1 Experimental settings
+</subsectionHeader>
+<bodyText confidence="0.998982055555556">
+We tested our compound features on the same
+chunking (CoNLL2000) and NER (CoNLL2003)
+tasks in (Turian et al., 2010). The Brown cluster
+features were used for comparison, which shared
+the same feature template used by clusters of em-
+beddings. To compare with the work of (Turian et
+al, 2010), which aimed to solve the same problem
+but using embedding directly, we used the same
+word embeddings (CW 50) and Brown clusters
+(1000 clusters) they provided. The embeddings in
+(Turian et al, 2010) are trained on RCV corpus,
+while the CoNLL2000 data is a part of the WSJ
+corpus. Since we believe that word representations
+trained on similar domain may better help to im-
+prove the results, we also used embeddings and
+Brown clusters trained on unlabeled WSJ data
+from (Nivre et al, 2007) for comparison.
+Moreover, we wish to find out whether our
+method extends well to languages other than Eng-
+lish. So we conducted experiments on Chinese
+NER, where large amount of training data exists,
+which makes improving accuracies more difficult.
+We used data from Peoples Daily (Jan.-Jun. 1998)
+and converted them following the style of Penn
+CTB (Xue et al, 2005). Data from April was cho-
+sen as test set (1,309,616 words in 55,177 sentenc-
+es), others for training (6,119,063 words in
+255,951 sentences). The Chinese word representa-
+tions were trained on Chinese Wikipedia until
+March 2011. The features used in Chinese NER
+are similar to those in English, except for the or-
+thography, pre/suffixes, and chunking features.
+We did little pre-processing work for the train-
+ing of word representations on WSJ data. The da-
+tasets were tokenized and capital words were kept.
+For training of Chinese Wikipedia, we retained the
+bodies of all articles and replaced words with fre-
+quencies lower than 10 as an UK_WORD token.
+On each dataset, we induced embeddings with 64
+dimensions based on 7-gram models and 1000
+Brown clusters. The method in (Schwenk, 2007)
+was used to accelerate the training processes of
+NLMs. All the NLMs were trained for 5 epochs.
+For clustering of embeddings we choose k=500
+and 2500 since such combination performed best
+on development set as shown in the next section.
+We chose the Sofia-ml toolkit (Sculley 2010) for
+clustering of embeddings in order to save time.
+In the experiments CRF models were used and
+were optimized by ASGD (implemented by Leon
+Bottou). For comparison we re-implemented the
+direct usage of embeddings in (Turian et al, 2010)
+with CRFsuite (Okazaki, 2007) since their features
+contain continuous values.
+</bodyText>
+<subsectionHeader confidence="0.999332">
+3.2 Performances
+</subsectionHeader>
+<bodyText confidence="0.9727005">
+Table 3 shows the chunking results. The results
+reported in (Turian et al. 2010) were denoted as
+direct. Based on the same word representations,
+our compound features got better performances in
+all cases. The embedding features trained on unla-
+beled WSJ data yield further improvements, show-
+</bodyText>
+<page confidence="0.983258">
+565
+</page>
+<bodyText confidence="0.6306085">
+\x0cing that word representations from similar domains
+can better help the supervised tasks.
+</bodyText>
+<table confidence="0.98404375">
+System Direct Compound
+Baseline 93.75
++Embedding (RCV) 94.10 94.19
++Brown (RCV) 94.11 94.24
++Brown&amp;Emb (RCV) 94.35 94.42
++Embedding (WSJ) 94.20 94.37
++Brown (WSJ) 94.25 94.36
++Brown&amp;Emb (WSJ) 94.43 94.58
+</table>
+<tableCaption confidence="0.998317">
+Table 3: F1-scores of chunking
+</tableCaption>
+<bodyText confidence="0.99206525">
+In the experiments of NER, first we evaluated
+how the numbers of clusters k will affect the per-
+formances on development set (Figure 1). The re-
+sults showed that both the cluster features
+(excluding all compound embedding features) and
+compound features could achieve better results
+than direct usage of the same embeddings. It also
+showed that the performances did not vary much
+when k was between 500 and 3000. When k=2500,
+the result was a little higher than others. We finally
+chose combination of k=500 and 2500, which
+achieved best results on development set.
+</bodyText>
+<figureCaption confidence="0.966045">
+Figure 1: Relation between numbers of clusters k and
+</figureCaption>
+<bodyText confidence="0.955124571428571">
+performances on development set.
+The performances of NER on test set are shown
+in Table 4. Our baseline is slightly lower than that
+in (Turian et al, 2010), because the first-order CRF
+cannot utilize context information of NE tags.
+Despite of this, same conclusions with chunking
+held.
+</bodyText>
+<table confidence="0.964966">
+System Direct Compound
+Baseline 83.78
++Embedding 87.38 88.46
++Brown 88.14 88.23
++Brown&amp;Embedding 88.85 89.06
+</table>
+<tableCaption confidence="0.9321385">
+Table 4: F1-scores of English NER on test data
+Performances on Chinese NER are shown in
+Table 5. Similar results were observed as in Eng-
+lish NER, showing that our method extends to oth-
+</tableCaption>
+<table confidence="0.921617333333333">
+er languages as well.
+System Direct Compound
+Baseline 88.24
++Embedding 89.98 90.37
++Brown 90.24 90.55
++Brown&amp;Embedding 90.66 90.96
+</table>
+<tableCaption confidence="0.996643">
+Table 5: F1-scores of Chinese NER on test data
+</tableCaption>
+<bodyText confidence="0.984669307692308">
+Above results gave evidences that although clus-
+tering embeddings may lose some information, the
+derived compound features did have better perfor-
+mances. The compound features can also improve
+the performances of Brown clusters, but not as
+much as they did on embeddings. And the combi-
+nation of embedding-clusters and Brown-clusters
+could further improve the performances, since they
+made use of different type of context information.
+The compound features also reduced the time
+cost of using embedding features. For example, the
+time for tagging one sentence in English NER was
+reduced from 5.6 ms to 1.6 ms, shown in Table 6.
+</bodyText>
+<table confidence="0.99108575">
+Embedding Time (ms)
+Baseline 1.2
+Embeddings (direct) 5.6
+Embeddings (compound) 1.6
+</table>
+<tableCaption confidence="0.997994">
+Table 6: Running time of different features
+</tableCaption>
+<sectionHeader confidence="0.992281" genericHeader="method">
+4 Analysis
+</sectionHeader>
+<bodyText confidence="0.99994425">
+Our compound embedding features greatly out-
+performed the direct usage of same embeddings on
+English NER. In this section we conducted anal-
+yses to show the reasons for the improvements.
+</bodyText>
+<subsectionHeader confidence="0.984064">
+4.1 Rare-words and ambiguous words
+</subsectionHeader>
+<bodyText confidence="0.99884494117647">
+To show the compound features have stronger abil-
+ities to handle rare words, we counted the numbers
+of errors made on words with different frequencies
+on unlabeled data. Here the word frequencies are
+from the results of Brown clustering provided by
+(Turian et al. 2010). We compared our compound
+embedding features with direct usage of embed-
+dings as well as Brown clusters, which is believed
+to work better on rare words. Figure 2(a) shows
+that the compound features indeed resulted in few-
+er errors than the two baseline methods in most
+cases. Errors of embeddings occurred on words
+with frequencies lower than 2K and those in the
+range of 16 to 256 were reduced by 10.55% and
+24.44%, respectively.
+Our compound features also reduced the errors
+caused by ambiguous words, as shown in Figure
+</bodyText>
+<page confidence="0.980171">
+566
+</page>
+<bodyText confidence="0.9984784">
+\x0c2(b), where the numbers of senses for a word are
+measured by the numbers of different POS tags it
+has in Penn Treebank. 12.1% of the errors on am-
+biguous words were reduced, comparing to 8.4%
+of the errors on unambiguous ones.
+</bodyText>
+<figure confidence="0.954904">
+(a)
+(b)
+</figure>
+<figureCaption confidence="0.9830265">
+Figure 2: Errors incurred on words with different fre-
+quencies (a) and ambiguous words (b) in NER.
+</figureCaption>
+<subsectionHeader confidence="0.984733">
+4.2 Linear separability of embeddings
+</subsectionHeader>
+<bodyText confidence="0.9992764">
+Another reason for the good performances of com-
+pound features on NER is that they made linear
+models better separate named entities (NEs) and
+non-NEs, which are more difficult to be linearly
+separated when embeddings are directly used as
+features. Here we designed an experiment to prove
+this. Based on training data of CoNLL2003, a clas-
+sification task was built to tell whether a word be-
+longs to NE or not. Linear SVM and a non-linear
+model Multilayer Perceptron (MLP) were used to
+build the classifiers. As shown in Table 7, when
+embeddings were directly used as features, MLP
+performed much better than linear SVM. And the
+linear model was under-fitting on this task since it
+had similar accuracies on both training set and de-
+velopment set. Above observations showed that
+linear models could not separate NEs and non-NEs
+well in the space of embeddings.
+When clusters of embeddings were used as fea-
+tures, the accuracies of linear models increased
+even when there were only one or two non-zero
+features for each sample. At the same time the per-
+formances of MLP decreased because of the loss of
+information during clustering. The gaps between
+accuracies of linear models and non-linear ones
+decreased in the spaces of clusters, showing that
+cluster features are more suitable for linear models.
+At last, the compound features made the linear
+model out-perform all non-linear ones, since extra
+context information could be utilized.
+</bodyText>
+<table confidence="0.964736625">
+Embeddings Models Accuracy
+direct linear 94.38
+direct MLP 96.87
+cluster 1000 linear 95.31
+cluster 1000 MLP 95.32
+cluster 500+2500 linear 96.10
+cluster 500+2500 MLP 96.02
+compound linear 97.30
+</table>
+<tableCaption confidence="0.997791">
+Table 7: Performances of linear and non-linear models
+</tableCaption>
+<bodyText confidence="0.675742">
+on development set with different embedding features.
+</bodyText>
+<sectionHeader confidence="0.917188" genericHeader="conclusions">
+5 Conclusion and perspectives
+</sectionHeader>
+<bodyText confidence="0.998513842105263">
+In this paper, we first introduced the idea of clus-
+tering embeddings and then proposed the com-
+pound features based on clustering, in order to
+overcome the disadvantages of the direct usage of
+continuous embeddings. Experiments showed that
+the compound features built on the same original
+word representation features (either embeddings or
+Brown clusters) achieve better performances on the
+same tasks. Further analyses showed that the com-
+pound features reduced errors on rare-words and
+ambiguous words and could be better utilized by
+linear models.
+The usage of word embeddings also has some
+limitations, e.g. they are weak in capturing struc-
+tural information of languages, which is necessary
+in NLP. In the future, we will research on task-
+specific representations for sub-structures, such as
+phrases and sub-trees based on word embeddings
+and documents representations (Xu et al., 2012).
+</bodyText>
+<sectionHeader confidence="0.978565" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.977837">
+We would like to thank Dr. Hua Wu, Haifeng
+</bodyText>
+<reference confidence="0.830227142857143">
+Wang, Jie Zhou and Rui Zhang for many discus-
+sions and thank the anonymous reviewers for their
+valuable suggestions. This work was supported by
+National Natural Science Foundation of China
+(61173073), and the Key Project of the National
+High Technology Research and Development Pro-
+gram of China (2011AA01A207).
+</reference>
+<page confidence="0.944809">
+567
+</page>
+<reference confidence="0.992418256410257">
+\x0cReferences
+Bengio, Y., Ducharme, R., Vincent, P., and Jauvin, C.
+(2003). A neural probabilistic language models. The
+Journal of Machine Learning Research, 3:1137
+1155.
+Collobert, R. and Weston, J. (2008). A unified
+architecture for natural language processing: Deep
+neural networks with multitask learning. In
+Proceedings of the 25th international conference on
+Machine learning, pages 160167. ACM.
+Finkel, J., Grenager, T., and Manning, C. (2005).
+Incorporating non-local information into information
+extraction systems by gibbs sampling. In
+Proceedings of the 43rd Annual Meeting on
+Association for Computational Linguistics, pages
+363370. Association for Computational Linguistics.
+Huang, F. and Yates, A. (2009). Distributional
+representations for handling sparsity in supervised
+sequence labeling. In Proceedings of the Joint
+Conference of the 47th Annual Meeting of the ACL
+and the 4th International Joint Conference on
+Natural Language Processing of the AFNLP:
+Volume 1-Volume 1, pages 495503. Association for
+Computational Linguistics.
+Koo, T., Carreras, X., and Collins, M. (2008). Simple
+semi-supervised dependency parsing. In Proceed-
+ings of Association for Computational Linguistics,
+pages 595603. Association for Computational
+Linguistics.
+Mnih, A. and Hinton, G. E. (2009). A scalable
+hierarchical distributed language model. Advances in
+neural information processing systems, 21:1081
+1088.
+Nivre, J., Hall, J., Kubler, S., McDonald, R., Nilsson, J.,
+Riedel, S., and Yuret, D. (2007). The CoNLL 2007
+shared task on dependency parsing. In Proceedings
+of the CoNLL Shared Task Session of EMNLP-
+CoNLL, pages 915932.
+Okazaki, N. (2007). Crfsuite: a fast implementation of
+conditional random fields (crfs). URL
+http://www.chokkan.org/software/crfsuite.
+Schwenk, H. (2007). Continuous space language models.
+Computer Speech &amp; Language, 21(3):492518.
+Sculley, D. (2010). Web-scale k-means clustering. In
+Proceedings of the 19th international conference on
+World Wide Web, pages 11771178. ACM.
+Socher, R., Huang, E., Pennington, J., Ng, A., and
+Manning, C. (2011a). Dynamic pooling and
+unfolding recursive auto-encoders for paraphrase
+detection. Advances in Neural Information
+Processing Systems, 24:801809.
+Socher, R., Pennington, J., Huang, E., Ng, A., and
+Manning, C. (2011b). Semi-supervised recursive
+auto-encoders for predicting sentiment distributions.
+In Proceedings of the Conference on Empirical
+Methods in Natural Language Processing, pages
+151161. Association for Computational Linguistics.
+Tackstrom, O., McDonald, R., and Uszkoreit, J. (2012).
+Cross-lingual word clusters for direct transfer of
+linguistic structure. In Proceedings of the North
+American Chapter of the Association for
+Computational Linguistics: Human Language
+Technologies, pages 477487, Montreal, Canada,
+June 3-8, 2012.
+Turian, J., Ratinov, L., and Bengio, Y. (2010). Word
+representations: a simple and general method for
+semi-supervised learning. In Annual Meeting-
+Association For Computational Linguistics. Urbana,
+51:61801.
+Xu, Z., Chen, M., Weinberger, K., and Sha, F. An
+alternative text representation to TF-IDF and Bag-of-
+Words. In Proceedings of 21st ACM Conf. of
+Information and Knowledge Management (CIKM),
+Hawaii, 2012.
+Xue, N., Xia, F., Chiou, F., and Palmer, M. (2005). The
+penn chinese treebank: Phrase structure annotation of
+a large corpus. Natural Language Engineering,
+11(2):207.
+</reference>
+<page confidence="0.936774">
+568
+</page>
+<figure confidence="0.279682">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.208183">
+<note confidence="0.896207">b&apos;Proceedings of NAACL-HLT 2013, pages 563568, Atlanta, Georgia, 914 June 2013. c 2013 Association for Computational Linguistics</note>
+<affiliation confidence="0.640413">Compound Embedding Features for Semi-supervised Learning</affiliation>
+<address confidence="0.77942275">Mo Yu1 , Tiejun Zhao1 , Daxiang Dong2 , Hao Tian2</address>
+<affiliation confidence="0.8103165">and Dianhai Yu2 Harbin Institute of Technology, Harbin, China</affiliation>
+<address confidence="0.86788">Baidu Inc., Beijing, China</address>
+<email confidence="0.9816165">yumo@baidu.com</email>
+<email confidence="0.9816165">tjzhao}@mtlab.hit.edu.cn{dongdaxiang@baidu.com</email>
+<email confidence="0.9816165">tianhao@baidu.com</email>
+<email confidence="0.9816165">yudianhai@baidu.com</email>
+<abstract confidence="0.999507833333333">To solve data sparsity problem, recently there has been a trend in discriminative methods of NLP to use representations of lexical items learned from unlabeled data as features. In this paper, we investigated the usage of word representations learned by neural language models, i.e. word embeddings. The direct usage has disadvantages such as large amount of computation, inadequacy with dealing word ambiguity and rare-words, and the problem of linear non-separability. To overcome these problems, we instead built compound features from continuous word embeddings based on clustering. Experiments showed that the compound features not only improved the performances on several NLP tasks, but also ran faster, suggesting the potential of embeddings.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<title>A neural probabilistic language models.</title>
+<date>2003</date>
+<journal>The Journal of Machine Learning Research,</journal>
+<volume>3</volume>
+<pages>1155</pages>
+<marker>2003</marker>
+<rawString>(2003). A neural probabilistic language models. The Journal of Machine Learning Research, 3:1137 1155.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Collobert</author>
+<author>J Weston</author>
+</authors>
+<title>A unified architecture for natural language processing: Deep neural networks with multitask learning.</title>
+<date>2008</date>
+<booktitle>In Proceedings of the 25th international conference on Machine learning,</booktitle>
+<pages>160167</pages>
+<publisher>ACM.</publisher>
+<contexts>
+<context position="2528" citStr="Collobert and Weston, 2008" startWordPosition="374" endWordPosition="377">fthe-art supervised systems on a variety of tasks (Koo et al., 2008; Huang and Yates, 2009; Tackstrom et al., 2012). With the development of neural language models (NLM) (Bengio et al., 2003; Mnih and Hinton, 2009), recently researchers become interested in word representations (also called word embeddings) learned by these models. Word embeddings are dense low dimensional real-valued vectors. They are composed of some latent features, which are expected to capture useful syntactic and semantic properties. Word embeddings are usually served as the first layer in deep learning systems for NLP (Collobert and Weston, 2008; Socher et al., 2011a, 2011b) and help these systems perform comparably with the state-of-the-art models based on handcrafted features. They also have been directly added as features to the state-of-the-art models of chunking and NER, and have achieved significant improvements (Turian et al. 2010). Although the direct usage of continuous embeddings has been proved to be an effective method for enhancing the state-of-the-art supervised models, it has some disadvantages, which made them be out-performed by simpler Brown cluster features (Turian et al, 2010) and made them computationally complic</context>
+</contexts>
+<marker>Collobert, Weston, 2008</marker>
+<rawString>Collobert, R. and Weston, J. (2008). A unified architecture for natural language processing: Deep neural networks with multitask learning. In Proceedings of the 25th international conference on Machine learning, pages 160167. ACM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Finkel</author>
+<author>T Grenager</author>
+<author>C Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the 43rd Annual Meeting on Association for Computational Linguistics,</booktitle>
+<pages>363370</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>Finkel, J., Grenager, T., and Manning, C. (2005). Incorporating non-local information into information extraction systems by gibbs sampling. In Proceedings of the 43rd Annual Meeting on Association for Computational Linguistics, pages 363370. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Huang</author>
+<author>A Yates</author>
+</authors>
+<title>Distributional representations for handling sparsity in supervised sequence labeling.</title>
+<date>2009</date>
+<booktitle>In Proceedings of the Joint Conference of the 47th Annual Meeting of the ACL and the 4th International Joint Conference on Natural Language Processing of the AFNLP: Volume</booktitle>
+<volume>1</volume>
+<pages>495503</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="1992" citStr="Huang and Yates, 2009" startWordPosition="291" endWordPosition="294">nce it is impossible to obtain sufficient labeled data for all NLP tasks. In these situations semisupervised learning can help to make use of both labeled data and easy-to-obtain unlabeled data. The semi-supervised framework that is widely applied to NLP is to first learn word representations, which are feature vectors of lexical items, from unlabeled data and then plug them into a supervised system. These methods are very effective in utilizing large-scale unlabeled data and have successfully improved performances of state-ofthe-art supervised systems on a variety of tasks (Koo et al., 2008; Huang and Yates, 2009; Tackstrom et al., 2012). With the development of neural language models (NLM) (Bengio et al., 2003; Mnih and Hinton, 2009), recently researchers become interested in word representations (also called word embeddings) learned by these models. Word embeddings are dense low dimensional real-valued vectors. They are composed of some latent features, which are expected to capture useful syntactic and semantic properties. Word embeddings are usually served as the first layer in deep learning systems for NLP (Collobert and Weston, 2008; Socher et al., 2011a, 2011b) and help these systems perform co</context>
+</contexts>
+<marker>Huang, Yates, 2009</marker>
+<rawString>Huang, F. and Yates, A. (2009). Distributional representations for handling sparsity in supervised sequence labeling. In Proceedings of the Joint Conference of the 47th Annual Meeting of the ACL and the 4th International Joint Conference on Natural Language Processing of the AFNLP: Volume 1-Volume 1, pages 495503. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Koo</author>
+<author>X Carreras</author>
+<author>M Collins</author>
+</authors>
+<title>Simple semi-supervised dependency parsing.</title>
+<date>2008</date>
+<booktitle>In Proceedings of Association for Computational Linguistics,</booktitle>
+<pages>595603</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="1969" citStr="Koo et al., 2008" startWordPosition="287" endWordPosition="290"> data sparsity, since it is impossible to obtain sufficient labeled data for all NLP tasks. In these situations semisupervised learning can help to make use of both labeled data and easy-to-obtain unlabeled data. The semi-supervised framework that is widely applied to NLP is to first learn word representations, which are feature vectors of lexical items, from unlabeled data and then plug them into a supervised system. These methods are very effective in utilizing large-scale unlabeled data and have successfully improved performances of state-ofthe-art supervised systems on a variety of tasks (Koo et al., 2008; Huang and Yates, 2009; Tackstrom et al., 2012). With the development of neural language models (NLM) (Bengio et al., 2003; Mnih and Hinton, 2009), recently researchers become interested in word representations (also called word embeddings) learned by these models. Word embeddings are dense low dimensional real-valued vectors. They are composed of some latent features, which are expected to capture useful syntactic and semantic properties. Word embeddings are usually served as the first layer in deep learning systems for NLP (Collobert and Weston, 2008; Socher et al., 2011a, 2011b) and help t</context>
+<context position="7647" citStr="Koo et al. (2008)" startWordPosition="1179" endWordPosition="1182">s a single sample. A cluster is represented as the mean of the embeddings of words assigned to it. Similarities between words and clusters are measured by Euclidean distance. As discussed and experimented later, different numbers of ks contain information of different granularity. So we combine clustering results achieved by different ks as features to better utilize the embeddings. 2.3 Compound features Based on embedding clusters, more powerful compound features can be built. Compound features are conjunctions between basic features of words and their contexts, which are widely used in NLP. Koo et al. (2008) also observed that compound features of Brown clusters achieved more improvements on parsing. It is also necessary to build compound embedding features since they can better deal with rarewords and ambiguous words. For example, although embedding of a rare-word is not fully trained and hence inaccurate, embeddings of its context words can still be accurate as long as they 564 \x0care not rare and are fully trained. So we could utilize the combination of embeddings before and after the word to predict its tag correctly. We conducted analysis to verify our theory in Section4. We combined the co</context>
+</contexts>
+<marker>Koo, Carreras, Collins, 2008</marker>
+<rawString>Koo, T., Carreras, X., and Collins, M. (2008). Simple semi-supervised dependency parsing. In Proceedings of Association for Computational Linguistics, pages 595603. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Mnih</author>
+<author>G E Hinton</author>
+</authors>
+<title>A scalable hierarchical distributed language model. Advances in neural information processing systems,</title>
+<date>2009</date>
+<pages>21--1081</pages>
+<contexts>
+<context position="2116" citStr="Mnih and Hinton, 2009" startWordPosition="313" endWordPosition="316">elp to make use of both labeled data and easy-to-obtain unlabeled data. The semi-supervised framework that is widely applied to NLP is to first learn word representations, which are feature vectors of lexical items, from unlabeled data and then plug them into a supervised system. These methods are very effective in utilizing large-scale unlabeled data and have successfully improved performances of state-ofthe-art supervised systems on a variety of tasks (Koo et al., 2008; Huang and Yates, 2009; Tackstrom et al., 2012). With the development of neural language models (NLM) (Bengio et al., 2003; Mnih and Hinton, 2009), recently researchers become interested in word representations (also called word embeddings) learned by these models. Word embeddings are dense low dimensional real-valued vectors. They are composed of some latent features, which are expected to capture useful syntactic and semantic properties. Word embeddings are usually served as the first layer in deep learning systems for NLP (Collobert and Weston, 2008; Socher et al., 2011a, 2011b) and help these systems perform comparably with the state-of-the-art models based on handcrafted features. They also have been directly added as features to t</context>
+</contexts>
+<marker>Mnih, Hinton, 2009</marker>
+<rawString>Mnih, A. and Hinton, G. E. (2009). A scalable hierarchical distributed language model. Advances in neural information processing systems, 21:1081 1088.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Nivre</author>
+<author>J Hall</author>
+<author>S Kubler</author>
+<author>R McDonald</author>
+<author>J Nilsson</author>
+<author>S Riedel</author>
+<author>D Yuret</author>
+</authors>
+<title>The CoNLL</title>
+<date>2007</date>
+<booktitle>In Proceedings of the CoNLL Shared Task Session of EMNLPCoNLL,</booktitle>
+<pages>915932</pages>
+<contexts>
+<context position="10413" citStr="Nivre et al, 2007" startWordPosition="1806" endWordPosition="1809">comparison, which shared the same feature template used by clusters of embeddings. To compare with the work of (Turian et al, 2010), which aimed to solve the same problem but using embedding directly, we used the same word embeddings (CW 50) and Brown clusters (1000 clusters) they provided. The embeddings in (Turian et al, 2010) are trained on RCV corpus, while the CoNLL2000 data is a part of the WSJ corpus. Since we believe that word representations trained on similar domain may better help to improve the results, we also used embeddings and Brown clusters trained on unlabeled WSJ data from (Nivre et al, 2007) for comparison. Moreover, we wish to find out whether our method extends well to languages other than English. So we conducted experiments on Chinese NER, where large amount of training data exists, which makes improving accuracies more difficult. We used data from Peoples Daily (Jan.-Jun. 1998) and converted them following the style of Penn CTB (Xue et al, 2005). Data from April was chosen as test set (1,309,616 words in 55,177 sentences), others for training (6,119,063 words in 255,951 sentences). The Chinese word representations were trained on Chinese Wikipedia until March 2011. The featu</context>
+</contexts>
+<marker>Nivre, Hall, Kubler, McDonald, Nilsson, Riedel, Yuret, 2007</marker>
+<rawString>Nivre, J., Hall, J., Kubler, S., McDonald, R., Nilsson, J., Riedel, S., and Yuret, D. (2007). The CoNLL 2007 shared task on dependency parsing. In Proceedings of the CoNLL Shared Task Session of EMNLPCoNLL, pages 915932.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N Okazaki</author>
+</authors>
+<title>Crfsuite: a fast implementation of conditional random fields (crfs).</title>
+<date>2007</date>
+<note>URL http://www.chokkan.org/software/crfsuite.</note>
+<contexts>
+<context position="12108" citStr="Okazaki, 2007" startWordPosition="2087" endWordPosition="2088">gram models and 1000 Brown clusters. The method in (Schwenk, 2007) was used to accelerate the training processes of NLMs. All the NLMs were trained for 5 epochs. For clustering of embeddings we choose k=500 and 2500 since such combination performed best on development set as shown in the next section. We chose the Sofia-ml toolkit (Sculley 2010) for clustering of embeddings in order to save time. In the experiments CRF models were used and were optimized by ASGD (implemented by Leon Bottou). For comparison we re-implemented the direct usage of embeddings in (Turian et al, 2010) with CRFsuite (Okazaki, 2007) since their features contain continuous values. 3.2 Performances Table 3 shows the chunking results. The results reported in (Turian et al. 2010) were denoted as direct. Based on the same word representations, our compound features got better performances in all cases. The embedding features trained on unlabeled WSJ data yield further improvements, show565 \x0cing that word representations from similar domains can better help the supervised tasks. System Direct Compound Baseline 93.75 +Embedding (RCV) 94.10 94.19 +Brown (RCV) 94.11 94.24 +Brown&amp;Emb (RCV) 94.35 94.42 +Embedding (WSJ) 94.20 94.</context>
+</contexts>
+<marker>Okazaki, 2007</marker>
+<rawString>Okazaki, N. (2007). Crfsuite: a fast implementation of conditional random fields (crfs). URL http://www.chokkan.org/software/crfsuite.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H Schwenk</author>
+</authors>
+<title>Continuous space language models.</title>
+<date>2007</date>
+<journal>Computer Speech &amp; Language,</journal>
+<volume>21</volume>
+<issue>3</issue>
+<contexts>
+<context position="11560" citStr="Schwenk, 2007" startWordPosition="1997" endWordPosition="1998">tions were trained on Chinese Wikipedia until March 2011. The features used in Chinese NER are similar to those in English, except for the orthography, pre/suffixes, and chunking features. We did little pre-processing work for the training of word representations on WSJ data. The datasets were tokenized and capital words were kept. For training of Chinese Wikipedia, we retained the bodies of all articles and replaced words with frequencies lower than 10 as an UK_WORD token. On each dataset, we induced embeddings with 64 dimensions based on 7-gram models and 1000 Brown clusters. The method in (Schwenk, 2007) was used to accelerate the training processes of NLMs. All the NLMs were trained for 5 epochs. For clustering of embeddings we choose k=500 and 2500 since such combination performed best on development set as shown in the next section. We chose the Sofia-ml toolkit (Sculley 2010) for clustering of embeddings in order to save time. In the experiments CRF models were used and were optimized by ASGD (implemented by Leon Bottou). For comparison we re-implemented the direct usage of embeddings in (Turian et al, 2010) with CRFsuite (Okazaki, 2007) since their features contain continuous values. 3.2</context>
+</contexts>
+<marker>Schwenk, 2007</marker>
+<rawString>Schwenk, H. (2007). Continuous space language models. Computer Speech &amp; Language, 21(3):492518.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Sculley</author>
+</authors>
+<title>Web-scale k-means clustering.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 19th international conference on World Wide Web,</booktitle>
+<pages>11771178</pages>
+<publisher>ACM.</publisher>
+<contexts>
+<context position="11841" citStr="Sculley 2010" startWordPosition="2044" endWordPosition="2045">atasets were tokenized and capital words were kept. For training of Chinese Wikipedia, we retained the bodies of all articles and replaced words with frequencies lower than 10 as an UK_WORD token. On each dataset, we induced embeddings with 64 dimensions based on 7-gram models and 1000 Brown clusters. The method in (Schwenk, 2007) was used to accelerate the training processes of NLMs. All the NLMs were trained for 5 epochs. For clustering of embeddings we choose k=500 and 2500 since such combination performed best on development set as shown in the next section. We chose the Sofia-ml toolkit (Sculley 2010) for clustering of embeddings in order to save time. In the experiments CRF models were used and were optimized by ASGD (implemented by Leon Bottou). For comparison we re-implemented the direct usage of embeddings in (Turian et al, 2010) with CRFsuite (Okazaki, 2007) since their features contain continuous values. 3.2 Performances Table 3 shows the chunking results. The results reported in (Turian et al. 2010) were denoted as direct. Based on the same word representations, our compound features got better performances in all cases. The embedding features trained on unlabeled WSJ data yield fur</context>
+</contexts>
+<marker>Sculley, 2010</marker>
+<rawString>Sculley, D. (2010). Web-scale k-means clustering. In Proceedings of the 19th international conference on World Wide Web, pages 11771178. ACM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Socher</author>
+<author>E Huang</author>
+<author>J Pennington</author>
+<author>A Ng</author>
+<author>C Manning</author>
+</authors>
+<title>Dynamic pooling and unfolding recursive auto-encoders for paraphrase detection.</title>
+<date>2011</date>
+<booktitle>Advances in Neural Information Processing Systems,</booktitle>
+<pages>24--801809</pages>
+<contexts>
+<context position="2549" citStr="Socher et al., 2011" startWordPosition="378" endWordPosition="381">on a variety of tasks (Koo et al., 2008; Huang and Yates, 2009; Tackstrom et al., 2012). With the development of neural language models (NLM) (Bengio et al., 2003; Mnih and Hinton, 2009), recently researchers become interested in word representations (also called word embeddings) learned by these models. Word embeddings are dense low dimensional real-valued vectors. They are composed of some latent features, which are expected to capture useful syntactic and semantic properties. Word embeddings are usually served as the first layer in deep learning systems for NLP (Collobert and Weston, 2008; Socher et al., 2011a, 2011b) and help these systems perform comparably with the state-of-the-art models based on handcrafted features. They also have been directly added as features to the state-of-the-art models of chunking and NER, and have achieved significant improvements (Turian et al. 2010). Although the direct usage of continuous embeddings has been proved to be an effective method for enhancing the state-of-the-art supervised models, it has some disadvantages, which made them be out-performed by simpler Brown cluster features (Turian et al, 2010) and made them computationally complicated. Firstly, embedd</context>
+</contexts>
+<marker>Socher, Huang, Pennington, Ng, Manning, 2011</marker>
+<rawString>Socher, R., Huang, E., Pennington, J., Ng, A., and Manning, C. (2011a). Dynamic pooling and unfolding recursive auto-encoders for paraphrase detection. Advances in Neural Information Processing Systems, 24:801809.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Socher</author>
+<author>J Pennington</author>
+<author>E Huang</author>
+<author>A Ng</author>
+<author>C Manning</author>
+</authors>
+<title>Semi-supervised recursive auto-encoders for predicting sentiment distributions.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the Conference on Empirical Methods in Natural Language Processing,</booktitle>
+<pages>151161</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="2549" citStr="Socher et al., 2011" startWordPosition="378" endWordPosition="381">on a variety of tasks (Koo et al., 2008; Huang and Yates, 2009; Tackstrom et al., 2012). With the development of neural language models (NLM) (Bengio et al., 2003; Mnih and Hinton, 2009), recently researchers become interested in word representations (also called word embeddings) learned by these models. Word embeddings are dense low dimensional real-valued vectors. They are composed of some latent features, which are expected to capture useful syntactic and semantic properties. Word embeddings are usually served as the first layer in deep learning systems for NLP (Collobert and Weston, 2008; Socher et al., 2011a, 2011b) and help these systems perform comparably with the state-of-the-art models based on handcrafted features. They also have been directly added as features to the state-of-the-art models of chunking and NER, and have achieved significant improvements (Turian et al. 2010). Although the direct usage of continuous embeddings has been proved to be an effective method for enhancing the state-of-the-art supervised models, it has some disadvantages, which made them be out-performed by simpler Brown cluster features (Turian et al, 2010) and made them computationally complicated. Firstly, embedd</context>
+</contexts>
+<marker>Socher, Pennington, Huang, Ng, Manning, 2011</marker>
+<rawString>Socher, R., Pennington, J., Huang, E., Ng, A., and Manning, C. (2011b). Semi-supervised recursive auto-encoders for predicting sentiment distributions. In Proceedings of the Conference on Empirical Methods in Natural Language Processing, pages 151161. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>O Tackstrom</author>
+<author>R McDonald</author>
+<author>J Uszkoreit</author>
+</authors>
+<date>2012</date>
+<contexts>
+<context position="2017" citStr="Tackstrom et al., 2012" startWordPosition="295" endWordPosition="299"> obtain sufficient labeled data for all NLP tasks. In these situations semisupervised learning can help to make use of both labeled data and easy-to-obtain unlabeled data. The semi-supervised framework that is widely applied to NLP is to first learn word representations, which are feature vectors of lexical items, from unlabeled data and then plug them into a supervised system. These methods are very effective in utilizing large-scale unlabeled data and have successfully improved performances of state-ofthe-art supervised systems on a variety of tasks (Koo et al., 2008; Huang and Yates, 2009; Tackstrom et al., 2012). With the development of neural language models (NLM) (Bengio et al., 2003; Mnih and Hinton, 2009), recently researchers become interested in word representations (also called word embeddings) learned by these models. Word embeddings are dense low dimensional real-valued vectors. They are composed of some latent features, which are expected to capture useful syntactic and semantic properties. Word embeddings are usually served as the first layer in deep learning systems for NLP (Collobert and Weston, 2008; Socher et al., 2011a, 2011b) and help these systems perform comparably with the state-o</context>
+</contexts>
+<marker>Tackstrom, McDonald, Uszkoreit, 2012</marker>
+<rawString>Tackstrom, O., McDonald, R., and Uszkoreit, J. (2012).</rawString>
+</citation>
+<citation valid="true">
+<title>Cross-lingual word clusters for direct transfer of linguistic structure.</title>
+<date>2012</date>
+<booktitle>In Proceedings of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies,</booktitle>
+<pages>477487</pages>
+<location>Montreal, Canada,</location>
+<marker>2012</marker>
+<rawString>Cross-lingual word clusters for direct transfer of linguistic structure. In Proceedings of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, pages 477487, Montreal, Canada, June 3-8, 2012.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Turian</author>
+<author>L Ratinov</author>
+<author>Y Bengio</author>
+</authors>
+<title>Word representations: a simple and general method for semi-supervised learning.</title>
+<date>2010</date>
+<booktitle>In Annual MeetingAssociation For Computational Linguistics. Urbana,</booktitle>
+<pages>51--61801</pages>
+<contexts>
+<context position="2827" citStr="Turian et al. 2010" startWordPosition="420" endWordPosition="423">s) learned by these models. Word embeddings are dense low dimensional real-valued vectors. They are composed of some latent features, which are expected to capture useful syntactic and semantic properties. Word embeddings are usually served as the first layer in deep learning systems for NLP (Collobert and Weston, 2008; Socher et al., 2011a, 2011b) and help these systems perform comparably with the state-of-the-art models based on handcrafted features. They also have been directly added as features to the state-of-the-art models of chunking and NER, and have achieved significant improvements (Turian et al. 2010). Although the direct usage of continuous embeddings has been proved to be an effective method for enhancing the state-of-the-art supervised models, it has some disadvantages, which made them be out-performed by simpler Brown cluster features (Turian et al, 2010) and made them computationally complicated. Firstly, embeddings of rare words are insufficiently trained since they are only updated few times and are close to their random initial values. As shown in (Turian et al, 2010), this is the main reason that models with embedding features made more errors than those with Brown cluster feature</context>
+<context position="5593" citStr="Turian et al 2010" startWordPosition="851" endWordPosition="854"> Compound features are difficult to build on dense embeddings. However they are easy to induce from the sparse embedding clusters proposed in this paper. Experiments on chunking and NER showed that based on the same embeddings, the compound features managed to achieve better performances. Moreover, we proposed analyses to reveal the reasons for the improvements of embedding-clusters and compound features. They suggest that these features can better deal with rare-words and word ambiguity, and are more suitable for linear models. In addition, although Brown clustering was considered better in (Turian et al 2010), our experiment results and comparisons showed that our compound features from embedding clustering is at least comparable with those from Brown clustering. Since embeddings can greatly benefit from the improvement and developing of deep learning in the future, we believe that our proposed method has a large space of performance growth and will benefit more applications in NLP. In the rest of the paper, Section 2 introduces how compound embedding features were obtained. Section 3 gives experimental results. In Section 4, we give analysis about the advantages of compound features. Section 5 gi</context>
+<context position="9752" citStr="Turian et al., 2010" startWordPosition="1692" endWordPosition="1695"> 1 , 0 { , 1 } 2 : 2 { , , i i i i i w w w Pre/suffix 1 : } 4 : 1 { , 0 : 1 } 4 : 2 { , 0 , i i i i w w Orthography ( ) ( ) 0 0 , w Cap w Hyp POS } 2 , 1 { , 1 } 2 : 2 { , , i i i i i p p p Chunking } 2 , 1 { , 1 } 2 : 2 { , , i i i i i b b b Cluster 1 1 } 1 , 0 { , 1 } 2 : 2 { , , , c c c c c i i i i i Transition } , , , { 1 1 0 0 0 0 1 c c c p w y y Table 2: NER features. Hyp indicates if word contains hyphen and Cap indicates if first letter is capitalized. 3 Experiments 3.1 Experimental settings We tested our compound features on the same chunking (CoNLL2000) and NER (CoNLL2003) tasks in (Turian et al., 2010). The Brown cluster features were used for comparison, which shared the same feature template used by clusters of embeddings. To compare with the work of (Turian et al, 2010), which aimed to solve the same problem but using embedding directly, we used the same word embeddings (CW 50) and Brown clusters (1000 clusters) they provided. The embeddings in (Turian et al, 2010) are trained on RCV corpus, while the CoNLL2000 data is a part of the WSJ corpus. Since we believe that word representations trained on similar domain may better help to improve the results, we also used embeddings and Brown cl</context>
+<context position="12078" citStr="Turian et al, 2010" startWordPosition="2081" endWordPosition="2084">ings with 64 dimensions based on 7-gram models and 1000 Brown clusters. The method in (Schwenk, 2007) was used to accelerate the training processes of NLMs. All the NLMs were trained for 5 epochs. For clustering of embeddings we choose k=500 and 2500 since such combination performed best on development set as shown in the next section. We chose the Sofia-ml toolkit (Sculley 2010) for clustering of embeddings in order to save time. In the experiments CRF models were used and were optimized by ASGD (implemented by Leon Bottou). For comparison we re-implemented the direct usage of embeddings in (Turian et al, 2010) with CRFsuite (Okazaki, 2007) since their features contain continuous values. 3.2 Performances Table 3 shows the chunking results. The results reported in (Turian et al. 2010) were denoted as direct. Based on the same word representations, our compound features got better performances in all cases. The embedding features trained on unlabeled WSJ data yield further improvements, show565 \x0cing that word representations from similar domains can better help the supervised tasks. System Direct Compound Baseline 93.75 +Embedding (RCV) 94.10 94.19 +Brown (RCV) 94.11 94.24 +Brown&amp;Emb (RCV) 94.35 94</context>
+<context position="13568" citStr="Turian et al, 2010" startWordPosition="2318" endWordPosition="2321">d that both the cluster features (excluding all compound embedding features) and compound features could achieve better results than direct usage of the same embeddings. It also showed that the performances did not vary much when k was between 500 and 3000. When k=2500, the result was a little higher than others. We finally chose combination of k=500 and 2500, which achieved best results on development set. Figure 1: Relation between numbers of clusters k and performances on development set. The performances of NER on test set are shown in Table 4. Our baseline is slightly lower than that in (Turian et al, 2010), because the first-order CRF cannot utilize context information of NE tags. Despite of this, same conclusions with chunking held. System Direct Compound Baseline 83.78 +Embedding 87.38 88.46 +Brown 88.14 88.23 +Brown&amp;Embedding 88.85 89.06 Table 4: F1-scores of English NER on test data Performances on Chinese NER are shown in Table 5. Similar results were observed as in English NER, showing that our method extends to other languages as well. System Direct Compound Baseline 88.24 +Embedding 89.98 90.37 +Brown 90.24 90.55 +Brown&amp;Embedding 90.66 90.96 Table 5: F1-scores of Chinese NER on test dat</context>
+<context position="15422" citStr="Turian et al. 2010" startWordPosition="2612" endWordPosition="2615">ng Time (ms) Baseline 1.2 Embeddings (direct) 5.6 Embeddings (compound) 1.6 Table 6: Running time of different features 4 Analysis Our compound embedding features greatly outperformed the direct usage of same embeddings on English NER. In this section we conducted analyses to show the reasons for the improvements. 4.1 Rare-words and ambiguous words To show the compound features have stronger abilities to handle rare words, we counted the numbers of errors made on words with different frequencies on unlabeled data. Here the word frequencies are from the results of Brown clustering provided by (Turian et al. 2010). We compared our compound embedding features with direct usage of embeddings as well as Brown clusters, which is believed to work better on rare words. Figure 2(a) shows that the compound features indeed resulted in fewer errors than the two baseline methods in most cases. Errors of embeddings occurred on words with frequencies lower than 2K and those in the range of 16 to 256 were reduced by 10.55% and 24.44%, respectively. Our compound features also reduced the errors caused by ambiguous words, as shown in Figure 566 \x0c2(b), where the numbers of senses for a word are measured by the numbe</context>
+</contexts>
+<marker>Turian, Ratinov, Bengio, 2010</marker>
+<rawString>Turian, J., Ratinov, L., and Bengio, Y. (2010). Word representations: a simple and general method for semi-supervised learning. In Annual MeetingAssociation For Computational Linguistics. Urbana, 51:61801.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Z Xu</author>
+<author>M Chen</author>
+<author>K Weinberger</author>
+<author>F Sha</author>
+</authors>
+<title>An alternative text representation to TF-IDF and Bag-ofWords.</title>
+<date>2012</date>
+<booktitle>In Proceedings of 21st ACM Conf. of Information and Knowledge Management (CIKM),</booktitle>
+<location>Hawaii,</location>
+<marker>Xu, Chen, Weinberger, Sha, 2012</marker>
+<rawString>Xu, Z., Chen, M., Weinberger, K., and Sha, F. An alternative text representation to TF-IDF and Bag-ofWords. In Proceedings of 21st ACM Conf. of Information and Knowledge Management (CIKM), Hawaii, 2012.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N Xue</author>
+<author>F Xia</author>
+<author>F Chiou</author>
+<author>M Palmer</author>
+</authors>
+<title>The penn chinese treebank: Phrase structure annotation of a large corpus.</title>
+<date>2005</date>
+<journal>Natural Language Engineering,</journal>
+<volume>11</volume>
+<issue>2</issue>
+<contexts>
+<context position="10779" citStr="Xue et al, 2005" startWordPosition="1866" endWordPosition="1869">CoNLL2000 data is a part of the WSJ corpus. Since we believe that word representations trained on similar domain may better help to improve the results, we also used embeddings and Brown clusters trained on unlabeled WSJ data from (Nivre et al, 2007) for comparison. Moreover, we wish to find out whether our method extends well to languages other than English. So we conducted experiments on Chinese NER, where large amount of training data exists, which makes improving accuracies more difficult. We used data from Peoples Daily (Jan.-Jun. 1998) and converted them following the style of Penn CTB (Xue et al, 2005). Data from April was chosen as test set (1,309,616 words in 55,177 sentences), others for training (6,119,063 words in 255,951 sentences). The Chinese word representations were trained on Chinese Wikipedia until March 2011. The features used in Chinese NER are similar to those in English, except for the orthography, pre/suffixes, and chunking features. We did little pre-processing work for the training of word representations on WSJ data. The datasets were tokenized and capital words were kept. For training of Chinese Wikipedia, we retained the bodies of all articles and replaced words with f</context>
+</contexts>
+<marker>Xue, Xia, Chiou, Palmer, 2005</marker>
+<rawString>Xue, N., Xia, F., Chiou, F., and Palmer, M. (2005). The penn chinese treebank: Phrase structure annotation of a large corpus. Natural Language Engineering, 11(2):207.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

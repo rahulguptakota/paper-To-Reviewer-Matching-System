@@ -1,0 +1,1629 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.698407">
+b&apos;Proceedings of the 12th Conference of the European Chapter of the ACL, pages 852860,
+Athens, Greece, 30 March 3 April 2009. c
+</bodyText>
+<figure confidence="0.559027588235294">
+2009 Association for Computational Linguistics
+Improving Grammaticality in Statistical Sentence Generation:
+Introducing a Dependency Spanning Tree Algorithm with an Argument
+Satisfaction Model
+Stephen Wan
+Mark Dras
+Robert Dale
+Centre for Language Technology
+Department of Computing
+Macquarie University
+Sydney, NSW 2113
+swan,madras,rdale@ics.mq.edu.au
+Cecile Paris
+ICT Centre
+CSIRO
+Sydney, Australia
+Cecile.Paris@csiro.au
+</figure>
+<sectionHeader confidence="0.886377" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.995195761904762">
+Abstract-like text summarisation requires
+a means of producing novel summary sen-
+tences. In order to improve the grammati-
+cality of the generated sentence, we model
+a global (sentence) level syntactic struc-
+ture. We couch statistical sentence genera-
+tion as a spanning tree problem in order to
+search for the best dependency tree span-
+ning a set of chosen words. We also intro-
+duce a new search algorithm for this task
+that models argument satisfaction to im-
+prove the linguistic validity of the gener-
+ated tree. We treat the allocation of modi-
+fiers to heads as a weighted bipartite graph
+matching (or assignment) problem, a well
+studied problem in graph theory. Using
+BLEU to measure performance on a string
+regeneration task, we found an improve-
+ment, illustrating the benefit of the span-
+ning tree approach armed with an argu-
+ment satisfaction model.
+</bodyText>
+<sectionHeader confidence="0.998267" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999723824561403">
+Research in statistical novel sentence generation
+has the potential to extend the current capabili-
+ties of automatic text summarisation technology,
+moving from sentence extraction to abstract-like
+summarisation. In this paper, we describe a new
+algorithm that improves upon the grammaticality
+of statistically generated sentences, evaluated on a
+string regeneration task, which was first proposed
+as a surrogate for a grammaticality test by Ban-
+galore et al. (2000). In this task, a system must
+regenerate the original sentence which has had its
+word order scrambled.
+As an evaluation task, string regeneration re-
+flects the issues that challenge the sentence gen-
+eration components of machine translation, para-
+phrase generation, and summarisation systems
+(Soricut and Marcu, 2005). Our research in sum-
+marisation utilises the statistical generation algo-
+rithms described in this paper to generate novel
+summary sentences.
+The goal of the string regeneration task is to re-
+cover a sentence once its words have been ran-
+domly ordered. Similarly, for a text-to-text gen-
+eration scenario, the goal is to generate a sen-
+tence given an unordered list of words, typically
+using an n-gram language model to select the best
+word ordering. N-gram language models appear
+to do well at a local level when examining word
+sequences smaller than n. However, beyond this
+window size, the sequence is often ungrammati-
+cal. This is not surprising as these methods are un-
+able to model grammaticality at the sentence level,
+unless the size of n is sufficiently large. In prac-
+tice, the lack of sufficient training data means that
+n is often smaller than the average sentence length.
+Even if data exists, increasing the size of n corre-
+sponds to a higher degree polynomial complexity
+search for the best word sequence.
+In response, we introduce an algorithm for
+searching for the best word sequence in a way
+that attempts to model grammaticality at the sen-
+tence level. Mirroring the use of spanning tree al-
+gorithms in parsing (McDonald et al., 2005), we
+present an approach to statistical sentence genera-
+tion. Given a set of scrambled words, the approach
+searches for the most probable dependency tree, as
+defined by some corpus, such that it contains each
+word of the input set. The tree is then traversed to
+obtain the final word ordering.
+In particular, we present two spanning tree al-
+gorithms. We first adapt the Chu-Liu-Edmonds
+(CLE) algorithm (see Chu and Liu (1965) and Ed-
+monds (1967)), used in McDonald et al. (2005),
+to include a basic argument model, added to keep
+track of linear precedence between heads and
+modifiers. While our adapted version of the CLE
+algorithm finds an optimal spanning tree, this does
+</bodyText>
+<page confidence="0.99334">
+852
+</page>
+<bodyText confidence="0.998939807692308">
+\x0cnot always correspond with a linguistically valid
+dependency tree, primarily because it does not at-
+tempt to ensure that words in the tree have plausi-
+ble numbers of arguments.
+We propose an alternative dependency-
+spanning tree algorithm which uses a more
+fine-grained argument model representing argu-
+ment positions. To find the best modifiers for
+argument positions, we treat the attachment of
+edges to the spanning tree as a weighted bipartite
+graph matching problem (or the assignment
+problem), a standard problem in graph theory.
+The remainder of this paper is as follows. Sec-
+tion 2 outlines the graph representation of the
+spanning tree problem. We describe a standard
+spanning tree algorithm in Section 3. Section 4 de-
+fines a finer-grained argument model and presents
+a new dependency spanning tree search algorithm.
+We experiment to determine whether a global de-
+pendency structure, as found by our algorithm,
+improves performance on the string regeneration
+problem, presenting results in Section 5. Related
+work is presented in Section 6. Section 7 con-
+cludes that an argument model improves the lin-
+guistic plausibility of the generated trees, thus im-
+proving grammaticality in text generation.
+</bodyText>
+<sectionHeader confidence="0.7109955" genericHeader="method">
+2 A Graph Representation of
+Dependencies
+</sectionHeader>
+<bodyText confidence="0.996273287671232">
+In couching statistical generation as a spanning
+tree problem, this work is the generation analog
+of the parsing work by McDonald et al. (2005).
+Given a bag of words with no additional con-
+straints, the aim is to produce a dependency tree
+containing the given words. Informally, as all de-
+pendency relations between each pair of words are
+possible, the set of all possible dependencies can
+be represented as a graph, as noted by McDon-
+ald et al. (2005). Our goal is to find the subset of
+these edges corresponding to a tree with maximum
+probability such that each vertex in the graph is
+visited once, thus including each word once. The
+resulting tree is a spanning tree, an acyclic graph
+which spans all vertices. The best tree is the one
+with an optimal overall score. We use negative log
+probabilities so that edge weights will correspond
+to costs. The overall score is the sum of the costs
+of the edges in the spanning tree, which we want
+to minimise. Hence, our problem is the minimum
+spanning tree (MST) problem.
+We define a directed graph (digraph) in a stan-
+dard way, G = (V, E) where V is a set of vertices
+and E {(u, v)|u, v V } is a set of directed
+edges. For each sentence w = w1 . . . wn, we de-
+fine the digraph Gw = (Vw, Ew) where Vw =
+{w0, w1, . . . , wn}, with w0 a dummy root vertex,
+and Ew = {(u, v)|u Vw, v Vw \\ {w0}}.
+The graph is fully connected (except for the root
+vertex w0 which is only fully connected outwards)
+and is a representation of possible dependencies.
+For an edge (u, v), we refer to u as the head and v
+as the modifier.
+We extend the original formulation of McDon-
+ald et al. (2005) by adding a notion of argument
+positions for a word, providing points to attach
+modifiers. Adopting an approach similar to John-
+son (2007), we look at the direction (left or right)
+of the head with respect to the modifier; we con-
+sequently define a set D = {l, r} to represent
+this. Set D represents the linear precedence of the
+words in the dependency relation; consequently,
+it partially approximates the distinction between
+syntactic roles like subject and object.
+Each edge has a pair of associated weights, one
+for each direction, defined by the function s :
+E D R, based on a probabilistic model of de-
+pendency relations. To calculate the edge weights,
+we adapt the definition of Collins (1996) to use di-
+rection rather than relation type (represented in the
+original as triples of non-terminals). Given a cor-
+pus, for some edge e = (u, v) E and direction
+d D, we calculate the edge weight as:
+s((u, v), d) = log probdep(u, v, d) (1)
+We define the set of part-of-speech (PoS) tags P
+and a function pos : V P, which maps vertices
+(representing words) to their PoS, to calculate the
+probability of a dependency relation, defined as:
+probdep(u, v, d)
+=
+cnt((u, pos(u)), (v, pos(v)), d)
+co-occurs((u, pos(u)), (v, pos(v)))
+(2)
+where cnt((u, pos(u)), (v, pos(v)), d) is the num-
+ber of times where (v, pos(v)) and (u, pos(u))
+are seen in a sentence in the training data, and
+(v, pos(v)) modifies (u, pos(u)) in direction d.
+The function co-occurs((u, pos(u)), (v, pos(v)))
+returns the number of times that (v, pos(v)) and
+(u, pos(u)) are seen in a sentence in the training
+data. We adopt the same smoothing strategy as
+Collins (1996), which backs off to PoS for unseen
+dependency events.
+</bodyText>
+<page confidence="0.998702">
+853
+</page>
+<table confidence="0.276653">
+\x0c3 Generation via Spanning Trees
+</table>
+<subsectionHeader confidence="0.998655">
+3.1 The Chu-Liu Edmonds Algorithm
+</subsectionHeader>
+<bodyText confidence="0.99837275">
+Given the graph Gw = (Vw, Ew), the Chu-Liu
+Edmonds (CLE) algorithm finds a rooted directed
+spanning tree, specified by Tw, which is an acyclic
+set of edges in Ew minimising
+</bodyText>
+<equation confidence="0.565661">
+P
+</equation>
+<bodyText confidence="0.975174181818182">
+eTw,dD s(e, d).
+The algorithm is presented as Algorithm 1.1
+There are two stages to the algorithm. The first
+stage finds the best edge for each vertex, connect-
+ing it to another vertex. To do so, all outgoing
+edges of v, that is edges where v is a modifier, are
+considered, and the one with the best edge weight
+is chosen, where best is defined as the smallest
+cost. This minimisation step is used to ensure that
+each modifier has only one head.
+If the chosen edges Tw produce a strongly con-
+</bodyText>
+<equation confidence="0.9054575">
+nected subgraph Gm
+w = (Vw, Tw), then this is the
+</equation>
+<bodyText confidence="0.997309272727273">
+MST. If not, a cycle amongst some subset of Vw
+must be handled in the second stage. Essentially,
+one edge in the cycle is removed to produce a sub-
+tree. This is done by finding the best edge to join
+some vertex in the cycle to the main tree. This has
+the effect of finding an alternative head for some
+word in the cycle. The edge to the original head
+is discarded (to maintain one head per modifier),
+turning the cycle into a subtree. When all cycles
+have been handled, applying a greedy edge selec-
+tion once more will then yield the MST.
+</bodyText>
+<subsectionHeader confidence="0.999546">
+3.2 Generating a Word Sequence
+</subsectionHeader>
+<bodyText confidence="0.999693">
+Once the tree has been generated, all that remains
+is to obtain an ordering of words based upon it.
+Because dependency relations in the tree are either
+of leftward or rightward direction, it becomes rel-
+atively trivial to order child vertices with respect
+to a parent vertex. The only difficulty lies in find-
+ing a relative ordering for the leftward (to the par-
+ent) children, and similarly for the rightward (to
+the parent) children.
+We traverse Gm
+w using a greedy algorithm to or-
+der the siblings using an n-gram language model.
+Algorithm 2 describes the traversal in pseudo-
+code. The generated sentence is obtained by call-
+ing the algorithm with w0 and Tw as parameters.
+The algorithm operates recursively if called on an
+</bodyText>
+<page confidence="0.908585">
+1
+</page>
+<bodyText confidence="0.955968571428571">
+Adapted from (McDonald et al., 2005) and
+http://www.ce.rit.edu/ sjyeec/dmst.html . The dif-
+ference concerns the direction of the edge and the edge
+weight function. We have also folded the function contract
+in McDonald et al. (2005) into the main algorithm. Again
+following that work, we treat the function s as a data
+structure permitting storage of updated edge weights.
+</bodyText>
+<figure confidence="0.812026276595744">
+/* initialisation */
+Discard the edges exiting the w0 if any.
+1
+/* Chu-Liu/Edmonds Algorithm */
+begin
+2
+Tw (u, v) E : vV,dDarg min
+(u,v)
+s((u, v), d)
+3
+if Mw = (Vw, Tw) has no cycles then return Mw
+4
+forall C Tw : C is a cycle in Mw do
+5
+(e, d) arg min
+e,d
+s(e
+, d
+) : e C
+6
+forall c = (vh, vm, ) C and dc D do
+7
+forall e
+= (vi, vm) E and d
+D do
+8
+s(e
+, d
+) s(e
+, d
+) s(c, dc) s(e, d)
+9
+end
+10
+end
+11
+s(e, d) s(e, d) + 1
+12
+end
+13
+Tw (u, v) E : vV,dDarg min
+(u,v)
+s((u, v), d)
+14
+return Mw
+15
+end
+</figure>
+<page confidence="0.77895">
+16
+</page>
+<construct confidence="0.413505">
+Algorithm 1: The pseudo-code for the Chu-Liu
+</construct>
+<bodyText confidence="0.993422266666667">
+Edmonds algorithm with our adaptation to in-
+clude linear precedence.
+inner node. If a vertex v is a leaf in the dependency
+tree, its string realisation realise(v) is returned.
+We keep track of ordered siblings with two lists,
+one for each direction. If the sibling set is left-
+wards, the ordered list, Rl, is initialised to be the
+singleton set containing a dummy start token with
+an empty realisation. If the sibling set is right-
+wards then the ordered list, Rr is initialised to be
+the realisation of the parent.
+For some sibling set C Vw to be ordered, the
+algorithm chooses the next vertex, v C, to insert
+into the appropriate ordered list, Rx, x D, by
+maximising the probability of the string of words
+that would result if the realisation, realise(v), were
+concatenated with Rx.
+The probability of the concatenation is calcu-
+lated based on a window of words around the join.
+This window length is defined to be 2floor(n/2),
+for some n, in this case, 4.
+If the siblings are leftwards, the window con-
+sists of the last min(n 1, |Rl|) previously cho-
+sen words concatenated with the first min(n
+1, |realise(v)|). If the siblings are rightwards, the
+window consists of the last min(n1, |realise(v)|)
+previously chosen words concatenated with the
+first min(n 1, |Rr|). The probability of a win-
+dow of words, w0 . . . wj, of length j +1 is defined
+by the following equation:
+</bodyText>
+<equation confidence="0.993876571428571">
+probLMO(w0 . . . wj)
+=
+jk1
+Y
+i=0
+probMLE(wi+k|wi . . . wi+k1)
+(3)
+</equation>
+<page confidence="0.939514">
+854
+</page>
+<construct confidence="0.638004666666667">
+\x0c/* LMO Algorithm */
+input : v, Tw where v Vw
+output: R Vw
+</construct>
+<figure confidence="0.935271659574468">
+begin
+1
+if isLeaf(v) then
+2
+return {realise(v)}
+3
+end
+4
+else
+5
+Cl getLeftChildren(v, Tw)
+6
+Cr getRightChildren(v, Tw)
+7
+Rl {start}
+8
+Rr {realise(v)}
+9
+while Cl 6= {} do
+10
+c arg max
+cCl
+probngram(LMO(c, Tw) Rl)
+11
+Rl realise(c, Tw) Rl
+12
+Cl Cl \\ {c}
+13
+end
+14
+while Cr 6= {} do
+15
+c arg max
+cCr
+probngram(Rr LMO(c, Tw))
+16
+Rr Rr realise(c, Tw)
+17
+Cr Cr \\ {c}
+18
+end
+19
+return Rl Rr
+20
+end
+21
+end
+</figure>
+<page confidence="0.749623">
+22
+</page>
+<figureCaption confidence="0.317789">
+Algorithm 2: The Language Model Ordering al-
+gorithm for linearising an Tw.
+</figureCaption>
+<equation confidence="0.890494333333333">
+where k = min(n 1, j 1), and,
+probMLE(wi+k|wi . . . wi+k1)
+=
+cnt(wi . . . wi+k)
+cnt(wi . . . wi+k1)
+(4)
+</equation>
+<bodyText confidence="0.875624">
+where probMLE(wi+k|wi . . . wi+k1) is the max-
+imum likelihood estimate n-gram probability. We
+</bodyText>
+<listItem confidence="0.649508">
+refer to this tree linearisation method as the Lan-
+guage Model Ordering (LMO).
+4 Using an Argument Satisfaction Model
+</listItem>
+<subsectionHeader confidence="0.831113">
+4.1 Assigning Words to Argument Positions
+</subsectionHeader>
+<bodyText confidence="0.997563773584906">
+One limitation of using the CLE algorithm for
+generation is that the resulting tree, though max-
+imal in probability, may not conform to basic lin-
+guistic properties of a dependency tree. In partic-
+ular, it may not have the correct number of argu-
+ments for each head word. That is, a word may
+have too few or too many modifiers.
+To address this problem, we can take into ac-
+count the argument position when assigning a
+weight to an edge. When attaching an edge con-
+necting a modifier to a head to the spanning tree,
+we count how many modifiers the head already
+has. An edge is penalised if it is improbable that
+the head takes on yet another modifier, say in the
+example of an attachment to a preposition whose
+argument position has already been filled.
+However, accounting for argument positions
+makes an edge weight dynamic and dependent on
+surrounding tree context. This makes the search
+for an optimal tree an NP-hard problem (McDon-
+ald and Satta, 2007) as all possible trees must be
+considered to find an optimal solution.
+Consequently, we must choose a heuristic
+search algorithm for finding the locally optimum
+spanning tree. By representing argument positions
+that can be filled only once, we allow modifiers
+to compete for argument positions and vice versa.
+The CLE algorithm only considers this competi-
+tion in one direction. In line 3 of Algorithm 1,
+only heads compete for modifiers, and thus the so-
+lution will be sub-optimal. In Wan et al. (2007),
+we showed that introducing a model of argument
+positions into a greedy spanning tree algorithm
+had little effect on performance. Thus, to consider
+both directions of competition, we design a new
+algorithm for constructing (dependency) spanning
+trees that casts edge selection as a weighted bipar-
+tite graph matching (or assignment) problem.
+This problem is to find a weighted alignments
+between objects of two distinct sets, where an ob-
+ject from one set is uniquely aligned to some ob-
+ject in the other set. The optimal alignment is one
+where the sum of alignment costs is minimal. The
+graph of all possible assignments is a weighted bi-
+partite graph. Here, to discuss bipartite graphs, we
+will extend our notation in a fairly standard way,
+to write Gp = (U, V, Ep), where U, V are the dis-
+joint sets of vertices and Ep the set of edges.
+In our paper, we treat the assignment between
+attachment positions and words as an assignment
+problem. The standard polynomial-time solution
+to the assignment problem is the Kuhn-Munkres
+(or Hungarian) algorithm (Kuhn, 1955).2
+</bodyText>
+<subsectionHeader confidence="0.992839">
+4.2 A Dependency-Spanning Tree Algorithm
+</subsectionHeader>
+<bodyText confidence="0.880497333333333">
+Our alternative dependency-spanning tree algo-
+rithm, presented as Algorithm 3, incrementally
+adds vertices to a growing spanning tree. At
+each iteration, the Kuhn-Munkres method assigns
+words that are as yet unattached to argument posi-
+tions already available in the tree. We focus on the
+bipartite graph in Section 4.3.
+Let the sentence w have the dependency graph
+Gw = (Vw, Ew). At some arbitrary iteration of the
+algorithm (see Figure 1), we have the following:
+Tw Ew, the set of edges in the spanning
+tree constructed so far;
+</bodyText>
+<figure confidence="0.981998566666667">
+2
+GPL code: http://sites.google.com/site/garybaker/
+hungarian-algorithm/assignment
+855
+\x0cPartially determined spanning tree:
+w0
+made
+john
+l0
+r1 cups
+of
+l0
+l1
+for
+l0
+l3
+johnl0 mader1 ofl0 cupsl1 forl0 madel3
+Hw1
+Hw2
+Hw3
+Hw4
+Hw5
+Hw6
+Mw1
+Mw2
+Mw3
+Mw4
+Mw5
+Mw6
+coffee everyone yesterday o1 o2 o3
+</figure>
+<figureCaption confidence="0.999829">
+Figure 1: A snapshot of the generation process.
+</figureCaption>
+<bodyText confidence="0.95471932">
+Each word in the tree has argument positions to
+which we can assign remaining words. Padding
+Mw with o is described in Section 4.3.
+Hw = {u, v  |(u, v) Tw}, the set of ver-
+tices in Tw, or attached vertices, and there-
+fore potential heads; and
+Mw = Vw\\Hw, the set of unattached ver-
+tices, and therefore potential modifiers.
+For the potential heads, we want to define the set
+of possible attachment positions available in the
+spanning tree where the potential modifiers can at-
+tach. To talk about these attachment positions, we
+define the set of labels L = {(d, j)|d D, j
+N}, an element (d, j) representing an attachment
+point in direction d, position j. Valid attachment
+positions must be in sequential order and not miss-
+ing any intermediate positions (e.g. if position 2
+on the right is specified, position 1 must be also):
+so we define for some i N, 0 i &lt; N, a set
+Ai L such that if the label (d, j) Ai then the
+label (d, k) Ai for 0 k &lt; j. Collecting these,
+we define A = {Ai  |0 i &lt; N}.
+To map a potential head onto the set of attach-
+ment positions, we define a function q : Hw A.
+So, given some v Hw, q(v) = Ai for some
+</bodyText>
+<figure confidence="0.923252145454546">
+0 i &lt; N. In talking about an individual attach-
+ment point (d, j) q(v) for potential head v, we
+/* initialisation */
+Hw {w0}
+1
+Mw V
+2
+Uw {w0R1
+}
+3
+U
+w {}
+4
+Tw {}
+5
+/* The Assignment-based Algorithm */
+begin
+6
+while Mw 6= {} and U
+w 6= Uw do
+7
+U
+w Uw
+8
+foreach hu, (d, j)), vi Kuhn-Munkres(Gp
+w =
+9
+(Uw, Mo
+w, Ep
+w)) do
+Tw Tw {(u, v)}
+10
+if u Hw then
+11
+Uw Uw \\ {u}
+12
+end
+13
+Uw Uw next(q(u))
+14
+Uw Uw next(q(m))
+15
+q(m) q(m) \\ next(q(m))
+16
+q(h) q(h) \\ next(q(h))
+17
+Mw Mw \\ {m}
+18
+Hw Hw {m}
+19
+end
+20
+end
+21
+end
+</figure>
+<page confidence="0.834654">
+22
+</page>
+<figureCaption confidence="0.675518">
+Algorithm 3: The Assignment-based Depen-
+dency Tree Building algorithm.
+</figureCaption>
+<bodyText confidence="0.996062333333333">
+use the notation vdj. For example, when referring
+to the second argument position on the right with
+respect to v, we use vr2.
+For the implementation of the algorithm, we
+have defined q, to specify attachment points, as
+follows, given some v Hw:
+</bodyText>
+<equation confidence="0.9349864">
+q(v) =
+{vr1} if v = w0, the root
+{vl1} if pos(v) is a preposition
+L if pos(v) is a verb
+{vlj |j N} otherwise
+</equation>
+<bodyText confidence="0.989117714285714">
+Defining q allows one to optionally incorporate
+linguistic information if desired.
+We define the function next : q(v) A, v
+Hw that returns the position (d, j) with the small-
+est value of j for direction d. Finally, we write the
+set of available attachment positions in the span-
+ning tree as U {(v, l)  |v Hw, l q(v)}.
+</bodyText>
+<subsectionHeader confidence="0.9982">
+4.3 Finding an Assignment
+</subsectionHeader>
+<bodyText confidence="0.9937303">
+To construct the bipartite graph used for the as-
+signment problem at line 9 of Algorithm 3, given
+our original dependency graph Gw = (Vw, Ew),
+and the variables defined from it above in Sec-
+tion 4.2, we do the following. The first set of
+vertices, of possible heads and their attachment
+points, is the set Uw. The second set of ver-
+tices is the set of possible modifiers augmented
+by dummy vertices oi (indicating no modifica-
+tion) such that this set is at least as large as Uw :
+</bodyText>
+<equation confidence="0.9285198">
+Mo
+w = Mw {o0, . . . , omax(0,|Uw||Mw|)}. The bi-
+856
+\x0cpartite graph is then Gp
+w = (Uw, Mo
+w, Ep
+w), where
+Ep
+w = {(u, v)  |u Uw, v Mo
+w}.
+</equation>
+<bodyText confidence="0.901260909090909">
+The weights on the edges of this graph incor-
+porate a model of argument counts. The weight
+function is of the form sap : Ep R. We
+consider some e Ep
+w: e = (v, v) for some
+v Uw, v Mo
+w; and v = (u, (d, j)) for some
+u Vw, d D, j N. s(u, Mo
+w) is defined to re-
+turn the maximum cost so that the dummy leaves
+are only attached as a last resort. We then define:
+</bodyText>
+<equation confidence="0.975802333333333">
+sap(e)
+= log(probdep(u, v, d) probarg(u, d, j))
+(5)
+</equation>
+<bodyText confidence="0.946716">
+where probdep(u, v, d) is as in equation 2, using
+the original dependency graph defined in Section
+2; and probarg(u, d, j), an estimate of the prob-
+ability that a word u with i arguments assigned
+already can take on more arguments, is defined as:
+</bodyText>
+<equation confidence="0.9224945">
+probarg(u, d, j)
+=
+P
+i=j+1 cntarg(u, d, i)
+cnt(u, d)
+(6)
+</equation>
+<bodyText confidence="0.839584363636364">
+where cntarg(u, d, i) is the number of times word
+u has been seen with i arguments in direction
+d; and cnt(u, d) =
+P
+iN cntarg(u, d, i). As the
+probability of argument positions beyond a certain
+value for i in a given direction will be extremely
+small, we approximate this sum by calculating the
+probability density up to a fixed maximum, in this
+case 7 argument positions, and assume zero prob-
+ability beyond that.
+</bodyText>
+<sectionHeader confidence="0.95812" genericHeader="method">
+5 Evaluation
+</sectionHeader>
+<subsectionHeader confidence="0.992071">
+5.1 String Generation Task
+</subsectionHeader>
+<bodyText confidence="0.999220958333333">
+The best-performing word ordering algorithm is
+one that makes fewest grammatical errors. As a
+surrogate measurement of grammaticality, we use
+the string regeneration task. Beginning with a
+human-authored sentence with its word order ran-
+domised, the goal is to regenerate the original sen-
+tence. Success is indicated by the proportion of the
+original sentence regenerated, as measured by any
+string comparison method: in our case, using the
+BLEU metric (Papineni et al., 2002). One benefit
+to this evaluation is that content selection, as a fac-
+tor, is held constant. Specifically, the probability
+of word selection is uniform for all words.
+The string comparison task and its associated
+metrics like BLEU are not perfect.3 The evalu-
+ation can be seen as being overly strict. It as-
+sumes that the only grammatical order is that of the
+original human authored sentence, referred to as
+the gold standard sentence. Should an approach
+chance upon an alternative grammatical ordering,
+it would penalised. However, all algorithms and
+baselines compared would suffer equally in this
+respect, and so this will be less problematic when
+averaging across multiple test cases.
+</bodyText>
+<subsectionHeader confidence="0.998861">
+5.2 Data Sets and Training Procedures
+</subsectionHeader>
+<bodyText confidence="0.98965696969697">
+The Penn Treebank corpus (PTB) was used to pro-
+vide a model of dependency relations and argu-
+ment counts. It contains about 3 million words
+of text from the Wall Street Journal (WSJ) with
+human annotations of syntactic structures. Depen-
+dency events were sourced from the events file of
+the Collins parser package, which contains the de-
+pendency events found in training sections 2-22 of
+the corpus. Development was done on section 00
+and testing was performed on section 23.
+A 4-gram language model (LM) was also ob-
+tained from the PTB training data, referred to as
+PTB-LM. Additionally, a 4-gram language model
+was obtained from a subsection of the BLLIP99
+Corpus (LDC number: LDC2000T43) containing
+three years of WSJ data from 1987 to 1989 (Char-
+niak et al., 1999). As in Collins et al. (2004),
+the 1987 portion of the BLLIP corpus containing
+20 million words was also used to create a lan-
+guage model, referred to here as BLLIP-LM. N-
+gram models were smoothed using Katzs method,
+backing off to smaller values of n.
+For this evaluation, tokenisation was based on
+that provided by the PTB data set. This data
+set also delimits base noun phrases (noun phrases
+without nested constituents). Base noun phrases
+were treated as single tokens, and the rightmost
+word assumed to be the head. For the algorithms
+tested, the input set for any test case consisted of
+the single tokens identified by the PTB tokenisa-
+tion. Additionally, the heads of base noun phrases
+were included in this input set. That is, we do not
+regenerate the base noun phrases.4
+</bodyText>
+<page confidence="0.974631">
+3
+</page>
+<bodyText confidence="0.976181">
+Alternative grammaticality measures have been devel-
+oped recently (Mutton et al., 2007). We are currently explor-
+ing the use of this and other metrics.
+</bodyText>
+<page confidence="0.980413">
+4
+</page>
+<bodyText confidence="0.992225333333333">
+This would correspond to the use of a chunking algo-
+rithm or a named-entity recogniser to find noun phrases that
+could be re-used for sentence generation.
+</bodyText>
+<page confidence="0.996947">
+857
+</page>
+<table confidence="0.890923">
+\x0cAlgorithms PTB-LM BLLIP-LM
+Viterbi baseline 14.9 18.0
+LMO baseline 24.3 26.0
+CLE 26.4 26.8
+AB 33.6 33.7
+Figure 2: String regeneration as measured in
+BLEU points (maximum 100)
+</table>
+<subsectionHeader confidence="0.996134">
+5.3 Algorithms and Baselines
+</subsectionHeader>
+<bodyText confidence="0.999906166666666">
+We compare the baselines against the Chu-Liu
+Edmonds (CLE) algorithm to see if spanning
+tree algorithms do indeed improve upon conven-
+tional language modelling. We also compare
+the Assignment-based (AB) algorithm against the
+baselines and CLE to see if, additionally, mod-
+elling argument assignments improves the re-
+sulting tree and thus the generated word se-
+quence. Two baseline generators based on n-
+gram language-models were used, representing
+approaches that optimise word sequences based on
+the local context of the n-grams.
+The first baseline re-uses the LMO greedy se-
+quence algorithm on the same set of input words
+presented to the CLE and AB algorithms. We ap-
+ply LMO in a rightward manner beginning with
+a start-of-sentence token. Note that this baseline
+generator, like the two spanning tree algorithms,
+will score favourably using BLEU since, mini-
+mally, the word order of the base noun phrases will
+be correct when each is reinserted.
+Since the LMO baseline reduces to bigram gen-
+eration when concatenating single words, we test
+a second language model baseline which always
+uses a 4-gram window size. A Viterbi-like gen-
+erator with a 4-gram model and a beam of 100 is
+used to generate a sequence. For this baseline, re-
+ferred to as the Viterbi baseline, base noun phrases
+were separated into their constituent words and in-
+cluded in the input word set.
+</bodyText>
+<sectionHeader confidence="0.681002" genericHeader="evaluation">
+5.4 Results
+</sectionHeader>
+<bodyText confidence="0.981245615384615">
+The results are presented in Table 2. Significance
+was measured using the sign test and the sampling
+method outlined in (Collins et al., 2005). We will
+examine the results in the PTB-LM column first.
+The gain of 10 BLEU points by the LMO baseline
+over the Viterbi baseline shows the performance
+improvement that can be gained when reinserting
+the base noun phrases.
+AB: the dow at this point was down about 35 points
+CLE: was down about this point 35 points the dow at
+LMO: was this point about at down the down 35 points
+Viterbi: the down 35 points at was about this point down
+Original: at this point, the dow was down about 35 points
+</bodyText>
+<figureCaption confidence="0.991422">
+Figure 3: Example generated sentences using the
+</figureCaption>
+<bodyText confidence="0.975063966666667">
+BLLIP-LM.
+The CLE algorithm significantly out-performed
+the LMO baseline by 2 BLEU points, from which
+we conclude that incorporating a model for global
+syntactic structure and treating the search for a
+dependency tree as a spanning problem helps for
+novel sentence generation. However, the real im-
+provement can be seen in the performance of the
+AB system which significantly out-performs all
+other methods, beating the CLE algorithm by 7
+BLEU points, illustrating the benefits of a model
+for argument counts and of couching tree building
+as an iterative set of argument assignments.
+One might reasonably ask if more n-gram data
+would narrow the gap between the tree algorithms
+and the baselines, which encode global and lo-
+cal information respectively. Examining results in
+the BLLIP-LM column, all approaches improve
+with the better language model. Unsurprisingly,
+the improvements are most evident in the base-
+lines which rely heavily on the language model.
+The margin narrows between the CLE algorithm
+and the LMO baseline. However, the AB algo-
+rithm still out-performs all other approaches by
+7 BLEU points, highlighting the benefit in mod-
+elling dependency relations. Even with a language
+model that is one order of magnitude larger than
+the PTB-LM, the AB still maintains a sizeable lead
+in performance. Figure 3 presents sample gener-
+ated strings.
+</bodyText>
+<sectionHeader confidence="0.999592" genericHeader="related work">
+6 Related Work
+</sectionHeader>
+<subsectionHeader confidence="0.990558">
+6.1 Statistical Surface Realisers
+</subsectionHeader>
+<bodyText confidence="0.999006">
+The work in this paper is similar to research in
+statistical surface realisation (for example, Langk-
+ilde and Knight (1998); Bangalore and Rambow
+(2000); Filippova and Strube (2008)). These start
+with a semantic representation for which a specific
+rendering, an ordering of words, must be deter-
+mined, often using language models to govern tree
+traversal. The task in this paper is different as it is
+a text-to-text scenario and does not begin with a
+representation of semantics.
+</bodyText>
+<page confidence="0.955364">
+858
+</page>
+<bodyText confidence="0.994030714285714">
+\x0cThe dependency model and the LMO lineari-
+sation algorithm are based heavily on word order
+statistics. As such, the utility of this approach is
+limited to human languages with minimal use of
+inflections, such as English. Approaches for other
+language types, for example German, have been
+explored (Filippova and Strube, 2007).
+</bodyText>
+<subsectionHeader confidence="0.978473">
+6.2 Text-to-Text Generation
+</subsectionHeader>
+<bodyText confidence="0.999802612903226">
+As a text-to-text approach, our work is more sim-
+ilar to work on Information Fusion (Barzilay et
+al., 1999), a sub-problem in multi-document sum-
+marisation. In this work, sentences presenting the
+same information, for example multiple news arti-
+cles describing the same event, are merged to form
+a single summary by aligning repeated words and
+phrases across sentences.
+Other text-to-text approaches for generating
+novel sentences also aim to recycle sentence frag-
+ments where possible, as we do. Work on phrase-
+based statistical machine translation has been
+applied to paraphrase generation (Bannard and
+Callison-Burch, 2005) and multi-sentence align-
+ment in summarisation (Daume III and Marcu,
+2004). These approaches typically use n-gram
+models to find the best word sequence.
+The WIDL formalism (Soricut and Marcu,
+2005) was proposed to efficiently encode con-
+straints that restricted possible word sequences,
+for example dependency information. Though
+similar, our work here does not explicitly repre-
+sent the word lattice.
+For these text-to-text systems, the order of ele-
+ments in the generated sentence is heavily based
+on the original order of words and phrases in the
+input sentences from which lattices are built. Our
+approach has the benefit of considering all possi-
+ble orderings of words, corresponding to a wider
+range of paraphrases, provided with a suitable de-
+pendency model is available.
+</bodyText>
+<subsectionHeader confidence="0.994952">
+6.3 Parsing and Semantic Role Labelling
+</subsectionHeader>
+<bodyText confidence="0.9996815">
+This paper presents work closely related to parsing
+work by McDonald et al. (2005) which searches
+for the best parse tree. Our work can be thought of
+as generating projective dependency trees (that is,
+without crossing dependencies).
+The key difference between parsing and gener-
+ation is that, in parsing, the word order is fixed,
+whereas for generation, this must be determined.
+In this paper, we search across all possible tree
+structures whilst searching for the best word or-
+dering. As a result, an argument model is needed
+to identify linguistically plausible spanning trees.
+We treated the alignment of modifiers to head
+words as a bipartite graph matching problem. This
+is similar to work in semantic role labelling by
+Pado and Lapata (2006). The alignment of an-
+swers to question types as a semantic role labelling
+task using similar methods was explored by Shen
+and Lapata (2007).
+Our work is also strongly related to that of
+Wong and Mooney (2007) which constructs sym-
+bolic semantic structures via an assignment pro-
+cess in order to provide surface realisers with in-
+put. Our approach differs in that we do not be-
+gin with a fixed set of semantic labels. Addition-
+ally, our end goal is a dependency tree that encodes
+word precedence order, bypassing the surface re-
+alisation stage.
+</bodyText>
+<sectionHeader confidence="0.998605" genericHeader="conclusions">
+7 Conclusions
+</sectionHeader>
+<bodyText confidence="0.9998">
+In this paper, we presented a new use of spanning
+tree algorithms for generating sentences from an
+input set of words, a task common to many text-
+to-text scenarios. The algorithm finds the best de-
+pendency trees in order to ensure that the result-
+ing string has grammaticality modelled at a global
+(sentence) level. Our algorithm incorporates a
+model of argument satisfaction which is treated as
+an assignment problem, using the Kuhn-Munkres
+assignment algorithm. We found a significant im-
+provement using BLEU to measure improvements
+on the string regeneration task. We conclude that
+our new algorithm based on the assignment prob-
+lem and an argument model finds trees that are lin-
+guistically more plausible, thereby improving the
+grammaticality of the generated word sequence.
+</bodyText>
+<sectionHeader confidence="0.991918" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.984653083333333">
+Srinivas Bangalore and Owen Rambow. 2000. Ex-
+ploiting a probabilistic hierarchical model for gen-
+eration. In Proceedings of the 18th Conference on
+Computational Linguistics, Saarbrucken, Germany.
+Srinivas Bangalore, Owen Rambow, and Steve Whit-
+taker. 2000. Evaluation metrics for generation.
+In Proceedings of the first international conference
+on Natural language generation, Morristown, NJ,
+USA.
+Colin Bannard and Chris Callison-Burch. 2005. Para-
+phrasing with bilingual parallel corpora. In Pro-
+ceedings of the 43rd Annual Meeting of the Asso-
+</reference>
+<page confidence="0.96668">
+859
+</page>
+<reference confidence="0.99939218095238">
+\x0cciation for Computational Linguistics, Ann Arbor,
+Michigan.
+Regina Barzilay, Kathleen R. McKeown, and Michael
+Elhadad. 1999. Information fusion in the context
+of multi-document summarization. In Proceedings
+of the 37th conference on Association for Computa-
+tional Linguistics, Morristown, NJ, USA.
+Eugene Charniak, Don Blaheta, Niyu Ge, Keith Hall,
+John Hale, and Mark Johnson. 1999. Bllip 1987-89
+wsj corpus release 1. Technical report, Linguistic
+Data Consortium.
+Y. J. Chu and T. H. Liu. 1965. On the shortest
+arborescence of a directed graph. Science Sinica,
+v.14:13961400.
+Christopher Collins, Bob Carpenter, and Gerald Penn.
+2004. Head-driven parsing for word lattices. In Pro-
+ceedings of the 42nd Annual Meeting on Associa-
+tion for Computational Linguistics, Morristown, NJ,
+USA.
+Michael Collins, Philipp Koehn, and Ivona Kucerova.
+2005. Clause restructuring for statistical machine
+translation. In Proceedings of the 43rd Annual
+Meeting on Association for Computational Linguis-
+tics, Morristown, NJ, USA.
+Michael John Collins. 1996. A new statistical parser
+based on bigram lexical dependencies. In Proceed-
+ings of the Thirty-Fourth Annual Meeting of the As-
+sociation for Computational Linguistics, San Fran-
+cisco.
+Hal Daume III and Daniel Marcu. 2004. A phrase-
+based hmm approach to document/abstract align-
+ment. In Proceedings of EMNLP 2004, Barcelona,
+Spain..
+J. Edmonds. 1967. Optimum branchings. J. Research
+of the National Bureau of Standards, 71B:233240.
+Katja Filippova and Michael Strube. 2007. Generating
+constituent order in german clauses. In Proceedings
+of the 45th Annual Meeting on Association for Com-
+putational Linguistics. Prague, Czech Republic.
+Katja Filippova and Michael Strube. 2008. Sentence
+fusion via dependency graph compression. In Con-
+ference on Empirical Methods in Natural Language
+Processing, Waikiki, Honolulu, Hawaii.
+Mark Johnson. 2007. Transforming projective bilex-
+ical dependency grammars into efficiently-parsable
+cfgs with unfold-fold. In Proceedings of the 45th
+Annual Meeting on Association for Computational
+Linguistics. Prague, Czech Republic.
+H.W. Kuhn. 1955. The hungarian method for the as-
+signment problem. Naval Research Logistics Quar-
+terly, 219552:8397 8397.
+Irene Langkilde and Kevin Knight. 1998. The practi-
+cal value of N-grams in derivation. In Proceedings
+of the Ninth International Workshop on Natural Lan-
+guage Generation, New Brunswick, New Jersey.
+Ryan McDonald and Giorgio Satta. 2007. On the com-
+plexity of non-projective data-driven dependency
+parsing. In Proceedings of the Tenth International
+Conference on Parsing Technologies, Prague, Czech
+Republic.
+Ryan McDonald, Fernando Pereira, Kiril Ribarov, and
+Jan Hajic. 2005. Non-projective dependency pars-
+ing using spanning tree algorithms. In Proceedings
+of the conference on Human Language Technology
+and Empirical Methods in Natural Language Pro-
+cessing, Morristown, NJ, USA.
+Andrew Mutton, Mark Dras, Stephen Wan, and Robert
+Dale. 2007. Gleu: Automatic evaluation of
+sentence-level fluency. In Proceedings of the 45th
+Annual Meeting of the Association of Computational
+Linguistics, Prague, Czech Republic.
+Sebastian Pado and Mirella Lapata. 2006. Optimal
+constituent alignment with edge covers for seman-
+tic projection. In Proceedings of the 21st Interna-
+tional Conference on Computational Linguistics and
+the 44th annual meeting of the Association for Com-
+putational Linguistics, Morristown, NJ, USA.
+Kishore Papineni, Salim Roukos, Todd Ward, and Wei-
+Jing Zhu. 2002. Bleu: a method for automatic eval-
+uation of machine translation. In Proceedings of the
+40th Annual Meeting of the Association for Compu-
+tational Linguistics, Philadelphia, July.
+Dan Shen and Mirella Lapata. 2007. Using seman-
+tic roles to improve question answering. In Pro-
+ceedings of the 2007 Joint Conference on Empiri-
+cal Methods in Natural Language Processing and
+Computational Natural Language Learning, Prague,
+Czech Republic.
+Radu Soricut and Daniel Marcu. 2005. Towards devel-
+oping generation algorithms for text-to-text applica-
+tions. In Proceedings of the 43rd Annual Meeting of
+the Association for Computational Linguistics, Ann
+Arbor, Michigan.
+Stephen Wan, Robert Dale, Mark Dras, and Cecile
+Paris. 2007. Global revision in summarisation:
+Generating novel sentences with prims algorithm.
+In Proceedings of 10th Conference of the Pacific As-
+sociation for Computational Linguistic, Melbourne,
+Australia.
+Yuk Wah Wong and Raymond Mooney. 2007. Genera-
+tion by inverting a semantic parser that uses statisti-
+cal machine translation. In Human Language Tech-
+nologies 2007: The Conference of the North Amer-
+ican Chapter of the Association for Computational
+Linguistics, Rochester, New York.
+</reference>
+<page confidence="0.804175">
+860
+</page>
+<figure confidence="0.360556">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.280084">
+<note confidence="0.971142">b&apos;Proceedings of the 12th Conference of the European Chapter of the ACL, pages 852860, Athens, Greece, 30 March 3 April 2009. c 2009 Association for Computational Linguistics</note>
+<title confidence="0.944131333333333">Improving Grammaticality in Statistical Sentence Generation: Introducing a Dependency Spanning Tree Algorithm with an Argument Satisfaction Model</title>
+<author confidence="0.999032333333333">Stephen Wan Mark Dras Robert Dale</author>
+<affiliation confidence="0.997541">Centre for Language Technology Department of Computing Macquarie University</affiliation>
+<address confidence="0.999208">Sydney, NSW 2113</address>
+<email confidence="0.993341">swan,madras,rdale@ics.mq.edu.au</email>
+<author confidence="0.475335">Cecile Paris</author>
+<affiliation confidence="0.8948895">ICT Centre CSIRO</affiliation>
+<address confidence="0.941049">Sydney, Australia</address>
+<email confidence="0.941886">Cecile.Paris@csiro.au</email>
+<abstract confidence="0.999582636363636">Abstract-like text summarisation requires a means of producing novel summary sentences. In order to improve the grammaticality of the generated sentence, we model a global (sentence) level syntactic structure. We couch statistical sentence generation as a spanning tree problem in order to search for the best dependency tree spanning a set of chosen words. We also introduce a new search algorithm for this task that models argument satisfaction to improve the linguistic validity of the generated tree. We treat the allocation of modifiers to heads as a weighted bipartite graph matching (or assignment) problem, a well studied problem in graph theory. Using BLEU to measure performance on a string regeneration task, we found an improvement, illustrating the benefit of the spanning tree approach armed with an argument satisfaction model.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Srinivas Bangalore</author>
+<author>Owen Rambow</author>
+</authors>
+<title>Exploiting a probabilistic hierarchical model for generation.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the 18th Conference on Computational Linguistics, Saarbrucken,</booktitle>
+<location>Germany.</location>
+<contexts>
+<context position="28434" citStr="Bangalore and Rambow (2000)" startWordPosition="5021" endWordPosition="5024">ely heavily on the language model. The margin narrows between the CLE algorithm and the LMO baseline. However, the AB algorithm still out-performs all other approaches by 7 BLEU points, highlighting the benefit in modelling dependency relations. Even with a language model that is one order of magnitude larger than the PTB-LM, the AB still maintains a sizeable lead in performance. Figure 3 presents sample generated strings. 6 Related Work 6.1 Statistical Surface Realisers The work in this paper is similar to research in statistical surface realisation (for example, Langkilde and Knight (1998); Bangalore and Rambow (2000); Filippova and Strube (2008)). These start with a semantic representation for which a specific rendering, an ordering of words, must be determined, often using language models to govern tree traversal. The task in this paper is different as it is a text-to-text scenario and does not begin with a representation of semantics. 858 \x0cThe dependency model and the LMO linearisation algorithm are based heavily on word order statistics. As such, the utility of this approach is limited to human languages with minimal use of inflections, such as English. Approaches for other language types, for examp</context>
+</contexts>
+<marker>Bangalore, Rambow, 2000</marker>
+<rawString>Srinivas Bangalore and Owen Rambow. 2000. Exploiting a probabilistic hierarchical model for generation. In Proceedings of the 18th Conference on Computational Linguistics, Saarbrucken, Germany.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Srinivas Bangalore</author>
+<author>Owen Rambow</author>
+<author>Steve Whittaker</author>
+</authors>
+<title>Evaluation metrics for generation.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the first international conference on Natural language generation,</booktitle>
+<location>Morristown, NJ, USA.</location>
+<contexts>
+<context position="1880" citStr="Bangalore et al. (2000)" startWordPosition="277" endWordPosition="281">ng regeneration task, we found an improvement, illustrating the benefit of the spanning tree approach armed with an argument satisfaction model. 1 Introduction Research in statistical novel sentence generation has the potential to extend the current capabilities of automatic text summarisation technology, moving from sentence extraction to abstract-like summarisation. In this paper, we describe a new algorithm that improves upon the grammaticality of statistically generated sentences, evaluated on a string regeneration task, which was first proposed as a surrogate for a grammaticality test by Bangalore et al. (2000). In this task, a system must regenerate the original sentence which has had its word order scrambled. As an evaluation task, string regeneration reflects the issues that challenge the sentence generation components of machine translation, paraphrase generation, and summarisation systems (Soricut and Marcu, 2005). Our research in summarisation utilises the statistical generation algorithms described in this paper to generate novel summary sentences. The goal of the string regeneration task is to recover a sentence once its words have been randomly ordered. Similarly, for a text-to-text generat</context>
+</contexts>
+<marker>Bangalore, Rambow, Whittaker, 2000</marker>
+<rawString>Srinivas Bangalore, Owen Rambow, and Steve Whittaker. 2000. Evaluation metrics for generation. In Proceedings of the first international conference on Natural language generation, Morristown, NJ, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Colin Bannard</author>
+<author>Chris Callison-Burch</author>
+</authors>
+<title>Paraphrasing with bilingual parallel corpora.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the 43rd Annual Meeting of the Asso\x0cciation for Computational Linguistics,</booktitle>
+<location>Ann Arbor, Michigan.</location>
+<contexts>
+<context position="29743" citStr="Bannard and Callison-Burch, 2005" startWordPosition="5223" endWordPosition="5226"> Generation As a text-to-text approach, our work is more similar to work on Information Fusion (Barzilay et al., 1999), a sub-problem in multi-document summarisation. In this work, sentences presenting the same information, for example multiple news articles describing the same event, are merged to form a single summary by aligning repeated words and phrases across sentences. Other text-to-text approaches for generating novel sentences also aim to recycle sentence fragments where possible, as we do. Work on phrasebased statistical machine translation has been applied to paraphrase generation (Bannard and Callison-Burch, 2005) and multi-sentence alignment in summarisation (Daume III and Marcu, 2004). These approaches typically use n-gram models to find the best word sequence. The WIDL formalism (Soricut and Marcu, 2005) was proposed to efficiently encode constraints that restricted possible word sequences, for example dependency information. Though similar, our work here does not explicitly represent the word lattice. For these text-to-text systems, the order of elements in the generated sentence is heavily based on the original order of words and phrases in the input sentences from which lattices are built. Our ap</context>
+</contexts>
+<marker>Bannard, Callison-Burch, 2005</marker>
+<rawString>Colin Bannard and Chris Callison-Burch. 2005. Paraphrasing with bilingual parallel corpora. In Proceedings of the 43rd Annual Meeting of the Asso\x0cciation for Computational Linguistics, Ann Arbor, Michigan.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Regina Barzilay</author>
+<author>Kathleen R McKeown</author>
+<author>Michael Elhadad</author>
+</authors>
+<title>Information fusion in the context of multi-document summarization.</title>
+<date>1999</date>
+<booktitle>In Proceedings of the 37th conference on Association for Computational Linguistics,</booktitle>
+<location>Morristown, NJ, USA.</location>
+<contexts>
+<context position="29228" citStr="Barzilay et al., 1999" startWordPosition="5148" endWordPosition="5151">dels to govern tree traversal. The task in this paper is different as it is a text-to-text scenario and does not begin with a representation of semantics. 858 \x0cThe dependency model and the LMO linearisation algorithm are based heavily on word order statistics. As such, the utility of this approach is limited to human languages with minimal use of inflections, such as English. Approaches for other language types, for example German, have been explored (Filippova and Strube, 2007). 6.2 Text-to-Text Generation As a text-to-text approach, our work is more similar to work on Information Fusion (Barzilay et al., 1999), a sub-problem in multi-document summarisation. In this work, sentences presenting the same information, for example multiple news articles describing the same event, are merged to form a single summary by aligning repeated words and phrases across sentences. Other text-to-text approaches for generating novel sentences also aim to recycle sentence fragments where possible, as we do. Work on phrasebased statistical machine translation has been applied to paraphrase generation (Bannard and Callison-Burch, 2005) and multi-sentence alignment in summarisation (Daume III and Marcu, 2004). These app</context>
+</contexts>
+<marker>Barzilay, McKeown, Elhadad, 1999</marker>
+<rawString>Regina Barzilay, Kathleen R. McKeown, and Michael Elhadad. 1999. Information fusion in the context of multi-document summarization. In Proceedings of the 37th conference on Association for Computational Linguistics, Morristown, NJ, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eugene Charniak</author>
+<author>Don Blaheta</author>
+<author>Niyu Ge</author>
+<author>Keith Hall</author>
+<author>John Hale</author>
+<author>Mark Johnson</author>
+</authors>
+<title>Bllip 1987-89 wsj corpus release 1.</title>
+<date>1999</date>
+<tech>Technical report, Linguistic Data Consortium.</tech>
+<contexts>
+<context position="23534" citStr="Charniak et al., 1999" startWordPosition="4205" endWordPosition="4209"> text from the Wall Street Journal (WSJ) with human annotations of syntactic structures. Dependency events were sourced from the events file of the Collins parser package, which contains the dependency events found in training sections 2-22 of the corpus. Development was done on section 00 and testing was performed on section 23. A 4-gram language model (LM) was also obtained from the PTB training data, referred to as PTB-LM. Additionally, a 4-gram language model was obtained from a subsection of the BLLIP99 Corpus (LDC number: LDC2000T43) containing three years of WSJ data from 1987 to 1989 (Charniak et al., 1999). As in Collins et al. (2004), the 1987 portion of the BLLIP corpus containing 20 million words was also used to create a language model, referred to here as BLLIP-LM. Ngram models were smoothed using Katzs method, backing off to smaller values of n. For this evaluation, tokenisation was based on that provided by the PTB data set. This data set also delimits base noun phrases (noun phrases without nested constituents). Base noun phrases were treated as single tokens, and the rightmost word assumed to be the head. For the algorithms tested, the input set for any test case consisted of the singl</context>
+</contexts>
+<marker>Charniak, Blaheta, Ge, Hall, Hale, Johnson, 1999</marker>
+<rawString>Eugene Charniak, Don Blaheta, Niyu Ge, Keith Hall, John Hale, and Mark Johnson. 1999. Bllip 1987-89 wsj corpus release 1. Technical report, Linguistic Data Consortium.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y J Chu</author>
+<author>T H Liu</author>
+</authors>
+<title>On the shortest arborescence of a directed graph. Science Sinica,</title>
+<date>1965</date>
+<contexts>
+<context position="3856" citStr="Chu and Liu (1965)" startWordPosition="607" endWordPosition="610">thm for searching for the best word sequence in a way that attempts to model grammaticality at the sentence level. Mirroring the use of spanning tree algorithms in parsing (McDonald et al., 2005), we present an approach to statistical sentence generation. Given a set of scrambled words, the approach searches for the most probable dependency tree, as defined by some corpus, such that it contains each word of the input set. The tree is then traversed to obtain the final word ordering. In particular, we present two spanning tree algorithms. We first adapt the Chu-Liu-Edmonds (CLE) algorithm (see Chu and Liu (1965) and Edmonds (1967)), used in McDonald et al. (2005), to include a basic argument model, added to keep track of linear precedence between heads and modifiers. While our adapted version of the CLE algorithm finds an optimal spanning tree, this does 852 \x0cnot always correspond with a linguistically valid dependency tree, primarily because it does not attempt to ensure that words in the tree have plausible numbers of arguments. We propose an alternative dependencyspanning tree algorithm which uses a more fine-grained argument model representing argument positions. To find the best modifiers for</context>
+</contexts>
+<marker>Chu, Liu, 1965</marker>
+<rawString>Y. J. Chu and T. H. Liu. 1965. On the shortest arborescence of a directed graph. Science Sinica, v.14:13961400.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Christopher Collins</author>
+<author>Bob Carpenter</author>
+<author>Gerald Penn</author>
+</authors>
+<title>Head-driven parsing for word lattices.</title>
+<date>2004</date>
+<booktitle>In Proceedings of the 42nd Annual Meeting on Association for Computational Linguistics,</booktitle>
+<location>Morristown, NJ, USA.</location>
+<contexts>
+<context position="23563" citStr="Collins et al. (2004)" startWordPosition="4212" endWordPosition="4215">rnal (WSJ) with human annotations of syntactic structures. Dependency events were sourced from the events file of the Collins parser package, which contains the dependency events found in training sections 2-22 of the corpus. Development was done on section 00 and testing was performed on section 23. A 4-gram language model (LM) was also obtained from the PTB training data, referred to as PTB-LM. Additionally, a 4-gram language model was obtained from a subsection of the BLLIP99 Corpus (LDC number: LDC2000T43) containing three years of WSJ data from 1987 to 1989 (Charniak et al., 1999). As in Collins et al. (2004), the 1987 portion of the BLLIP corpus containing 20 million words was also used to create a language model, referred to here as BLLIP-LM. Ngram models were smoothed using Katzs method, backing off to smaller values of n. For this evaluation, tokenisation was based on that provided by the PTB data set. This data set also delimits base noun phrases (noun phrases without nested constituents). Base noun phrases were treated as single tokens, and the rightmost word assumed to be the head. For the algorithms tested, the input set for any test case consisted of the single tokens identified by the PT</context>
+</contexts>
+<marker>Collins, Carpenter, Penn, 2004</marker>
+<rawString>Christopher Collins, Bob Carpenter, and Gerald Penn. 2004. Head-driven parsing for word lattices. In Proceedings of the 42nd Annual Meeting on Association for Computational Linguistics, Morristown, NJ, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+<author>Philipp Koehn</author>
+<author>Ivona Kucerova</author>
+</authors>
+<title>Clause restructuring for statistical machine translation.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the 43rd Annual Meeting on Association for Computational Linguistics,</booktitle>
+<location>Morristown, NJ, USA.</location>
+<contexts>
+<context position="26341" citStr="Collins et al., 2005" startWordPosition="4676" endWordPosition="4679">un phrases will be correct when each is reinserted. Since the LMO baseline reduces to bigram generation when concatenating single words, we test a second language model baseline which always uses a 4-gram window size. A Viterbi-like generator with a 4-gram model and a beam of 100 is used to generate a sequence. For this baseline, referred to as the Viterbi baseline, base noun phrases were separated into their constituent words and included in the input word set. 5.4 Results The results are presented in Table 2. Significance was measured using the sign test and the sampling method outlined in (Collins et al., 2005). We will examine the results in the PTB-LM column first. The gain of 10 BLEU points by the LMO baseline over the Viterbi baseline shows the performance improvement that can be gained when reinserting the base noun phrases. AB: the dow at this point was down about 35 points CLE: was down about this point 35 points the dow at LMO: was this point about at down the down 35 points Viterbi: the down 35 points at was about this point down Original: at this point, the dow was down about 35 points Figure 3: Example generated sentences using the BLLIP-LM. The CLE algorithm significantly out-performed t</context>
+</contexts>
+<marker>Collins, Koehn, Kucerova, 2005</marker>
+<rawString>Michael Collins, Philipp Koehn, and Ivona Kucerova. 2005. Clause restructuring for statistical machine translation. In Proceedings of the 43rd Annual Meeting on Association for Computational Linguistics, Morristown, NJ, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael John Collins</author>
+</authors>
+<title>A new statistical parser based on bigram lexical dependencies.</title>
+<date>1996</date>
+<booktitle>In Proceedings of the Thirty-Fourth Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<location>San Francisco.</location>
+<contexts>
+<context position="7660" citStr="Collins (1996)" startWordPosition="1278" endWordPosition="1279">ifiers. Adopting an approach similar to Johnson (2007), we look at the direction (left or right) of the head with respect to the modifier; we consequently define a set D = {l, r} to represent this. Set D represents the linear precedence of the words in the dependency relation; consequently, it partially approximates the distinction between syntactic roles like subject and object. Each edge has a pair of associated weights, one for each direction, defined by the function s : E D R, based on a probabilistic model of dependency relations. To calculate the edge weights, we adapt the definition of Collins (1996) to use direction rather than relation type (represented in the original as triples of non-terminals). Given a corpus, for some edge e = (u, v) E and direction d D, we calculate the edge weight as: s((u, v), d) = log probdep(u, v, d) (1) We define the set of part-of-speech (PoS) tags P and a function pos : V P, which maps vertices (representing words) to their PoS, to calculate the probability of a dependency relation, defined as: probdep(u, v, d) = cnt((u, pos(u)), (v, pos(v)), d) co-occurs((u, pos(u)), (v, pos(v))) (2) where cnt((u, pos(u)), (v, pos(v)), d) is the number of times where (v, p</context>
+</contexts>
+<marker>Collins, 1996</marker>
+<rawString>Michael John Collins. 1996. A new statistical parser based on bigram lexical dependencies. In Proceedings of the Thirty-Fourth Annual Meeting of the Association for Computational Linguistics, San Francisco.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hal Daume</author>
+<author>Daniel Marcu</author>
+</authors>
+<title>A phrasebased hmm approach to document/abstract alignment.</title>
+<date>2004</date>
+<booktitle>In Proceedings of EMNLP 2004,</booktitle>
+<location>Barcelona,</location>
+<marker>Daume, Marcu, 2004</marker>
+<rawString>Hal Daume III and Daniel Marcu. 2004. A phrasebased hmm approach to document/abstract alignment. In Proceedings of EMNLP 2004, Barcelona, Spain..</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Edmonds</author>
+</authors>
+<title>Optimum branchings.</title>
+<date>1967</date>
+<journal>J. Research of the National Bureau of Standards,</journal>
+<pages>71--233240</pages>
+<contexts>
+<context position="3875" citStr="Edmonds (1967)" startWordPosition="612" endWordPosition="614">he best word sequence in a way that attempts to model grammaticality at the sentence level. Mirroring the use of spanning tree algorithms in parsing (McDonald et al., 2005), we present an approach to statistical sentence generation. Given a set of scrambled words, the approach searches for the most probable dependency tree, as defined by some corpus, such that it contains each word of the input set. The tree is then traversed to obtain the final word ordering. In particular, we present two spanning tree algorithms. We first adapt the Chu-Liu-Edmonds (CLE) algorithm (see Chu and Liu (1965) and Edmonds (1967)), used in McDonald et al. (2005), to include a basic argument model, added to keep track of linear precedence between heads and modifiers. While our adapted version of the CLE algorithm finds an optimal spanning tree, this does 852 \x0cnot always correspond with a linguistically valid dependency tree, primarily because it does not attempt to ensure that words in the tree have plausible numbers of arguments. We propose an alternative dependencyspanning tree algorithm which uses a more fine-grained argument model representing argument positions. To find the best modifiers for argument positions</context>
+</contexts>
+<marker>Edmonds, 1967</marker>
+<rawString>J. Edmonds. 1967. Optimum branchings. J. Research of the National Bureau of Standards, 71B:233240.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Katja Filippova</author>
+<author>Michael Strube</author>
+</authors>
+<title>Generating constituent order in german clauses.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the 45th Annual Meeting on Association for Computational Linguistics.</booktitle>
+<location>Prague, Czech Republic.</location>
+<contexts>
+<context position="29092" citStr="Filippova and Strube, 2007" startWordPosition="5126" endWordPosition="5129"> These start with a semantic representation for which a specific rendering, an ordering of words, must be determined, often using language models to govern tree traversal. The task in this paper is different as it is a text-to-text scenario and does not begin with a representation of semantics. 858 \x0cThe dependency model and the LMO linearisation algorithm are based heavily on word order statistics. As such, the utility of this approach is limited to human languages with minimal use of inflections, such as English. Approaches for other language types, for example German, have been explored (Filippova and Strube, 2007). 6.2 Text-to-Text Generation As a text-to-text approach, our work is more similar to work on Information Fusion (Barzilay et al., 1999), a sub-problem in multi-document summarisation. In this work, sentences presenting the same information, for example multiple news articles describing the same event, are merged to form a single summary by aligning repeated words and phrases across sentences. Other text-to-text approaches for generating novel sentences also aim to recycle sentence fragments where possible, as we do. Work on phrasebased statistical machine translation has been applied to parap</context>
+</contexts>
+<marker>Filippova, Strube, 2007</marker>
+<rawString>Katja Filippova and Michael Strube. 2007. Generating constituent order in german clauses. In Proceedings of the 45th Annual Meeting on Association for Computational Linguistics. Prague, Czech Republic.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Katja Filippova</author>
+<author>Michael Strube</author>
+</authors>
+<title>Sentence fusion via dependency graph compression.</title>
+<date>2008</date>
+<booktitle>In Conference on Empirical Methods in Natural Language Processing,</booktitle>
+<location>Waikiki, Honolulu, Hawaii.</location>
+<contexts>
+<context position="28463" citStr="Filippova and Strube (2008)" startWordPosition="5025" endWordPosition="5028">odel. The margin narrows between the CLE algorithm and the LMO baseline. However, the AB algorithm still out-performs all other approaches by 7 BLEU points, highlighting the benefit in modelling dependency relations. Even with a language model that is one order of magnitude larger than the PTB-LM, the AB still maintains a sizeable lead in performance. Figure 3 presents sample generated strings. 6 Related Work 6.1 Statistical Surface Realisers The work in this paper is similar to research in statistical surface realisation (for example, Langkilde and Knight (1998); Bangalore and Rambow (2000); Filippova and Strube (2008)). These start with a semantic representation for which a specific rendering, an ordering of words, must be determined, often using language models to govern tree traversal. The task in this paper is different as it is a text-to-text scenario and does not begin with a representation of semantics. 858 \x0cThe dependency model and the LMO linearisation algorithm are based heavily on word order statistics. As such, the utility of this approach is limited to human languages with minimal use of inflections, such as English. Approaches for other language types, for example German, have been explored</context>
+</contexts>
+<marker>Filippova, Strube, 2008</marker>
+<rawString>Katja Filippova and Michael Strube. 2008. Sentence fusion via dependency graph compression. In Conference on Empirical Methods in Natural Language Processing, Waikiki, Honolulu, Hawaii.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mark Johnson</author>
+</authors>
+<title>Transforming projective bilexical dependency grammars into efficiently-parsable cfgs with unfold-fold.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the 45th Annual Meeting on Association for Computational Linguistics.</booktitle>
+<location>Prague, Czech Republic.</location>
+<contexts>
+<context position="7100" citStr="Johnson (2007)" startWordPosition="1180" endWordPosition="1182"> a set of directed edges. For each sentence w = w1 . . . wn, we define the digraph Gw = (Vw, Ew) where Vw = {w0, w1, . . . , wn}, with w0 a dummy root vertex, and Ew = {(u, v)|u Vw, v Vw \\ {w0}}. The graph is fully connected (except for the root vertex w0 which is only fully connected outwards) and is a representation of possible dependencies. For an edge (u, v), we refer to u as the head and v as the modifier. We extend the original formulation of McDonald et al. (2005) by adding a notion of argument positions for a word, providing points to attach modifiers. Adopting an approach similar to Johnson (2007), we look at the direction (left or right) of the head with respect to the modifier; we consequently define a set D = {l, r} to represent this. Set D represents the linear precedence of the words in the dependency relation; consequently, it partially approximates the distinction between syntactic roles like subject and object. Each edge has a pair of associated weights, one for each direction, defined by the function s : E D R, based on a probabilistic model of dependency relations. To calculate the edge weights, we adapt the definition of Collins (1996) to use direction rather than relation t</context>
+</contexts>
+<marker>Johnson, 2007</marker>
+<rawString>Mark Johnson. 2007. Transforming projective bilexical dependency grammars into efficiently-parsable cfgs with unfold-fold. In Proceedings of the 45th Annual Meeting on Association for Computational Linguistics. Prague, Czech Republic.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H W Kuhn</author>
+</authors>
+<title>The hungarian method for the assignment problem.</title>
+<date>1955</date>
+<journal>Naval Research Logistics Quarterly,</journal>
+<volume>219552</volume>
+<pages>8397</pages>
+<contexts>
+<context position="16479" citStr="Kuhn, 1955" startWordPosition="2896" endWordPosition="2897">e set is uniquely aligned to some object in the other set. The optimal alignment is one where the sum of alignment costs is minimal. The graph of all possible assignments is a weighted bipartite graph. Here, to discuss bipartite graphs, we will extend our notation in a fairly standard way, to write Gp = (U, V, Ep), where U, V are the disjoint sets of vertices and Ep the set of edges. In our paper, we treat the assignment between attachment positions and words as an assignment problem. The standard polynomial-time solution to the assignment problem is the Kuhn-Munkres (or Hungarian) algorithm (Kuhn, 1955).2 4.2 A Dependency-Spanning Tree Algorithm Our alternative dependency-spanning tree algorithm, presented as Algorithm 3, incrementally adds vertices to a growing spanning tree. At each iteration, the Kuhn-Munkres method assigns words that are as yet unattached to argument positions already available in the tree. We focus on the bipartite graph in Section 4.3. Let the sentence w have the dependency graph Gw = (Vw, Ew). At some arbitrary iteration of the algorithm (see Figure 1), we have the following: Tw Ew, the set of edges in the spanning tree constructed so far; 2 GPL code: http://sites.goo</context>
+</contexts>
+<marker>Kuhn, 1955</marker>
+<rawString>H.W. Kuhn. 1955. The hungarian method for the assignment problem. Naval Research Logistics Quarterly, 219552:8397 8397.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Irene Langkilde</author>
+<author>Kevin Knight</author>
+</authors>
+<title>The practical value of N-grams in derivation.</title>
+<date>1998</date>
+<booktitle>In Proceedings of the Ninth International Workshop on Natural Language Generation,</booktitle>
+<location>New Brunswick, New Jersey.</location>
+<contexts>
+<context position="28405" citStr="Langkilde and Knight (1998)" startWordPosition="5016" endWordPosition="5020">dent in the baselines which rely heavily on the language model. The margin narrows between the CLE algorithm and the LMO baseline. However, the AB algorithm still out-performs all other approaches by 7 BLEU points, highlighting the benefit in modelling dependency relations. Even with a language model that is one order of magnitude larger than the PTB-LM, the AB still maintains a sizeable lead in performance. Figure 3 presents sample generated strings. 6 Related Work 6.1 Statistical Surface Realisers The work in this paper is similar to research in statistical surface realisation (for example, Langkilde and Knight (1998); Bangalore and Rambow (2000); Filippova and Strube (2008)). These start with a semantic representation for which a specific rendering, an ordering of words, must be determined, often using language models to govern tree traversal. The task in this paper is different as it is a text-to-text scenario and does not begin with a representation of semantics. 858 \x0cThe dependency model and the LMO linearisation algorithm are based heavily on word order statistics. As such, the utility of this approach is limited to human languages with minimal use of inflections, such as English. Approaches for ot</context>
+</contexts>
+<marker>Langkilde, Knight, 1998</marker>
+<rawString>Irene Langkilde and Kevin Knight. 1998. The practical value of N-grams in derivation. In Proceedings of the Ninth International Workshop on Natural Language Generation, New Brunswick, New Jersey.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ryan McDonald</author>
+<author>Giorgio Satta</author>
+</authors>
+<title>On the complexity of non-projective data-driven dependency parsing.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the Tenth International Conference on Parsing Technologies,</booktitle>
+<location>Prague, Czech Republic.</location>
+<contexts>
+<context position="14918" citStr="McDonald and Satta, 2007" startWordPosition="2632" endWordPosition="2636">To address this problem, we can take into account the argument position when assigning a weight to an edge. When attaching an edge connecting a modifier to a head to the spanning tree, we count how many modifiers the head already has. An edge is penalised if it is improbable that the head takes on yet another modifier, say in the example of an attachment to a preposition whose argument position has already been filled. However, accounting for argument positions makes an edge weight dynamic and dependent on surrounding tree context. This makes the search for an optimal tree an NP-hard problem (McDonald and Satta, 2007) as all possible trees must be considered to find an optimal solution. Consequently, we must choose a heuristic search algorithm for finding the locally optimum spanning tree. By representing argument positions that can be filled only once, we allow modifiers to compete for argument positions and vice versa. The CLE algorithm only considers this competition in one direction. In line 3 of Algorithm 1, only heads compete for modifiers, and thus the solution will be sub-optimal. In Wan et al. (2007), we showed that introducing a model of argument positions into a greedy spanning tree algorithm ha</context>
+</contexts>
+<marker>McDonald, Satta, 2007</marker>
+<rawString>Ryan McDonald and Giorgio Satta. 2007. On the complexity of non-projective data-driven dependency parsing. In Proceedings of the Tenth International Conference on Parsing Technologies, Prague, Czech Republic.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ryan McDonald</author>
+<author>Fernando Pereira</author>
+<author>Kiril Ribarov</author>
+<author>Jan Hajic</author>
+</authors>
+<title>Non-projective dependency parsing using spanning tree algorithms.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the conference on Human Language Technology and Empirical Methods in Natural Language Processing,</booktitle>
+<location>Morristown, NJ, USA.</location>
+<contexts>
+<context position="3433" citStr="McDonald et al., 2005" startWordPosition="536" endWordPosition="539">. This is not surprising as these methods are unable to model grammaticality at the sentence level, unless the size of n is sufficiently large. In practice, the lack of sufficient training data means that n is often smaller than the average sentence length. Even if data exists, increasing the size of n corresponds to a higher degree polynomial complexity search for the best word sequence. In response, we introduce an algorithm for searching for the best word sequence in a way that attempts to model grammaticality at the sentence level. Mirroring the use of spanning tree algorithms in parsing (McDonald et al., 2005), we present an approach to statistical sentence generation. Given a set of scrambled words, the approach searches for the most probable dependency tree, as defined by some corpus, such that it contains each word of the input set. The tree is then traversed to obtain the final word ordering. In particular, we present two spanning tree algorithms. We first adapt the Chu-Liu-Edmonds (CLE) algorithm (see Chu and Liu (1965) and Edmonds (1967)), used in McDonald et al. (2005), to include a basic argument model, added to keep track of linear precedence between heads and modifiers. While our adapted </context>
+<context position="5493" citStr="McDonald et al. (2005)" startWordPosition="868" endWordPosition="871">nd presents a new dependency spanning tree search algorithm. We experiment to determine whether a global dependency structure, as found by our algorithm, improves performance on the string regeneration problem, presenting results in Section 5. Related work is presented in Section 6. Section 7 concludes that an argument model improves the linguistic plausibility of the generated trees, thus improving grammaticality in text generation. 2 A Graph Representation of Dependencies In couching statistical generation as a spanning tree problem, this work is the generation analog of the parsing work by McDonald et al. (2005). Given a bag of words with no additional constraints, the aim is to produce a dependency tree containing the given words. Informally, as all dependency relations between each pair of words are possible, the set of all possible dependencies can be represented as a graph, as noted by McDonald et al. (2005). Our goal is to find the subset of these edges corresponding to a tree with maximum probability such that each vertex in the graph is visited once, thus including each word once. The resulting tree is a spanning tree, an acyclic graph which spans all vertices. The best tree is the one with an</context>
+<context position="6962" citStr="McDonald et al. (2005)" startWordPosition="1155" endWordPosition="1159">ning tree (MST) problem. We define a directed graph (digraph) in a standard way, G = (V, E) where V is a set of vertices and E {(u, v)|u, v V } is a set of directed edges. For each sentence w = w1 . . . wn, we define the digraph Gw = (Vw, Ew) where Vw = {w0, w1, . . . , wn}, with w0 a dummy root vertex, and Ew = {(u, v)|u Vw, v Vw \\ {w0}}. The graph is fully connected (except for the root vertex w0 which is only fully connected outwards) and is a representation of possible dependencies. For an edge (u, v), we refer to u as the head and v as the modifier. We extend the original formulation of McDonald et al. (2005) by adding a notion of argument positions for a word, providing points to attach modifiers. Adopting an approach similar to Johnson (2007), we look at the direction (left or right) of the head with respect to the modifier; we consequently define a set D = {l, r} to represent this. Set D represents the linear precedence of the words in the dependency relation; consequently, it partially approximates the distinction between syntactic roles like subject and object. Each edge has a pair of associated weights, one for each direction, defined by the function s : E D R, based on a probabilistic model</context>
+<context position="10760" citStr="McDonald et al., 2005" startWordPosition="1836" endWordPosition="1839">tree are either of leftward or rightward direction, it becomes relatively trivial to order child vertices with respect to a parent vertex. The only difficulty lies in finding a relative ordering for the leftward (to the parent) children, and similarly for the rightward (to the parent) children. We traverse Gm w using a greedy algorithm to order the siblings using an n-gram language model. Algorithm 2 describes the traversal in pseudocode. The generated sentence is obtained by calling the algorithm with w0 and Tw as parameters. The algorithm operates recursively if called on an 1 Adapted from (McDonald et al., 2005) and http://www.ce.rit.edu/ sjyeec/dmst.html . The difference concerns the direction of the edge and the edge weight function. We have also folded the function contract in McDonald et al. (2005) into the main algorithm. Again following that work, we treat the function s as a data structure permitting storage of updated edge weights. /* initialisation */ Discard the edges exiting the w0 if any. 1 /* Chu-Liu/Edmonds Algorithm */ begin 2 Tw (u, v) E : vV,dDarg min (u,v) s((u, v), d) 3 if Mw = (Vw, Tw) has no cycles then return Mw 4 forall C Tw : C is a cycle in Mw do 5 (e, d) arg min e,d s(e , d </context>
+<context position="30639" citStr="McDonald et al. (2005)" startWordPosition="5364" endWordPosition="5367"> sequences, for example dependency information. Though similar, our work here does not explicitly represent the word lattice. For these text-to-text systems, the order of elements in the generated sentence is heavily based on the original order of words and phrases in the input sentences from which lattices are built. Our approach has the benefit of considering all possible orderings of words, corresponding to a wider range of paraphrases, provided with a suitable dependency model is available. 6.3 Parsing and Semantic Role Labelling This paper presents work closely related to parsing work by McDonald et al. (2005) which searches for the best parse tree. Our work can be thought of as generating projective dependency trees (that is, without crossing dependencies). The key difference between parsing and generation is that, in parsing, the word order is fixed, whereas for generation, this must be determined. In this paper, we search across all possible tree structures whilst searching for the best word ordering. As a result, an argument model is needed to identify linguistically plausible spanning trees. We treated the alignment of modifiers to head words as a bipartite graph matching problem. This is simi</context>
+</contexts>
+<marker>McDonald, Pereira, Ribarov, Hajic, 2005</marker>
+<rawString>Ryan McDonald, Fernando Pereira, Kiril Ribarov, and Jan Hajic. 2005. Non-projective dependency parsing using spanning tree algorithms. In Proceedings of the conference on Human Language Technology and Empirical Methods in Natural Language Processing, Morristown, NJ, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andrew Mutton</author>
+<author>Mark Dras</author>
+<author>Stephen Wan</author>
+<author>Robert Dale</author>
+</authors>
+<title>Gleu: Automatic evaluation of sentence-level fluency.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the 45th Annual Meeting of the Association of Computational Linguistics,</booktitle>
+<location>Prague, Czech Republic.</location>
+<contexts>
+<context position="24399" citStr="Mutton et al., 2007" startWordPosition="4354" endWordPosition="4357">of n. For this evaluation, tokenisation was based on that provided by the PTB data set. This data set also delimits base noun phrases (noun phrases without nested constituents). Base noun phrases were treated as single tokens, and the rightmost word assumed to be the head. For the algorithms tested, the input set for any test case consisted of the single tokens identified by the PTB tokenisation. Additionally, the heads of base noun phrases were included in this input set. That is, we do not regenerate the base noun phrases.4 3 Alternative grammaticality measures have been developed recently (Mutton et al., 2007). We are currently exploring the use of this and other metrics. 4 This would correspond to the use of a chunking algorithm or a named-entity recogniser to find noun phrases that could be re-used for sentence generation. 857 \x0cAlgorithms PTB-LM BLLIP-LM Viterbi baseline 14.9 18.0 LMO baseline 24.3 26.0 CLE 26.4 26.8 AB 33.6 33.7 Figure 2: String regeneration as measured in BLEU points (maximum 100) 5.3 Algorithms and Baselines We compare the baselines against the Chu-Liu Edmonds (CLE) algorithm to see if spanning tree algorithms do indeed improve upon conventional language modelling. We also </context>
+</contexts>
+<marker>Mutton, Dras, Wan, Dale, 2007</marker>
+<rawString>Andrew Mutton, Mark Dras, Stephen Wan, and Robert Dale. 2007. Gleu: Automatic evaluation of sentence-level fluency. In Proceedings of the 45th Annual Meeting of the Association of Computational Linguistics, Prague, Czech Republic.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sebastian Pado</author>
+<author>Mirella Lapata</author>
+</authors>
+<title>Optimal constituent alignment with edge covers for semantic projection.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the 21st International Conference on Computational Linguistics and the 44th annual meeting of the Association for Computational Linguistics,</booktitle>
+<location>Morristown, NJ, USA.</location>
+<contexts>
+<context position="31303" citStr="Pado and Lapata (2006)" startWordPosition="5472" endWordPosition="5475">ur work can be thought of as generating projective dependency trees (that is, without crossing dependencies). The key difference between parsing and generation is that, in parsing, the word order is fixed, whereas for generation, this must be determined. In this paper, we search across all possible tree structures whilst searching for the best word ordering. As a result, an argument model is needed to identify linguistically plausible spanning trees. We treated the alignment of modifiers to head words as a bipartite graph matching problem. This is similar to work in semantic role labelling by Pado and Lapata (2006). The alignment of answers to question types as a semantic role labelling task using similar methods was explored by Shen and Lapata (2007). Our work is also strongly related to that of Wong and Mooney (2007) which constructs symbolic semantic structures via an assignment process in order to provide surface realisers with input. Our approach differs in that we do not begin with a fixed set of semantic labels. Additionally, our end goal is a dependency tree that encodes word precedence order, bypassing the surface realisation stage. 7 Conclusions In this paper, we presented a new use of spannin</context>
+</contexts>
+<marker>Pado, Lapata, 2006</marker>
+<rawString>Sebastian Pado and Mirella Lapata. 2006. Optimal constituent alignment with edge covers for semantic projection. In Proceedings of the 21st International Conference on Computational Linguistics and the 44th annual meeting of the Association for Computational Linguistics, Morristown, NJ, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kishore Papineni</author>
+<author>Salim Roukos</author>
+<author>Todd Ward</author>
+<author>WeiJing Zhu</author>
+</authors>
+<title>Bleu: a method for automatic evaluation of machine translation.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<location>Philadelphia,</location>
+<contexts>
+<context position="22048" citStr="Papineni et al., 2002" startWordPosition="3960" endWordPosition="3963"> density up to a fixed maximum, in this case 7 argument positions, and assume zero probability beyond that. 5 Evaluation 5.1 String Generation Task The best-performing word ordering algorithm is one that makes fewest grammatical errors. As a surrogate measurement of grammaticality, we use the string regeneration task. Beginning with a human-authored sentence with its word order randomised, the goal is to regenerate the original sentence. Success is indicated by the proportion of the original sentence regenerated, as measured by any string comparison method: in our case, using the BLEU metric (Papineni et al., 2002). One benefit to this evaluation is that content selection, as a factor, is held constant. Specifically, the probability of word selection is uniform for all words. The string comparison task and its associated metrics like BLEU are not perfect.3 The evaluation can be seen as being overly strict. It assumes that the only grammatical order is that of the original human authored sentence, referred to as the gold standard sentence. Should an approach chance upon an alternative grammatical ordering, it would penalised. However, all algorithms and baselines compared would suffer equally in this res</context>
+</contexts>
+<marker>Papineni, Roukos, Ward, Zhu, 2002</marker>
+<rawString>Kishore Papineni, Salim Roukos, Todd Ward, and WeiJing Zhu. 2002. Bleu: a method for automatic evaluation of machine translation. In Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics, Philadelphia, July.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Dan Shen</author>
+<author>Mirella Lapata</author>
+</authors>
+<title>Using semantic roles to improve question answering.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the 2007 Joint Conference on Empirical Methods in Natural Language Processing and Computational Natural Language Learning,</booktitle>
+<location>Prague, Czech Republic.</location>
+<contexts>
+<context position="31442" citStr="Shen and Lapata (2007)" startWordPosition="5496" endWordPosition="5499">rsing and generation is that, in parsing, the word order is fixed, whereas for generation, this must be determined. In this paper, we search across all possible tree structures whilst searching for the best word ordering. As a result, an argument model is needed to identify linguistically plausible spanning trees. We treated the alignment of modifiers to head words as a bipartite graph matching problem. This is similar to work in semantic role labelling by Pado and Lapata (2006). The alignment of answers to question types as a semantic role labelling task using similar methods was explored by Shen and Lapata (2007). Our work is also strongly related to that of Wong and Mooney (2007) which constructs symbolic semantic structures via an assignment process in order to provide surface realisers with input. Our approach differs in that we do not begin with a fixed set of semantic labels. Additionally, our end goal is a dependency tree that encodes word precedence order, bypassing the surface realisation stage. 7 Conclusions In this paper, we presented a new use of spanning tree algorithms for generating sentences from an input set of words, a task common to many textto-text scenarios. The algorithm finds the</context>
+</contexts>
+<marker>Shen, Lapata, 2007</marker>
+<rawString>Dan Shen and Mirella Lapata. 2007. Using semantic roles to improve question answering. In Proceedings of the 2007 Joint Conference on Empirical Methods in Natural Language Processing and Computational Natural Language Learning, Prague, Czech Republic.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Radu Soricut</author>
+<author>Daniel Marcu</author>
+</authors>
+<title>Towards developing generation algorithms for text-to-text applications.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the 43rd Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<location>Ann Arbor, Michigan.</location>
+<contexts>
+<context position="2194" citStr="Soricut and Marcu, 2005" startWordPosition="325" endWordPosition="328"> from sentence extraction to abstract-like summarisation. In this paper, we describe a new algorithm that improves upon the grammaticality of statistically generated sentences, evaluated on a string regeneration task, which was first proposed as a surrogate for a grammaticality test by Bangalore et al. (2000). In this task, a system must regenerate the original sentence which has had its word order scrambled. As an evaluation task, string regeneration reflects the issues that challenge the sentence generation components of machine translation, paraphrase generation, and summarisation systems (Soricut and Marcu, 2005). Our research in summarisation utilises the statistical generation algorithms described in this paper to generate novel summary sentences. The goal of the string regeneration task is to recover a sentence once its words have been randomly ordered. Similarly, for a text-to-text generation scenario, the goal is to generate a sentence given an unordered list of words, typically using an n-gram language model to select the best word ordering. N-gram language models appear to do well at a local level when examining word sequences smaller than n. However, beyond this window size, the sequence is of</context>
+<context position="29940" citStr="Soricut and Marcu, 2005" startWordPosition="5253" endWordPosition="5256">same information, for example multiple news articles describing the same event, are merged to form a single summary by aligning repeated words and phrases across sentences. Other text-to-text approaches for generating novel sentences also aim to recycle sentence fragments where possible, as we do. Work on phrasebased statistical machine translation has been applied to paraphrase generation (Bannard and Callison-Burch, 2005) and multi-sentence alignment in summarisation (Daume III and Marcu, 2004). These approaches typically use n-gram models to find the best word sequence. The WIDL formalism (Soricut and Marcu, 2005) was proposed to efficiently encode constraints that restricted possible word sequences, for example dependency information. Though similar, our work here does not explicitly represent the word lattice. For these text-to-text systems, the order of elements in the generated sentence is heavily based on the original order of words and phrases in the input sentences from which lattices are built. Our approach has the benefit of considering all possible orderings of words, corresponding to a wider range of paraphrases, provided with a suitable dependency model is available. 6.3 Parsing and Semanti</context>
+</contexts>
+<marker>Soricut, Marcu, 2005</marker>
+<rawString>Radu Soricut and Daniel Marcu. 2005. Towards developing generation algorithms for text-to-text applications. In Proceedings of the 43rd Annual Meeting of the Association for Computational Linguistics, Ann Arbor, Michigan.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Stephen Wan</author>
+<author>Robert Dale</author>
+<author>Mark Dras</author>
+<author>Cecile Paris</author>
+</authors>
+<title>Global revision in summarisation: Generating novel sentences with prims algorithm.</title>
+<date>2007</date>
+<booktitle>In Proceedings of 10th Conference of the Pacific Association for Computational Linguistic,</booktitle>
+<location>Melbourne, Australia.</location>
+<contexts>
+<context position="15419" citStr="Wan et al. (2007)" startWordPosition="2716" endWordPosition="2719">on surrounding tree context. This makes the search for an optimal tree an NP-hard problem (McDonald and Satta, 2007) as all possible trees must be considered to find an optimal solution. Consequently, we must choose a heuristic search algorithm for finding the locally optimum spanning tree. By representing argument positions that can be filled only once, we allow modifiers to compete for argument positions and vice versa. The CLE algorithm only considers this competition in one direction. In line 3 of Algorithm 1, only heads compete for modifiers, and thus the solution will be sub-optimal. In Wan et al. (2007), we showed that introducing a model of argument positions into a greedy spanning tree algorithm had little effect on performance. Thus, to consider both directions of competition, we design a new algorithm for constructing (dependency) spanning trees that casts edge selection as a weighted bipartite graph matching (or assignment) problem. This problem is to find a weighted alignments between objects of two distinct sets, where an object from one set is uniquely aligned to some object in the other set. The optimal alignment is one where the sum of alignment costs is minimal. The graph of all p</context>
+</contexts>
+<marker>Wan, Dale, Dras, Paris, 2007</marker>
+<rawString>Stephen Wan, Robert Dale, Mark Dras, and Cecile Paris. 2007. Global revision in summarisation: Generating novel sentences with prims algorithm. In Proceedings of 10th Conference of the Pacific Association for Computational Linguistic, Melbourne, Australia.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yuk Wah Wong</author>
+<author>Raymond Mooney</author>
+</authors>
+<title>Generation by inverting a semantic parser that uses statistical machine translation.</title>
+<date>2007</date>
+<booktitle>In Human Language Technologies 2007: The Conference of the North American Chapter of the Association for Computational Linguistics,</booktitle>
+<location>Rochester, New York.</location>
+<contexts>
+<context position="31511" citStr="Wong and Mooney (2007)" startWordPosition="5509" endWordPosition="5512">ereas for generation, this must be determined. In this paper, we search across all possible tree structures whilst searching for the best word ordering. As a result, an argument model is needed to identify linguistically plausible spanning trees. We treated the alignment of modifiers to head words as a bipartite graph matching problem. This is similar to work in semantic role labelling by Pado and Lapata (2006). The alignment of answers to question types as a semantic role labelling task using similar methods was explored by Shen and Lapata (2007). Our work is also strongly related to that of Wong and Mooney (2007) which constructs symbolic semantic structures via an assignment process in order to provide surface realisers with input. Our approach differs in that we do not begin with a fixed set of semantic labels. Additionally, our end goal is a dependency tree that encodes word precedence order, bypassing the surface realisation stage. 7 Conclusions In this paper, we presented a new use of spanning tree algorithms for generating sentences from an input set of words, a task common to many textto-text scenarios. The algorithm finds the best dependency trees in order to ensure that the resulting string h</context>
+</contexts>
+<marker>Wong, Mooney, 2007</marker>
+<rawString>Yuk Wah Wong and Raymond Mooney. 2007. Generation by inverting a semantic parser that uses statistical machine translation. In Human Language Technologies 2007: The Conference of the North American Chapter of the Association for Computational Linguistics, Rochester, New York.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

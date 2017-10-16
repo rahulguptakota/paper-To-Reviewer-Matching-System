@@ -1,0 +1,1532 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<title confidence="0.533306">
+b&amp;apos;Human Language Technologies: The 2010 Annual Conference of the North American Chapter of the ACL, pages 447455,
+</title>
+<author confidence="0.403711">
+Los Angeles, California, June 2010. c
+</author>
+<figure confidence="0.911015875">
+2010 Association for Computational Linguistics
+Bayesian Inference for Finite-State Transducers
+David Chiang1
+Jonathan Graehl1
+Kevin Knight1
+Adam Pauls2
+Sujith Ravi1
+1
+</figure>
+<affiliation confidence="0.619166666666667">
+Information Sciences Institute
+University of Southern California
+4676 Admiralty Way, Suite 1001
+</affiliation>
+<address confidence="0.354685">
+Marina del Rey, CA 90292
+</address>
+<page confidence="0.884454">
+2
+</page>
+<affiliation confidence="0.914262">
+Computer Science Division
+University of California at Berkeley
+</affiliation>
+<address confidence="0.5337335">
+Soda Hall
+Berkeley, CA 94720
+</address>
+<sectionHeader confidence="0.962869" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.998818307692308">
+We describe a Bayesian inference algorithm
+that can be used to train any cascade of
+weighted finite-state transducers on end-to-
+end data. We also investigate the problem
+of automatically selecting from among mul-
+tiple training runs. Our experiments on four
+different tasks demonstrate the genericity of
+this framework, and, where applicable, large
+improvements in performance over EM. We
+also show, for unsupervised part-of-speech
+tagging, that automatic run selection gives a
+large improvement over previous Bayesian ap-
+proaches.
+</bodyText>
+<sectionHeader confidence="0.99828" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.998848509090909">
+In this paper, we investigate Bayesian infer-
+ence for weighted finite-state transducers (WFSTs).
+Many natural language models can be captured
+by weighted finite-state transducers (Pereira et al.,
+1994; Sproat et al., 1996; Knight and Al-Onaizan,
+1998; Clark, 2002; Kolak et al., 2003; Mathias and
+Byrne, 2006), which offer several benefits:
+WFSTs provide a uniform knowledge represen-
+tation.
+Complex problems can be broken down into a
+cascade of simple WFSTs.
+Input- and output-epsilon transitions allow
+compact designs.
+Generic algorithms exist for doing inferences
+with WFSTs. These include best-path de-
+coding, k-best path extraction, composition,
+The authors are listed in alphabetical order. Please direct
+correspondence to Sujith Ravi (sravi@isi.edu). This work
+was supported by NSF grant IIS-0904684 and DARPA contract
+HR0011-06-C0022.
+intersection, minimization, determinization,
+forward-backward training, forward-backward
+pruning, stochastic generation, and projection.
+Software toolkits implement these generic al-
+gorithms, allowing designers to concentrate on
+novel models rather than problem-specific in-
+ference code. This leads to faster scientific ex-
+perimentation with fewer bugs.
+Weighted tree transducers play the same role for
+problems that involve the creation and transforma-
+tion of tree structures (Knight and Graehl, 2005). Of
+course, many problems do not fit either the finite-
+state string or tree transducer framework, but in this
+paper, we concentrate on those that do.
+Bayesian inference schemes have become popu-
+lar recently in natural language processing for their
+ability to manage uncertainty about model param-
+eters and to allow designers to incorporate prior
+knowledge flexibly. Task-accuracy results have gen-
+erally been favorable. However, it can be time-
+consuming to apply Bayesian inference methods to
+each new problem. Designers typically build cus-
+tom, problem-specific sampling operators for ex-
+ploring the derivation space. They may factor their
+programs to get some code re-use from one problem
+to the next, but highly generic tools for string and
+tree processing are not available.
+In this paper, we marry the world of finite-state
+machines with the world of Bayesian inference, and
+we test our methods across a range of natural lan-
+guage problems. Our contributions are:
+We describe a Bayesian inference algorithm
+that can be used to train any cascade of WFSTs
+on end-to-end data.
+We propose a method for automatic run selec-
+</bodyText>
+<page confidence="0.996883">
+447
+</page>
+<bodyText confidence="0.994915266666667">
+\x0ction, i.e., how to automatically select among
+multiple training runs in order to achieve the
+best possible task accuracy.
+The natural language applications we consider
+in this paper are: (1) unsupervised part-of-speech
+(POS) tagging (Merialdo, 1994; Goldwater and
+Griffiths, 2007), (2) letter substitution decipher-
+ment (Peleg and Rosenfeld, 1979; Knight et al.,
+2006; Ravi and Knight, 2008), (3) segmentation of
+space-free English (Goldwater et al., 2009), and (4)
+Japanese/English phoneme alignment (Knight and
+Graehl, 1998; Ravi and Knight, 2009a). Figure 1
+shows how each of these problems can be repre-
+sented as a cascade of finite-state acceptors (FSAs)
+and finite-state transducers (FSTs).
+</bodyText>
+<sectionHeader confidence="0.988722" genericHeader="method">
+2 Generic EM Training
+</sectionHeader>
+<bodyText confidence="0.999132777777778">
+We first describe forward-backward EM training for
+a single FST M. Given a string pair (v, w) from our
+training data, we transform v into an FST Mv that
+just maps v to itself, and likewise transform w into
+an FST Mw. Then we compose Mv with M, and com-
+pose the result with Mw. This composition follows
+Pereira and Riley (1996), treating epsilon input and
+output transitions correctly, especially with regards
+to their weighted interleaving. This yields a deriva-
+tion lattice D, each of whose paths transforms v into
+w.1 Each transition in D corresponds to some tran-
+sition in the FST M. We run the forward-backward
+algorithm over D to collect fractional counts for the
+transitions in M. After we sum fractional counts for
+all examples, we normalize with respect to com-
+peting transitions in M, assign new probabilities to
+M, and iterate. Transitions in M compete with each
+other if they leave the same state with the same input
+symbol, which may be empty (\x0f).
+In order to train an FSA on observed string data,
+we convert the FSA into an FST by adding an input-
+epsilon to every transition. We then convert each
+training string v into the string pair (\x0f, v). After run-
+ning the above FST training algorithm, we can re-
+move all input-\x0f from the trained machine.
+It is straightforward to modify generic training to
+support the following controls:
+</bodyText>
+<page confidence="0.936395">
+1
+</page>
+<bodyText confidence="0.996771">
+Throughout this paper, we do not assume that lattices are
+acyclic; the algorithms described work on general graphs.
+</bodyText>
+<figure confidence="0.892614625">
+B:E
+a:A b:B A:D
+A:C
+=
+a:
+:D
+:E b:
+a: :C
+</figure>
+<figureCaption confidence="0.946652">
+Figure 2: Composition of two FSTs maintaining separate
+transitions.
+</figureCaption>
+<bodyText confidence="0.994492055555555">
+Maximum iterations and early stopping. We spec-
+ify a maximum number of iterations, and we halt
+early if the ratio of log P(data) from one iteration
+to the next exceeds a threshold (such as 0.99999).
+Initial point. Any probabilities supplied on the pre-
+trained FST are interpreted as a starting point for
+EMs search. If no probabilities are supplied, EM
+begins with uniform probabilities.
+Random restarts. We can request n random restarts,
+each from a different, randomly-selected initial
+point.
+Locking and tying. Transitions on the pre-trained
+FST can be marked as locked, in which case EM
+will not modify their supplied probabilities. Groups
+of transitions can be tied together so that their frac-
+tional counts are pooled, and when normalization
+occurs, they all receive the same probability.
+Derivation lattice caching. If memory is available,
+training can cache the derivation lattices computed
+in the first EM iteration for all training pairs. Subse-
+quent iterations then run much faster. In our experi-
+ments, we observe an average 10-fold speedup with
+caching.
+Next we turn to training a cascade of FSTs on
+end-to-end data. The algorithm takes as input: (1) a
+sequence of FSTs, and (2) pairs of training strings
+(v, w), such that v is accepted by the first FST in
+the cascade, and w is produced by the last FST. The
+algorithm outputs the same sequence of FSTs, but
+with trained probabilities.
+To accomplish this, we first compose the supplied
+FSTs, taking care to keep the transitions from differ-
+ent machines separate. Figure 2 illustrates this with a
+small example. It may thus happen that a single tran-
+sition in an input FST is represented multiple times
+in the composed device, in which case their prob-
+</bodyText>
+<page confidence="0.995714">
+448
+</page>
+<figure confidence="0.9838628">
+\x0cABCD:a
+REY:r
+!:c
+1. Unsupervised part-of-speech tagging with constrained dictionary
+POS Tag
+sequence
+Observed
+word
+sequence
+2. Decipherment of letter-substitution cipher
+English
+letter
+sequence
+Observed
+enciphered
+text
+3. Re-Spacing of English text written without spaces
+Word
+sequence
+Observed
+letter
+sequence
+w/o spaces
+4. Alignment of Japanese/English phoneme sequences
+English
+phoneme
+sequence
+Japanese
+katakana
+phoneme
+sequence
+26 x 26 table
+letter bigram model,
+learned separately
+constrained tag!word
+</figure>
+<bodyText confidence="0.906458571428571">
+substitution model
+tag bigram model
+unigram model over
+words and non-words deterministic spell-out
+mapping from each English
+phoneme to each Japanese
+phoneme sequence of length 1 to 3
+</bodyText>
+<figure confidence="0.982521906976744">
+NN
+JJ
+JJ
+JJ
+NN
+VB
+!
+!
+!
+NN:fish
+IN:at
+VB:fish
+SYM:a
+DT:a
+a
+b
+b
+b
+a
+c !
+!
+!
+a:A
+a:B
+a:C
+b:A
+b:B
+b:C
+A AR
+ARE
+AREY
+AREYO
+!:!
+AREY:a
+!:b
+!:d
+!:r
+!:e
+!:y
+AE:!
+!:S
+!:S
+!:U
+</figure>
+<figureCaption confidence="0.999196">
+Figure 1: Finite-state cascades for five natural language problems.
+</figureCaption>
+<page confidence="0.999396">
+449
+</page>
+<bodyText confidence="0.99901725">
+\x0cabilities are tied together. Next, we run FST train-
+ing on the end-to-end data. This involves creating
+derivation lattices and running forward-backward on
+them. After FST training, we de-compose the trained
+device back into a cascade of trained machines.
+When the cascades first machine is an FSA,
+rather than an FST, then the entire cascade is viewed
+as a generator of strings rather than a transformer of
+strings. Such a cascade is trained on observed strings
+rather than string pairs. By again treating the first
+FSA as an FST with empty input, we can train using
+the FST-cascade training algorithm described in the
+previous paragraph.
+Once we have our trained cascade, we can apply it
+to new data, obtaining (for example) the k-best out-
+put strings for an input string.
+</bodyText>
+<sectionHeader confidence="0.983434" genericHeader="method">
+3 Generic Bayesian Training
+</sectionHeader>
+<bodyText confidence="0.998894611111111">
+Bayesian learning is a wide-ranging field. We focus
+on training using Gibbs sampling (Geman and Ge-
+man, 1984), because it has been popularly applied
+in the natural language literature, e.g., (Finkel et al.,
+2005; DeNero et al., 2008; Blunsom et al., 2009).
+Our overall plan is to give a generic algorithm
+for Bayesian training that is a drop-in replacement
+for EM training. That is, we input an FST cas-
+cade and data and output the same FST cascade
+with trained weights. This is an approximation to a
+purely Bayesian setup (where one would always in-
+tegrate over all possible weightings), but one which
+makes it easy to deploy FSTs to efficiently decode
+new data. Likewise, we do not yet support non-
+parametric approachesto create a drop-in replace-
+ment for EM, we require that all parameters be spec-
+ified in the initial FST cascade. We return to this is-
+sue in Section 5.
+</bodyText>
+<subsectionHeader confidence="0.999415">
+3.1 Particular Case
+</subsectionHeader>
+<bodyText confidence="0.948794">
+We start with a well-known application of Bayesian
+inference, unsupervised POS tagging (Goldwater
+and Griffiths, 2007). Raw training text is provided,
+and each potential corpus tagging corresponds to a
+hidden derivation of that data. Derivations are cre-
+</bodyText>
+<listItem confidence="0.950327333333333">
+ated and probabilistically scored as follows:
+1. i 1
+2. Choose tag t1 according to P0(t1)
+3. Choose word w1 according to P0(w1  |t1)
+4. i i + 1
+5. Choose tag ti according to
+</listItem>
+<equation confidence="0.963538">
+P0(ti  |ti1) + ci1
+1 (ti1, ti)
++ ci1
+1 (ti1)
+(1)
+6. Choose word wi according to
+P0(wi  |ti) + ci1
+1 (ti, wi)
++ ci1
+1 (ti)
+</equation>
+<bodyText confidence="0.960335366666667">
+(2)
+7. With probability Pquit, quit; else go to 4.
+This defines the probability of any given derivation.
+The base distribution P0 represents prior knowl-
+edge about the distribution of tags and words, given
+the relevant conditioning context. The ci1
+1 are the
+counts of events occurring before word i in the
+derivation (the cache).
+When and are large, tags and words are essen-
+tially generated according to P0. When and are
+small, tags and words are generated with reference
+to previous decisions inside the cache.
+We use Gibbs sampling to estimate the distribu-
+tion of tags given words. The key to efficient sam-
+pling is to define a sampling operator that makes
+some small change to the overall corpus derivation.
+With such an operator, we derive an incremental
+formula for re-scoring the probability of an entire
+new derivation based on the probability of the old
+derivation. Exchangeability makes this efficient
+we pretend like the area around the small change oc-
+curs at the end of the corpus, so that both old and
+new derivations share the same cache. Goldwater
+and Griffiths (2007) choose the re-sampling operator
+change the tag of a single word, and they derive
+the corresponding incremental scoring formula for
+unsupervised tagging. For other problems, design-
+ers develop different sampling operators and derive
+different incremental scoring formulas.
+</bodyText>
+<subsectionHeader confidence="0.995183">
+3.2 Generic Case
+</subsectionHeader>
+<bodyText confidence="0.999631">
+In order to develop a generic algorithm, we need
+to abstract away from these problem-specific de-
+sign choices. In general, hidden derivations corre-
+spond to paths through derivation lattices, so we first
+</bodyText>
+<page confidence="0.97522">
+450
+</page>
+<bodyText confidence="0.989947809523809">
+\x0cFigure 3: Changing a decision in the derivation lattice.
+All paths generate the observed data. The bold path rep-
+resents the current sample, and the dotted path represents
+a sidetrack in which one decision is changed.
+compute derivation lattices for our observed training
+data through our cascade of FSTs. A random path
+through these lattices constitutes the initial sample,
+and we calculate its derivation probability directly.
+One way to think about a generic small change
+operator is to consider a single transition in the cur-
+rent sample. This transition will generally compete
+with other transitions. One possible small change is
+to sidetrack the derivation to a competing deriva-
+tion. Figure 3 shows how this works. If the sidetrack
+path quickly re-joins the old derivation path, then an
+incremental score can be computed. However, side-
+tracking raises knotty questions. First, what is the
+proper path continuation after the sidetracking tran-
+sition is selected? Should the path attempt to re-join
+the old derivation as soon as possible, and if so, how
+is this efficiently done? Then, how can we compute
+new derivation scores for all possible sidetracks, so
+that we can choose a new sample by an appropriate
+weighted coin flip? Finally, would such a sampler be
+reversible? In order to satisfy theoretical conditions
+for Gibbs sampling, if we move from sample A to
+sample B, we must be able to immediately get back
+to sample A.
+We take a different tack here, moving from point-
+wise sampling to blocked sampling. Gao and John-
+son (2008) employed blocked sampling for POS tag-
+ging, and the approach works nicely for arbitrary
+derivation lattices. We again start with a random
+derivation for each example in the corpus. We then
+choose a training example and exchange its entire
+derivation lattice to the end of the corpus. We cre-
+ate a weighted version of this lattice, called the pro-
+posal lattice, such that we can approximately sample
+whole paths by stochastic generation. The probabil-
+ities are based on the event counts from the rest of
+the sample (the cache), and on the base distribution,
+and are computed in this way:
+</bodyText>
+<equation confidence="0.9977425">
+P(r  |q) =
+P0(r  |q) + c(q, r)
++ c(q)
+(3)
+</equation>
+<bodyText confidence="0.997301636363636">
+where q and r are states of the derivation lattice, and
+the c() are counts collected from the corpus minus
+the entire training example being resampled. This is
+an approximation because we are ignoring the fact
+that P(r  |q) in general depends on choices made
+earlier in the lattice. The approximation can be cor-
+rected using the Metropolis-Hastings algorithm, in
+which the sample drawn from the proposal lattice is
+accepted only with a certain probability ; but Gao
+and Johnson (2008) report that &amp;gt; 0.99, so we skip
+this step.
+</bodyText>
+<subsectionHeader confidence="0.996851">
+3.3 Choosing the best derivations
+</subsectionHeader>
+<bodyText confidence="0.996393272727273">
+After the sampling run has finished, we can choose
+the best derivations using two different methods.
+First, if we want to find the MAP derivations of the
+training strings, then following Goldwater and Grif-
+fiths (2007), we can use annealing: raise the proba-
+bilities in the sampling distribution to the 1
+T power,
+where T is a temperature parameter, decrease T to-
+wards zero, and take a single sample.
+But in practice one often wants to predict the
+MAP derivation for a new string w0 not contained
+in the training data. To approximate the distribution
+of derivations of w0 given the training data, we aver-
+age the transition counts from all the samples (after
+burn-in) and plug the averaged counts into (3) to ob-
+tain a single proposal lattice.2 The predicted deriva-
+tion is the Viterbi path through this lattice. Call this
+method averaging. An advantage of this approach is
+that the trainer, taking a cascade of FSAs as input,
+outputs a weighted version of the same cascade, and
+this trained cascade can be used on unseen examples
+without having to rerun training.
+</bodyText>
+<subsectionHeader confidence="0.972416">
+3.4 Implementation
+</subsectionHeader>
+<bodyText confidence="0.9982525">
+That concludes the generic Bayesian training algo-
+rithm, to which we add the following controls:
+</bodyText>
+<page confidence="0.934086">
+2
+</page>
+<bodyText confidence="0.992591">
+A better approximation might have been to build a proposal
+lattice for each sample (after burn-in), and then construct a sin-
+gle FSA that computes the average of the probability distribu-
+tions computed by all the proposal lattices. But this FSA would
+be rather large.
+</bodyText>
+<page confidence="0.988942">
+451
+</page>
+<bodyText confidence="0.99554636">
+\x0cNumber of Gibbs sampling iterations. We execute
+the full number specified.
+Base distribution. Any probabilities supplied on the
+pre-trained FST are interpreted as base distribution
+probabilities. If no probabilities are supplied, then
+the base distribution is taken to be uniform.
+Hyperparameters. We supply a distinct for each
+machine in the FST cascade. We do not yet support
+different values for different states within a single
+FST.
+Random restarts. We can request multiple runs
+from different, randomly-selected initial samples.
+EM-based initial point. If random initial samples
+are undesirable, we can request that the Gibbs sam-
+pler be initialized with the Viterbi path using param-
+eter values obtained by n iterations of EM.
+Annealing schedule. If annealing is used, it follows
+a linear annealing schedule with starting and stop-
+ping temperature specified by the user.
+EM and Bayesian training for arbitrary FST
+cascades are both implemented in the finite-state
+toolkit Carmel, which is distributed with source
+code.3 All controls are implemented as command-
+line switches. We use Carmel to carry out the exper-
+iments in the next section.
+</bodyText>
+<sectionHeader confidence="0.966874" genericHeader="method">
+4 Run Selection
+</sectionHeader>
+<bodyText confidence="0.998378">
+For both EM and Bayesian methods, different train-
+ing runs yield different results. EMs objective func-
+tion (probability of observed data) is very bumpy for
+the unsupervised problems we work ondifferent
+initial points yield different trained WFST cascades,
+with different task accuracies. Averaging task accu-
+racies across runs is undesirable, because we want to
+deploy a particular trained cascade in the real world,
+and we want an estimate of its performance. Select-
+ing the run with the best task accuracy is illegal in an
+unsupervised setting. With EM, we have a good al-
+ternative: select the run that maximizes the objective
+function, i.e., the likelihood of the observed training
+data. We find a decent correlation between this value
+and task accuracy, and we are generally able to im-
+prove accuracy using this run selection method. Fig-
+ure 4 shows a scatterplot of 1000 runs for POS tag-
+ging. A single run with a uniform start yields 81.8%
+</bodyText>
+<page confidence="0.569617">
+3
+</page>
+<figure confidence="0.9981645375">
+http://www.isi.edu/licensed-sw/carmel
+0.75
+0.8
+0.85
+0.9
+2
+1
+1
+2
+0
+0
+2
+1
+1
+3
+0
+0
+2
+1
+1
+4
+0
+0
+2
+1
+1
+5
+0
+0
+2
+1
+1
+6
+0
+0
+2
+1
+1
+7
+0
+0
+2
+1
+1
+8
+0
+0
+2
+1
+1
+9
+0
+0
+2
+1
+2
+0
+0
+0
+2
+1
+2
+1
+0
+0
+2
+1
+2
+2
+0
+0
+Tagging
+accuracy
+(%
+of
+word
+tokens)
+-log P(data)
+EM (random start)
+EM (uniform start)
+</figure>
+<figureCaption confidence="0.999905">
+Figure 4: Multiple EM restarts for POS tagging. Each
+</figureCaption>
+<bodyText confidence="0.952683068965517">
+point represents one random restart; the y-axis is tag-
+ging accuracy and the x-axis is EMs objective function,
+log P(data).
+accuracy, while automatic selection from 1000 runs
+yields 82.4% accuracy.
+Gibbs sampling runs also yield WFST cascades
+with varying task accuracies, due to random initial
+samples and sampling decisions. In fact, the varia-
+tion is even larger than what we find with EM. It is
+natural to ask whether we can do automatic run se-
+lection for Gibbs sampling. If we are using anneal-
+ing, it makes sense to use the probability of the fi-
+nal sample, which is supposed to approximate the
+MAP derivation. When using averaging, however,
+choosing the final sample would be quite arbitrary.
+Instead, we propose choosing the run that has the
+highest average log-probability (that is, the lowest
+entropy) after burn-in. The rationale is that the runs
+that have found their way to high-probability peaks
+are probably more representative of the true distri-
+bution, or at least capture a part of the distribution
+that is of greater interest to us.
+We find that this method works quite well in prac-
+tice. Figure 5 illustrates 1000 POS tagging runs
+for annealing with automatic run selection, yield-
+ing 84.7% accuracy. When using averaging, how-
+ever, automatic selection from 1000 runs (Figure 6)
+produces a much higher accuracy of 90.7%. This
+is better than accuracies reported previously using
+</bodyText>
+<page confidence="0.987749">
+452
+</page>
+<figure confidence="0.996919407407407">
+\x0c0.75
+0.8
+0.85
+0.9
+2
+3
+5
+1
+0
+0
+2
+3
+5
+1
+5
+0
+2
+3
+5
+2
+0
+0
+2
+3
+5
+2
+5
+0
+2
+3
+5
+3
+0
+0
+2
+3
+5
+3
+5
+0
+2
+3
+5
+4
+0
+0
+Tagging
+accuracy
+(%
+of
+word
+tokens)
+-log P(derivation) for final sample
+Bayesian run (with annealing)
+</figure>
+<figureCaption confidence="0.7649144">
+Figure 5: Multiple Bayesian learning runs (using anneal-
+ing with temperature decreasing from 2 to 0.08) for POS
+tagging. Each point represents one run; the y-axis is tag-
+ging accuracy and the x-axis is the log P(derivation) of
+the final sample.
+</figureCaption>
+<figure confidence="0.981022869047619">
+0.75
+0.8
+0.85
+0.9
+2
+3
+6
+8
+0
+0
+2
+3
+6
+9
+0
+0
+2
+3
+7
+0
+0
+0
+2
+3
+7
+1
+0
+0
+2
+3
+7
+2
+0
+0
+2
+3
+7
+3
+0
+0
+2
+3
+7
+4
+0
+0
+2
+3
+7
+5
+0
+0
+2
+3
+7
+6
+0
+0
+2
+3
+7
+7
+0
+0
+2
+3
+7
+8
+0
+0
+2
+3
+7
+9
+0
+0
+Tagging
+accuracy
+(%
+of
+word
+tokens)
+-log P(derivation) averaged over all post-burnin samples
+Bayesian run (using averaging)
+</figure>
+<figureCaption confidence="0.999753">
+Figure 6: Multiple Bayesian learning runs (using averag-
+</figureCaption>
+<bodyText confidence="0.98182275">
+ing) for POS tagging. Each point represents one run; the
+y-axis is tagging accuracy and the x-axis is the average
+log P(derivation) over all samples after burn-in.
+Bayesian methods (85.2% from Goldwater and Grif-
+fiths (2007), who use a trigram model) and close to
+the best accuracy reported on this task (91.8% from
+Ravi and Knight (2009b), who use an integer linear
+program to minimize the model directly).
+</bodyText>
+<sectionHeader confidence="0.997849" genericHeader="conclusions">
+5 Experiments and Results
+</sectionHeader>
+<bodyText confidence="0.999696268292683">
+We run experiments for various natural language ap-
+plications and compare the task accuracies achieved
+by the EM and Bayesian learning methods. The
+tasks we consider are:
+Unsupervised POS tagging. We adopt the com-
+mon problem formulation for this task described
+by Merialdo (1994), in which we are given a raw
+24,115-word sequence and a dictionary of legal tags
+for each word type. The tagset consists of 45 dis-
+tinct grammatical tags. We use the same modeling
+approach as as Goldwater and Griffiths (2007), us-
+ing a probabilistic tag bigram model in conjunction
+with a tag-to-word model.
+Letter substitution decipherment. Here, the task
+is to decipher a 414-letter substitution cipher and un-
+cover the original English letter sequence. The task
+accuracy is defined as the percent of ciphertext to-
+kens that are deciphered correctly. We work on the
+same standard cipher described in previous litera-
+ture (Ravi and Knight, 2008). The model consists
+of an English letter bigram model, whose probabil-
+ities are fixed and an English-to-ciphertext channel
+model, which is learnt during training.
+Segmentation of space-free English. Given
+a space-free English text corpus (e.g.,
+iwalkedtothe...), the task is to segment the
+text into words (e.g., i walked to the ...).
+Our input text corpus consists of 11,378 words,
+with spaces removed. As illustrated in Figure 1,
+our method uses a unigram FSA that models every
+letter sequence seen in the data, which includes
+both words and non-words (at most 10 letters long)
+composed with a deterministic spell-out model.
+In order to evaluate the quality of our segmented
+output, we compare it against the gold segmentation
+and compute the word token f-measure.
+Japanese/English phoneme alignment. We
+use the problem formulation of Knight and
+Graehl (1998). Given an input English/Japanese
+katakana phoneme sequence pair, the task is to
+produce an alignment that connects each English
+</bodyText>
+<page confidence="0.997832">
+453
+</page>
+<table confidence="0.988111333333333">
+\x0cMLE Bayesian
+EM prior VB-EM Gibbs
+POS tagging 82.4 = 102, = 101 84.1 90.7
+Letter decipherment 83.6 = 106, = 102 83.6 88.9
+Re-spacing English 0.9 = 108, = 104 0.8 42.8
+Aligning phoneme strings 100 = 102 99.9 99.1
+</table>
+<tableCaption confidence="0.99613">
+Table 1: Gibbs sampling for Bayesian inference outperforms both EM and Variational Bayesian EM.
+</tableCaption>
+<bodyText confidence="0.986628097560975">
+The output of
+EM alignment was used as the gold standard.
+phoneme to its corresponding Japanese sounds (a
+sequence of one or more Japanese phonemes). For
+example, given a phoneme sequence pair ((AH B
+AW T) (a b a u t o)), we have to produce
+the alignments ((AH a), (B b), (AW
+a u), (T t o)). The input data consists of
+2,684 English/Japanese phoneme sequence pairs.
+We use a model that consists of mappings from each
+English phoneme to Japanese phoneme sequences
+(of length up to 3), and the mapping probabilities
+are learnt during training. We manually analyzed
+the alignments produced by the EM method for
+this task and found them to be nearly perfect.
+Hence, for the purpose of this task we treat the EM
+alignments as our gold standard, since there are no
+gold alignments available for this data.
+In all the experiments reported here, we run EM
+for 200 iterations and Bayesian for 5000 iterations
+(the first 2000 for burn-in). We apply automatic run
+selection using the objective function value for EM
+and the averaging method for Bayesian.
+Table 1 shows accuracy results for our four tasks,
+using run selection for both EM and Bayesian learn-
+ing. For the Bayesian runs, we compared two infer-
+ence methods: Gibbs sampling, as described above,
+and Variational Bayesian EM (Beal and Ghahra-
+mani, 2003), both of which are implemented in
+Carmel. We used the hyperparameters (, ) as
+shown in the table. Setting a high value yields a fi-
+nal distribution that is close to the original one (P0).
+For example, in letter decipherment we want to keep
+the language model probabilities fixed during train-
+ing, and hence we set the prior on that model to
+be very strong ( = 106). Table 1 shows that the
+Bayesian methods consistently outperform EM for
+all the tasks (except phoneme alignment, where EM
+was taken as the gold standard). Each iteration of
+Gibbs sampling was 2.3 times slower than EM for
+POS tagging, and in general about twice as slow.
+</bodyText>
+<sectionHeader confidence="0.998955" genericHeader="references">
+6 Discussion
+</sectionHeader>
+<bodyText confidence="0.999711677419355">
+We have described general training algorithms for
+FST cascades and their implementation, and exam-
+ined the problem of run selection for both EM and
+Bayesian training. This work raises several interest-
+ing points for future study.
+First, is there an efficient method for perform-
+ing pointwise sampling on general FSTs, and would
+pointwise sampling deliver better empirical results
+than blocked sampling across a range of tasks?
+Second, can generic methods similar to the ones
+described here be developed for cascades of tree
+transducers? It is straightforward to adapt our meth-
+ods to train a single tree transducer (Graehl et al.,
+2008), but as most types of tree transducers are
+not closed under composition (Gecseg and Steinby,
+1984), the compose/de-compose method cannot be
+directly applied to train cascades.
+Third, what is the best way to extend the FST for-
+malism to represent non-parametric Bayesian mod-
+els? Consider the English re-spacing application. We
+currently take observed (un-spaced) data and build
+a giant unigram FSA that models every letter se-
+quence seen in the data of up to 10 letters, both
+words and non-words. This FSA has 207,253 tran-
+sitions. We also define P0 for each individual transi-
+tion, which allows a preference for short words. This
+set-up works fine, but in a nonparametric approach,
+P0 is defined more compactly and without a word-
+length limit. An extension of FSTs along the lines
+of recursive transition networks may be appropriate,
+but we leave details for future work.
+</bodyText>
+<page confidence="0.999576">
+454
+</page>
+<reference confidence="0.99818708433735">
+\x0cReferences
+Matthew J. Beal and Zoubin Ghahramani. 2003. The
+Variational Bayesian EM algorithm for incomplete
+data: with application to scoring graphical model
+structures. Bayesian Statistics, 7:453464.
+Phil Blunsom, Trevor Cohn, Chris Dyer, and Miles Os-
+borne. 2009. A Gibbs sampler for phrasal syn-
+chronous grammar induction. In Proceedings of ACL-
+IJCNLP 2009.
+Alexander Clark. 2002. Memory-based learning of mor-
+phology with stochastic transducers. In Proceedings
+of ACL 2002.
+John DeNero, Alexandre Bouchard-Cote, and Dan Klein.
+2008. Sampling alignment structure under a Bayesian
+translation model. In Proceedings of EMNLP 2008.
+Jenny Rose Finkel, Trond Grenager, and Christopher
+Manning. 2005. Incorporating non-local informa-
+tion into information extraction systems by Gibbs sam-
+pling. In Proceedings of ACL 2005.
+Jianfeng Gao and Mark Johnson. 2008. A comparison of
+Bayesian estimators for unsupervised Hidden Markov
+Model POS taggers. In Proceedings of EMNLP 2008.
+Ferenc Gecseg and Magnus Steinby. 1984. Tree Au-
+tomata. Akademiai Kiado, Budapest.
+Stuart Geman and Donald Geman. 1984. Stochastic re-
+laxation, Gibbs distributions and the Bayesian restora-
+tion of images. IEEE Transactions on Pattern Analysis
+and Machine Intelligence, 6(6):721741.
+Sharon Goldwater and Thomas L. Griffiths. 2007.
+A fully Bayesian approach to unsupervised part-of-
+speech tagging. In Proceedings of ACL 2007.
+Sharon Goldwater, Thomas L. Griffiths, and Mark John-
+son. 2009. A Bayesian framework for word segmen-
+tation: Exploring the effects of context. Cognition,
+112(1):21 54.
+Jonathan Graehl, Kevin Knight, and Jonathan May. 2008.
+Training tree transducers. Computational Linguistics,
+34(3):391427.
+Kevin Knight and Yaser Al-Onaizan. 1998. Transla-
+tion with finite-state devices. In Proceedings of AMTA
+1998.
+Kevin Knight and Jonathan Graehl. 1998. Machine
+transliteration. Computational Linguistics, 24(4):599
+612.
+Knight Knight and Jonathan Graehl. 2005. An overview
+of probabilistic tree transducers for natural language
+processing. In Proceedings of CICLing-2005.
+Kevin Knight, Anish Nair, Nishit Rathod, and Kenji Ya-
+mada. 2006. Unsupervised analysis for decipherment
+problems. In Proceedings of COLING-ACL 2006.
+Okan Kolak, Willian Byrne, and Philip Resnik. 2003. A
+generative probabilistic OCR model for NLP applica-
+tions. In Proceedings of HLT-NAACL 2003.
+Lambert Mathias and William Byrne. 2006. Statisti-
+cal phrase-based speech translation. In Proceedings
+of ICASSP 2006.
+Bernard Merialdo. 1994. Tagging English text with
+a probabilistic model. Computational Linguistics,
+20(2):155171.
+Shmuel Peleg and Azriel Rosenfeld. 1979. Break-
+ing substitution ciphers using a relaxation algorithm.
+Communications of the ACM, 22(11):598605.
+Fernando C. N. Pereira and Michael D. Riley. 1996.
+Speech recognition by composition of weighted finite
+automata. Finite-State Language Processing, pages
+431453.
+Fernando Pereira, Michael Riley, and Richard Sproat.
+1994. Weighted rational transductions and their appli-
+cations to human language processing. In ARPA Hu-
+man Language Technology Workshop.
+Sujith Ravi and Kevin Knight. 2008. Attacking deci-
+pherment problems optimally with low-order n-gram
+models. In Proceedings of EMNLP 2008.
+Sujith Ravi and Kevin Knight. 2009a. Learning
+phoneme mappings for transliteration without parallel
+data. In Proceedings of NAACL HLT 2009.
+Sujith Ravi and Kevin Knight. 2009b. Minimized mod-
+els for unsupervised part-of-speech tagging. In Pro-
+ceedings of ACL-IJCNLP 2009.
+Richard Sproat, Chilin Shih, William Gale, and Nancy
+Chang. 1996. A stochastic finite-state word-
+segmentation algorithm for Chinese. Computational
+Linguistics, 22(3):377404.
+</reference>
+<page confidence="0.987957">
+455
+</page>
+<figure confidence="0.246141">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.061385">
+<note confidence="0.5581386">b&amp;apos;Human Language Technologies: The 2010 Annual Conference of the North American Chapter of the ACL, pages 447455, Los Angeles, California, June 2010. c 2010 Association for Computational Linguistics Bayesian Inference for Finite-State Transducers David Chiang1 Jonathan Graehl1 Kevin Knight1 Adam Pauls2 Sujith Ravi1 1</note>
+<affiliation confidence="0.998311">Information Sciences Institute University of Southern California</affiliation>
+<address confidence="0.9992625">4676 Admiralty Way, Suite 1001 Marina del Rey, CA 90292</address>
+<email confidence="0.676622">2</email>
+<affiliation confidence="0.999939">Computer Science Division University of California at Berkeley</affiliation>
+<address confidence="0.9984735">Soda Hall Berkeley, CA 94720</address>
+<abstract confidence="0.988963928571429">We describe a Bayesian inference algorithm that can be used to train any cascade of weighted finite-state transducers on end-toend data. We also investigate the problem of automatically selecting from among multiple training runs. Our experiments on four different tasks demonstrate the genericity of this framework, and, where applicable, large improvements in performance over EM. We also show, for unsupervised part-of-speech tagging, that automatic run selection gives a large improvement over previous Bayesian approaches.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>\x0cReferences Matthew J Beal</author>
+<author>Zoubin Ghahramani</author>
+</authors>
+<title>The Variational Bayesian EM algorithm for incomplete data: with application to scoring graphical model structures. Bayesian Statistics,</title>
+<date>2003</date>
+<pages>7--453464</pages>
+<contexts>
+<context position="25033" citStr="Beal and Ghahramani, 2003" startWordPosition="4207" endWordPosition="4211">pose of this task we treat the EM alignments as our gold standard, since there are no gold alignments available for this data. In all the experiments reported here, we run EM for 200 iterations and Bayesian for 5000 iterations (the first 2000 for burn-in). We apply automatic run selection using the objective function value for EM and the averaging method for Bayesian. Table 1 shows accuracy results for our four tasks, using run selection for both EM and Bayesian learning. For the Bayesian runs, we compared two inference methods: Gibbs sampling, as described above, and Variational Bayesian EM (Beal and Ghahramani, 2003), both of which are implemented in Carmel. We used the hyperparameters (, ) as shown in the table. Setting a high value yields a final distribution that is close to the original one (P0). For example, in letter decipherment we want to keep the language model probabilities fixed during training, and hence we set the prior on that model to be very strong ( = 106). Table 1 shows that the Bayesian methods consistently outperform EM for all the tasks (except phoneme alignment, where EM was taken as the gold standard). Each iteration of Gibbs sampling was 2.3 times slower than EM for POS tagging, an</context>
+</contexts>
+<marker>Beal, Ghahramani, 2003</marker>
+<rawString>\x0cReferences Matthew J. Beal and Zoubin Ghahramani. 2003. The Variational Bayesian EM algorithm for incomplete data: with application to scoring graphical model structures. Bayesian Statistics, 7:453464.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Phil Blunsom</author>
+<author>Trevor Cohn</author>
+<author>Chris Dyer</author>
+<author>Miles Osborne</author>
+</authors>
+<title>A Gibbs sampler for phrasal synchronous grammar induction.</title>
+<date>2009</date>
+<booktitle>In Proceedings of ACLIJCNLP</booktitle>
+<contexts>
+<context position="9538" citStr="Blunsom et al., 2009" startWordPosition="1508" endWordPosition="1511">trained on observed strings rather than string pairs. By again treating the first FSA as an FST with empty input, we can train using the FST-cascade training algorithm described in the previous paragraph. Once we have our trained cascade, we can apply it to new data, obtaining (for example) the k-best output strings for an input string. 3 Generic Bayesian Training Bayesian learning is a wide-ranging field. We focus on training using Gibbs sampling (Geman and Geman, 1984), because it has been popularly applied in the natural language literature, e.g., (Finkel et al., 2005; DeNero et al., 2008; Blunsom et al., 2009). Our overall plan is to give a generic algorithm for Bayesian training that is a drop-in replacement for EM training. That is, we input an FST cascade and data and output the same FST cascade with trained weights. This is an approximation to a purely Bayesian setup (where one would always integrate over all possible weightings), but one which makes it easy to deploy FSTs to efficiently decode new data. Likewise, we do not yet support nonparametric approachesto create a drop-in replacement for EM, we require that all parameters be specified in the initial FST cascade. We return to this issue i</context>
+</contexts>
+<marker>Blunsom, Cohn, Dyer, Osborne, 2009</marker>
+<rawString>Phil Blunsom, Trevor Cohn, Chris Dyer, and Miles Osborne. 2009. A Gibbs sampler for phrasal synchronous grammar induction. In Proceedings of ACLIJCNLP 2009.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Alexander Clark</author>
+</authors>
+<title>Memory-based learning of morphology with stochastic transducers.</title>
+<date>2002</date>
+<booktitle>In Proceedings of ACL</booktitle>
+<contexts>
+<context position="1348" citStr="Clark, 2002" startWordPosition="191" endWordPosition="192">g from among multiple training runs. Our experiments on four different tasks demonstrate the genericity of this framework, and, where applicable, large improvements in performance over EM. We also show, for unsupervised part-of-speech tagging, that automatic run selection gives a large improvement over previous Bayesian approaches. 1 Introduction In this paper, we investigate Bayesian inference for weighted finite-state transducers (WFSTs). Many natural language models can be captured by weighted finite-state transducers (Pereira et al., 1994; Sproat et al., 1996; Knight and Al-Onaizan, 1998; Clark, 2002; Kolak et al., 2003; Mathias and Byrne, 2006), which offer several benefits: WFSTs provide a uniform knowledge representation. Complex problems can be broken down into a cascade of simple WFSTs. Input- and output-epsilon transitions allow compact designs. Generic algorithms exist for doing inferences with WFSTs. These include best-path decoding, k-best path extraction, composition, The authors are listed in alphabetical order. Please direct correspondence to Sujith Ravi (sravi@isi.edu). This work was supported by NSF grant IIS-0904684 and DARPA contract HR0011-06-C0022. intersection, minimiza</context>
+</contexts>
+<marker>Clark, 2002</marker>
+<rawString>Alexander Clark. 2002. Memory-based learning of morphology with stochastic transducers. In Proceedings of ACL 2002.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>John DeNero</author>
+<author>Alexandre Bouchard-Cote</author>
+<author>Dan Klein</author>
+</authors>
+<title>Sampling alignment structure under a Bayesian translation model.</title>
+<date>2008</date>
+<booktitle>In Proceedings of EMNLP</booktitle>
+<contexts>
+<context position="9515" citStr="DeNero et al., 2008" startWordPosition="1504" endWordPosition="1507">s. Such a cascade is trained on observed strings rather than string pairs. By again treating the first FSA as an FST with empty input, we can train using the FST-cascade training algorithm described in the previous paragraph. Once we have our trained cascade, we can apply it to new data, obtaining (for example) the k-best output strings for an input string. 3 Generic Bayesian Training Bayesian learning is a wide-ranging field. We focus on training using Gibbs sampling (Geman and Geman, 1984), because it has been popularly applied in the natural language literature, e.g., (Finkel et al., 2005; DeNero et al., 2008; Blunsom et al., 2009). Our overall plan is to give a generic algorithm for Bayesian training that is a drop-in replacement for EM training. That is, we input an FST cascade and data and output the same FST cascade with trained weights. This is an approximation to a purely Bayesian setup (where one would always integrate over all possible weightings), but one which makes it easy to deploy FSTs to efficiently decode new data. Likewise, we do not yet support nonparametric approachesto create a drop-in replacement for EM, we require that all parameters be specified in the initial FST cascade. We</context>
+</contexts>
+<marker>DeNero, Bouchard-Cote, Klein, 2008</marker>
+<rawString>John DeNero, Alexandre Bouchard-Cote, and Dan Klein. 2008. Sampling alignment structure under a Bayesian translation model. In Proceedings of EMNLP 2008.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Rose Finkel</author>
+<author>Trond Grenager</author>
+<author>Christopher Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by Gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In Proceedings of ACL</booktitle>
+<contexts>
+<context position="9494" citStr="Finkel et al., 2005" startWordPosition="1500" endWordPosition="1503">transformer of strings. Such a cascade is trained on observed strings rather than string pairs. By again treating the first FSA as an FST with empty input, we can train using the FST-cascade training algorithm described in the previous paragraph. Once we have our trained cascade, we can apply it to new data, obtaining (for example) the k-best output strings for an input string. 3 Generic Bayesian Training Bayesian learning is a wide-ranging field. We focus on training using Gibbs sampling (Geman and Geman, 1984), because it has been popularly applied in the natural language literature, e.g., (Finkel et al., 2005; DeNero et al., 2008; Blunsom et al., 2009). Our overall plan is to give a generic algorithm for Bayesian training that is a drop-in replacement for EM training. That is, we input an FST cascade and data and output the same FST cascade with trained weights. This is an approximation to a purely Bayesian setup (where one would always integrate over all possible weightings), but one which makes it easy to deploy FSTs to efficiently decode new data. Likewise, we do not yet support nonparametric approachesto create a drop-in replacement for EM, we require that all parameters be specified in the in</context>
+</contexts>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>Jenny Rose Finkel, Trond Grenager, and Christopher Manning. 2005. Incorporating non-local information into information extraction systems by Gibbs sampling. In Proceedings of ACL 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jianfeng Gao</author>
+<author>Mark Johnson</author>
+</authors>
+<title>A comparison of Bayesian estimators for unsupervised Hidden Markov Model POS taggers.</title>
+<date>2008</date>
+<booktitle>In Proceedings of EMNLP</booktitle>
+<contexts>
+<context position="13830" citStr="Gao and Johnson (2008)" startWordPosition="2231" endWordPosition="2235">ation after the sidetracking transition is selected? Should the path attempt to re-join the old derivation as soon as possible, and if so, how is this efficiently done? Then, how can we compute new derivation scores for all possible sidetracks, so that we can choose a new sample by an appropriate weighted coin flip? Finally, would such a sampler be reversible? In order to satisfy theoretical conditions for Gibbs sampling, if we move from sample A to sample B, we must be able to immediately get back to sample A. We take a different tack here, moving from pointwise sampling to blocked sampling. Gao and Johnson (2008) employed blocked sampling for POS tagging, and the approach works nicely for arbitrary derivation lattices. We again start with a random derivation for each example in the corpus. We then choose a training example and exchange its entire derivation lattice to the end of the corpus. We create a weighted version of this lattice, called the proposal lattice, such that we can approximately sample whole paths by stochastic generation. The probabilities are based on the event counts from the rest of the sample (the cache), and on the base distribution, and are computed in this way: P(r |q) = P0(r |</context>
+</contexts>
+<marker>Gao, Johnson, 2008</marker>
+<rawString>Jianfeng Gao and Mark Johnson. 2008. A comparison of Bayesian estimators for unsupervised Hidden Markov Model POS taggers. In Proceedings of EMNLP 2008.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ferenc Gecseg</author>
+<author>Magnus Steinby</author>
+</authors>
+<title>Tree Automata. Akademiai Kiado,</title>
+<date>1984</date>
+<location>Budapest.</location>
+<contexts>
+<context position="26411" citStr="Gecseg and Steinby, 1984" startWordPosition="4441" endWordPosition="4444">problem of run selection for both EM and Bayesian training. This work raises several interesting points for future study. First, is there an efficient method for performing pointwise sampling on general FSTs, and would pointwise sampling deliver better empirical results than blocked sampling across a range of tasks? Second, can generic methods similar to the ones described here be developed for cascades of tree transducers? It is straightforward to adapt our methods to train a single tree transducer (Graehl et al., 2008), but as most types of tree transducers are not closed under composition (Gecseg and Steinby, 1984), the compose/de-compose method cannot be directly applied to train cascades. Third, what is the best way to extend the FST formalism to represent non-parametric Bayesian models? Consider the English re-spacing application. We currently take observed (un-spaced) data and build a giant unigram FSA that models every letter sequence seen in the data of up to 10 letters, both words and non-words. This FSA has 207,253 transitions. We also define P0 for each individual transition, which allows a preference for short words. This set-up works fine, but in a nonparametric approach, P0 is defined more c</context>
+</contexts>
+<marker>Gecseg, Steinby, 1984</marker>
+<rawString>Ferenc Gecseg and Magnus Steinby. 1984. Tree Automata. Akademiai Kiado, Budapest.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Stuart Geman</author>
+<author>Donald Geman</author>
+</authors>
+<title>Stochastic relaxation, Gibbs distributions and the Bayesian restoration of images.</title>
+<date>1984</date>
+<journal>IEEE Transactions on Pattern Analysis and Machine Intelligence,</journal>
+<volume>6</volume>
+<issue>6</issue>
+<contexts>
+<context position="9392" citStr="Geman and Geman, 1984" startWordPosition="1483" endWordPosition="1487">is an FSA, rather than an FST, then the entire cascade is viewed as a generator of strings rather than a transformer of strings. Such a cascade is trained on observed strings rather than string pairs. By again treating the first FSA as an FST with empty input, we can train using the FST-cascade training algorithm described in the previous paragraph. Once we have our trained cascade, we can apply it to new data, obtaining (for example) the k-best output strings for an input string. 3 Generic Bayesian Training Bayesian learning is a wide-ranging field. We focus on training using Gibbs sampling (Geman and Geman, 1984), because it has been popularly applied in the natural language literature, e.g., (Finkel et al., 2005; DeNero et al., 2008; Blunsom et al., 2009). Our overall plan is to give a generic algorithm for Bayesian training that is a drop-in replacement for EM training. That is, we input an FST cascade and data and output the same FST cascade with trained weights. This is an approximation to a purely Bayesian setup (where one would always integrate over all possible weightings), but one which makes it easy to deploy FSTs to efficiently decode new data. Likewise, we do not yet support nonparametric a</context>
+</contexts>
+<marker>Geman, Geman, 1984</marker>
+<rawString>Stuart Geman and Donald Geman. 1984. Stochastic relaxation, Gibbs distributions and the Bayesian restoration of images. IEEE Transactions on Pattern Analysis and Machine Intelligence, 6(6):721741.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sharon Goldwater</author>
+<author>Thomas L Griffiths</author>
+</authors>
+<date>2007</date>
+<contexts>
+<context position="3827" citStr="Goldwater and Griffiths, 2007" startWordPosition="555" endWordPosition="558">In this paper, we marry the world of finite-state machines with the world of Bayesian inference, and we test our methods across a range of natural language problems. Our contributions are: We describe a Bayesian inference algorithm that can be used to train any cascade of WFSTs on end-to-end data. We propose a method for automatic run selec447 \x0ction, i.e., how to automatically select among multiple training runs in order to achieve the best possible task accuracy. The natural language applications we consider in this paper are: (1) unsupervised part-of-speech (POS) tagging (Merialdo, 1994; Goldwater and Griffiths, 2007), (2) letter substitution decipherment (Peleg and Rosenfeld, 1979; Knight et al., 2006; Ravi and Knight, 2008), (3) segmentation of space-free English (Goldwater et al., 2009), and (4) Japanese/English phoneme alignment (Knight and Graehl, 1998; Ravi and Knight, 2009a). Figure 1 shows how each of these problems can be represented as a cascade of finite-state acceptors (FSAs) and finite-state transducers (FSTs). 2 Generic EM Training We first describe forward-backward EM training for a single FST M. Given a string pair (v, w) from our training data, we transform v into an FST Mv that just maps </context>
+<context position="10289" citStr="Goldwater and Griffiths, 2007" startWordPosition="1637" endWordPosition="1640">at is, we input an FST cascade and data and output the same FST cascade with trained weights. This is an approximation to a purely Bayesian setup (where one would always integrate over all possible weightings), but one which makes it easy to deploy FSTs to efficiently decode new data. Likewise, we do not yet support nonparametric approachesto create a drop-in replacement for EM, we require that all parameters be specified in the initial FST cascade. We return to this issue in Section 5. 3.1 Particular Case We start with a well-known application of Bayesian inference, unsupervised POS tagging (Goldwater and Griffiths, 2007). Raw training text is provided, and each potential corpus tagging corresponds to a hidden derivation of that data. Derivations are created and probabilistically scored as follows: 1. i 1 2. Choose tag t1 according to P0(t1) 3. Choose word w1 according to P0(w1 |t1) 4. i i + 1 5. Choose tag ti according to P0(ti |ti1) + ci1 1 (ti1, ti) + ci1 1 (ti1) (1) 6. Choose word wi according to P0(wi |ti) + ci1 1 (ti, wi) + ci1 1 (ti) (2) 7. With probability Pquit, quit; else go to 4. This defines the probability of any given derivation. The base distribution P0 represents prior knowledge about the distr</context>
+<context position="11798" citStr="Goldwater and Griffiths (2007)" startWordPosition="1905" endWordPosition="1908">rated with reference to previous decisions inside the cache. We use Gibbs sampling to estimate the distribution of tags given words. The key to efficient sampling is to define a sampling operator that makes some small change to the overall corpus derivation. With such an operator, we derive an incremental formula for re-scoring the probability of an entire new derivation based on the probability of the old derivation. Exchangeability makes this efficient we pretend like the area around the small change occurs at the end of the corpus, so that both old and new derivations share the same cache. Goldwater and Griffiths (2007) choose the re-sampling operator change the tag of a single word, and they derive the corresponding incremental scoring formula for unsupervised tagging. For other problems, designers develop different sampling operators and derive different incremental scoring formulas. 3.2 Generic Case In order to develop a generic algorithm, we need to abstract away from these problem-specific design choices. In general, hidden derivations correspond to paths through derivation lattices, so we first 450 \x0cFigure 3: Changing a decision in the derivation lattice. All paths generate the observed data. The bo</context>
+<context position="15230" citStr="Goldwater and Griffiths (2007)" startWordPosition="2473" endWordPosition="2477">pled. This is an approximation because we are ignoring the fact that P(r |q) in general depends on choices made earlier in the lattice. The approximation can be corrected using the Metropolis-Hastings algorithm, in which the sample drawn from the proposal lattice is accepted only with a certain probability ; but Gao and Johnson (2008) report that &amp;gt; 0.99, so we skip this step. 3.3 Choosing the best derivations After the sampling run has finished, we can choose the best derivations using two different methods. First, if we want to find the MAP derivations of the training strings, then following Goldwater and Griffiths (2007), we can use annealing: raise the probabilities in the sampling distribution to the 1 T power, where T is a temperature parameter, decrease T towards zero, and take a single sample. But in practice one often wants to predict the MAP derivation for a new string w0 not contained in the training data. To approximate the distribution of derivations of w0 given the training data, we average the transition counts from all the samples (after burn-in) and plug the averaged counts into (3) to obtain a single proposal lattice.2 The predicted derivation is the Viterbi path through this lattice. Call this</context>
+<context position="21298" citStr="Goldwater and Griffiths (2007)" startWordPosition="3585" endWordPosition="3589">racy and the x-axis is the log P(derivation) of the final sample. 0.75 0.8 0.85 0.9 2 3 6 8 0 0 2 3 6 9 0 0 2 3 7 0 0 0 2 3 7 1 0 0 2 3 7 2 0 0 2 3 7 3 0 0 2 3 7 4 0 0 2 3 7 5 0 0 2 3 7 6 0 0 2 3 7 7 0 0 2 3 7 8 0 0 2 3 7 9 0 0 Tagging accuracy (% of word tokens) -log P(derivation) averaged over all post-burnin samples Bayesian run (using averaging) Figure 6: Multiple Bayesian learning runs (using averaging) for POS tagging. Each point represents one run; the y-axis is tagging accuracy and the x-axis is the average log P(derivation) over all samples after burn-in. Bayesian methods (85.2% from Goldwater and Griffiths (2007), who use a trigram model) and close to the best accuracy reported on this task (91.8% from Ravi and Knight (2009b), who use an integer linear program to minimize the model directly). 5 Experiments and Results We run experiments for various natural language applications and compare the task accuracies achieved by the EM and Bayesian learning methods. The tasks we consider are: Unsupervised POS tagging. We adopt the common problem formulation for this task described by Merialdo (1994), in which we are given a raw 24,115-word sequence and a dictionary of legal tags for each word type. The tagset</context>
+</contexts>
+<marker>Goldwater, Griffiths, 2007</marker>
+<rawString>Sharon Goldwater and Thomas L. Griffiths. 2007.</rawString>
+</citation>
+<citation valid="true">
+<title>A fully Bayesian approach to unsupervised part-ofspeech tagging.</title>
+<date>2007</date>
+<booktitle>In Proceedings of ACL</booktitle>
+<contexts>
+<context position="11798" citStr="(2007)" startWordPosition="1908" endWordPosition="1908">previous decisions inside the cache. We use Gibbs sampling to estimate the distribution of tags given words. The key to efficient sampling is to define a sampling operator that makes some small change to the overall corpus derivation. With such an operator, we derive an incremental formula for re-scoring the probability of an entire new derivation based on the probability of the old derivation. Exchangeability makes this efficient we pretend like the area around the small change occurs at the end of the corpus, so that both old and new derivations share the same cache. Goldwater and Griffiths (2007) choose the re-sampling operator change the tag of a single word, and they derive the corresponding incremental scoring formula for unsupervised tagging. For other problems, designers develop different sampling operators and derive different incremental scoring formulas. 3.2 Generic Case In order to develop a generic algorithm, we need to abstract away from these problem-specific design choices. In general, hidden derivations correspond to paths through derivation lattices, so we first 450 \x0cFigure 3: Changing a decision in the derivation lattice. All paths generate the observed data. The bo</context>
+<context position="15230" citStr="(2007)" startWordPosition="2477" endWordPosition="2477">mation because we are ignoring the fact that P(r |q) in general depends on choices made earlier in the lattice. The approximation can be corrected using the Metropolis-Hastings algorithm, in which the sample drawn from the proposal lattice is accepted only with a certain probability ; but Gao and Johnson (2008) report that &amp;gt; 0.99, so we skip this step. 3.3 Choosing the best derivations After the sampling run has finished, we can choose the best derivations using two different methods. First, if we want to find the MAP derivations of the training strings, then following Goldwater and Griffiths (2007), we can use annealing: raise the probabilities in the sampling distribution to the 1 T power, where T is a temperature parameter, decrease T towards zero, and take a single sample. But in practice one often wants to predict the MAP derivation for a new string w0 not contained in the training data. To approximate the distribution of derivations of w0 given the training data, we average the transition counts from all the samples (after burn-in) and plug the averaged counts into (3) to obtain a single proposal lattice.2 The predicted derivation is the Viterbi path through this lattice. Call this</context>
+<context position="21298" citStr="(2007)" startWordPosition="3589" endWordPosition="3589">he log P(derivation) of the final sample. 0.75 0.8 0.85 0.9 2 3 6 8 0 0 2 3 6 9 0 0 2 3 7 0 0 0 2 3 7 1 0 0 2 3 7 2 0 0 2 3 7 3 0 0 2 3 7 4 0 0 2 3 7 5 0 0 2 3 7 6 0 0 2 3 7 7 0 0 2 3 7 8 0 0 2 3 7 9 0 0 Tagging accuracy (% of word tokens) -log P(derivation) averaged over all post-burnin samples Bayesian run (using averaging) Figure 6: Multiple Bayesian learning runs (using averaging) for POS tagging. Each point represents one run; the y-axis is tagging accuracy and the x-axis is the average log P(derivation) over all samples after burn-in. Bayesian methods (85.2% from Goldwater and Griffiths (2007), who use a trigram model) and close to the best accuracy reported on this task (91.8% from Ravi and Knight (2009b), who use an integer linear program to minimize the model directly). 5 Experiments and Results We run experiments for various natural language applications and compare the task accuracies achieved by the EM and Bayesian learning methods. The tasks we consider are: Unsupervised POS tagging. We adopt the common problem formulation for this task described by Merialdo (1994), in which we are given a raw 24,115-word sequence and a dictionary of legal tags for each word type. The tagset</context>
+</contexts>
+<marker>2007</marker>
+<rawString>A fully Bayesian approach to unsupervised part-ofspeech tagging. In Proceedings of ACL 2007.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sharon Goldwater</author>
+<author>Thomas L Griffiths</author>
+<author>Mark Johnson</author>
+</authors>
+<title>A Bayesian framework for word segmentation: Exploring the effects of context.</title>
+<date>2009</date>
+<journal>Cognition,</journal>
+<volume>112</volume>
+<issue>1</issue>
+<pages>54</pages>
+<contexts>
+<context position="4002" citStr="Goldwater et al., 2009" startWordPosition="581" endWordPosition="584">s are: We describe a Bayesian inference algorithm that can be used to train any cascade of WFSTs on end-to-end data. We propose a method for automatic run selec447 \x0ction, i.e., how to automatically select among multiple training runs in order to achieve the best possible task accuracy. The natural language applications we consider in this paper are: (1) unsupervised part-of-speech (POS) tagging (Merialdo, 1994; Goldwater and Griffiths, 2007), (2) letter substitution decipherment (Peleg and Rosenfeld, 1979; Knight et al., 2006; Ravi and Knight, 2008), (3) segmentation of space-free English (Goldwater et al., 2009), and (4) Japanese/English phoneme alignment (Knight and Graehl, 1998; Ravi and Knight, 2009a). Figure 1 shows how each of these problems can be represented as a cascade of finite-state acceptors (FSAs) and finite-state transducers (FSTs). 2 Generic EM Training We first describe forward-backward EM training for a single FST M. Given a string pair (v, w) from our training data, we transform v into an FST Mv that just maps v to itself, and likewise transform w into an FST Mw. Then we compose Mv with M, and compose the result with Mw. This composition follows Pereira and Riley (1996), treating ep</context>
+</contexts>
+<marker>Goldwater, Griffiths, Johnson, 2009</marker>
+<rawString>Sharon Goldwater, Thomas L. Griffiths, and Mark Johnson. 2009. A Bayesian framework for word segmentation: Exploring the effects of context. Cognition, 112(1):21 54.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jonathan Graehl</author>
+<author>Kevin Knight</author>
+<author>Jonathan May</author>
+</authors>
+<title>Training tree transducers.</title>
+<date>2008</date>
+<journal>Computational Linguistics,</journal>
+<volume>34</volume>
+<issue>3</issue>
+<contexts>
+<context position="26312" citStr="Graehl et al., 2008" startWordPosition="4425" endWordPosition="4428">ribed general training algorithms for FST cascades and their implementation, and examined the problem of run selection for both EM and Bayesian training. This work raises several interesting points for future study. First, is there an efficient method for performing pointwise sampling on general FSTs, and would pointwise sampling deliver better empirical results than blocked sampling across a range of tasks? Second, can generic methods similar to the ones described here be developed for cascades of tree transducers? It is straightforward to adapt our methods to train a single tree transducer (Graehl et al., 2008), but as most types of tree transducers are not closed under composition (Gecseg and Steinby, 1984), the compose/de-compose method cannot be directly applied to train cascades. Third, what is the best way to extend the FST formalism to represent non-parametric Bayesian models? Consider the English re-spacing application. We currently take observed (un-spaced) data and build a giant unigram FSA that models every letter sequence seen in the data of up to 10 letters, both words and non-words. This FSA has 207,253 transitions. We also define P0 for each individual transition, which allows a prefer</context>
+</contexts>
+<marker>Graehl, Knight, May, 2008</marker>
+<rawString>Jonathan Graehl, Kevin Knight, and Jonathan May. 2008. Training tree transducers. Computational Linguistics, 34(3):391427.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kevin Knight</author>
+<author>Yaser Al-Onaizan</author>
+</authors>
+<title>Translation with finite-state devices.</title>
+<date>1998</date>
+<booktitle>In Proceedings of AMTA</booktitle>
+<contexts>
+<context position="1335" citStr="Knight and Al-Onaizan, 1998" startWordPosition="187" endWordPosition="190">lem of automatically selecting from among multiple training runs. Our experiments on four different tasks demonstrate the genericity of this framework, and, where applicable, large improvements in performance over EM. We also show, for unsupervised part-of-speech tagging, that automatic run selection gives a large improvement over previous Bayesian approaches. 1 Introduction In this paper, we investigate Bayesian inference for weighted finite-state transducers (WFSTs). Many natural language models can be captured by weighted finite-state transducers (Pereira et al., 1994; Sproat et al., 1996; Knight and Al-Onaizan, 1998; Clark, 2002; Kolak et al., 2003; Mathias and Byrne, 2006), which offer several benefits: WFSTs provide a uniform knowledge representation. Complex problems can be broken down into a cascade of simple WFSTs. Input- and output-epsilon transitions allow compact designs. Generic algorithms exist for doing inferences with WFSTs. These include best-path decoding, k-best path extraction, composition, The authors are listed in alphabetical order. Please direct correspondence to Sujith Ravi (sravi@isi.edu). This work was supported by NSF grant IIS-0904684 and DARPA contract HR0011-06-C0022. intersect</context>
+</contexts>
+<marker>Knight, Al-Onaizan, 1998</marker>
+<rawString>Kevin Knight and Yaser Al-Onaizan. 1998. Translation with finite-state devices. In Proceedings of AMTA 1998.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kevin Knight</author>
+<author>Jonathan Graehl</author>
+</authors>
+<date>1998</date>
+<booktitle>Machine transliteration. Computational Linguistics,</booktitle>
+<volume>24</volume>
+<issue>4</issue>
+<pages>612</pages>
+<contexts>
+<context position="4071" citStr="Knight and Graehl, 1998" startWordPosition="590" endWordPosition="593"> train any cascade of WFSTs on end-to-end data. We propose a method for automatic run selec447 \x0ction, i.e., how to automatically select among multiple training runs in order to achieve the best possible task accuracy. The natural language applications we consider in this paper are: (1) unsupervised part-of-speech (POS) tagging (Merialdo, 1994; Goldwater and Griffiths, 2007), (2) letter substitution decipherment (Peleg and Rosenfeld, 1979; Knight et al., 2006; Ravi and Knight, 2008), (3) segmentation of space-free English (Goldwater et al., 2009), and (4) Japanese/English phoneme alignment (Knight and Graehl, 1998; Ravi and Knight, 2009a). Figure 1 shows how each of these problems can be represented as a cascade of finite-state acceptors (FSAs) and finite-state transducers (FSTs). 2 Generic EM Training We first describe forward-backward EM training for a single FST M. Given a string pair (v, w) from our training data, we transform v into an FST Mv that just maps v to itself, and likewise transform w into an FST Mw. Then we compose Mv with M, and compose the result with Mw. This composition follows Pereira and Riley (1996), treating epsilon input and output transitions correctly, especially with regards</context>
+<context position="23289" citStr="Knight and Graehl (1998)" startWordPosition="3907" endWordPosition="3910"> (e.g., iwalkedtothe...), the task is to segment the text into words (e.g., i walked to the ...). Our input text corpus consists of 11,378 words, with spaces removed. As illustrated in Figure 1, our method uses a unigram FSA that models every letter sequence seen in the data, which includes both words and non-words (at most 10 letters long) composed with a deterministic spell-out model. In order to evaluate the quality of our segmented output, we compare it against the gold segmentation and compute the word token f-measure. Japanese/English phoneme alignment. We use the problem formulation of Knight and Graehl (1998). Given an input English/Japanese katakana phoneme sequence pair, the task is to produce an alignment that connects each English 453 \x0cMLE Bayesian EM prior VB-EM Gibbs POS tagging 82.4 = 102, = 101 84.1 90.7 Letter decipherment 83.6 = 106, = 102 83.6 88.9 Re-spacing English 0.9 = 108, = 104 0.8 42.8 Aligning phoneme strings 100 = 102 99.9 99.1 Table 1: Gibbs sampling for Bayesian inference outperforms both EM and Variational Bayesian EM. The output of EM alignment was used as the gold standard. phoneme to its corresponding Japanese sounds (a sequence of one or more Japanese phonemes). For e</context>
+</contexts>
+<marker>Knight, Graehl, 1998</marker>
+<rawString>Kevin Knight and Jonathan Graehl. 1998. Machine transliteration. Computational Linguistics, 24(4):599 612.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Knight Knight</author>
+<author>Jonathan Graehl</author>
+</authors>
+<title>An overview of probabilistic tree transducers for natural language processing.</title>
+<date>2005</date>
+<booktitle>In Proceedings of CICLing-2005.</booktitle>
+<contexts>
+<context position="2424" citStr="Knight and Graehl, 2005" startWordPosition="334" endWordPosition="337">pondence to Sujith Ravi (sravi@isi.edu). This work was supported by NSF grant IIS-0904684 and DARPA contract HR0011-06-C0022. intersection, minimization, determinization, forward-backward training, forward-backward pruning, stochastic generation, and projection. Software toolkits implement these generic algorithms, allowing designers to concentrate on novel models rather than problem-specific inference code. This leads to faster scientific experimentation with fewer bugs. Weighted tree transducers play the same role for problems that involve the creation and transformation of tree structures (Knight and Graehl, 2005). Of course, many problems do not fit either the finitestate string or tree transducer framework, but in this paper, we concentrate on those that do. Bayesian inference schemes have become popular recently in natural language processing for their ability to manage uncertainty about model parameters and to allow designers to incorporate prior knowledge flexibly. Task-accuracy results have generally been favorable. However, it can be timeconsuming to apply Bayesian inference methods to each new problem. Designers typically build custom, problem-specific sampling operators for exploring the deriv</context>
+</contexts>
+<marker>Knight, Graehl, 2005</marker>
+<rawString>Knight Knight and Jonathan Graehl. 2005. An overview of probabilistic tree transducers for natural language processing. In Proceedings of CICLing-2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kevin Knight</author>
+<author>Anish Nair</author>
+<author>Nishit Rathod</author>
+<author>Kenji Yamada</author>
+</authors>
+<title>Unsupervised analysis for decipherment problems.</title>
+<date>2006</date>
+<booktitle>In Proceedings of COLING-ACL</booktitle>
+<contexts>
+<context position="3913" citStr="Knight et al., 2006" startWordPosition="568" endWordPosition="571">and we test our methods across a range of natural language problems. Our contributions are: We describe a Bayesian inference algorithm that can be used to train any cascade of WFSTs on end-to-end data. We propose a method for automatic run selec447 \x0ction, i.e., how to automatically select among multiple training runs in order to achieve the best possible task accuracy. The natural language applications we consider in this paper are: (1) unsupervised part-of-speech (POS) tagging (Merialdo, 1994; Goldwater and Griffiths, 2007), (2) letter substitution decipherment (Peleg and Rosenfeld, 1979; Knight et al., 2006; Ravi and Knight, 2008), (3) segmentation of space-free English (Goldwater et al., 2009), and (4) Japanese/English phoneme alignment (Knight and Graehl, 1998; Ravi and Knight, 2009a). Figure 1 shows how each of these problems can be represented as a cascade of finite-state acceptors (FSAs) and finite-state transducers (FSTs). 2 Generic EM Training We first describe forward-backward EM training for a single FST M. Given a string pair (v, w) from our training data, we transform v into an FST Mv that just maps v to itself, and likewise transform w into an FST Mw. Then we compose Mv with M, and c</context>
+</contexts>
+<marker>Knight, Nair, Rathod, Yamada, 2006</marker>
+<rawString>Kevin Knight, Anish Nair, Nishit Rathod, and Kenji Yamada. 2006. Unsupervised analysis for decipherment problems. In Proceedings of COLING-ACL 2006.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Okan Kolak</author>
+<author>Willian Byrne</author>
+<author>Philip Resnik</author>
+</authors>
+<title>A generative probabilistic OCR model for NLP applications.</title>
+<date>2003</date>
+<booktitle>In Proceedings of HLT-NAACL</booktitle>
+<contexts>
+<context position="1368" citStr="Kolak et al., 2003" startWordPosition="193" endWordPosition="196">multiple training runs. Our experiments on four different tasks demonstrate the genericity of this framework, and, where applicable, large improvements in performance over EM. We also show, for unsupervised part-of-speech tagging, that automatic run selection gives a large improvement over previous Bayesian approaches. 1 Introduction In this paper, we investigate Bayesian inference for weighted finite-state transducers (WFSTs). Many natural language models can be captured by weighted finite-state transducers (Pereira et al., 1994; Sproat et al., 1996; Knight and Al-Onaizan, 1998; Clark, 2002; Kolak et al., 2003; Mathias and Byrne, 2006), which offer several benefits: WFSTs provide a uniform knowledge representation. Complex problems can be broken down into a cascade of simple WFSTs. Input- and output-epsilon transitions allow compact designs. Generic algorithms exist for doing inferences with WFSTs. These include best-path decoding, k-best path extraction, composition, The authors are listed in alphabetical order. Please direct correspondence to Sujith Ravi (sravi@isi.edu). This work was supported by NSF grant IIS-0904684 and DARPA contract HR0011-06-C0022. intersection, minimization, determinizatio</context>
+</contexts>
+<marker>Kolak, Byrne, Resnik, 2003</marker>
+<rawString>Okan Kolak, Willian Byrne, and Philip Resnik. 2003. A generative probabilistic OCR model for NLP applications. In Proceedings of HLT-NAACL 2003.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Lambert Mathias</author>
+<author>William Byrne</author>
+</authors>
+<title>Statistical phrase-based speech translation.</title>
+<date>2006</date>
+<booktitle>In Proceedings of ICASSP</booktitle>
+<contexts>
+<context position="1394" citStr="Mathias and Byrne, 2006" startWordPosition="197" endWordPosition="200">ns. Our experiments on four different tasks demonstrate the genericity of this framework, and, where applicable, large improvements in performance over EM. We also show, for unsupervised part-of-speech tagging, that automatic run selection gives a large improvement over previous Bayesian approaches. 1 Introduction In this paper, we investigate Bayesian inference for weighted finite-state transducers (WFSTs). Many natural language models can be captured by weighted finite-state transducers (Pereira et al., 1994; Sproat et al., 1996; Knight and Al-Onaizan, 1998; Clark, 2002; Kolak et al., 2003; Mathias and Byrne, 2006), which offer several benefits: WFSTs provide a uniform knowledge representation. Complex problems can be broken down into a cascade of simple WFSTs. Input- and output-epsilon transitions allow compact designs. Generic algorithms exist for doing inferences with WFSTs. These include best-path decoding, k-best path extraction, composition, The authors are listed in alphabetical order. Please direct correspondence to Sujith Ravi (sravi@isi.edu). This work was supported by NSF grant IIS-0904684 and DARPA contract HR0011-06-C0022. intersection, minimization, determinization, forward-backward traini</context>
+</contexts>
+<marker>Mathias, Byrne, 2006</marker>
+<rawString>Lambert Mathias and William Byrne. 2006. Statistical phrase-based speech translation. In Proceedings of ICASSP 2006.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Bernard Merialdo</author>
+</authors>
+<title>Tagging English text with a probabilistic model.</title>
+<date>1994</date>
+<journal>Computational Linguistics,</journal>
+<volume>20</volume>
+<issue>2</issue>
+<contexts>
+<context position="3795" citStr="Merialdo, 1994" startWordPosition="553" endWordPosition="554"> not available. In this paper, we marry the world of finite-state machines with the world of Bayesian inference, and we test our methods across a range of natural language problems. Our contributions are: We describe a Bayesian inference algorithm that can be used to train any cascade of WFSTs on end-to-end data. We propose a method for automatic run selec447 \x0ction, i.e., how to automatically select among multiple training runs in order to achieve the best possible task accuracy. The natural language applications we consider in this paper are: (1) unsupervised part-of-speech (POS) tagging (Merialdo, 1994; Goldwater and Griffiths, 2007), (2) letter substitution decipherment (Peleg and Rosenfeld, 1979; Knight et al., 2006; Ravi and Knight, 2008), (3) segmentation of space-free English (Goldwater et al., 2009), and (4) Japanese/English phoneme alignment (Knight and Graehl, 1998; Ravi and Knight, 2009a). Figure 1 shows how each of these problems can be represented as a cascade of finite-state acceptors (FSAs) and finite-state transducers (FSTs). 2 Generic EM Training We first describe forward-backward EM training for a single FST M. Given a string pair (v, w) from our training data, we transform </context>
+<context position="21786" citStr="Merialdo (1994)" startWordPosition="3668" endWordPosition="3669">is is the average log P(derivation) over all samples after burn-in. Bayesian methods (85.2% from Goldwater and Griffiths (2007), who use a trigram model) and close to the best accuracy reported on this task (91.8% from Ravi and Knight (2009b), who use an integer linear program to minimize the model directly). 5 Experiments and Results We run experiments for various natural language applications and compare the task accuracies achieved by the EM and Bayesian learning methods. The tasks we consider are: Unsupervised POS tagging. We adopt the common problem formulation for this task described by Merialdo (1994), in which we are given a raw 24,115-word sequence and a dictionary of legal tags for each word type. The tagset consists of 45 distinct grammatical tags. We use the same modeling approach as as Goldwater and Griffiths (2007), using a probabilistic tag bigram model in conjunction with a tag-to-word model. Letter substitution decipherment. Here, the task is to decipher a 414-letter substitution cipher and uncover the original English letter sequence. The task accuracy is defined as the percent of ciphertext tokens that are deciphered correctly. We work on the same standard cipher described in p</context>
+</contexts>
+<marker>Merialdo, 1994</marker>
+<rawString>Bernard Merialdo. 1994. Tagging English text with a probabilistic model. Computational Linguistics, 20(2):155171.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Shmuel Peleg</author>
+<author>Azriel Rosenfeld</author>
+</authors>
+<title>Breaking substitution ciphers using a relaxation algorithm.</title>
+<date>1979</date>
+<journal>Communications of the ACM,</journal>
+<volume>22</volume>
+<issue>11</issue>
+<contexts>
+<context position="3892" citStr="Peleg and Rosenfeld, 1979" startWordPosition="564" endWordPosition="567">rld of Bayesian inference, and we test our methods across a range of natural language problems. Our contributions are: We describe a Bayesian inference algorithm that can be used to train any cascade of WFSTs on end-to-end data. We propose a method for automatic run selec447 \x0ction, i.e., how to automatically select among multiple training runs in order to achieve the best possible task accuracy. The natural language applications we consider in this paper are: (1) unsupervised part-of-speech (POS) tagging (Merialdo, 1994; Goldwater and Griffiths, 2007), (2) letter substitution decipherment (Peleg and Rosenfeld, 1979; Knight et al., 2006; Ravi and Knight, 2008), (3) segmentation of space-free English (Goldwater et al., 2009), and (4) Japanese/English phoneme alignment (Knight and Graehl, 1998; Ravi and Knight, 2009a). Figure 1 shows how each of these problems can be represented as a cascade of finite-state acceptors (FSAs) and finite-state transducers (FSTs). 2 Generic EM Training We first describe forward-backward EM training for a single FST M. Given a string pair (v, w) from our training data, we transform v into an FST Mv that just maps v to itself, and likewise transform w into an FST Mw. Then we com</context>
+</contexts>
+<marker>Peleg, Rosenfeld, 1979</marker>
+<rawString>Shmuel Peleg and Azriel Rosenfeld. 1979. Breaking substitution ciphers using a relaxation algorithm. Communications of the ACM, 22(11):598605.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Fernando C N Pereira</author>
+<author>Michael D Riley</author>
+</authors>
+<title>Speech recognition by composition of weighted finite automata. Finite-State Language Processing,</title>
+<date>1996</date>
+<pages>431453</pages>
+<contexts>
+<context position="4589" citStr="Pereira and Riley (1996)" startWordPosition="683" endWordPosition="686">free English (Goldwater et al., 2009), and (4) Japanese/English phoneme alignment (Knight and Graehl, 1998; Ravi and Knight, 2009a). Figure 1 shows how each of these problems can be represented as a cascade of finite-state acceptors (FSAs) and finite-state transducers (FSTs). 2 Generic EM Training We first describe forward-backward EM training for a single FST M. Given a string pair (v, w) from our training data, we transform v into an FST Mv that just maps v to itself, and likewise transform w into an FST Mw. Then we compose Mv with M, and compose the result with Mw. This composition follows Pereira and Riley (1996), treating epsilon input and output transitions correctly, especially with regards to their weighted interleaving. This yields a derivation lattice D, each of whose paths transforms v into w.1 Each transition in D corresponds to some transition in the FST M. We run the forward-backward algorithm over D to collect fractional counts for the transitions in M. After we sum fractional counts for all examples, we normalize with respect to competing transitions in M, assign new probabilities to M, and iterate. Transitions in M compete with each other if they leave the same state with the same input s</context>
+</contexts>
+<marker>Pereira, Riley, 1996</marker>
+<rawString>Fernando C. N. Pereira and Michael D. Riley. 1996. Speech recognition by composition of weighted finite automata. Finite-State Language Processing, pages 431453.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Fernando Pereira</author>
+<author>Michael Riley</author>
+<author>Richard Sproat</author>
+</authors>
+<title>Weighted rational transductions and their applications to human language processing.</title>
+<date>1994</date>
+<booktitle>In ARPA Human Language Technology Workshop.</booktitle>
+<contexts>
+<context position="1285" citStr="Pereira et al., 1994" startWordPosition="179" endWordPosition="182">nd-toend data. We also investigate the problem of automatically selecting from among multiple training runs. Our experiments on four different tasks demonstrate the genericity of this framework, and, where applicable, large improvements in performance over EM. We also show, for unsupervised part-of-speech tagging, that automatic run selection gives a large improvement over previous Bayesian approaches. 1 Introduction In this paper, we investigate Bayesian inference for weighted finite-state transducers (WFSTs). Many natural language models can be captured by weighted finite-state transducers (Pereira et al., 1994; Sproat et al., 1996; Knight and Al-Onaizan, 1998; Clark, 2002; Kolak et al., 2003; Mathias and Byrne, 2006), which offer several benefits: WFSTs provide a uniform knowledge representation. Complex problems can be broken down into a cascade of simple WFSTs. Input- and output-epsilon transitions allow compact designs. Generic algorithms exist for doing inferences with WFSTs. These include best-path decoding, k-best path extraction, composition, The authors are listed in alphabetical order. Please direct correspondence to Sujith Ravi (sravi@isi.edu). This work was supported by NSF grant IIS-090</context>
+</contexts>
+<marker>Pereira, Riley, Sproat, 1994</marker>
+<rawString>Fernando Pereira, Michael Riley, and Richard Sproat. 1994. Weighted rational transductions and their applications to human language processing. In ARPA Human Language Technology Workshop.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sujith Ravi</author>
+<author>Kevin Knight</author>
+</authors>
+<title>Attacking decipherment problems optimally with low-order n-gram models.</title>
+<date>2008</date>
+<booktitle>In Proceedings of EMNLP</booktitle>
+<contexts>
+<context position="3937" citStr="Ravi and Knight, 2008" startWordPosition="572" endWordPosition="575">ds across a range of natural language problems. Our contributions are: We describe a Bayesian inference algorithm that can be used to train any cascade of WFSTs on end-to-end data. We propose a method for automatic run selec447 \x0ction, i.e., how to automatically select among multiple training runs in order to achieve the best possible task accuracy. The natural language applications we consider in this paper are: (1) unsupervised part-of-speech (POS) tagging (Merialdo, 1994; Goldwater and Griffiths, 2007), (2) letter substitution decipherment (Peleg and Rosenfeld, 1979; Knight et al., 2006; Ravi and Knight, 2008), (3) segmentation of space-free English (Goldwater et al., 2009), and (4) Japanese/English phoneme alignment (Knight and Graehl, 1998; Ravi and Knight, 2009a). Figure 1 shows how each of these problems can be represented as a cascade of finite-state acceptors (FSAs) and finite-state transducers (FSTs). 2 Generic EM Training We first describe forward-backward EM training for a single FST M. Given a string pair (v, w) from our training data, we transform v into an FST Mv that just maps v to itself, and likewise transform w into an FST Mw. Then we compose Mv with M, and compose the result with M</context>
+<context position="22428" citStr="Ravi and Knight, 2008" startWordPosition="3772" endWordPosition="3775">ven a raw 24,115-word sequence and a dictionary of legal tags for each word type. The tagset consists of 45 distinct grammatical tags. We use the same modeling approach as as Goldwater and Griffiths (2007), using a probabilistic tag bigram model in conjunction with a tag-to-word model. Letter substitution decipherment. Here, the task is to decipher a 414-letter substitution cipher and uncover the original English letter sequence. The task accuracy is defined as the percent of ciphertext tokens that are deciphered correctly. We work on the same standard cipher described in previous literature (Ravi and Knight, 2008). The model consists of an English letter bigram model, whose probabilities are fixed and an English-to-ciphertext channel model, which is learnt during training. Segmentation of space-free English. Given a space-free English text corpus (e.g., iwalkedtothe...), the task is to segment the text into words (e.g., i walked to the ...). Our input text corpus consists of 11,378 words, with spaces removed. As illustrated in Figure 1, our method uses a unigram FSA that models every letter sequence seen in the data, which includes both words and non-words (at most 10 letters long) composed with a dete</context>
+</contexts>
+<marker>Ravi, Knight, 2008</marker>
+<rawString>Sujith Ravi and Kevin Knight. 2008. Attacking decipherment problems optimally with low-order n-gram models. In Proceedings of EMNLP 2008.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sujith Ravi</author>
+<author>Kevin Knight</author>
+</authors>
+<title>Learning phoneme mappings for transliteration without parallel data.</title>
+<date>2009</date>
+<booktitle>In Proceedings of NAACL HLT</booktitle>
+<contexts>
+<context position="4094" citStr="Ravi and Knight, 2009" startWordPosition="594" endWordPosition="597">Ts on end-to-end data. We propose a method for automatic run selec447 \x0ction, i.e., how to automatically select among multiple training runs in order to achieve the best possible task accuracy. The natural language applications we consider in this paper are: (1) unsupervised part-of-speech (POS) tagging (Merialdo, 1994; Goldwater and Griffiths, 2007), (2) letter substitution decipherment (Peleg and Rosenfeld, 1979; Knight et al., 2006; Ravi and Knight, 2008), (3) segmentation of space-free English (Goldwater et al., 2009), and (4) Japanese/English phoneme alignment (Knight and Graehl, 1998; Ravi and Knight, 2009a). Figure 1 shows how each of these problems can be represented as a cascade of finite-state acceptors (FSAs) and finite-state transducers (FSTs). 2 Generic EM Training We first describe forward-backward EM training for a single FST M. Given a string pair (v, w) from our training data, we transform v into an FST Mv that just maps v to itself, and likewise transform w into an FST Mw. Then we compose Mv with M, and compose the result with Mw. This composition follows Pereira and Riley (1996), treating epsilon input and output transitions correctly, especially with regards to their weighted inte</context>
+<context position="21411" citStr="Ravi and Knight (2009" startWordPosition="3607" endWordPosition="3610">3 7 1 0 0 2 3 7 2 0 0 2 3 7 3 0 0 2 3 7 4 0 0 2 3 7 5 0 0 2 3 7 6 0 0 2 3 7 7 0 0 2 3 7 8 0 0 2 3 7 9 0 0 Tagging accuracy (% of word tokens) -log P(derivation) averaged over all post-burnin samples Bayesian run (using averaging) Figure 6: Multiple Bayesian learning runs (using averaging) for POS tagging. Each point represents one run; the y-axis is tagging accuracy and the x-axis is the average log P(derivation) over all samples after burn-in. Bayesian methods (85.2% from Goldwater and Griffiths (2007), who use a trigram model) and close to the best accuracy reported on this task (91.8% from Ravi and Knight (2009b), who use an integer linear program to minimize the model directly). 5 Experiments and Results We run experiments for various natural language applications and compare the task accuracies achieved by the EM and Bayesian learning methods. The tasks we consider are: Unsupervised POS tagging. We adopt the common problem formulation for this task described by Merialdo (1994), in which we are given a raw 24,115-word sequence and a dictionary of legal tags for each word type. The tagset consists of 45 distinct grammatical tags. We use the same modeling approach as as Goldwater and Griffiths (2007)</context>
+</contexts>
+<marker>Ravi, Knight, 2009</marker>
+<rawString>Sujith Ravi and Kevin Knight. 2009a. Learning phoneme mappings for transliteration without parallel data. In Proceedings of NAACL HLT 2009.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sujith Ravi</author>
+<author>Kevin Knight</author>
+</authors>
+<title>Minimized models for unsupervised part-of-speech tagging.</title>
+<date>2009</date>
+<booktitle>In Proceedings of ACL-IJCNLP</booktitle>
+<contexts>
+<context position="4094" citStr="Ravi and Knight, 2009" startWordPosition="594" endWordPosition="597">Ts on end-to-end data. We propose a method for automatic run selec447 \x0ction, i.e., how to automatically select among multiple training runs in order to achieve the best possible task accuracy. The natural language applications we consider in this paper are: (1) unsupervised part-of-speech (POS) tagging (Merialdo, 1994; Goldwater and Griffiths, 2007), (2) letter substitution decipherment (Peleg and Rosenfeld, 1979; Knight et al., 2006; Ravi and Knight, 2008), (3) segmentation of space-free English (Goldwater et al., 2009), and (4) Japanese/English phoneme alignment (Knight and Graehl, 1998; Ravi and Knight, 2009a). Figure 1 shows how each of these problems can be represented as a cascade of finite-state acceptors (FSAs) and finite-state transducers (FSTs). 2 Generic EM Training We first describe forward-backward EM training for a single FST M. Given a string pair (v, w) from our training data, we transform v into an FST Mv that just maps v to itself, and likewise transform w into an FST Mw. Then we compose Mv with M, and compose the result with Mw. This composition follows Pereira and Riley (1996), treating epsilon input and output transitions correctly, especially with regards to their weighted inte</context>
+<context position="21411" citStr="Ravi and Knight (2009" startWordPosition="3607" endWordPosition="3610">3 7 1 0 0 2 3 7 2 0 0 2 3 7 3 0 0 2 3 7 4 0 0 2 3 7 5 0 0 2 3 7 6 0 0 2 3 7 7 0 0 2 3 7 8 0 0 2 3 7 9 0 0 Tagging accuracy (% of word tokens) -log P(derivation) averaged over all post-burnin samples Bayesian run (using averaging) Figure 6: Multiple Bayesian learning runs (using averaging) for POS tagging. Each point represents one run; the y-axis is tagging accuracy and the x-axis is the average log P(derivation) over all samples after burn-in. Bayesian methods (85.2% from Goldwater and Griffiths (2007), who use a trigram model) and close to the best accuracy reported on this task (91.8% from Ravi and Knight (2009b), who use an integer linear program to minimize the model directly). 5 Experiments and Results We run experiments for various natural language applications and compare the task accuracies achieved by the EM and Bayesian learning methods. The tasks we consider are: Unsupervised POS tagging. We adopt the common problem formulation for this task described by Merialdo (1994), in which we are given a raw 24,115-word sequence and a dictionary of legal tags for each word type. The tagset consists of 45 distinct grammatical tags. We use the same modeling approach as as Goldwater and Griffiths (2007)</context>
+</contexts>
+<marker>Ravi, Knight, 2009</marker>
+<rawString>Sujith Ravi and Kevin Knight. 2009b. Minimized models for unsupervised part-of-speech tagging. In Proceedings of ACL-IJCNLP 2009.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Richard Sproat</author>
+<author>Chilin Shih</author>
+<author>William Gale</author>
+<author>Nancy Chang</author>
+</authors>
+<title>A stochastic finite-state wordsegmentation algorithm for Chinese.</title>
+<date>1996</date>
+<journal>Computational Linguistics,</journal>
+<volume>22</volume>
+<issue>3</issue>
+<contexts>
+<context position="1306" citStr="Sproat et al., 1996" startWordPosition="183" endWordPosition="186"> investigate the problem of automatically selecting from among multiple training runs. Our experiments on four different tasks demonstrate the genericity of this framework, and, where applicable, large improvements in performance over EM. We also show, for unsupervised part-of-speech tagging, that automatic run selection gives a large improvement over previous Bayesian approaches. 1 Introduction In this paper, we investigate Bayesian inference for weighted finite-state transducers (WFSTs). Many natural language models can be captured by weighted finite-state transducers (Pereira et al., 1994; Sproat et al., 1996; Knight and Al-Onaizan, 1998; Clark, 2002; Kolak et al., 2003; Mathias and Byrne, 2006), which offer several benefits: WFSTs provide a uniform knowledge representation. Complex problems can be broken down into a cascade of simple WFSTs. Input- and output-epsilon transitions allow compact designs. Generic algorithms exist for doing inferences with WFSTs. These include best-path decoding, k-best path extraction, composition, The authors are listed in alphabetical order. Please direct correspondence to Sujith Ravi (sravi@isi.edu). This work was supported by NSF grant IIS-0904684 and DARPA contra</context>
+</contexts>
+<marker>Sproat, Shih, Gale, Chang, 1996</marker>
+<rawString>Richard Sproat, Chilin Shih, William Gale, and Nancy Chang. 1996. A stochastic finite-state wordsegmentation algorithm for Chinese. Computational Linguistics, 22(3):377404.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

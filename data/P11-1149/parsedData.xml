@@ -1,0 +1,1726 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.581604">
+b&apos;Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics, pages 14861495,
+</bodyText>
+<address confidence="0.449683">
+Portland, Oregon, June 19-24, 2011. c
+</address>
+<figure confidence="0.8885128">
+2011 Association for Computational Linguistics
+Confidence Driven Unsupervised Semantic Parsing
+Dan Goldwasser
+Roi Reichart
+James Clarke
+</figure>
+<author confidence="0.49968">
+Dan Roth
+</author>
+<affiliation confidence="0.953499">
+Department of Computer Science, University of Illinois at Urbana-Champaign
+</affiliation>
+<email confidence="0.969548">
+{goldwas1,clarkeje,danr}@illinois.edu
+</email>
+<affiliation confidence="0.943957">
+Computer Science and Artificial Intelligence Laboratory, MIT
+</affiliation>
+<email confidence="0.994985">
+roiri@csail.mit.edu
+</email>
+<sectionHeader confidence="0.99063" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.9992079375">
+Current approaches for semantic parsing take
+a supervised approach requiring a consider-
+able amount of training data which is expen-
+sive and difficult to obtain. This supervision
+bottleneck is one of the major difficulties in
+scaling up semantic parsing.
+We argue that a semantic parser can be trained
+effectively without annotated data, and in-
+troduce an unsupervised learning algorithm.
+The algorithm takes a self training approach
+driven by confidence estimation. Evaluated
+over Geoquery, a standard dataset for this
+task, our system achieved 66% accuracy, com-
+pared to 80% of its fully supervised counter-
+part, demonstrating the promise of unsuper-
+vised approaches for this task.
+</bodyText>
+<sectionHeader confidence="0.998308" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999718653846154">
+Semantic parsing, the ability to transform Natural
+Language (NL) input into a formal Meaning Repre-
+sentation (MR), is one of the longest standing goals
+of natural language processing. The importance of
+the problem stems from both theoretical and practi-
+cal reasons, as the ability to convert NL into a formal
+MR has countless applications.
+The term semantic parsing has been used ambigu-
+ously to refer to several semantic tasks (e.g., se-
+mantic role labeling). We follow the most common
+definition of this task: finding a mapping between
+NL input and its interpretation expressed in a well-
+defined formal MR language. Unlike shallow se-
+mantic analysis tasks, the output of a semantic parser
+is complete and unambiguous to the extent it can be
+understood or even executed by a computer system.
+Current approaches for this task take a data driven
+approach (Zettlemoyer and Collins, 2007; Wong and
+Mooney, 2007), in which the learning algorithm is
+given a set of NL sentences as input and their cor-
+responding MR, and learns a statistical semantic
+parser a set of parameterized rules mapping lex-
+ical items and syntactic patterns to their MR. Given
+a sentence, these rules are applied recursively to de-
+rive the most probable interpretation.
+Since semantic interpretation is limited to the syn-
+tactic patterns observed in the training data, in or-
+der to work well these approaches require consider-
+able amounts of annotated data. Unfortunately an-
+notating sentences with their MR is a time consum-
+ing task which requires specialized domain knowl-
+edge and therefore minimizing the supervision ef-
+fort is one of the key challenges in scaling semantic
+parsers.
+In this work we present the first unsupervised
+approach for this task. Our model compensates
+for the lack of training data by employing a self
+training protocol based on identifying high confi-
+dence self labeled examples and using them to re-
+train the model. We base our approach on a sim-
+ple observation: semantic parsing is a difficult struc-
+tured prediction task, which requires learning a com-
+plex model, however identifying good predictions
+can be done with a far simpler model capturing re-
+peating patterns in the predicted data. We present
+several simple, yet highly effective confidence mea-
+sures capturing such patterns, and show how to use
+them to train a semantic parser without manually an-
+notated sentences.
+Our basic premise, that predictions with high con-
+fidence score are of high quality, is further used to
+improve the performance of the unsupervised train-
+</bodyText>
+<page confidence="0.96033">
+1486
+</page>
+<bodyText confidence="0.991838714285714">
+\x0cing procedure. Our learning algorithm takes an EM-
+like iterative approach, in which the predictions of
+the previous stage are used to bias the model. While
+this basic scheme was successfully applied to many
+unsupervised tasks, it is known to converge to a
+sub optimal point. We show that by using confi-
+dence estimation as a proxy for the models pre-
+diction quality, the learning algorithm can identify
+a better model compared to the default convergence
+criterion.
+We evaluate our learning approach and model
+on the well studied Geoquery domain (Zelle and
+Mooney, 1996; Tang and Mooney, 2001), consist-
+ing of natural language questions and their prolog
+interpretations used to query a database consisting
+of U.S. geographical information. Our experimental
+results show that using our approach we are able to
+train a good semantic parser without annotated data,
+and that using a confidence score to identify good
+models results in a significant performance improve-
+ment.
+</bodyText>
+<sectionHeader confidence="0.983734" genericHeader="method">
+2 Semantic Parsing
+</sectionHeader>
+<bodyText confidence="0.997561">
+We formulate semantic parsing as a structured pre-
+diction problem, mapping a NL input sentence (de-
+noted x), to its highest ranking MR (denoted z). In
+order to correctly parametrize and weight the pos-
+sible outputs, the decision relies on an intermediate
+representation: an alignment between textual frag-
+ments and their meaning representation (denoted y).
+Fig. 1 describes a concrete example of this termi-
+nology. In our experiments the input sentences x
+are natural language queries about U.S. geography
+taken from the Geoquery dataset. The meaning rep-
+resentation z is a formal language database query,
+this output representation language is described in
+Sec. 2.1.
+The prediction function, mapping a sentence to its
+corresponding MR, is formalized as follows:
+</bodyText>
+<equation confidence="0.9999675">
+z = Fw(x) = arg max
+yY,zZ
+wT
+(x, y, z) (1)
+</equation>
+<bodyText confidence="0.949423875">
+Where is a feature function defined over an input
+sentence x, alignment y and output z. The weight
+vector w contains the models parameters, whose
+values are determined by the learning process.
+We refer to the arg max above as the inference
+problem. Given an input sentence, solving this in-
+How many states does the Colorado river run through?
+count( state( traverse( river( const(colorado))))
+</bodyText>
+<equation confidence="0.797809333333333">
+x
+z
+y
+</equation>
+<figureCaption confidence="0.999804">
+Figure 1: Example of an input sentence (x), meaning rep-
+</figureCaption>
+<bodyText confidence="0.926484727272727">
+resentation (z) and the alignment between the two (y) for
+the Geoquery domain
+ference problem based on and w is what com-
+promises our semantic parser. In practice the pars-
+ing decision is decomposed into smaller decisions
+(Sec. 2.2). Sec. 4 provides more details about the
+feature representation and inference procedure used.
+Current approaches obtain w using annotated
+data, typically consisting of (x, z) pairs. In Sec. 3 we
+describe our unsupervised learning procedure, that is
+how to obtain w without annotated data.
+</bodyText>
+<subsectionHeader confidence="0.993171">
+2.1 Target Meaning Representation
+</subsectionHeader>
+<bodyText confidence="0.9998073125">
+The output of the semantic parser is a logical for-
+mula, grounding the semantics of the input sen-
+tence in the domain language (i.e., the Geoquery
+domain). We use a subset of first order logic con-
+sisting of typed constants (corresponding to specific
+states, etc.) and functions, which capture relations
+between domains entities and properties of entities
+(e.g., population : E N). The seman-
+tics of the input sentence is constructed via func-
+tional composition, done by the substitution oper-
+ator. For example, given the function next to(x)
+and the expression const(texas), substitution
+replaces the occurrence of the free variable x
+with the expression, resulting in a new formula:
+next to(const(texas)). For further details
+we refer the reader to (Zelle and Mooney, 1996).
+</bodyText>
+<subsectionHeader confidence="0.999317">
+2.2 Semantic Parsing Decisions
+</subsectionHeader>
+<bodyText confidence="0.9996209">
+The inference problem described in Eq. 1 selects the
+top ranking output formula. In practice this decision
+is decomposed into smaller decisions, capturing lo-
+cal mapping of input tokens to logical fragments and
+their composition into larger fragments. These deci-
+sions are further decomposed into a feature repre-
+sentation, described in Sec. 4.
+The first type of decisions are encoded directly by
+the alignment (y) between the input tokens and their
+corresponding predicates. We refer to these as first
+</bodyText>
+<page confidence="0.972932">
+1487
+</page>
+<bodyText confidence="0.996121476190476">
+\x0corder decisions. The pairs connected by the align-
+ment (y) in Fig. 1 are examples of such decisions.
+The final output structure z is constructed by
+composing individual predicates into a complete
+formula. For example, consider the formula pre-
+sented in Fig. 1: river( const(colorado))
+is a composition of two predicates river and
+const(colorado). We refer to the composition
+of two predicates, associated with their respective
+input tokens, as second order decisions.
+In order to formulate these decisions, we intro-
+duce the following notation. c is a constituent in the
+input sentence x and D is the set of all function and
+constant symbols in the domain. The alignment y is
+a set of mappings between constituents and symbols
+in the domain y = {(c, s)} where s D.
+We denote by si the i-th output predicate compo-
+sition in z, by si1(si) the composition of the (i1)-
+th predicate on the i-th predicate and by y(si) the in-
+put word corresponding to that predicate according
+to the alignment y.
+</bodyText>
+<sectionHeader confidence="0.977095" genericHeader="method">
+3 Unsupervised Semantic Parsing
+</sectionHeader>
+<bodyText confidence="0.993640166666667">
+Our learning framework takes a self training ap-
+proach in which the learner is iteratively trained over
+its own predictions. Successful application of this
+approach depends heavily on two important factors
+- how to select high quality examples to train the
+model on, and how to define the learning objective
+so that learning can halt once a good model is found.
+Both of these questions are trivially answered
+when working in a supervised setting: by using the
+labeled data for training the model, and defining the
+learning objective with respect to the annotated data
+(for example, loss-minimization in the supervised
+version of our system).
+In this work we suggest to address both of the
+above concerns by approximating the quality of
+the models predictions using a confidence measure
+computed over the statistics of the self generated
+predictions. Output structures which fall close to the
+center of mass of these statistics will receive a high
+confidence score.
+The first issue is addressed by using examples as-
+signed a high confidence score to train the model,
+acting as labeled examples.
+We also note that since the confidence score pro-
+vides a good indication for the models prediction
+performance, it can be used to approximate the over-
+all model performance, by observing the models to-
+tal confidence score over all its predictions. This
+allows us to set a performance driven goal for our
+learning process - return the model maximizing the
+confidence score over all predictions. We describe
+the details of integrating the confidence score into
+the learning framework in Sec. 3.1.
+Although using the models prediction score (i.e.,
+wT (x, y, z)) as an indication of correctness is a
+natural choice, we argue and show empirically, that
+unsupervised learning driven by confidence estima-
+tion results in a better performing model. This
+empirical behavior also has theoretical justification:
+training the model using examples selected accord-
+ing to the models parameters (i.e., the top rank-
+ing structures) may not generalize much further be-
+yond the existing model, as the training examples
+will simply reinforce the existing model. The statis-
+tics used for confidence estimation are different than
+those used by the model to create the output struc-
+tures, and can therefore capture additional informa-
+tion unobserved by the prediction model. This as-
+sumption is based on the well established idea of
+multi-view learning, applied successfully to many
+NL applications (Blum and Mitchell, 1998; Collins
+and Singer, 1999). According to this idea if two
+models use different views of the data, each of them
+can enhance the learning process of the other.
+The success of our learning procedure hinges
+on finding good confidence measures, whose confi-
+dence prediction correlates well with the true quality
+of the prediction. The ability of unsupervised confi-
+dence estimation to provide high quality confidence
+predictions can be explained by the observation that
+prominent prediction patterns are more likely to be
+correct. If a non-random model produces a predic-
+tion pattern multiple times it is likely to be an in-
+dication of an underlying phenomenon in the data,
+and therefore more likely to be correct. Our specific
+choice of confidence measures is guided by the intu-
+ition that unlike structure prediction (i.e., solving the
+inference problem) which requires taking statistics
+over complex and intricate patterns, identifying high
+quality predictions can be done using much simpler
+patterns that are significantly easier to capture.
+In the reminder of this section we describe our
+</bodyText>
+<page confidence="0.92191">
+1488
+</page>
+<table confidence="0.48526">
+\x0cAlgorithm 1 Unsupervised Confidence driven
+Learning
+Input: Sentences {xl}N
+</table>
+<bodyText confidence="0.466405666666667">
+l=1,
+initial weight vector w
+1: define Confidence : X Y Z R,
+</bodyText>
+<equation confidence="0.654336">
+i = 0, Si =
+</equation>
+<listItem confidence="0.971189214285714">
+2: repeat
+3: for l = 1, . . . , N do
+4: y, z = arg maxy,z wT (xl, y, z)
+5: Si = Si {xl, y, z}
+6: end for
+7: Confidence = compute confidence statistics
+8: Sconf
+i = select from Si using Confidence
+9: wi Learn(iSconf
+i )
+10: i = i + 1
+11: until Sconf
+i has no new unique examples
+12: best = arg maxi(
+</listItem>
+<equation confidence="0.708985666666667">
+P
+sSi
+Confidence(s))/|S|
+</equation>
+<bodyText confidence="0.949430375">
+13: return wbest
+learning approach. We begin by introducing the
+overall learning framework (Sec. 3.1), we then ex-
+plain the rational behind confidence estimation over
+self-generated data and introduce the confidence
+measures used in our experiments (Sec. 3.2). We
+conclude with a description of the specific learning
+algorithms used for updating the model (Sec. 3.3).
+</bodyText>
+<subsectionHeader confidence="0.999508">
+3.1 Unsupervised Confidence-Driven Learning
+</subsectionHeader>
+<bodyText confidence="0.9963393125">
+Our learning framework works in an EM-like
+manner, iterating between two stages: making pre-
+dictions based on its current set of parameters and
+then retraining the model using a subset of the pre-
+dictions, assigned high confidence. The learning
+process discovers new high confidence training
+examples to add to its training set over multiple it-
+erations, and converges when the model no longer
+adds new training examples.
+While this is a natural convergence criterion, it
+provides no performance guarantees, and in practice
+it is very likely that the quality of the model (i.e., its
+performance) fluctuates during the learning process.
+We follow the observation that confidence estima-
+tion can be used to approximate the performance of
+the entire model and return the model with the high-
+est overall prediction confidence.
+We describe this algorithmic framework in detail
+in Alg. 1. Our algorithm takes as input a set of
+natural language sentences and a set of parameters
+used for making the initial predictions1. The algo-
+rithm then iterates between the two stages - predict-
+ing the output structure for each sentence (line 4),
+and updating the set of parameters (line 9). The
+specific learning algorithms used are discussed in
+Sec. 3.3. The training examples required for learn-
+ing are obtained by selecting high confidence exam-
+ples - the algorithm first takes statistics over the cur-
+rent predicted set of output structures (line 7), and
+then based on these statistics computes a confidence
+score for each structure, selecting the top ranked
+ones as positive training examples, and if needed,
+the bottom ones as negative examples (line 8). The
+set of top confidence examples (for either correct or
+incorrect prediction), at iteration i of the algorithm,
+is denoted Sconf
+i . The exact nature of the confidence
+computation is discussed in Sec. 3.2.
+The algorithm iterates between these two stages,
+at each iteration it adds more self-annotated exam-
+ples to its training set, learning therefore converges
+when no new examples are added (line 11). The al-
+gorithm keeps track of the models it trained at each
+stage throughout this process, and returns the one
+with the highest averaged overall confidence score
+(lines 12-13). At each stage, the overall confidence
+score is computed by averaging over all the confi-
+dence scores of the predictions made at that stage.
+</bodyText>
+<subsectionHeader confidence="0.999224">
+3.2 Unsupervised Confidence Estimation
+</subsectionHeader>
+<bodyText confidence="0.985885307692308">
+Confidence estimation is calculated over a batch of
+input (x) - output (z) pairs. Each pair decomposes
+into smaller first order and second order decisions
+(defined Sec. 2.2). Confidence estimation is done by
+computing the statistics of these decisions, over the
+entire set of predicted structures. In the rest of this
+section we introduce the confidence measures used
+by our system.
+Translation Model The first approach essentially
+constructs a simplified translation model, capturing
+word-to-predicate mapping patterns. This can be
+considered as an abstraction of the prediction model:
+we collapse the intricate feature representation into
+</bodyText>
+<page confidence="0.768514">
+1
+</page>
+<bodyText confidence="0.99914075">
+Since we commit to the max-score output prediction, rather
+than summing over all possibilities, we require a reasonable ini-
+tialization point. We initialized the weight vector using simple,
+straight-forward heuristics described in Sec. 5.
+</bodyText>
+<page confidence="0.904278">
+1489
+</page>
+<bodyText confidence="0.9613079">
+\x0chigh level decisions and take statistics over these de-
+cisions. Since it takes statistics over considerably
+less variables than the actual prediction model, we
+expect this model to make reliable confidence pre-
+dictions. We consider two variations of this ap-
+proach, the first constructs a unigram model over the
+first order decisions and the second a bigram model
+over the second order decisions. Formally, given a
+set of predicted structures we define the following
+confidence scores:
+</bodyText>
+<equation confidence="0.964841416666667">
+Unigram Score:
+p(z|x) =
+|z|
+Y
+i=1
+p(si|y(si))
+Bigram Score:
+p(z|x) =
+|z|
+Y
+i=1
+p(si1(si)|y(si1), y(si))
+</equation>
+<bodyText confidence="0.9847155">
+Structural Proportion Unlike the first approach
+which decomposes the predicted structure into in-
+dividual decisions, this approach approximates the
+models performance by observing global properties
+of the structure. We take statistics over the propor-
+tion between the number of predicates in z and the
+number of words in x.
+Given a set of structure predictions S, we com-
+pute this proportion for each structure (denoted as
+Prop(x, z)) and calculate the average proportion
+over the entire set (denoted as AvProp(S)). The
+confidence score assigned to a given structure (x, y)
+is simply the difference between its proportion and
+the averaged proportion, or formally
+</bodyText>
+<equation confidence="0.846661">
+PropScore(S, (x, z)) = AvProp(S)Prop(x, z)
+</equation>
+<bodyText confidence="0.999599307692308">
+This measure captures the global complexity of the
+predicted structure and penalizes structures which
+are too complex (high negative values) or too sim-
+plistic (high positive values).
+Combined The two approaches defined above
+capture different views of the data, a natural question
+is then - can these two measures be combined to pro-
+vide a more powerful estimation? We suggest a third
+approach which combines the first two approaches.
+It first uses the score produced by the latter approach
+to filter out unlikely candidates, and then ranks the
+remaining ones with the former approach and selects
+those with the highest rank.
+</bodyText>
+<subsectionHeader confidence="0.99835">
+3.3 Learning Algorithms
+</subsectionHeader>
+<bodyText confidence="0.998656516129032">
+Given a set of self generated structures, the param-
+eter vector can be updated (line 9 in Alg. 1). We
+consider two learning algorithm for this purpose.
+The first is a binary learning algorithm, which
+considers learning as a classification problem, that
+is finding a set of weights w that can best sepa-
+rate correct from incorrect structures. The algo-
+rithm decomposes each predicted formula and its
+corresponding input sentence into a feature vector
+(x, y, z) normalized by the size of the input sen-
+tence |x|, and assigns a binary label to this vector2.
+The learning process is defined over both positive
+and negative training examples. To accommodate
+that we modify line 8 in Alg. 1, and use the con-
+fidence score to select the top ranking examples as
+positive examples, and the bottom ranking examples
+as negative examples. We use a linear kernel SVM
+with squared-hinge loss as the underlying learning
+algorithm.
+The second is a structured learning algorithm
+which considers learning as a ranking problem, i.e.,
+finding a set of weights w such that the gold struc-
+ture will be ranked on top, preferably by a large
+margin to allow generalization.The structured learn-
+ing algorithm can directly use the top ranking pre-
+dictions of the model (line 8 in Alg. 1) as training
+data. In this case the underlying algorithm is a struc-
+tural SVM with squared-hinge loss, using hamming
+distance as the distance function. We use the cutting-
+plane method to efficiently optimize the learning
+process objective function.
+</bodyText>
+<sectionHeader confidence="0.996749" genericHeader="method">
+4 Model
+</sectionHeader>
+<bodyText confidence="0.99924825">
+Semantic parsing as formulated in Eq. 1 is an in-
+ference procedure selecting the top ranked output
+logical formula. We follow the inference approach
+in (Roth and Yih, 2007; Clarke et al., 2010) and
+formalize this process as an Integer Linear Program
+(ILP). Due to space consideration we provide a brief
+description, and refer the reader to that paper for
+more details.
+</bodyText>
+<page confidence="0.933072">
+2
+</page>
+<bodyText confidence="0.9920635">
+Without normalization longer sentences would have more
+influence on binary learning problem. Normalization is there-
+fore required to ensure that each sentence contributes equally to
+the binary learning problem regardless of its length.
+</bodyText>
+<page confidence="0.928405">
+1490
+</page>
+<sectionHeader confidence="0.868109" genericHeader="method">
+\x0c4.1 Inference
+</sectionHeader>
+<bodyText confidence="0.998490454545454">
+The inference decision (Eq. 1) is decomposed into
+smaller decisions, capturing mapping of input to-
+kens to logical fragments (first order) and their com-
+position into larger fragments (second order). We
+encode a first-order decision as cs, a binary vari-
+able indicating that constituent c is aligned with the
+logical symbol s. A second-order decision cs,dt, is
+encoded as a binary variable indicating that the sym-
+bol t (associated with constituent d) is an argument
+of a function s (associated with constituent c). We
+frame the inference problem over these decisions:
+</bodyText>
+<equation confidence="0.998175933333333">
+Fw(x) = arg max
+,
+X
+cx
+X
+sD
+cs wT
+1(x, c, s)
++
+X
+c,dx
+X
+s,tD
+cs,dt wT
+2(x, c, s, d, t) (2)
+</equation>
+<bodyText confidence="0.999736222222222">
+We restrict the possible assignments to the deci-
+sion variables, forcing the resulting output formula
+to be syntactically legal, for example by restricting
+active -variables to be type consistent, and force
+the resulting functional composition to be acyclic.
+We take advantage of the flexible ILP framework,
+and encode these restrictions as global constraints
+over Eq. 2. We refer the reader to (Clarke et al.,
+2010) for a full description of the constraints used.
+</bodyText>
+<subsectionHeader confidence="0.779955">
+4.2 Features
+</subsectionHeader>
+<bodyText confidence="0.999697153846154">
+The inference problem defined in Eq. (2) uses two
+feature functions: 1 and 2.
+First-order decision features 1 Determining if
+a logical symbol is aligned with a specific con-
+stituent depends mostly on lexical information.
+Following previous work (e.g., (Zettlemoyer and
+Collins, 2005)) we create a small lexicon, mapping
+logical symbols to surface forms.3 Existing ap-
+proaches rely on annotated data to extend the lexi-
+con. Instead we rely on external knowledge (Miller
+et al., 1990) and add features which measure the lex-
+ical similarity between a constituent and a logical
+symbols surface forms (as defined by the lexicon).
+</bodyText>
+<page confidence="0.98764">
+3
+</page>
+<table confidence="0.94885525">
+The lexicon contains on average 1.42 words per function
+and 1.07 words per constant.
+Model Description
+INITIAL MODEL Manually set weights (Sec. 5.1)
+PRED. SCORE normalized prediction (Sec. 5.1)
+ALL EXAMPLES All top structures (Sec. 5.1)
+UNIGRAM Unigram score (Sec. 3.2)
+BIGRAM Bigram score (Sec. 3.2)
+PROPORTION Words-predicate prop (Sec. 3.2)
+COMBINED Combined estimators (Sec. 3.2)
+RESPONSE BASED Supervised (binary) (Sec. 5.1)
+SUPERVISED Fully Supervised (Sec. 5.1)
+</table>
+<tableCaption confidence="0.998773">
+Table 1: Compared systems and naming conventions.
+</tableCaption>
+<bodyText confidence="0.983445111111111">
+Second-order decision features 2 Second order
+decisions rely on syntactic information. We use
+the dependency tree of the input sentence. Given
+a second-order decision cs,dt, the dependency fea-
+ture takes the normalized distance between the head
+words in the constituents c and d. In addition, a set
+of features indicate which logical symbols are usu-
+ally composed together, without considering their
+alignment to the text.
+</bodyText>
+<sectionHeader confidence="0.999128" genericHeader="evaluation">
+5 Experiments
+</sectionHeader>
+<bodyText confidence="0.9992221">
+In this section we describe our experimental evalua-
+tion. We compare several confidence measures and
+analyze their properties. Tab. 1 defines the naming
+conventions used throughout this section to refer to
+the different models we evaluated. We begin by de-
+scribing our experimental setup and then proceed to
+describe the experiments and their results. For the
+sake of clarity we focus on the best performing mod-
+els (COMBINED using BIGRAM and PROPORTION)
+first and discuss other models later in the section.
+</bodyText>
+<subsectionHeader confidence="0.987585">
+5.1 Experimental Settings
+</subsectionHeader>
+<bodyText confidence="0.996344416666667">
+In all our experiments we used the Geoquery
+dataset (Zelle and Mooney, 1996), consisting of U.S.
+geography NL questions and their corresponding
+Prolog logical MR. We used the data split described
+in (Clarke et al., 2010), consisting of 250 queries for
+evaluation purposes. We compared our system to
+several supervised models, which were trained us-
+ing a disjoint set of queries. Our learning system
+had access only to the NL questions, and the log-
+ical forms were only used to evaluate the systems
+performance. We report the proportion of correct
+structures (accuracy). Note that this evaluation cor-
+</bodyText>
+<page confidence="0.85973">
+1491
+</page>
+<bodyText confidence="0.970397666666667">
+\x0cresponds to the 0/1 loss over the predicted structures.
+Initialization Our learning framework requires an
+initial weight vector as input. We use a straight for-
+</bodyText>
+<listItem confidence="0.926668181818182">
+ward heuristic and provide uniform positive weights
+to three features. This approach is similar in spirit
+to previous works (Clarke et al., 2010; Zettlemoyer
+and Collins, 2007). We refer to this system as INI-
+TIAL MODEL throughout this section.
+Competing Systems We compared our system to
+several other systems:
+(1) PRED. SCORE: An unsupervised frame-
+work using the models internal prediction score
+(wT (x, y, z)) for confidence estimation.
+(2) ALL EXAMPLES: Treating all predicted struc-
+</listItem>
+<bodyText confidence="0.948578538461539">
+tures as correct, i.e., at each iteration the model is
+trained over all the predictions it made. The re-
+ported score was obtained by selecting the model at
+the training iteration with the highest overall confi-
+dence score (see line 12 in Alg. 1).
+(3) RESPONSE BASED: A natural upper bound to
+our framework is the approach used in (Clarke et al.,
+2010). While our approach is based on assessing
+the correctness os the models predictions according
+to unsupervised confidence estimation, their frame-
+work is provided with external supervision for these
+decisions, indicating if the predicted structures are
+correct.
+</bodyText>
+<listItem confidence="0.723636666666667">
+(4) SUPERVISED: A fully supervised framework
+trained over 250 (x, z) pairs using structured SVM.
+5.2 Results
+Our experiments aim to clarify three key points:
+(1) Can a semantic parser indeed be trained with-
+out any form of external supervision? this is our
+</listItem>
+<bodyText confidence="0.967734222222222">
+key question, as this is the first attempt to approach
+this task with an unsupervised learning protocol.4 In
+order to answer it, we report the overall performance
+of our system in Tab. 2.
+The manually constructed model INITIALMODEL
+achieves a performance of 0.22. We can expect
+learning to improve on this baseline. We com-
+pare three self-trained systems, ALL EXAMPLES,
+PREDICTIONSCORE and COMBINED, which differ
+</bodyText>
+<page confidence="0.980039">
+4
+</page>
+<bodyText confidence="0.99777844">
+While unsupervised learning for various semantic tasks has
+been widely discussed, this is the first attempt to tackle this task.
+We refer the reader to Sec. 6 for further discussion of this point.
+in their sample selection strategy, but all use con-
+fidence estimation for selecting the final seman-
+tic parsing model. The ALL EXAMPLES approach
+achieves an accuracy score of 0.656. PREDICTION-
+SCORE only achieves a performance of 0.164 us-
+ing the binary learning algorithm and 0.348 us-
+ing the structured learning algorithm. Finally, our
+confidence-driven technique COMBINED achieved a
+score of 0.536 for the binary case and 0.664 for the
+structured case, the best performing models in both
+cases. As expected, the supervised systems RE-
+SPONSE BASED and SUPERVISED achieve the best
+performance.
+These results show that training the model with
+training examples selected carefully will improve
+learning - as the best performance is achieved with
+perfect knowledge of the predictions correctness
+(RESPONSE BASED). Interestingly the difference
+between the structured version of our system and
+that of RESPONSE BASED is only 0.07, suggesting
+that we can recover the binary feedback signal with
+high precision. The low performance of the PRE-
+DICTIONSCORE model is also not surprising, and it
+demonstrates one of the key principles in confidence
+estimation - the score should be comparable across
+predictions done over different inputs, and not the
+same input, as done in PREDICTIONSCORE model.
+(2) How does confidence driven sample selection
+contribute to the learning process? Comparing
+the systems driven by confidence sample-selection
+to the ALL EXAMPLES approach uncovers an inter-
+esting tradeoff between training with more (noisy)
+data and selectively training the system with higher
+quality examples. We argue that carefully select-
+ing high quality training examples will result in bet-
+ter performance. The empirical results indeed sup-
+port our argument, as the best performing model
+(RESPONSE BASED) is achieved by sample selec-
+tion with perfect knowledge of prediction correct-
+ness. The confidence-based sample selection system
+(COMBINED) is the best performing system out of
+all the self-trained systems. Nonetheless, the ALL
+EXAMPLES strategy performs well when compared
+to COMBINED, justifying a closer look at that aspect
+of our system.
+We argue that different confidence measures cap-
+ture different properties of the data, and hypothe-
+</bodyText>
+<page confidence="0.931969">
+1492
+</page>
+<bodyText confidence="0.984631130434783">
+\x0csize that combining their scores will improve the re-
+sulting model. In Tab. 3 we compare the results of
+the COMBINED measure to the results of its individ-
+ual components - PROPORTION and BIGRAM. We
+compare these results both when using the binary
+and structured learning algorithms. Results show
+that using the COMBINED measure leads to an im-
+proved performance, better than any of the individ-
+ual measures, suggesting that it can effectively ex-
+ploit the properties of each confidence measure. Fur-
+thermore, COMBINED is the only sample selection
+strategy that outperforms ALL EXAMPLES.
+(3) Can confidence measures serve as a good
+proxy for the models performance? In the unsu-
+pervised settings we study the learning process may
+not converge to an optimal model. We argue that
+by selecting the model that maximizes the averaged
+confidence score, a better model can be found. We
+validate this claim empirically in Tab. 4. We com-
+pare the performance of the model selected using
+the confidence score to the performance of the fi-
+nal model considered by the learning algorithm (see
+Sec. 3.1 for details). We also compare it to the best
+model achieved in any of the learning iterations.
+Since these experiments required running the
+learning algorithm many times, we focused on the
+binary learning algorithm as it converges consider-
+ably faster. In order to focus the evaluation on the
+effects of learning, we ignore the initial model gen-
+erated manually (INITIAL MODEL) in these exper-
+iments. In order to compare models performance
+across the different iterations fairly, a uniform scale,
+such as UNIGRAM and BIGRAM, is required. In the
+case of the COMBINED measure we used the BI-
+GRAM measure for performance estimation, since it
+is one of its underlying components. In the PRED.
+SCORE and PROPORTION models we used both their
+confidence prediction, and the simple UNIGRAM
+confidence score to evaluate model performance (the
+latter appear in parentheses in Tab. 4).
+Results show that the over overall confidence
+score serves as a reliable proxy for the model perfor-
+mance - using UNIGRAM and BIGRAM the frame-
+work can select the best performing model, far better
+than the performance of the default model to which
+the system converged.
+</bodyText>
+<table confidence="0.995103785714286">
+Algorithm Supervision Acc.
+INITIAL MODEL 0.222
+SELF-TRAIN: (Structured)
+PRED. SCORE 0.348
+ALL EXAMPLES 0.656
+COMBINED 0.664
+SELF-TRAIN: (Binary)
+PRED. SCORE 0.164
+COMBINED 0.536
+RESPONSE BASED
+BINARY 250 (binary) 0.692
+STRUCTURED 250 (binary) 0.732
+SUPERVISED
+STRUCTURED 250 (struct.) 0.804
+</table>
+<tableCaption confidence="0.85770025">
+Table 2: Comparing our Self-trained systems with
+Response-based and supervised models. Results show
+that our COMBINED approach outperforms all other un-
+supervised models.
+</tableCaption>
+<figure confidence="0.873417444444444">
+Algorithm Accuracy
+SELF-TRAIN: (Structured)
+PROPORTION 0.6
+BIGRAM 0.644
+COMBINED 0.664
+SELF-TRAIN: (Binary)
+BIGRAM 0.532
+PROPORTION 0.504
+COMBINED 0.536
+</figure>
+<tableCaption confidence="0.997189">
+Table 3: Comparing COMBINED to its components BI-
+</tableCaption>
+<bodyText confidence="0.72960875">
+GRAM and PROPORTION. COMBINED results in a better
+score than any of its components, suggesting that it can
+exploit the properties of each measure effectively.
+Algorithm Best Conf. estim. Default
+</bodyText>
+<table confidence="0.9986504">
+PRED. SCORE 0.164 0.128 (0.164) 0.134
+UNIGRAM 0.52 0.52 0.4
+BIGRAM 0.532 0.532 0.472
+PROPORTION 0.504 0.27 (0.504) 0.44
+COMBINED 0.536 0.536 0.328
+</table>
+<tableCaption confidence="0.998847">
+Table 4: Using confidence to approximate model perfor-
+</tableCaption>
+<bodyText confidence="0.998789142857143">
+mance. We compare the best result obtained in any of the
+learning algorithm iterations (Best), the result obtained
+by approximating the best result using the averaged pre-
+diction confidence (Conf. estim.) and the result of us-
+ing the default convergence criterion (Default). Results
+in parentheses are the result of using the UNIGRAM con-
+fidence to approximate the models performance.
+</bodyText>
+<page confidence="0.867765">
+1493
+</page>
+<sectionHeader confidence="0.976753" genericHeader="related work">
+\x0c6 Related Work
+</sectionHeader>
+<bodyText confidence="0.999395015625">
+Semantic parsing has attracted considerable interest
+in recent years. Current approaches employ various
+machine learning techniques for this task, such as In-
+ductive Logic Programming in earlier systems (Zelle
+and Mooney, 1996; Tang and Mooney, 2000) and
+statistical learning methods in modern ones (Ge and
+Mooney, 2005; Nguyen et al., 2006; Wong and
+Mooney, 2006; Kate and Mooney, 2006; Zettle-
+moyer and Collins, 2005; Zettlemoyer and Collins,
+2007; Zettlemoyer and Collins, 2009).
+The difficulty of providing the required supervi-
+sion motivated learning approaches using weaker
+forms of supervision. (Chen and Mooney, 2008;
+Liang et al., 2009; Branavan et al., 2009; Titov and
+Kozhevnikov, 2010) ground NL in an external world
+state directly referenced by the text. The NL input in
+our setting is not restricted to such grounded settings
+and therefore we cannot exploit this form of supervi-
+sion. Recent work (Clarke et al., 2010; Liang et al.,
+2011) suggest using response-based learning proto-
+cols, which alleviate some of the supervision effort.
+This work takes an additional step in this direction
+and suggest an unsupervised protocol.
+Other approaches to unsupervised semantic anal-
+ysis (Poon and Domingos, 2009; Titov and Kle-
+mentiev, 2011) take a different approach to seman-
+tic representation, by clustering semantically equiv-
+alent dependency tree fragments, and identifying
+their predicate-argument structure. While these ap-
+proaches have been applied successfully to semantic
+tasks such as question answering, they do not ground
+the input in a well defined output language, an essen-
+tial component in our task.
+Our unsupervised approach follows a self training
+protocol (Yarowsky, 1995; McClosky et al., 2006;
+Reichart and Rappoport, 2007b) enhanced with con-
+straints restricting the output space (Chang et al.,
+2007; Chang et al., 2009). A Self training proto-
+col uses its own predictions for training. We esti-
+mate the quality of the predictions and use only high
+confidence examples for training. This selection cri-
+terion provides an additional view, different than the
+one used by the prediction model. Multi-view learn-
+ing is a well established idea, implemented in meth-
+ods such as co-training (Blum and Mitchell, 1998).
+Quality assessment of a learned model output was
+explored by many previous works (see (Caruana and
+Niculescu-Mizil, 2006) for a survey), and applied
+to several NL processing tasks such as syntactic
+parsing (Reichart and Rappoport, 2007a; Yates et
+al., 2006), machine translation (Ueffing and Ney,
+2007), speech (Koo et al., 2001), relation extrac-
+tion (Rosenfeld and Feldman, 2007), IE (Culotta and
+McCallum, 2004), QA (Chu-Carroll et al., 2003)
+and dialog systems (Lin and Weng, 2008).
+In addition to sample selection we use confidence
+estimation as a way to approximate the overall qual-
+ity of the model and use it for model selection. This
+use of confidence estimation was explored in (Re-
+ichart et al., 2010), to select between models trained
+with different random starting points. In this work
+we integrate this estimation deeper into the learning
+process, thus allowing our training procedure to re-
+turn the best performing model.
+</bodyText>
+<sectionHeader confidence="0.998612" genericHeader="conclusions">
+7 Conclusions
+</sectionHeader>
+<bodyText confidence="0.912091736842105">
+We introduced an unsupervised learning algorithm
+for semantic parsing, the first for this task to the best
+of our knowledge. To compensate for the lack of
+training data we use a self-training protocol, driven
+by unsupervised confidence estimation. We demon-
+strate empirically that our approach results in a high
+preforming semantic parser and show that confi-
+dence estimation plays a vital role in this success,
+both by identifying good training examples as well
+as identifying good over all performance, used to
+improve the final model selection.
+In future work we hope to further improve un-
+supervised semantic parsing performance. Particu-
+larly, we intend to explore new approaches for confi-
+dence estimation and their usage in the unsupervised
+and semi-supervised versions of the task.
+Acknowledgments We thank the anonymous re-
+viewers for their helpful feedback. This material
+is based upon work supported by DARPA under
+</bodyText>
+<reference confidence="0.976056405405405">
+the Bootstrap Learning Program and Machine Read-
+ing Program under Air Force Research Laboratory
+(AFRL) prime contract no. FA8750-09-C-0181.
+Any opinions, findings, and conclusion or recom-
+mendations expressed in this material are those of
+the author(s) and do not necessarily reflect the view
+of the DARPA, AFRL, or the US government.
+1494
+\x0cReferences
+A. Blum and T. Mitchell. 1998. Combining labeled and
+unlabeled data with co-training. In COLT.
+S.R.K. Branavan, H. Chen, L. Zettlemoyer, and R. Barzi-
+lay. 2009. Reinforcement learning for mapping in-
+structions to actions. In ACL.
+R. Caruana and A. Niculescu-Mizil. 2006. An empiri-
+cal comparison of supervised l earning algorithms. In
+ICML.
+M. Chang, L. Ratinov, and D. Roth. 2007. Guiding semi-
+supervision with constraint-driven learning. In Proc.
+of the Annual Meeting of the ACL.
+M. Chang, D. Goldwasser, D. Roth, and Y. Tu. 2009.
+Unsupervised constraint driven learning for transliter-
+ation discovery. In NAACL.
+D. Chen and R. Mooney. 2008. Learning to sportscast: a
+test of grounded language acquisition. In ICML.
+J. Chu-Carroll, J. Prager K. Czuba, and A. Ittycheriah.
+2003. In question answering, two heads are better than
+on. In HLT-NAACL.
+J. Clarke, D. Goldwasser, M. Chang, and D. Roth. 2010.
+Driving semantic parsing from the worlds response.
+In CoNLL, 7.
+M. Collins and Y. Singer. 1999. Unsupervised models
+for named entity classification. In EMNLPVLC.
+A. Culotta and A. McCallum. 2004. Confidence estima-
+tion for information extraction. In HLT-NAACL.
+R. Ge and R. Mooney. 2005. A statistical semantic parser
+that integrates syntax and semantics. In CoNLL.
+R. Kate and R. Mooney. 2006. Using string-kernels for
+learning semantic parsers. In ACL.
+Y. Koo, C. Lee, and B. Juang. 2001. Speech recogni-
+tion and utterance verification based on a generalized
+confidence score. IEEE Transactions on Speech and
+Audio Processing, 9(8):821832.
+P. Liang, M. I. Jordan, and D. Klein. 2009. Learning
+semantic correspondences with less supervision. In
+ACL.
+P. Liang, M.I. Jordan, and D. Klein. 2011. Deep compo-
+sitional semantics from shallow supervision. In ACL.
+F. Lin and F. Weng. 2008. Computing confidence scores
+for all sub parse trees. In ACL.
+D. McClosky, E. Charniak, and Mark Johnson. 2006.
+Effective self-training for parsing. In HLT-NAACL.
+G. Miller, R. Beckwith, C. Fellbaum, D. Gross, and K.J.
+Miller. 1990. Wordnet: An on-line lexical database.
+International Journal of Lexicography.
+L. Nguyen, A. Shimazu, and X. Phan. 2006. Seman-
+tic parsing with structured svm ensemble classification
+models. In ACL.
+H. Poon and P. Domingos. 2009. Unsupervised semantic
+parsing. In EMNLP.
+R. Reichart and A. Rappoport. 2007a. An ensemble
+method for selection of high quality parses. In ACL.
+R. Reichart and A. Rappoport. 2007b. Self-training
+for enhancement and domain adaptation of statistical
+parsers trained on small datasets. In ACL.
+R. Reichart, R. Fattal, and A. Rappoport. 2010. Im-
+proved unsupervised pos induction using intrinsic
+clustering quality and a zipfian constraint. In CoNLL.
+B. Rosenfeld and R. Feldman. 2007. Using corpus statis-
+tics on entities to improve semisupervised relation
+extraction from the web. In ACL.
+D. Roth and W. Yih. 2007. Global inference for entity
+and relation identification via a linear programming
+formulation. In Lise Getoor and Ben Taskar, editors,
+Introduction to Statistical Relational Learning.
+L. Tang and R. Mooney. 2000. Automated construction
+of database interfaces: integrating statistical and rela-
+tional learning for semantic parsing. In EMNLP.
+L. R. Tang and R. J. Mooney. 2001. Using multiple
+clause constructors in inductive logic programming for
+semantic parsing. In ECML.
+I. Titov and A. Klementiev. 2011. A bayesian model for
+unsupervised semantic parsing. In ACL.
+I. Titov and M. Kozhevnikov. 2010. Bootstrapping
+semantic analyzers from non-contradictory texts. In
+ACL.
+N. Ueffing and H. Ney. 2007. Word-level confidence es-
+timation for machine translation. Computational Lin-
+guistics, 33(1):940.
+Y.W. Wong and R. Mooney. 2006. Learning for se-
+mantic parsing with statistical machine translation. In
+NAACL.
+Y.W. Wong and R. Mooney. 2007. Learning syn-
+chronous grammars for semantic parsing with lambda
+calculus. In ACL.
+D. Yarowsky. 1995. Unsupervised word sense disam-
+biguation rivaling supervised method. In ACL.
+A. Yates, S. Schoenmackers, and O. Etzioni. 2006. De-
+tecting parser errors using web-based semantic filters.
+In EMNLP.
+J. M. Zelle and R. J. Mooney. 1996. Learning to parse
+database queries using inductive logic proramming. In
+AAAI.
+L. Zettlemoyer and M. Collins. 2005. Learning to
+map sentences to logical form: Structured classifica-
+tion with probabilistic categorial grammars. In UAI.
+L. Zettlemoyer and M. Collins. 2007. Online learning of
+relaxed CCG grammars for parsing to logical form. In
+CoNLL.
+L. Zettlemoyer and M. Collins. 2009. Learning context-
+dependent mappings from sentences to logical form.
+</reference>
+<figure confidence="0.406944333333333">
+In ACL.
+1495
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.825389">
+<note confidence="0.976059666666667">b&apos;Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics, pages 14861495, Portland, Oregon, June 19-24, 2011. c 2011 Association for Computational Linguistics</note>
+<title confidence="0.998926">Confidence Driven Unsupervised Semantic Parsing</title>
+<author confidence="0.99755275">Dan Goldwasser Roi Reichart James Clarke Dan Roth</author>
+<affiliation confidence="0.999708">Department of Computer Science, University of Illinois at Urbana-Champaign</affiliation>
+<email confidence="0.990999">goldwas1@illinois.edu</email>
+<email confidence="0.990999">clarkeje@illinois.edu</email>
+<email confidence="0.990999">danr@illinois.edu</email>
+<affiliation confidence="0.983486">Computer Science and Artificial Intelligence Laboratory, MIT</affiliation>
+<email confidence="0.998967">roiri@csail.mit.edu</email>
+<abstract confidence="0.991396411764706">Current approaches for semantic parsing take a supervised approach requiring a considerable amount of training data which is expensive and difficult to obtain. This supervision bottleneck is one of the major difficulties in scaling up semantic parsing. We argue that a semantic parser can be trained effectively without annotated data, and introduce an unsupervised learning algorithm. The algorithm takes a self training approach driven by confidence estimation. Evaluated over Geoquery, a standard dataset for this task, our system achieved 66% accuracy, compared to 80% of its fully supervised counterpart, demonstrating the promise of unsupervised approaches for this task.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>\x0cReferences A Blum</author>
+<author>T Mitchell</author>
+</authors>
+<title>Combining labeled and unlabeled data with co-training.</title>
+<date>1998</date>
+<booktitle>In COLT.</booktitle>
+<contexts>
+<context position="11300" citStr="Blum and Mitchell, 1998" startWordPosition="1804" endWordPosition="1807">as theoretical justification: training the model using examples selected according to the models parameters (i.e., the top ranking structures) may not generalize much further beyond the existing model, as the training examples will simply reinforce the existing model. The statistics used for confidence estimation are different than those used by the model to create the output structures, and can therefore capture additional information unobserved by the prediction model. This assumption is based on the well established idea of multi-view learning, applied successfully to many NL applications (Blum and Mitchell, 1998; Collins and Singer, 1999). According to this idea if two models use different views of the data, each of them can enhance the learning process of the other. The success of our learning procedure hinges on finding good confidence measures, whose confidence prediction correlates well with the true quality of the prediction. The ability of unsupervised confidence estimation to provide high quality confidence predictions can be explained by the observation that prominent prediction patterns are more likely to be correct. If a non-random model produces a prediction pattern multiple times it is li</context>
+<context position="34742" citStr="Blum and Mitchell, 1998" startWordPosition="5535" endWordPosition="5538">t in our task. Our unsupervised approach follows a self training protocol (Yarowsky, 1995; McClosky et al., 2006; Reichart and Rappoport, 2007b) enhanced with constraints restricting the output space (Chang et al., 2007; Chang et al., 2009). A Self training protocol uses its own predictions for training. We estimate the quality of the predictions and use only high confidence examples for training. This selection criterion provides an additional view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see (Caruana and Niculescu-Mizil, 2006) for a survey), and applied to several NL processing tasks such as syntactic parsing (Reichart and Rappoport, 2007a; Yates et al., 2006), machine translation (Ueffing and Ney, 2007), speech (Koo et al., 2001), relation extraction (Rosenfeld and Feldman, 2007), IE (Culotta and McCallum, 2004), QA (Chu-Carroll et al., 2003) and dialog systems (Lin and Weng, 2008). In addition to sample selection we use confidence estimation as a way to approximate the overall quality of the </context>
+</contexts>
+<marker>Blum, Mitchell, 1998</marker>
+<rawString>\x0cReferences A. Blum and T. Mitchell. 1998. Combining labeled and unlabeled data with co-training. In COLT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S R K Branavan</author>
+<author>H Chen</author>
+<author>L Zettlemoyer</author>
+<author>R Barzilay</author>
+</authors>
+<title>Reinforcement learning for mapping instructions to actions.</title>
+<date>2009</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="33184" citStr="Branavan et al., 2009" startWordPosition="5291" endWordPosition="5294"> interest in recent years. Current approaches employ various machine learning techniques for this task, such as Inductive Logic Programming in earlier systems (Zelle and Mooney, 1996; Tang and Mooney, 2000) and statistical learning methods in modern ones (Ge and Mooney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et al., 2011) suggest using response-based learning protocols, which alleviate some of the supervision effort. This work takes an additional step in this direction and suggest an unsupervised protocol. Other approaches to unsupervised semantic analysis (Poon and Domingos, 2009; Titov and Klementiev, 2011) take a different appro</context>
+</contexts>
+<marker>Branavan, Chen, Zettlemoyer, Barzilay, 2009</marker>
+<rawString>S.R.K. Branavan, H. Chen, L. Zettlemoyer, and R. Barzilay. 2009. Reinforcement learning for mapping instructions to actions. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Caruana</author>
+<author>A Niculescu-Mizil</author>
+</authors>
+<title>An empirical comparison of supervised l earning algorithms.</title>
+<date>2006</date>
+<booktitle>In ICML.</booktitle>
+<contexts>
+<context position="34865" citStr="Caruana and Niculescu-Mizil, 2006" startWordPosition="5553" endWordPosition="5556"> Reichart and Rappoport, 2007b) enhanced with constraints restricting the output space (Chang et al., 2007; Chang et al., 2009). A Self training protocol uses its own predictions for training. We estimate the quality of the predictions and use only high confidence examples for training. This selection criterion provides an additional view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see (Caruana and Niculescu-Mizil, 2006) for a survey), and applied to several NL processing tasks such as syntactic parsing (Reichart and Rappoport, 2007a; Yates et al., 2006), machine translation (Ueffing and Ney, 2007), speech (Koo et al., 2001), relation extraction (Rosenfeld and Feldman, 2007), IE (Culotta and McCallum, 2004), QA (Chu-Carroll et al., 2003) and dialog systems (Lin and Weng, 2008). In addition to sample selection we use confidence estimation as a way to approximate the overall quality of the model and use it for model selection. This use of confidence estimation was explored in (Reichart et al., 2010), to select </context>
+</contexts>
+<marker>Caruana, Niculescu-Mizil, 2006</marker>
+<rawString>R. Caruana and A. Niculescu-Mizil. 2006. An empirical comparison of supervised l earning algorithms. In ICML.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Chang</author>
+<author>L Ratinov</author>
+<author>D Roth</author>
+</authors>
+<title>Guiding semisupervision with constraint-driven learning.</title>
+<date>2007</date>
+<booktitle>In Proc. of the Annual Meeting of the ACL.</booktitle>
+<contexts>
+<context position="34337" citStr="Chang et al., 2007" startWordPosition="5468" endWordPosition="5471">omingos, 2009; Titov and Klementiev, 2011) take a different approach to semantic representation, by clustering semantically equivalent dependency tree fragments, and identifying their predicate-argument structure. While these approaches have been applied successfully to semantic tasks such as question answering, they do not ground the input in a well defined output language, an essential component in our task. Our unsupervised approach follows a self training protocol (Yarowsky, 1995; McClosky et al., 2006; Reichart and Rappoport, 2007b) enhanced with constraints restricting the output space (Chang et al., 2007; Chang et al., 2009). A Self training protocol uses its own predictions for training. We estimate the quality of the predictions and use only high confidence examples for training. This selection criterion provides an additional view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see (Caruana and Niculescu-Mizil, 2006) for a survey), and applied to several NL processing tasks such as synta</context>
+</contexts>
+<marker>Chang, Ratinov, Roth, 2007</marker>
+<rawString>M. Chang, L. Ratinov, and D. Roth. 2007. Guiding semisupervision with constraint-driven learning. In Proc. of the Annual Meeting of the ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Chang</author>
+<author>D Goldwasser</author>
+<author>D Roth</author>
+<author>Y Tu</author>
+</authors>
+<title>Unsupervised constraint driven learning for transliteration discovery.</title>
+<date>2009</date>
+<booktitle>In NAACL.</booktitle>
+<contexts>
+<context position="34358" citStr="Chang et al., 2009" startWordPosition="5472" endWordPosition="5475"> and Klementiev, 2011) take a different approach to semantic representation, by clustering semantically equivalent dependency tree fragments, and identifying their predicate-argument structure. While these approaches have been applied successfully to semantic tasks such as question answering, they do not ground the input in a well defined output language, an essential component in our task. Our unsupervised approach follows a self training protocol (Yarowsky, 1995; McClosky et al., 2006; Reichart and Rappoport, 2007b) enhanced with constraints restricting the output space (Chang et al., 2007; Chang et al., 2009). A Self training protocol uses its own predictions for training. We estimate the quality of the predictions and use only high confidence examples for training. This selection criterion provides an additional view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see (Caruana and Niculescu-Mizil, 2006) for a survey), and applied to several NL processing tasks such as syntactic parsing (Reichar</context>
+</contexts>
+<marker>Chang, Goldwasser, Roth, Tu, 2009</marker>
+<rawString>M. Chang, D. Goldwasser, D. Roth, and Y. Tu. 2009. Unsupervised constraint driven learning for transliteration discovery. In NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Chen</author>
+<author>R Mooney</author>
+</authors>
+<title>Learning to sportscast: a test of grounded language acquisition.</title>
+<date>2008</date>
+<booktitle>In ICML.</booktitle>
+<contexts>
+<context position="33141" citStr="Chen and Mooney, 2008" startWordPosition="5283" endWordPosition="5286">Semantic parsing has attracted considerable interest in recent years. Current approaches employ various machine learning techniques for this task, such as Inductive Logic Programming in earlier systems (Zelle and Mooney, 1996; Tang and Mooney, 2000) and statistical learning methods in modern ones (Ge and Mooney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et al., 2011) suggest using response-based learning protocols, which alleviate some of the supervision effort. This work takes an additional step in this direction and suggest an unsupervised protocol. Other approaches to unsupervised semantic analysis (Poon and Domingos, 2009; Titov a</context>
+</contexts>
+<marker>Chen, Mooney, 2008</marker>
+<rawString>D. Chen and R. Mooney. 2008. Learning to sportscast: a test of grounded language acquisition. In ICML.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Chu-Carroll</author>
+<author>J Prager K Czuba</author>
+<author>A Ittycheriah</author>
+</authors>
+<title>In question answering, two heads are better than on.</title>
+<date>2003</date>
+<booktitle>In HLT-NAACL.</booktitle>
+<contexts>
+<context position="35188" citStr="Chu-Carroll et al., 2003" startWordPosition="5603" endWordPosition="5606">nal view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see (Caruana and Niculescu-Mizil, 2006) for a survey), and applied to several NL processing tasks such as syntactic parsing (Reichart and Rappoport, 2007a; Yates et al., 2006), machine translation (Ueffing and Ney, 2007), speech (Koo et al., 2001), relation extraction (Rosenfeld and Feldman, 2007), IE (Culotta and McCallum, 2004), QA (Chu-Carroll et al., 2003) and dialog systems (Lin and Weng, 2008). In addition to sample selection we use confidence estimation as a way to approximate the overall quality of the model and use it for model selection. This use of confidence estimation was explored in (Reichart et al., 2010), to select between models trained with different random starting points. In this work we integrate this estimation deeper into the learning process, thus allowing our training procedure to return the best performing model. 7 Conclusions We introduced an unsupervised learning algorithm for semantic parsing, the first for this task to</context>
+</contexts>
+<marker>Chu-Carroll, Czuba, Ittycheriah, 2003</marker>
+<rawString>J. Chu-Carroll, J. Prager K. Czuba, and A. Ittycheriah. 2003. In question answering, two heads are better than on. In HLT-NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Clarke</author>
+<author>D Goldwasser</author>
+<author>M Chang</author>
+<author>D Roth</author>
+</authors>
+<title>Driving semantic parsing from the worlds response.</title>
+<date>2010</date>
+<journal>In CoNLL,</journal>
+<volume>7</volume>
+<contexts>
+<context position="20197" citStr="Clarke et al., 2010" startWordPosition="3249" endWordPosition="3252">d on top, preferably by a large margin to allow generalization.The structured learning algorithm can directly use the top ranking predictions of the model (line 8 in Alg. 1) as training data. In this case the underlying algorithm is a structural SVM with squared-hinge loss, using hamming distance as the distance function. We use the cuttingplane method to efficiently optimize the learning process objective function. 4 Model Semantic parsing as formulated in Eq. 1 is an inference procedure selecting the top ranked output logical formula. We follow the inference approach in (Roth and Yih, 2007; Clarke et al., 2010) and formalize this process as an Integer Linear Program (ILP). Due to space consideration we provide a brief description, and refer the reader to that paper for more details. 2 Without normalization longer sentences would have more influence on binary learning problem. Normalization is therefore required to ensure that each sentence contributes equally to the binary learning problem regardless of its length. 1490 \x0c4.1 Inference The inference decision (Eq. 1) is decomposed into smaller decisions, capturing mapping of input tokens to logical fragments (first order) and their composition into</context>
+<context position="21704" citStr="Clarke et al., 2010" startWordPosition="3498" endWordPosition="3501">an argument of a function s (associated with constituent c). We frame the inference problem over these decisions: Fw(x) = arg max , X cx X sD cs wT 1(x, c, s) + X c,dx X s,tD cs,dt wT 2(x, c, s, d, t) (2) We restrict the possible assignments to the decision variables, forcing the resulting output formula to be syntactically legal, for example by restricting active -variables to be type consistent, and force the resulting functional composition to be acyclic. We take advantage of the flexible ILP framework, and encode these restrictions as global constraints over Eq. 2. We refer the reader to (Clarke et al., 2010) for a full description of the constraints used. 4.2 Features The inference problem defined in Eq. (2) uses two feature functions: 1 and 2. First-order decision features 1 Determining if a logical symbol is aligned with a specific constituent depends mostly on lexical information. Following previous work (e.g., (Zettlemoyer and Collins, 2005)) we create a small lexicon, mapping logical symbols to surface forms.3 Existing approaches rely on annotated data to extend the lexicon. Instead we rely on external knowledge (Miller et al., 1990) and add features which measure the lexical similarity betw</context>
+<context position="24094" citStr="Clarke et al., 2010" startWordPosition="3869" endWordPosition="3872">1 defines the naming conventions used throughout this section to refer to the different models we evaluated. We begin by describing our experimental setup and then proceed to describe the experiments and their results. For the sake of clarity we focus on the best performing models (COMBINED using BIGRAM and PROPORTION) first and discuss other models later in the section. 5.1 Experimental Settings In all our experiments we used the Geoquery dataset (Zelle and Mooney, 1996), consisting of U.S. geography NL questions and their corresponding Prolog logical MR. We used the data split described in (Clarke et al., 2010), consisting of 250 queries for evaluation purposes. We compared our system to several supervised models, which were trained using a disjoint set of queries. Our learning system had access only to the NL questions, and the logical forms were only used to evaluate the systems performance. We report the proportion of correct structures (accuracy). Note that this evaluation cor1491 \x0cresponds to the 0/1 loss over the predicted structures. Initialization Our learning framework requires an initial weight vector as input. We use a straight forward heuristic and provide uniform positive weights to </context>
+<context position="25473" citStr="Clarke et al., 2010" startWordPosition="4095" endWordPosition="4098">ODEL throughout this section. Competing Systems We compared our system to several other systems: (1) PRED. SCORE: An unsupervised framework using the models internal prediction score (wT (x, y, z)) for confidence estimation. (2) ALL EXAMPLES: Treating all predicted structures as correct, i.e., at each iteration the model is trained over all the predictions it made. The reported score was obtained by selecting the model at the training iteration with the highest overall confidence score (see line 12 in Alg. 1). (3) RESPONSE BASED: A natural upper bound to our framework is the approach used in (Clarke et al., 2010). While our approach is based on assessing the correctness os the models predictions according to unsupervised confidence estimation, their framework is provided with external supervision for these decisions, indicating if the predicted structures are correct. (4) SUPERVISED: A fully supervised framework trained over 250 (x, z) pairs using structured SVM. 5.2 Results Our experiments aim to clarify three key points: (1) Can a semantic parser indeed be trained without any form of external supervision? this is our key question, as this is the first attempt to approach this task with an unsupervis</context>
+<context position="33447" citStr="Clarke et al., 2010" startWordPosition="5336" endWordPosition="5339">oney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et al., 2011) suggest using response-based learning protocols, which alleviate some of the supervision effort. This work takes an additional step in this direction and suggest an unsupervised protocol. Other approaches to unsupervised semantic analysis (Poon and Domingos, 2009; Titov and Klementiev, 2011) take a different approach to semantic representation, by clustering semantically equivalent dependency tree fragments, and identifying their predicate-argument structure. While these approaches have been applied successfully to semantic tasks such as question answering, they do not gr</context>
+</contexts>
+<marker>Clarke, Goldwasser, Chang, Roth, 2010</marker>
+<rawString>J. Clarke, D. Goldwasser, M. Chang, and D. Roth. 2010. Driving semantic parsing from the worlds response. In CoNLL, 7.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+<author>Y Singer</author>
+</authors>
+<title>Unsupervised models for named entity classification.</title>
+<date>1999</date>
+<booktitle>In EMNLPVLC.</booktitle>
+<contexts>
+<context position="11327" citStr="Collins and Singer, 1999" startWordPosition="1808" endWordPosition="1811">ion: training the model using examples selected according to the models parameters (i.e., the top ranking structures) may not generalize much further beyond the existing model, as the training examples will simply reinforce the existing model. The statistics used for confidence estimation are different than those used by the model to create the output structures, and can therefore capture additional information unobserved by the prediction model. This assumption is based on the well established idea of multi-view learning, applied successfully to many NL applications (Blum and Mitchell, 1998; Collins and Singer, 1999). According to this idea if two models use different views of the data, each of them can enhance the learning process of the other. The success of our learning procedure hinges on finding good confidence measures, whose confidence prediction correlates well with the true quality of the prediction. The ability of unsupervised confidence estimation to provide high quality confidence predictions can be explained by the observation that prominent prediction patterns are more likely to be correct. If a non-random model produces a prediction pattern multiple times it is likely to be an indication of</context>
+</contexts>
+<marker>Collins, Singer, 1999</marker>
+<rawString>M. Collins and Y. Singer. 1999. Unsupervised models for named entity classification. In EMNLPVLC.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Culotta</author>
+<author>A McCallum</author>
+</authors>
+<title>Confidence estimation for information extraction.</title>
+<date>2004</date>
+<booktitle>In HLT-NAACL.</booktitle>
+<contexts>
+<context position="35157" citStr="Culotta and McCallum, 2004" startWordPosition="5598" endWordPosition="5601">ion criterion provides an additional view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see (Caruana and Niculescu-Mizil, 2006) for a survey), and applied to several NL processing tasks such as syntactic parsing (Reichart and Rappoport, 2007a; Yates et al., 2006), machine translation (Ueffing and Ney, 2007), speech (Koo et al., 2001), relation extraction (Rosenfeld and Feldman, 2007), IE (Culotta and McCallum, 2004), QA (Chu-Carroll et al., 2003) and dialog systems (Lin and Weng, 2008). In addition to sample selection we use confidence estimation as a way to approximate the overall quality of the model and use it for model selection. This use of confidence estimation was explored in (Reichart et al., 2010), to select between models trained with different random starting points. In this work we integrate this estimation deeper into the learning process, thus allowing our training procedure to return the best performing model. 7 Conclusions We introduced an unsupervised learning algorithm for semantic pars</context>
+</contexts>
+<marker>Culotta, McCallum, 2004</marker>
+<rawString>A. Culotta and A. McCallum. 2004. Confidence estimation for information extraction. In HLT-NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Ge</author>
+<author>R Mooney</author>
+</authors>
+<title>A statistical semantic parser that integrates syntax and semantics.</title>
+<date>2005</date>
+<booktitle>In CoNLL.</booktitle>
+<contexts>
+<context position="32838" citStr="Ge and Mooney, 2005" startWordPosition="5238" endWordPosition="5241"> obtained by approximating the best result using the averaged prediction confidence (Conf. estim.) and the result of using the default convergence criterion (Default). Results in parentheses are the result of using the UNIGRAM confidence to approximate the models performance. 1493 \x0c6 Related Work Semantic parsing has attracted considerable interest in recent years. Current approaches employ various machine learning techniques for this task, such as Inductive Logic Programming in earlier systems (Zelle and Mooney, 1996; Tang and Mooney, 2000) and statistical learning methods in modern ones (Ge and Mooney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et </context>
+</contexts>
+<marker>Ge, Mooney, 2005</marker>
+<rawString>R. Ge and R. Mooney. 2005. A statistical semantic parser that integrates syntax and semantics. In CoNLL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Kate</author>
+<author>R Mooney</author>
+</authors>
+<title>Using string-kernels for learning semantic parsers.</title>
+<date>2006</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="32905" citStr="Kate and Mooney, 2006" startWordPosition="5250" endWordPosition="5253">diction confidence (Conf. estim.) and the result of using the default convergence criterion (Default). Results in parentheses are the result of using the UNIGRAM confidence to approximate the models performance. 1493 \x0c6 Related Work Semantic parsing has attracted considerable interest in recent years. Current approaches employ various machine learning techniques for this task, such as Inductive Logic Programming in earlier systems (Zelle and Mooney, 1996; Tang and Mooney, 2000) and statistical learning methods in modern ones (Ge and Mooney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et al., 2011) suggest using response-based learnin</context>
+</contexts>
+<marker>Kate, Mooney, 2006</marker>
+<rawString>R. Kate and R. Mooney. 2006. Using string-kernels for learning semantic parsers. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y Koo</author>
+<author>C Lee</author>
+<author>B Juang</author>
+</authors>
+<title>Speech recognition and utterance verification based on a generalized confidence score.</title>
+<date>2001</date>
+<booktitle>IEEE Transactions on Speech and Audio Processing,</booktitle>
+<pages>9--8</pages>
+<contexts>
+<context position="35073" citStr="Koo et al., 2001" startWordPosition="5586" endWordPosition="5589">redictions and use only high confidence examples for training. This selection criterion provides an additional view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see (Caruana and Niculescu-Mizil, 2006) for a survey), and applied to several NL processing tasks such as syntactic parsing (Reichart and Rappoport, 2007a; Yates et al., 2006), machine translation (Ueffing and Ney, 2007), speech (Koo et al., 2001), relation extraction (Rosenfeld and Feldman, 2007), IE (Culotta and McCallum, 2004), QA (Chu-Carroll et al., 2003) and dialog systems (Lin and Weng, 2008). In addition to sample selection we use confidence estimation as a way to approximate the overall quality of the model and use it for model selection. This use of confidence estimation was explored in (Reichart et al., 2010), to select between models trained with different random starting points. In this work we integrate this estimation deeper into the learning process, thus allowing our training procedure to return the best performing mod</context>
+</contexts>
+<marker>Koo, Lee, Juang, 2001</marker>
+<rawString>Y. Koo, C. Lee, and B. Juang. 2001. Speech recognition and utterance verification based on a generalized confidence score. IEEE Transactions on Speech and Audio Processing, 9(8):821832.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P Liang</author>
+<author>M I Jordan</author>
+<author>D Klein</author>
+</authors>
+<title>Learning semantic correspondences with less supervision.</title>
+<date>2009</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="33161" citStr="Liang et al., 2009" startWordPosition="5287" endWordPosition="5290">tracted considerable interest in recent years. Current approaches employ various machine learning techniques for this task, such as Inductive Logic Programming in earlier systems (Zelle and Mooney, 1996; Tang and Mooney, 2000) and statistical learning methods in modern ones (Ge and Mooney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et al., 2011) suggest using response-based learning protocols, which alleviate some of the supervision effort. This work takes an additional step in this direction and suggest an unsupervised protocol. Other approaches to unsupervised semantic analysis (Poon and Domingos, 2009; Titov and Klementiev, 2011)</context>
+</contexts>
+<marker>Liang, Jordan, Klein, 2009</marker>
+<rawString>P. Liang, M. I. Jordan, and D. Klein. 2009. Learning semantic correspondences with less supervision. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P Liang</author>
+<author>M I Jordan</author>
+<author>D Klein</author>
+</authors>
+<title>Deep compositional semantics from shallow supervision.</title>
+<date>2011</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="33468" citStr="Liang et al., 2011" startWordPosition="5340" endWordPosition="5343"> al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et al., 2011) suggest using response-based learning protocols, which alleviate some of the supervision effort. This work takes an additional step in this direction and suggest an unsupervised protocol. Other approaches to unsupervised semantic analysis (Poon and Domingos, 2009; Titov and Klementiev, 2011) take a different approach to semantic representation, by clustering semantically equivalent dependency tree fragments, and identifying their predicate-argument structure. While these approaches have been applied successfully to semantic tasks such as question answering, they do not ground the input in a w</context>
+</contexts>
+<marker>Liang, Jordan, Klein, 2011</marker>
+<rawString>P. Liang, M.I. Jordan, and D. Klein. 2011. Deep compositional semantics from shallow supervision. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Lin</author>
+<author>F Weng</author>
+</authors>
+<title>Computing confidence scores for all sub parse trees.</title>
+<date>2008</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="35228" citStr="Lin and Weng, 2008" startWordPosition="5610" endWordPosition="5613">rediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see (Caruana and Niculescu-Mizil, 2006) for a survey), and applied to several NL processing tasks such as syntactic parsing (Reichart and Rappoport, 2007a; Yates et al., 2006), machine translation (Ueffing and Ney, 2007), speech (Koo et al., 2001), relation extraction (Rosenfeld and Feldman, 2007), IE (Culotta and McCallum, 2004), QA (Chu-Carroll et al., 2003) and dialog systems (Lin and Weng, 2008). In addition to sample selection we use confidence estimation as a way to approximate the overall quality of the model and use it for model selection. This use of confidence estimation was explored in (Reichart et al., 2010), to select between models trained with different random starting points. In this work we integrate this estimation deeper into the learning process, thus allowing our training procedure to return the best performing model. 7 Conclusions We introduced an unsupervised learning algorithm for semantic parsing, the first for this task to the best of our knowledge. To compensat</context>
+</contexts>
+<marker>Lin, Weng, 2008</marker>
+<rawString>F. Lin and F. Weng. 2008. Computing confidence scores for all sub parse trees. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D McClosky</author>
+<author>E Charniak</author>
+<author>Mark Johnson</author>
+</authors>
+<title>Effective self-training for parsing.</title>
+<date>2006</date>
+<booktitle>In HLT-NAACL.</booktitle>
+<contexts>
+<context position="34230" citStr="McClosky et al., 2006" startWordPosition="5452" endWordPosition="5455">direction and suggest an unsupervised protocol. Other approaches to unsupervised semantic analysis (Poon and Domingos, 2009; Titov and Klementiev, 2011) take a different approach to semantic representation, by clustering semantically equivalent dependency tree fragments, and identifying their predicate-argument structure. While these approaches have been applied successfully to semantic tasks such as question answering, they do not ground the input in a well defined output language, an essential component in our task. Our unsupervised approach follows a self training protocol (Yarowsky, 1995; McClosky et al., 2006; Reichart and Rappoport, 2007b) enhanced with constraints restricting the output space (Chang et al., 2007; Chang et al., 2009). A Self training protocol uses its own predictions for training. We estimate the quality of the predictions and use only high confidence examples for training. This selection criterion provides an additional view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see </context>
+</contexts>
+<marker>McClosky, Charniak, Johnson, 2006</marker>
+<rawString>D. McClosky, E. Charniak, and Mark Johnson. 2006. Effective self-training for parsing. In HLT-NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>G Miller</author>
+<author>R Beckwith</author>
+<author>C Fellbaum</author>
+<author>D Gross</author>
+<author>K J Miller</author>
+</authors>
+<title>Wordnet: An on-line lexical database.</title>
+<date>1990</date>
+<journal>International Journal of Lexicography.</journal>
+<contexts>
+<context position="22245" citStr="Miller et al., 1990" startWordPosition="3584" endWordPosition="3587"> as global constraints over Eq. 2. We refer the reader to (Clarke et al., 2010) for a full description of the constraints used. 4.2 Features The inference problem defined in Eq. (2) uses two feature functions: 1 and 2. First-order decision features 1 Determining if a logical symbol is aligned with a specific constituent depends mostly on lexical information. Following previous work (e.g., (Zettlemoyer and Collins, 2005)) we create a small lexicon, mapping logical symbols to surface forms.3 Existing approaches rely on annotated data to extend the lexicon. Instead we rely on external knowledge (Miller et al., 1990) and add features which measure the lexical similarity between a constituent and a logical symbols surface forms (as defined by the lexicon). 3 The lexicon contains on average 1.42 words per function and 1.07 words per constant. Model Description INITIAL MODEL Manually set weights (Sec. 5.1) PRED. SCORE normalized prediction (Sec. 5.1) ALL EXAMPLES All top structures (Sec. 5.1) UNIGRAM Unigram score (Sec. 3.2) BIGRAM Bigram score (Sec. 3.2) PROPORTION Words-predicate prop (Sec. 3.2) COMBINED Combined estimators (Sec. 3.2) RESPONSE BASED Supervised (binary) (Sec. 5.1) SUPERVISED Fully Supervise</context>
+</contexts>
+<marker>Miller, Beckwith, Fellbaum, Gross, Miller, 1990</marker>
+<rawString>G. Miller, R. Beckwith, C. Fellbaum, D. Gross, and K.J. Miller. 1990. Wordnet: An on-line lexical database. International Journal of Lexicography.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Nguyen</author>
+<author>A Shimazu</author>
+<author>X Phan</author>
+</authors>
+<title>Semantic parsing with structured svm ensemble classification models.</title>
+<date>2006</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="32859" citStr="Nguyen et al., 2006" startWordPosition="5242" endWordPosition="5245">ating the best result using the averaged prediction confidence (Conf. estim.) and the result of using the default convergence criterion (Default). Results in parentheses are the result of using the UNIGRAM confidence to approximate the models performance. 1493 \x0c6 Related Work Semantic parsing has attracted considerable interest in recent years. Current approaches employ various machine learning techniques for this task, such as Inductive Logic Programming in earlier systems (Zelle and Mooney, 1996; Tang and Mooney, 2000) and statistical learning methods in modern ones (Ge and Mooney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et a</context>
+</contexts>
+<marker>Nguyen, Shimazu, Phan, 2006</marker>
+<rawString>L. Nguyen, A. Shimazu, and X. Phan. 2006. Semantic parsing with structured svm ensemble classification models. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H Poon</author>
+<author>P Domingos</author>
+</authors>
+<title>Unsupervised semantic parsing.</title>
+<date>2009</date>
+<booktitle>In EMNLP.</booktitle>
+<contexts>
+<context position="33732" citStr="Poon and Domingos, 2009" startWordPosition="5378" endWordPosition="5381">ervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et al., 2011) suggest using response-based learning protocols, which alleviate some of the supervision effort. This work takes an additional step in this direction and suggest an unsupervised protocol. Other approaches to unsupervised semantic analysis (Poon and Domingos, 2009; Titov and Klementiev, 2011) take a different approach to semantic representation, by clustering semantically equivalent dependency tree fragments, and identifying their predicate-argument structure. While these approaches have been applied successfully to semantic tasks such as question answering, they do not ground the input in a well defined output language, an essential component in our task. Our unsupervised approach follows a self training protocol (Yarowsky, 1995; McClosky et al., 2006; Reichart and Rappoport, 2007b) enhanced with constraints restricting the output space (Chang et al.,</context>
+</contexts>
+<marker>Poon, Domingos, 2009</marker>
+<rawString>H. Poon and P. Domingos. 2009. Unsupervised semantic parsing. In EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Reichart</author>
+<author>A Rappoport</author>
+</authors>
+<title>An ensemble method for selection of high quality parses. In ACL.</title>
+<date>2007</date>
+<contexts>
+<context position="34260" citStr="Reichart and Rappoport, 2007" startWordPosition="5456" endWordPosition="5459">n unsupervised protocol. Other approaches to unsupervised semantic analysis (Poon and Domingos, 2009; Titov and Klementiev, 2011) take a different approach to semantic representation, by clustering semantically equivalent dependency tree fragments, and identifying their predicate-argument structure. While these approaches have been applied successfully to semantic tasks such as question answering, they do not ground the input in a well defined output language, an essential component in our task. Our unsupervised approach follows a self training protocol (Yarowsky, 1995; McClosky et al., 2006; Reichart and Rappoport, 2007b) enhanced with constraints restricting the output space (Chang et al., 2007; Chang et al., 2009). A Self training protocol uses its own predictions for training. We estimate the quality of the predictions and use only high confidence examples for training. This selection criterion provides an additional view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see (Caruana and Niculescu-Mizil, </context>
+</contexts>
+<marker>Reichart, Rappoport, 2007</marker>
+<rawString>R. Reichart and A. Rappoport. 2007a. An ensemble method for selection of high quality parses. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Reichart</author>
+<author>A Rappoport</author>
+</authors>
+<title>Self-training for enhancement and domain adaptation of statistical parsers trained on small datasets.</title>
+<date>2007</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="34260" citStr="Reichart and Rappoport, 2007" startWordPosition="5456" endWordPosition="5459">n unsupervised protocol. Other approaches to unsupervised semantic analysis (Poon and Domingos, 2009; Titov and Klementiev, 2011) take a different approach to semantic representation, by clustering semantically equivalent dependency tree fragments, and identifying their predicate-argument structure. While these approaches have been applied successfully to semantic tasks such as question answering, they do not ground the input in a well defined output language, an essential component in our task. Our unsupervised approach follows a self training protocol (Yarowsky, 1995; McClosky et al., 2006; Reichart and Rappoport, 2007b) enhanced with constraints restricting the output space (Chang et al., 2007; Chang et al., 2009). A Self training protocol uses its own predictions for training. We estimate the quality of the predictions and use only high confidence examples for training. This selection criterion provides an additional view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see (Caruana and Niculescu-Mizil, </context>
+</contexts>
+<marker>Reichart, Rappoport, 2007</marker>
+<rawString>R. Reichart and A. Rappoport. 2007b. Self-training for enhancement and domain adaptation of statistical parsers trained on small datasets. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Reichart</author>
+<author>R Fattal</author>
+<author>A Rappoport</author>
+</authors>
+<title>Improved unsupervised pos induction using intrinsic clustering quality and a zipfian constraint. In CoNLL.</title>
+<date>2010</date>
+<contexts>
+<context position="35453" citStr="Reichart et al., 2010" startWordPosition="5649" endWordPosition="5653">Caruana and Niculescu-Mizil, 2006) for a survey), and applied to several NL processing tasks such as syntactic parsing (Reichart and Rappoport, 2007a; Yates et al., 2006), machine translation (Ueffing and Ney, 2007), speech (Koo et al., 2001), relation extraction (Rosenfeld and Feldman, 2007), IE (Culotta and McCallum, 2004), QA (Chu-Carroll et al., 2003) and dialog systems (Lin and Weng, 2008). In addition to sample selection we use confidence estimation as a way to approximate the overall quality of the model and use it for model selection. This use of confidence estimation was explored in (Reichart et al., 2010), to select between models trained with different random starting points. In this work we integrate this estimation deeper into the learning process, thus allowing our training procedure to return the best performing model. 7 Conclusions We introduced an unsupervised learning algorithm for semantic parsing, the first for this task to the best of our knowledge. To compensate for the lack of training data we use a self-training protocol, driven by unsupervised confidence estimation. We demonstrate empirically that our approach results in a high preforming semantic parser and show that confidence</context>
+</contexts>
+<marker>Reichart, Fattal, Rappoport, 2010</marker>
+<rawString>R. Reichart, R. Fattal, and A. Rappoport. 2010. Improved unsupervised pos induction using intrinsic clustering quality and a zipfian constraint. In CoNLL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>B Rosenfeld</author>
+<author>R Feldman</author>
+</authors>
+<title>Using corpus statistics on entities to improve semisupervised relation extraction from the web. In ACL.</title>
+<date>2007</date>
+<contexts>
+<context position="35124" citStr="Rosenfeld and Feldman, 2007" startWordPosition="5593" endWordPosition="5596">examples for training. This selection criterion provides an additional view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see (Caruana and Niculescu-Mizil, 2006) for a survey), and applied to several NL processing tasks such as syntactic parsing (Reichart and Rappoport, 2007a; Yates et al., 2006), machine translation (Ueffing and Ney, 2007), speech (Koo et al., 2001), relation extraction (Rosenfeld and Feldman, 2007), IE (Culotta and McCallum, 2004), QA (Chu-Carroll et al., 2003) and dialog systems (Lin and Weng, 2008). In addition to sample selection we use confidence estimation as a way to approximate the overall quality of the model and use it for model selection. This use of confidence estimation was explored in (Reichart et al., 2010), to select between models trained with different random starting points. In this work we integrate this estimation deeper into the learning process, thus allowing our training procedure to return the best performing model. 7 Conclusions We introduced an unsupervised lea</context>
+</contexts>
+<marker>Rosenfeld, Feldman, 2007</marker>
+<rawString>B. Rosenfeld and R. Feldman. 2007. Using corpus statistics on entities to improve semisupervised relation extraction from the web. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Roth</author>
+<author>W Yih</author>
+</authors>
+<title>Global inference for entity and relation identification via a linear programming formulation.</title>
+<date>2007</date>
+<booktitle>In Lise Getoor and Ben Taskar, editors, Introduction to Statistical Relational Learning.</booktitle>
+<contexts>
+<context position="20175" citStr="Roth and Yih, 2007" startWordPosition="3245" endWordPosition="3248">ucture will be ranked on top, preferably by a large margin to allow generalization.The structured learning algorithm can directly use the top ranking predictions of the model (line 8 in Alg. 1) as training data. In this case the underlying algorithm is a structural SVM with squared-hinge loss, using hamming distance as the distance function. We use the cuttingplane method to efficiently optimize the learning process objective function. 4 Model Semantic parsing as formulated in Eq. 1 is an inference procedure selecting the top ranked output logical formula. We follow the inference approach in (Roth and Yih, 2007; Clarke et al., 2010) and formalize this process as an Integer Linear Program (ILP). Due to space consideration we provide a brief description, and refer the reader to that paper for more details. 2 Without normalization longer sentences would have more influence on binary learning problem. Normalization is therefore required to ensure that each sentence contributes equally to the binary learning problem regardless of its length. 1490 \x0c4.1 Inference The inference decision (Eq. 1) is decomposed into smaller decisions, capturing mapping of input tokens to logical fragments (first order) and </context>
+</contexts>
+<marker>Roth, Yih, 2007</marker>
+<rawString>D. Roth and W. Yih. 2007. Global inference for entity and relation identification via a linear programming formulation. In Lise Getoor and Ben Taskar, editors, Introduction to Statistical Relational Learning.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Tang</author>
+<author>R Mooney</author>
+</authors>
+<title>Automated construction of database interfaces: integrating statistical and relational learning for semantic parsing.</title>
+<date>2000</date>
+<booktitle>In EMNLP.</booktitle>
+<contexts>
+<context position="32769" citStr="Tang and Mooney, 2000" startWordPosition="5227" endWordPosition="5230"> obtained in any of the learning algorithm iterations (Best), the result obtained by approximating the best result using the averaged prediction confidence (Conf. estim.) and the result of using the default convergence criterion (Default). Results in parentheses are the result of using the UNIGRAM confidence to approximate the models performance. 1493 \x0c6 Related Work Semantic parsing has attracted considerable interest in recent years. Current approaches employ various machine learning techniques for this task, such as Inductive Logic Programming in earlier systems (Zelle and Mooney, 1996; Tang and Mooney, 2000) and statistical learning methods in modern ones (Ge and Mooney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefor</context>
+</contexts>
+<marker>Tang, Mooney, 2000</marker>
+<rawString>L. Tang and R. Mooney. 2000. Automated construction of database interfaces: integrating statistical and relational learning for semantic parsing. In EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L R Tang</author>
+<author>R J Mooney</author>
+</authors>
+<title>Using multiple clause constructors in inductive logic programming for semantic parsing.</title>
+<date>2001</date>
+<booktitle>In ECML.</booktitle>
+<contexts>
+<context position="4288" citStr="Tang and Mooney, 2001" startWordPosition="670" endWordPosition="673">f the unsupervised train1486 \x0cing procedure. Our learning algorithm takes an EMlike iterative approach, in which the predictions of the previous stage are used to bias the model. While this basic scheme was successfully applied to many unsupervised tasks, it is known to converge to a sub optimal point. We show that by using confidence estimation as a proxy for the models prediction quality, the learning algorithm can identify a better model compared to the default convergence criterion. We evaluate our learning approach and model on the well studied Geoquery domain (Zelle and Mooney, 1996; Tang and Mooney, 2001), consisting of natural language questions and their prolog interpretations used to query a database consisting of U.S. geographical information. Our experimental results show that using our approach we are able to train a good semantic parser without annotated data, and that using a confidence score to identify good models results in a significant performance improvement. 2 Semantic Parsing We formulate semantic parsing as a structured prediction problem, mapping a NL input sentence (denoted x), to its highest ranking MR (denoted z). In order to correctly parametrize and weight the possible o</context>
+</contexts>
+<marker>Tang, Mooney, 2001</marker>
+<rawString>L. R. Tang and R. J. Mooney. 2001. Using multiple clause constructors in inductive logic programming for semantic parsing. In ECML.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>I Titov</author>
+<author>A Klementiev</author>
+</authors>
+<title>A bayesian model for unsupervised semantic parsing.</title>
+<date>2011</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="33761" citStr="Titov and Klementiev, 2011" startWordPosition="5382" endWordPosition="5386">y, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et al., 2011) suggest using response-based learning protocols, which alleviate some of the supervision effort. This work takes an additional step in this direction and suggest an unsupervised protocol. Other approaches to unsupervised semantic analysis (Poon and Domingos, 2009; Titov and Klementiev, 2011) take a different approach to semantic representation, by clustering semantically equivalent dependency tree fragments, and identifying their predicate-argument structure. While these approaches have been applied successfully to semantic tasks such as question answering, they do not ground the input in a well defined output language, an essential component in our task. Our unsupervised approach follows a self training protocol (Yarowsky, 1995; McClosky et al., 2006; Reichart and Rappoport, 2007b) enhanced with constraints restricting the output space (Chang et al., 2007; Chang et al., 2009). A</context>
+</contexts>
+<marker>Titov, Klementiev, 2011</marker>
+<rawString>I. Titov and A. Klementiev. 2011. A bayesian model for unsupervised semantic parsing. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>I Titov</author>
+<author>M Kozhevnikov</author>
+</authors>
+<title>Bootstrapping semantic analyzers from non-contradictory texts.</title>
+<date>2010</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="33214" citStr="Titov and Kozhevnikov, 2010" startWordPosition="5295" endWordPosition="5298">rs. Current approaches employ various machine learning techniques for this task, such as Inductive Logic Programming in earlier systems (Zelle and Mooney, 1996; Tang and Mooney, 2000) and statistical learning methods in modern ones (Ge and Mooney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et al., 2011) suggest using response-based learning protocols, which alleviate some of the supervision effort. This work takes an additional step in this direction and suggest an unsupervised protocol. Other approaches to unsupervised semantic analysis (Poon and Domingos, 2009; Titov and Klementiev, 2011) take a different approach to semantic representation</context>
+</contexts>
+<marker>Titov, Kozhevnikov, 2010</marker>
+<rawString>I. Titov and M. Kozhevnikov. 2010. Bootstrapping semantic analyzers from non-contradictory texts. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N Ueffing</author>
+<author>H Ney</author>
+</authors>
+<title>Word-level confidence estimation for machine translation.</title>
+<date>2007</date>
+<journal>Computational Linguistics,</journal>
+<volume>33</volume>
+<issue>1</issue>
+<contexts>
+<context position="35046" citStr="Ueffing and Ney, 2007" startWordPosition="5581" endWordPosition="5584">We estimate the quality of the predictions and use only high confidence examples for training. This selection criterion provides an additional view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see (Caruana and Niculescu-Mizil, 2006) for a survey), and applied to several NL processing tasks such as syntactic parsing (Reichart and Rappoport, 2007a; Yates et al., 2006), machine translation (Ueffing and Ney, 2007), speech (Koo et al., 2001), relation extraction (Rosenfeld and Feldman, 2007), IE (Culotta and McCallum, 2004), QA (Chu-Carroll et al., 2003) and dialog systems (Lin and Weng, 2008). In addition to sample selection we use confidence estimation as a way to approximate the overall quality of the model and use it for model selection. This use of confidence estimation was explored in (Reichart et al., 2010), to select between models trained with different random starting points. In this work we integrate this estimation deeper into the learning process, thus allowing our training procedure to ret</context>
+</contexts>
+<marker>Ueffing, Ney, 2007</marker>
+<rawString>N. Ueffing and H. Ney. 2007. Word-level confidence estimation for machine translation. Computational Linguistics, 33(1):940.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y W Wong</author>
+<author>R Mooney</author>
+</authors>
+<title>Learning for semantic parsing with statistical machine translation.</title>
+<date>2006</date>
+<booktitle>In NAACL.</booktitle>
+<contexts>
+<context position="32882" citStr="Wong and Mooney, 2006" startWordPosition="5246" endWordPosition="5249"> using the averaged prediction confidence (Conf. estim.) and the result of using the default convergence criterion (Default). Results in parentheses are the result of using the UNIGRAM confidence to approximate the models performance. 1493 \x0c6 Related Work Semantic parsing has attracted considerable interest in recent years. Current approaches employ various machine learning techniques for this task, such as Inductive Logic Programming in earlier systems (Zelle and Mooney, 1996; Tang and Mooney, 2000) and statistical learning methods in modern ones (Ge and Mooney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et al., 2011) suggest using</context>
+</contexts>
+<marker>Wong, Mooney, 2006</marker>
+<rawString>Y.W. Wong and R. Mooney. 2006. Learning for semantic parsing with statistical machine translation. In NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y W Wong</author>
+<author>R Mooney</author>
+</authors>
+<title>Learning synchronous grammars for semantic parsing with lambda calculus.</title>
+<date>2007</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="2088" citStr="Wong and Mooney, 2007" startWordPosition="307" endWordPosition="310">o convert NL into a formal MR has countless applications. The term semantic parsing has been used ambiguously to refer to several semantic tasks (e.g., semantic role labeling). We follow the most common definition of this task: finding a mapping between NL input and its interpretation expressed in a welldefined formal MR language. Unlike shallow semantic analysis tasks, the output of a semantic parser is complete and unambiguous to the extent it can be understood or even executed by a computer system. Current approaches for this task take a data driven approach (Zettlemoyer and Collins, 2007; Wong and Mooney, 2007), in which the learning algorithm is given a set of NL sentences as input and their corresponding MR, and learns a statistical semantic parser a set of parameterized rules mapping lexical items and syntactic patterns to their MR. Given a sentence, these rules are applied recursively to derive the most probable interpretation. Since semantic interpretation is limited to the syntactic patterns observed in the training data, in order to work well these approaches require considerable amounts of annotated data. Unfortunately annotating sentences with their MR is a time consuming task which require</context>
+</contexts>
+<marker>Wong, Mooney, 2007</marker>
+<rawString>Y.W. Wong and R. Mooney. 2007. Learning synchronous grammars for semantic parsing with lambda calculus. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Yarowsky</author>
+</authors>
+<title>Unsupervised word sense disambiguation rivaling supervised method.</title>
+<date>1995</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="34207" citStr="Yarowsky, 1995" startWordPosition="5450" endWordPosition="5451">al step in this direction and suggest an unsupervised protocol. Other approaches to unsupervised semantic analysis (Poon and Domingos, 2009; Titov and Klementiev, 2011) take a different approach to semantic representation, by clustering semantically equivalent dependency tree fragments, and identifying their predicate-argument structure. While these approaches have been applied successfully to semantic tasks such as question answering, they do not ground the input in a well defined output language, an essential component in our task. Our unsupervised approach follows a self training protocol (Yarowsky, 1995; McClosky et al., 2006; Reichart and Rappoport, 2007b) enhanced with constraints restricting the output space (Chang et al., 2007; Chang et al., 2009). A Self training protocol uses its own predictions for training. We estimate the quality of the predictions and use only high confidence examples for training. This selection criterion provides an additional view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by ma</context>
+</contexts>
+<marker>Yarowsky, 1995</marker>
+<rawString>D. Yarowsky. 1995. Unsupervised word sense disambiguation rivaling supervised method. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Yates</author>
+<author>S Schoenmackers</author>
+<author>O Etzioni</author>
+</authors>
+<title>Detecting parser errors using web-based semantic filters.</title>
+<date>2006</date>
+<booktitle>In EMNLP.</booktitle>
+<contexts>
+<context position="35001" citStr="Yates et al., 2006" startWordPosition="5575" endWordPosition="5578">ol uses its own predictions for training. We estimate the quality of the predictions and use only high confidence examples for training. This selection criterion provides an additional view, different than the one used by the prediction model. Multi-view learning is a well established idea, implemented in methods such as co-training (Blum and Mitchell, 1998). Quality assessment of a learned model output was explored by many previous works (see (Caruana and Niculescu-Mizil, 2006) for a survey), and applied to several NL processing tasks such as syntactic parsing (Reichart and Rappoport, 2007a; Yates et al., 2006), machine translation (Ueffing and Ney, 2007), speech (Koo et al., 2001), relation extraction (Rosenfeld and Feldman, 2007), IE (Culotta and McCallum, 2004), QA (Chu-Carroll et al., 2003) and dialog systems (Lin and Weng, 2008). In addition to sample selection we use confidence estimation as a way to approximate the overall quality of the model and use it for model selection. This use of confidence estimation was explored in (Reichart et al., 2010), to select between models trained with different random starting points. In this work we integrate this estimation deeper into the learning process</context>
+</contexts>
+<marker>Yates, Schoenmackers, Etzioni, 2006</marker>
+<rawString>A. Yates, S. Schoenmackers, and O. Etzioni. 2006. Detecting parser errors using web-based semantic filters. In EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J M Zelle</author>
+<author>R J Mooney</author>
+</authors>
+<title>Learning to parse database queries using inductive logic proramming.</title>
+<date>1996</date>
+<booktitle>In AAAI.</booktitle>
+<contexts>
+<context position="4264" citStr="Zelle and Mooney, 1996" startWordPosition="666" endWordPosition="669">mprove the performance of the unsupervised train1486 \x0cing procedure. Our learning algorithm takes an EMlike iterative approach, in which the predictions of the previous stage are used to bias the model. While this basic scheme was successfully applied to many unsupervised tasks, it is known to converge to a sub optimal point. We show that by using confidence estimation as a proxy for the models prediction quality, the learning algorithm can identify a better model compared to the default convergence criterion. We evaluate our learning approach and model on the well studied Geoquery domain (Zelle and Mooney, 1996; Tang and Mooney, 2001), consisting of natural language questions and their prolog interpretations used to query a database consisting of U.S. geographical information. Our experimental results show that using our approach we are able to train a good semantic parser without annotated data, and that using a confidence score to identify good models results in a significant performance improvement. 2 Semantic Parsing We formulate semantic parsing as a structured prediction problem, mapping a NL input sentence (denoted x), to its highest ranking MR (denoted z). In order to correctly parametrize a</context>
+<context position="7257" citStr="Zelle and Mooney, 1996" startWordPosition="1147" endWordPosition="1150">domain). We use a subset of first order logic consisting of typed constants (corresponding to specific states, etc.) and functions, which capture relations between domains entities and properties of entities (e.g., population : E N). The semantics of the input sentence is constructed via functional composition, done by the substitution operator. For example, given the function next to(x) and the expression const(texas), substitution replaces the occurrence of the free variable x with the expression, resulting in a new formula: next to(const(texas)). For further details we refer the reader to (Zelle and Mooney, 1996). 2.2 Semantic Parsing Decisions The inference problem described in Eq. 1 selects the top ranking output formula. In practice this decision is decomposed into smaller decisions, capturing local mapping of input tokens to logical fragments and their composition into larger fragments. These decisions are further decomposed into a feature representation, described in Sec. 4. The first type of decisions are encoded directly by the alignment (y) between the input tokens and their corresponding predicates. We refer to these as first 1487 \x0corder decisions. The pairs connected by the alignment (y) </context>
+<context position="23950" citStr="Zelle and Mooney, 1996" startWordPosition="3846" endWordPosition="3849">. 5 Experiments In this section we describe our experimental evaluation. We compare several confidence measures and analyze their properties. Tab. 1 defines the naming conventions used throughout this section to refer to the different models we evaluated. We begin by describing our experimental setup and then proceed to describe the experiments and their results. For the sake of clarity we focus on the best performing models (COMBINED using BIGRAM and PROPORTION) first and discuss other models later in the section. 5.1 Experimental Settings In all our experiments we used the Geoquery dataset (Zelle and Mooney, 1996), consisting of U.S. geography NL questions and their corresponding Prolog logical MR. We used the data split described in (Clarke et al., 2010), consisting of 250 queries for evaluation purposes. We compared our system to several supervised models, which were trained using a disjoint set of queries. Our learning system had access only to the NL questions, and the logical forms were only used to evaluate the systems performance. We report the proportion of correct structures (accuracy). Note that this evaluation cor1491 \x0cresponds to the 0/1 loss over the predicted structures. Initialization</context>
+<context position="32745" citStr="Zelle and Mooney, 1996" startWordPosition="5223" endWordPosition="5226"> compare the best result obtained in any of the learning algorithm iterations (Best), the result obtained by approximating the best result using the averaged prediction confidence (Conf. estim.) and the result of using the default convergence criterion (Default). Results in parentheses are the result of using the UNIGRAM confidence to approximate the models performance. 1493 \x0c6 Related Work Semantic parsing has attracted considerable interest in recent years. Current approaches employ various machine learning techniques for this task, such as Inductive Logic Programming in earlier systems (Zelle and Mooney, 1996; Tang and Mooney, 2000) and statistical learning methods in modern ones (Ge and Mooney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such ground</context>
+</contexts>
+<marker>Zelle, Mooney, 1996</marker>
+<rawString>J. M. Zelle and R. J. Mooney. 1996. Learning to parse database queries using inductive logic proramming. In AAAI.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Zettlemoyer</author>
+<author>M Collins</author>
+</authors>
+<title>Learning to map sentences to logical form: Structured classification with probabilistic categorial grammars.</title>
+<date>2005</date>
+<booktitle>In UAI.</booktitle>
+<contexts>
+<context position="22048" citStr="Zettlemoyer and Collins, 2005" startWordPosition="3551" endWordPosition="3554">or example by restricting active -variables to be type consistent, and force the resulting functional composition to be acyclic. We take advantage of the flexible ILP framework, and encode these restrictions as global constraints over Eq. 2. We refer the reader to (Clarke et al., 2010) for a full description of the constraints used. 4.2 Features The inference problem defined in Eq. (2) uses two feature functions: 1 and 2. First-order decision features 1 Determining if a logical symbol is aligned with a specific constituent depends mostly on lexical information. Following previous work (e.g., (Zettlemoyer and Collins, 2005)) we create a small lexicon, mapping logical symbols to surface forms.3 Existing approaches rely on annotated data to extend the lexicon. Instead we rely on external knowledge (Miller et al., 1990) and add features which measure the lexical similarity between a constituent and a logical symbols surface forms (as defined by the lexicon). 3 The lexicon contains on average 1.42 words per function and 1.07 words per constant. Model Description INITIAL MODEL Manually set weights (Sec. 5.1) PRED. SCORE normalized prediction (Sec. 5.1) ALL EXAMPLES All top structures (Sec. 5.1) UNIGRAM Unigram score </context>
+<context position="32936" citStr="Zettlemoyer and Collins, 2005" startWordPosition="5254" endWordPosition="5258">f. estim.) and the result of using the default convergence criterion (Default). Results in parentheses are the result of using the UNIGRAM confidence to approximate the models performance. 1493 \x0c6 Related Work Semantic parsing has attracted considerable interest in recent years. Current approaches employ various machine learning techniques for this task, such as Inductive Logic Programming in earlier systems (Zelle and Mooney, 1996; Tang and Mooney, 2000) and statistical learning methods in modern ones (Ge and Mooney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et al., 2011) suggest using response-based learning protocols, which alleviate so</context>
+</contexts>
+<marker>Zettlemoyer, Collins, 2005</marker>
+<rawString>L. Zettlemoyer and M. Collins. 2005. Learning to map sentences to logical form: Structured classification with probabilistic categorial grammars. In UAI.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Zettlemoyer</author>
+<author>M Collins</author>
+</authors>
+<title>Online learning of relaxed CCG grammars for parsing to logical form.</title>
+<date>2007</date>
+<booktitle>In CoNLL.</booktitle>
+<contexts>
+<context position="2064" citStr="Zettlemoyer and Collins, 2007" startWordPosition="303" endWordPosition="306">tical reasons, as the ability to convert NL into a formal MR has countless applications. The term semantic parsing has been used ambiguously to refer to several semantic tasks (e.g., semantic role labeling). We follow the most common definition of this task: finding a mapping between NL input and its interpretation expressed in a welldefined formal MR language. Unlike shallow semantic analysis tasks, the output of a semantic parser is complete and unambiguous to the extent it can be understood or even executed by a computer system. Current approaches for this task take a data driven approach (Zettlemoyer and Collins, 2007; Wong and Mooney, 2007), in which the learning algorithm is given a set of NL sentences as input and their corresponding MR, and learns a statistical semantic parser a set of parameterized rules mapping lexical items and syntactic patterns to their MR. Given a sentence, these rules are applied recursively to derive the most probable interpretation. Since semantic interpretation is limited to the syntactic patterns observed in the training data, in order to work well these approaches require considerable amounts of annotated data. Unfortunately annotating sentences with their MR is a time cons</context>
+<context position="24815" citStr="Zettlemoyer and Collins, 2007" startWordPosition="3983" endWordPosition="3986">rvised models, which were trained using a disjoint set of queries. Our learning system had access only to the NL questions, and the logical forms were only used to evaluate the systems performance. We report the proportion of correct structures (accuracy). Note that this evaluation cor1491 \x0cresponds to the 0/1 loss over the predicted structures. Initialization Our learning framework requires an initial weight vector as input. We use a straight forward heuristic and provide uniform positive weights to three features. This approach is similar in spirit to previous works (Clarke et al., 2010; Zettlemoyer and Collins, 2007). We refer to this system as INITIAL MODEL throughout this section. Competing Systems We compared our system to several other systems: (1) PRED. SCORE: An unsupervised framework using the models internal prediction score (wT (x, y, z)) for confidence estimation. (2) ALL EXAMPLES: Treating all predicted structures as correct, i.e., at each iteration the model is trained over all the predictions it made. The reported score was obtained by selecting the model at the training iteration with the highest overall confidence score (see line 12 in Alg. 1). (3) RESPONSE BASED: A natural upper bound to o</context>
+<context position="32967" citStr="Zettlemoyer and Collins, 2007" startWordPosition="5259" endWordPosition="5262">ing the default convergence criterion (Default). Results in parentheses are the result of using the UNIGRAM confidence to approximate the models performance. 1493 \x0c6 Related Work Semantic parsing has attracted considerable interest in recent years. Current approaches employ various machine learning techniques for this task, such as Inductive Logic Programming in earlier systems (Zelle and Mooney, 1996; Tang and Mooney, 2000) and statistical learning methods in modern ones (Ge and Mooney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et al., 2011) suggest using response-based learning protocols, which alleviate some of the supervision effort. T</context>
+</contexts>
+<marker>Zettlemoyer, Collins, 2007</marker>
+<rawString>L. Zettlemoyer and M. Collins. 2007. Online learning of relaxed CCG grammars for parsing to logical form. In CoNLL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Zettlemoyer</author>
+<author>M Collins</author>
+</authors>
+<title>Learning contextdependent mappings from sentences to logical form.</title>
+<date>2009</date>
+<contexts>
+<context position="32999" citStr="Zettlemoyer and Collins, 2009" startWordPosition="5263" endWordPosition="5266">terion (Default). Results in parentheses are the result of using the UNIGRAM confidence to approximate the models performance. 1493 \x0c6 Related Work Semantic parsing has attracted considerable interest in recent years. Current approaches employ various machine learning techniques for this task, such as Inductive Logic Programming in earlier systems (Zelle and Mooney, 1996; Tang and Mooney, 2000) and statistical learning methods in modern ones (Ge and Mooney, 2005; Nguyen et al., 2006; Wong and Mooney, 2006; Kate and Mooney, 2006; Zettlemoyer and Collins, 2005; Zettlemoyer and Collins, 2007; Zettlemoyer and Collins, 2009). The difficulty of providing the required supervision motivated learning approaches using weaker forms of supervision. (Chen and Mooney, 2008; Liang et al., 2009; Branavan et al., 2009; Titov and Kozhevnikov, 2010) ground NL in an external world state directly referenced by the text. The NL input in our setting is not restricted to such grounded settings and therefore we cannot exploit this form of supervision. Recent work (Clarke et al., 2010; Liang et al., 2011) suggest using response-based learning protocols, which alleviate some of the supervision effort. This work takes an additional ste</context>
+</contexts>
+<marker>Zettlemoyer, Collins, 2009</marker>
+<rawString>L. Zettlemoyer and M. Collins. 2009. Learning contextdependent mappings from sentences to logical form.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

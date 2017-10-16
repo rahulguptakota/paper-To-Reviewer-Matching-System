@@ -1,0 +1,1789 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<figure confidence="0.824120875">
+b&apos;Proceedings of NAACL-HLT 2013, pages 5262,
+Atlanta, Georgia, 914 June 2013. c
+2013 Association for Computational Linguistics
+Named Entity Recognition with Bilingual Constraints
+Wanxiang Che
+Mengqiu Wang
+Christopher D. Manning
+Ting Liu
+</figure>
+<email confidence="0.548032">
+{car, tliu}@ir.hit.edu.cn
+</email>
+<affiliation confidence="0.9801265">
+School of Computer Science and Technology
+Harbin Institute of Technology
+</affiliation>
+<address confidence="0.996072">
+Harbin, China, 150001
+</address>
+<email confidence="0.97654">
+{mengqiu, manning}@stanford.edu
+</email>
+<affiliation confidence="0.9231935">
+Computer Science Department
+Stanford University
+</affiliation>
+<address confidence="0.773985">
+Stanford, CA, 94305
+</address>
+<sectionHeader confidence="0.964935" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.99634975">
+Different languages contain complementary
+cues about entities, which can be used to im-
+prove Named Entity Recognition (NER) sys-
+tems. We propose a method that formu-
+lates the problem of exploring such signals on
+unannotated bilingual text as a simple Inte-
+ger Linear Program, which encourages entity
+tags to agree via bilingual constraints. Bilin-
+gual NER experiments on the large OntoNotes
+4.0 Chinese-English corpus show that the pro-
+posed method can improve strong baselines
+for both Chinese and English. In particular,
+Chinese performance improves by over 5%
+absolute F1 score. We can then annotate a
+large amount of bilingual text (80k sentence
+pairs) using our method, and add it as up-
+training data to the original monolingual NER
+training corpus. The Chinese model retrained
+on this new combined dataset outperforms the
+strong baseline by over 3% F1 score.
+</bodyText>
+<sectionHeader confidence="0.997379" genericHeader="keywords">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.996351422222222">
+Named Entity Recognition (NER) is an important
+task for many applications, such as information ex-
+traction and machine translation. State-of-the-art su-
+pervised NER methods require large amounts of an-
+notated data, which are difficult and expensive to
+produce manually, especially for resource-poor lan-
+guages.
+A promising approach for improving NER per-
+formance without annotating more data is to exploit
+unannotated bilingual text (bitext), which are rela-
+tively easy to obtain for many language pairs, bor-
+rowing from the resources made available by statis-
+tical machine translation research.1 Different lan-
+guages contain complementary cues about entities.
+For example, in Figure 1, the word (Ben) is
+common in Chinese but rarely appears as a trans-
+lated foreign name. However, its aligned word on
+the English side (Ben) provides a strong clue that
+this is a person name. Judicious use of this type of
+bilingual cues can help to recognize errors a mono-
+lingual tagger would make, allowing us to produce
+more accurately tagged bitext. Each side of the
+tagged bitext can then be used to expand the orig-
+inal monolingual training dataset, which may lead
+to higher accuracy in the monolingual taggers.
+Previous work such as Li et al. (2012) and Kim
+et al. (2012) demonstrated that bilingual corpus an-
+notated with NER labels can be used to improve
+monolingual tagger performance. But a major draw-
+back of their approaches are the need for manual
+annotation efforts to create such corpora. To avoid
+this requirement, Burkett et al. (2010) suggested a
+multi-view learning scheme based on re-ranking.
+Noisy output of a strong tagger is used as training
+data to learn parameters of a log-linear re-ranking
+model with additional bilingual features, simulated
+by a weak tagger. The learned parameters are then
+reused with the strong tagger to re-rank its own
+outputs for unseen inputs. Designing good weak
+taggers so that they complement the view of bilin-
+gual features in the log-linear re-ranker is crucial to
+the success of this algorithm. Unfortunately there is
+no principled way of designing such weak taggers.
+In this paper, we would like to explore a conceptu-
+ally much simpler idea that can also take advantage
+</bodyText>
+<figure confidence="0.7029722">
+1
+opus.lingfil.uu.se
+52
+\x0cTheO chairmanO ofO theBORG FederalIORG ReserveIORG isO BenBPER BernankeIPER
+BORG O O BPER IPER
+</figure>
+<figureCaption confidence="0.999914">
+Figure 1: Example of NER labels between two word-aligned bilingual parallel sentences.
+</figureCaption>
+<bodyText confidence="0.960394157894737">
+of the large amount of unannotated bitext, without
+complicated machinery. More specifically, we in-
+troduce a joint inference method that formulates the
+bilingual NER tagging problem as an Integer Linear
+Program (ILP) and solves it during decoding. We
+propose a set of intuitive and effective bilingual con-
+straints that encourage NER results to agree across
+the two languages.
+Experimental results on the OntoNotes 4.0 named
+entity annotated Chinese-English parallel corpus
+show that the proposed method can improve the
+strong Chinese NER baseline by over 5% F1 score
+and also give small improvements over the English
+baseline. Moreover, by adding the automatically
+tagged data to the original NER training corpus
+and retraining the monolingual model using an up-
+training regimen (Petrov et al., 2010), we can im-
+prove the monolingual Chinese NER performance
+by over 3% F1 score.
+</bodyText>
+<sectionHeader confidence="0.980229" genericHeader="introduction">
+2 Constraint-based Monolingual NER
+</sectionHeader>
+<bodyText confidence="0.965412461538461">
+NER is a sequence labeling task where we assign
+a named entity tag to each word in an input sen-
+tence. One commonly used tagging scheme is the
+BIO scheme. The tag B-X (Begin) represents the
+first word of a named entity of type X, for example,
+PER (Person) or LOC (Location). The tag I-X (In-
+side) indicates that a word is part of an entity but not
+first word. The tag O (Outside) is used for all non-
+entity words.2 See Figure 1 for an example tagged
+sentence.
+Conditional Random Fields (CRF) (Lafferty et al.,
+2001) is a state-of-the-art sequence labeling model
+widely used in NER. A first-order linear-chain CRF
+</bodyText>
+<page confidence="0.952949">
+2
+</page>
+<bodyText confidence="0.999170666666667">
+While the performance of NER is measured at the entity
+level (not the tag level).
+defines the following conditional probability:
+</bodyText>
+<equation confidence="0.994609666666667">
+PCRF (y|x) =
+1
+Z(x)
+Y
+i
+Mi(yi, yi1|x) (1)
+</equation>
+<bodyText confidence="0.992543846153846">
+where x and y are the input and output sequences,
+respectively, Z(x) is the partition function, and Mi
+is the clique potential for edge clique i. Decoding
+in CRF involves finding the most likely output se-
+quence that maximizes this objective, and is com-
+monly done by the Viterbi algorithm.
+Roth and Yih (2005) proposed an ILP inference
+algorithm, which can capture more task-specific and
+global constraints than the vanilla Viterbi algorithm.
+Our work is inspired by Roth and Yih (2005). But
+instead of directly solving the shortest-path problem
+in the ILP formulation, we re-define the conditional
+probability as:
+</bodyText>
+<equation confidence="0.999931">
+PMAR(y|x) =
+Y
+i
+P(yi|x) (2)
+</equation>
+<bodyText confidence="0.987082888888889">
+where P(yi|x) is the marginal probability given by
+an underlying CRF model computed using forward-
+backward inference. Since the early HMM litera-
+ture, it has been well known that using the marginal
+distributions at each position works well, as opposed
+to Viterbi MAP sequence labeling (Merialdo, 1994).
+Our experimental results also supports this claim, as
+we will show in Section 6. Our objective is to find
+an optimal NER tag sequence:
+</bodyText>
+<equation confidence="0.99894975">
+y = arg max
+y
+PMAR(y|x)
+= arg max
+y
+X
+i
+log P(yi|x) (3)
+</equation>
+<bodyText confidence="0.9941135">
+Then an ILP can be used to solve the inference
+problem as classification problem with constraints.
+</bodyText>
+<page confidence="0.990996">
+53
+</page>
+<equation confidence="0.959864230769231">
+\x0cThe objective function is:
+max
+|x|
+X
+i=1
+X
+yY
+zy
+i log Py
+i (4)
+where Y is the set of all possible named entity tags.
+Py
+i = P(yi = y|x) is the CRF marginal probabil-
+</equation>
+<bodyText confidence="0.976733363636364">
+ity that the ith word is tagged with y, and zy
+i is an
+indicator that equals 1 iff the ith word is tagged y;
+otherwise, zy
+i is 0.
+If no constraints are identified, then Eq. (4)
+achieves maximum when all zy
+i are assigned to 1,
+which violates the condition that each word should
+only be assigned a single entity tag. We can express
+this with constraints:
+</bodyText>
+<equation confidence="0.9998988">
+i :
+X
+yY
+zy
+i = 1 (5)
+</equation>
+<bodyText confidence="0.999604142857143">
+After adding the constraints, the probability of the
+sequence is maximized when each word is assigned
+the tag with highest probability. However, some in-
+valid results may still exist. For example a tag O
+may be wrongly followed by a tag I-X, although a
+named entity cannot start with I-X. Therefore, we
+can add the following constraints:
+</bodyText>
+<equation confidence="0.9767026">
+i, X : zB-X
+i1 + zI-X
+i1 zI-X
+i 0 (6)
+which specifies that when the ith word is tagged with
+I-X (zI-X
+i = 1), then the previous word can only be
+tagged with B-X or I-X (zB-X
+i1 + zI-X
+i1 1).
+</equation>
+<sectionHeader confidence="0.867477" genericHeader="method">
+3 NER with Bilingual Constraints
+</sectionHeader>
+<bodyText confidence="0.984902">
+This section demonstrates how to jointly perform
+NER for two languages with bilingual constraints.
+We assume sentences have been aligned into pairs,
+and the word alignment between each pair of sen-
+tences is also given.
+</bodyText>
+<subsectionHeader confidence="0.999823">
+3.1 Hard Bilingual Constraints
+</subsectionHeader>
+<bodyText confidence="0.999863333333333">
+We first introduce the simplest hard constraints, i.e.,
+each word alignment pair should have the same
+named entity tag. For example, in Figure 1, the
+Chinese word was aligned with the En-
+glish words the, Federal and Reserve. There-
+fore, they have the same named entity tags ORG.3
+</bodyText>
+<page confidence="0.990935">
+3
+</page>
+<bodyText confidence="0.9991574">
+The prefix B- and I- are ignored.
+Similarly, and Ben as well as and
+Bernanke were all tagged with the tag PER.
+The objective function for bilingual NER can be
+expressed as follows:
+</bodyText>
+<equation confidence="0.989730368421053">
+max
+|xc|
+X
+i=1
+X
+yY
+zy
+i log Py
+i +
+|xe|
+X
+j=1
+X
+yY
+zy
+j log Py
+j (7)
+where Py
+i and Py
+</equation>
+<bodyText confidence="0.999103428571429">
+j are the probabilities of the ith Chi-
+nese word and jth English word to be tagged with y,
+respectively. xc and xe are respectively the Chinese
+and English sentences.
+Similar to monolingual constrained NER (Sec-
+tion 2), monolingual constraints are added for each
+language as shown in Eqs. (8) and (9):
+</bodyText>
+<equation confidence="0.992488130434782">
+i :
+X
+yY
+zy
+i = 1; j :
+X
+yY
+zy
+j = 1 (8)
+i, X : zB-X
+i + zI-X
+i zB-X
+i+1 0 (9)
+j, X : zB-X
+j + zI-X
+j zB-X
+j+1 0
+Bilingual constraints are added in Eq. (10):
+(i, j) A, X : zB-X
+i + zI-X
+i = zB-X
+j + zI-X
+j (10)
+</equation>
+<bodyText confidence="0.93361">
+where A = {(i, j)} is the word alignment pair set,
+i.e., the ith Chinese word and the jth English word
+were aligned together. Chinese word i is tagged with
+a named entity type X (zB-X
+</bodyText>
+<equation confidence="0.988579">
+i + zI-X
+i = 1), iff English
+word j is tagged with X (zB-X
+j +zI-X
+j = 1). Therefore,
+</equation>
+<bodyText confidence="0.997426411764706">
+these hard bilingual constraints guarantee that when
+two words are aligned, they are tagged with the same
+named entity tag.
+However, in practice, aligned word pairs do not
+always have the same tag because of the difference
+in annotation standards across different languages.
+For example, in Figure 2(a), the Chinese word
+is a location. However, it is aligned to the words,
+development and zone, which are not named en-
+tities in English. Word alignment error is another se-
+rious problem that can cause violation of hard con-
+straints. In Figure 2(b), the English word Agency
+is wrongly aligned with the Chinese word (re-
+port). Thus, these two words cannot be assigned
+with the same tag.
+To address these two problems, we present a prob-
+abilistic model for bilingual NER which can lead to
+</bodyText>
+<page confidence="0.903094">
+54
+</page>
+<figure confidence="0.8229814">
+\x0cThisO developmentO zoneO isO locatedO inO . . .
+O BLOC O O . . .
+(a) Inconsistent named entity standards
+XinhuaBORG NewsIORG AgencyIORG FebruaryO 16thO
+BORG BLOC O O
+</figure>
+<figureCaption confidence="0.765164">
+(b) Word alignment error
+Figure 2: Errors of hard bilingual constraints method.
+</figureCaption>
+<bodyText confidence="0.950935333333333">
+an optimization problem with two soft bilingual con-
+straints:
+1) allow word-aligned pairs to have different
+named entity tags; 2) consider word alignment prob-
+abilities to reduce the influence of wrong word align-
+ments.
+</bodyText>
+<subsectionHeader confidence="0.965246">
+3.2 Soft Constraints with Tag Uncertainty
+</subsectionHeader>
+<bodyText confidence="0.998912">
+The new probabilistic model for bilingual NER is:
+</bodyText>
+<equation confidence="0.9953232">
+P(yc, ye|xc, xe, A) =
+P(yc, ye, xc, xe, A)
+P(xc, xe, A)
+=
+P(yc, xc, xe, A)
+P(xc, xe, A)
+P(ye, xc, xe, A)
+P(xc, xe, A)
+P(yc, ye, xc, xe, A)P(xc, xe, A)
+P(yc, xc, xe, A)P(ye, xc, xe, A)
+(11)
+P(yc|xc)P(ye|xe)
+P(yc, ye|A)
+P(yc|A)P(ye|A)
+(12)
+</equation>
+<bodyText confidence="0.999677043478261">
+where yc and ye respectively denotes Chinese and
+English named entity output sequences. A is the set
+of word alignment pairs.
+If we assume that named entity tag assignments in
+Chinese is only dependent on the observed Chinese
+sentence, then we can drop the A and xe term in the
+first factor of Eq. (11), and arrive at the first factor of
+Eq. (12); similarly we can use the same assumption
+to derive the second factor in Eq. (12) for English;
+alternatively, if we assume the named entity tag as-
+signments are only dependent on the cross-lingual
+word associations via word alignment, then we can
+drop xc and xe terms in the third factor of Eq. (11)
+and arrive at the third factor of Eq. (12). These fac-
+tors represent the two major sources of information
+in the model: monolingual surface observation, and
+cross-lingual word associations.
+The first two factors of Eq. (12) can be further
+decomposed into the product of probabilities of all
+words in each language sentence like Eq. (2).
+Assuming that the tags are independent between
+different word alignment pairs, then the last factor
+of Eq. (12) can be decomposed into:
+</bodyText>
+<equation confidence="0.997903833333333">
+P(yc, ye|A)
+P(yc|A)P(ye|A)
+=
+Y
+aA
+P(yca yea )
+P(yca )P(yea )
+=
+Y
+aA
+ycye
+a (13)
+</equation>
+<bodyText confidence="0.977022727272727">
+where yca and yea respectively denotes Chinese and
+English named entity tags in a word alignment pair
+a. ycye = P(ycye)
+P(yc)P(ye) is the pointwise mutual infor-
+mation (PMI) score between a Chinese named en-
+tity tag yc and an English named entity tag ye. If
+yc = ye, then the score will be high; otherwise the
+score will be low. A number of methods for calculat-
+ing the scores are provided at the end of this section.
+We use ILP to maximize Eq. (12). The new ob-
+jective function is expressed as follow:
+</bodyText>
+<equation confidence="0.991377814814815">
+max
+|xc|
+X
+i=1
+X
+yY
+zy
+i log Py
+i +
+|xe|
+X
+j=1
+X
+yY
+zy
+j log Py
+j
++
+X
+aA
+X
+ycY
+X
+yeY
+zycye
+a log ycye
+a (14)
+</equation>
+<bodyText confidence="0.956006363636364">
+where zycye
+a is an indicator that equals 1 iff the Chi-
+nese and English named entity tags are yc and ye
+respectively, given a word alignment pair a; other-
+wise, zycye
+a is 0.
+Monolingual constraints such as Eqs. (8) and (9)
+need to be added. In addition, one and only one pos-
+sible named entity tag pair exists for a word align-
+ment pair. This condition can be expressed as the
+following constraints:
+</bodyText>
+<equation confidence="0.965019428571429">
+a A :
+X
+ycY
+X
+yeY
+zycye
+a = 1 (15)
+</equation>
+<bodyText confidence="0.995256">
+When the tag pair of a word alignment pair is de-
+termined, the corresponding monolingual named en-
+</bodyText>
+<page confidence="0.980001">
+55
+</page>
+<bodyText confidence="0.9962015">
+\x0ctity tags can also be identified. This rule can be ex-
+pressed by the following constraints:
+</bodyText>
+<equation confidence="0.911818555555556">
+a = (i, j) A : zycye
+a zyc
+i , zycye
+a zye
+j (16)
+Thus, if zycye
+a = 1, then zyc
+i and zye
+j must be both
+</equation>
+<bodyText confidence="0.997062333333333">
+equal to 1. Here, the ith Chinese word and the jth
+English word are aligned together.
+In contrast to hard bilingual constraints, inconsis-
+tent named entity tags for an aligned word pair are
+allowed in soft bilingual constraints, but are given
+lower ycye scores.
+To calculate the ycye score, an annotated bilin-
+gual NER corpus is consulted. We count from all
+word alignment pairs the number of times yc and ye
+occur together (C(ycye)) and separately (C(yc) and
+C(ye)). Afterwards, ycye is calculated with maxi-
+mum likelihood estimation as follows:
+</bodyText>
+<equation confidence="0.986037625">
+ycye
+=
+P(ycye)
+P(yc)P(ye)
+=
+N C(ycye)
+C(yc)C(ye)
+(17)
+</equation>
+<bodyText confidence="0.996205684210526">
+where N is the total number of word alignment
+pairs.
+However, in this paper, we assume that no named
+entity annotated bilingual corpus is available. Thus,
+the above method is only used as Oracle. A real-
+istic method for calculating the ycye score requires
+the use of two initial monolingual NER models, such
+as baseline CRF, to predict named entity tags for
+each language on an unannotated bitext. We count
+from this automatically tagged corpus the statistics
+mentioned above. This method is henceforth re-
+ferred to as Auto.
+A simpler approach is to manually set the value
+of ycye : if yc = ye then we assign a larger value
+to ycye ; else we assign an ad-hoc smaller value. In
+fact, if we set ycye = 1 iff yc = ye; otherwise,
+ycye = 0, then the soft constraints backs off to hard
+constraints. We refer to this set of soft constraints as
+Soft-tag.
+</bodyText>
+<subsectionHeader confidence="0.999872">
+3.3 Constraints with Alignment Uncertainty
+</subsectionHeader>
+<bodyText confidence="0.98914675">
+So far, we assumed that a word alignment set A is
+known. In practice, only the word alignment proba-
+bility Pa for each word pair a is provided. We can
+set a threshold for Pa to tune the set A: a A
+iff Pa . This condition can be regarded as a
+kind of hard word alignment. However, the follow-
+ing problem exists: the smaller the , the noisier the
+word alignments are; the larger the , the more pos-
+sible word alignments are lost. To ameliorate this
+problem, we introduce another set of soft bilingual
+constraints.
+We can re-express Eq. (13) as follows:
+</bodyText>
+<equation confidence="0.772071">
+Y
+aA
+ycye
+a =
+Y
+aA
+(ycye
+a )Ia
+(18)
+</equation>
+<bodyText confidence="0.9929864">
+where A is the set of all word pairs between two
+languages. Ia = 1 iff Pa ; otherwise, Ia = 0.
+We can then replace the hard indicator Ia with
+the word alignment probability Pa, Eq. (14) is then
+transformed into the following equation:
+</bodyText>
+<equation confidence="0.989122666666667">
+max
+|Wc|
+X
+i
+X
+yY
+zy
+i log Py
+i +
+|We|
+X
+j
+X
+yY
+zy
+j log Py
+j
++
+X
+aA
+X
+ycY
+X
+yeY
+zycye
+a Pa log ycye
+a (19)
+</equation>
+<bodyText confidence="0.989076333333333">
+We name the set of constraints above
+Soft-align, which has the same constraints
+as Soft-tag, i.e., Eqs. (8), (9), (15) and (16).
+</bodyText>
+<sectionHeader confidence="0.996209" genericHeader="method">
+4 Experimental Setup
+</sectionHeader>
+<bodyText confidence="0.997139434782609">
+We conduct experiments on the latest OntoNotes
+4.0 corpus (LDC2011T03). OntoNotes is a large,
+manually annotated corpus that contains various text
+genres and annotations, such as part-of-speech tags,
+named entity labels, syntactic parse trees, predicate-
+argument structures and co-references (Hovy et al.,
+2006). Aside from English, this corpus also con-
+tains several Chinese and Arabic corpora. Some of
+these corpora contain bilingual parallel documents.
+We used the Chinese-English parallel corpus with
+named entity labels as our development and test
+data. This corpus includes about 400 document pairs
+(chtb 0001-0325, ectb 1001-1078). We used odd-
+numbered documents as development data and even-
+numbered documents as test data. We used all other
+portions of the named entity annotated corpus as
+training data for the monolingual systems. There
+were a total of 660 Chinese documents (16k sen-
+tences) and 1,400 English documents (39k sen-
+tences). OntoNotes annotates 18 named entity types,
+such as person, location, date and money. In this
+paper, we selected the four most common named
+entity types, i.e., PER (Person), LOC (Location),
+</bodyText>
+<page confidence="0.934489">
+56
+</page>
+<table confidence="0.586874571428571">
+\x0cChinese NER Templates
+00: 1 (class bias param)
+01: wi+k, 1 k 1
+02: wi+k1 wi+k, 0 k 1
+03: shape(wi+k), 4 k 4
+04: prefix(wi, k), 1 k 4
+05: prefix(wi1, k), 1 k 4
+06: suffix(wi, k), 1 k 4
+07: suffix(wi1, k), 1 k 4
+08: radical(wi, k), 1 k len(wi)
+Unigram Features
+yi 00 08
+Bigram Features
+yi1 yi 00 08
+</table>
+<tableCaption confidence="0.997641">
+Table 1: Basic features of Chinese NER.
+</tableCaption>
+<bodyText confidence="0.973143115384615">
+ORG (Organization) and GPE (Geo-Political Enti-
+ties), and discarded the others.
+Since the bilingual corpus is only aligned at the
+document level, we performed sentence alignment
+using the Champollion Tool Kit (CTK).4 After re-
+moving sentences with no aligned sentence, a total
+of 8,249 sentence pairs were retained.
+We used the BerkeleyAligner,5 to produce
+word alignments over the sentence-aligned datasets.
+BerkeleyAligner also gives posterior probabilities
+Pa for each aligned word pair.
+We used the CRF-based Stanford NER tagger (us-
+ing Viterbi decoding) as our baseline monolingual
+NER tool.6 English features were taken from Finkel
+et al. (2005). Table 1 lists the basic features of
+Chinese NER, where means string concatenation
+and yi is the named entity tag of the ith word wi.
+Moreover, shape(wi) is the shape of wi, such as
+date and number. prefix/suffix(wi, k) denotes the
+k-characters prefix/suffix of wi. radical(wi, k) de-
+notes the radical of the kth Chinese character of wi.7
+len(wi) is the number of Chinese characters in wi.
+To make the baseline CRF taggers stronger, we
+added word clustering features to improve gener-
+alization over unseen data for both Chinese and
+English. Word clustering features have been suc-
+</bodyText>
+<figure confidence="0.814426">
+cessfully used in several English tasks, including
+4
+champollion.sourceforge.net
+5
+code.google.com/p/berkeleyaligner
+</figure>
+<page confidence="0.465336">
+6
+</page>
+<bodyText confidence="0.4902585">
+nlp.stanford.edu/software/CRF-NER.shtml,
+which has included our English and Chinese NER implementations.
+</bodyText>
+<page confidence="0.877223">
+7
+</page>
+<bodyText confidence="0.929128066666667">
+The radical of a Chinese character can be found at: www.
+unicode.org/charts/unihan.html
+NER (Miller et al., 2004) and dependency pars-
+ing (Koo et al., 2008). To our knowledge, this work
+is the first use of word clustering features for Chi-
+nese NER. A C++ implementation of the Brown
+word clustering algorithms (Brown et al., 1992) was
+used to obtain the word clusters (Liang, 2005).8
+Raw text was obtained from the fifth edition of Chi-
+nese Gigaword (LDC2011T13). One million para-
+graphs from Xinhua news section were randomly
+selected, and the Stanford Word Segmenter with
+LDC standard was applied to segment Chinese text
+into words.9 About 46 million words were obtained
+which were clustered into 1,000 word classes.
+</bodyText>
+<sectionHeader confidence="0.963682" genericHeader="method">
+5 Threshold Tuning
+</sectionHeader>
+<bodyText confidence="0.997996433333334">
+During development, we tuned the word alignment
+probability thresholds to find the best value. Figure 3
+shows the performance curves.
+When the word alignment probability threshold
+is set to 0.9, the hard bilingual constraints perform
+well for both Chinese and English. But as the thresh-
+olds value gets smaller, and more noisy word align-
+ments are introduced, we see the hard bilingual con-
+straints method starts to perform badly.
+In Soft-tag setting, where inconsistent tag as-
+signments within aligned word pairs are allowed but
+penalized, different languages have different optimal
+threshold values. For example, Chinese has an opti-
+mal threshold of 0.7, whereas English has 0.2. Thus,
+the optimal thresholds for different languages need
+to be selected with care when Soft-tag is applied
+in practice.
+Soft-align eliminates the need for careful
+tuning of word alignment thresholds, and therefore
+can be more easily used in practice. Experimen-
+tal results of Soft-align confirms our hypothe-
+sis the performance of both Chinese and English
+NER systems improves with decreasing threshold.
+However, we can still improve efficiency by set-
+ting a low threshold to prune away very unlikely
+word alignments. We set the threshold to 0.1 for
+Soft-align to increase speed, and we observed
+very minimal performance lost when doing so.
+We also found that automatically estimated bilin-
+gual tag PMI scores (Auto) gave comparable results
+</bodyText>
+<page confidence="0.714534">
+8
+</page>
+<figure confidence="0.978672">
+github.com/percyliang/brown-cluster
+9
+nlp.stanford.edu/software/segmenter.shtml
+57
+\x0c0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9
+threshold of word alignment probability
+55
+60
+65
+70
+75
+performance
+(F1)
+Hard
+Soft-label (Oracle)
+Soft-label (Auto)
+Soft-align (Oracle)
+Soft-align (Auto)
+(a) Chinese
+0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9
+threshold of word alignment probability
+60
+65
+70
+75
+80
+performance
+(F1)
+Hard
+Soft-label (Oracle)
+Soft-label (Auto)
+Soft-align (Oracle)
+Soft-align (Auto)
+(b) English
+</figure>
+<figureCaption confidence="0.999706">
+Figure 3: Performance curves of different bilingual constraints methods on development set.
+</figureCaption>
+<bodyText confidence="0.965306333333333">
+to Oracle. Therefore this technique is effective
+for computing the PMI scores, avoiding the need of
+manually annotating named entity bilingual corpus.
+</bodyText>
+<sectionHeader confidence="0.9852" genericHeader="method">
+6 Bilingual NER Results
+</sectionHeader>
+<bodyText confidence="0.999594333333333">
+The main results on Chinese and English test sets
+with the optimal word alignment threshold for each
+method are shown in Table 2.
+The CRF-based Chinese NER with and without
+word clustering features are compared here. The
+word clustering features significantly (p &amp;lt; 0.01) im-
+proved the performance of Chinese NER, 10 giving
+us a strong Chinese NER baseline.11 The effective-
+ness of word clustering for English NER has been
+proved in previous work.
+The performance of ILP with only monolingual
+constraints is quite comparable with the CRF re-
+sults, especially on English. The greater ILP perfor-
+mance on English is probably due to more accurate
+marginal probabilities estimated by the English CRF
+model.
+The ILP model with hard bilingual constraints
+gives a slight performance improvement on Chi-
+nese, but affects performance negatively on English.
+Once we introduced tagging uncertainties into the
+Soft-tag bilingual constraints, we see a very sig-
+</bodyText>
+<page confidence="0.995442">
+10
+</page>
+<bodyText confidence="0.9945335">
+We use paired bootstrap resampling significance test (Efron
+and Tibshirani, 1993).
+</bodyText>
+<page confidence="0.998505">
+11
+</page>
+<bodyText confidence="0.994627258064516">
+To the best of our knowledge, there was no performance
+report of state-of-the-art NER results on the latest OntoNotes
+dataset.
+nificant (p &amp;lt; 0.01) performance boost on Chinese.
+This method also improves the recall on English,
+with a smaller decrease in precision. Overall, it im-
+proves English F1 score by about 0.4%, which is un-
+fortunately not statistically significant.
+Compared with Soft-tag, the final
+Soft-align method can further improve
+performance on both Chinese and English. This is
+likely to be because: 1) Soft-align includes
+more word alignment pairs, thereby improving
+recall; and 2) uses probabilities to cut wrong
+word alignments, thereby improving precision. In
+particular, compared with the strong CRF baseline,
+the gain on Chinese side is almost 5.5% in absolute
+F1 score.
+Decoding/inferenc efficiency of different methods
+are shown in the last column of Table 2.12 Com-
+pared with Viterbi decoding in CRF, monolingual
+ILP decoding is about 2.3 times slower. Bilingual
+ILP decoding, with either hard or soft constraints, is
+significantly slower than the monolingual methods.
+The reason is that the number of monolingual ILP
+constraints doubles, and there are additionally many
+more bilingual constraints. The difference in speed
+between the Soft-tag and Soft-align meth-
+ods is attributed to the difference in number of word
+alignment pairs.
+Since each sentence pair can be decoded indepen-
+</bodyText>
+<page confidence="0.993101">
+12
+</page>
+<bodyText confidence="0.941067666666667">
+CPU: Intel Xeon E5-2660 2.20GHz. And the speed cal-
+culation of ILP inference methods exclude the time needed to
+obtain marginal probabilities from the CRF models.
+</bodyText>
+<page confidence="0.98606">
+58
+</page>
+<table confidence="0.99597425">
+\x0cChinese English Speed
+P R F1 P R F1 #sent/s
+CRF (No Cluster) 74.74 56.17 64.13
+CRF (Word Cluster) 76.90 63.32 69.45 82.95 76.67 79.68 317.3
+Monolingual ILP 76.20 63.06 69.01 82.88 76.68 79.66 138.0
+Hard 74.38 65.78 69.82 82.66 75.36 78.84 21.1
+Soft-tag (Auto) 77.37 71.14 74.13 81.36 78.74 80.03 5.9
+Soft-align (Auto) 77.71 72.51 75.02 81.94 78.35 80.10 1.5
+</table>
+<tableCaption confidence="0.998692">
+Table 2: Results on bilingual parallel test set.
+</tableCaption>
+<bodyText confidence="0.9481685">
+dently, parallelization the decoding process can re-
+sult in significant speedup.
+</bodyText>
+<sectionHeader confidence="0.981773" genericHeader="method">
+7 Semi-supervised NER Results
+</sectionHeader>
+<bodyText confidence="0.995148">
+The above results show the usefulness of our method
+in a bilingual setting, where we are presented with
+sentence aligned data, and are tagging both lan-
+guages at the same time. To have a greater impact
+on general monolingual NER systems, we employ
+a semi-supervised learning setting. First, we tag a
+large amount of unannotated bitext with our bilin-
+gual constraint-based NER tagger. Then we mix the
+automatically tagged results with the original mono-
+lingual Chinese training data to train a new model.
+Our bitext is derived from the Chinese-English
+part of the Foreign Broadcast Information Service
+corpus (FBIS, LDC2003E14). The best perform-
+ing bilingual model Soft-align with threshold
+= 0.1 was used under the same experimental set-
+ting as described in Section 4
+</bodyText>
+<table confidence="0.998182285714286">
+Method #sent P R F1
+CRF 16k 76.90 63.32 69.45
+Semi
+10k 77.60 66.51 71.62
+20k 77.28 67.26 71.92
+40k 77.40 67.81 72.29
+80k 77.44 68.64 72.77
+</table>
+<tableCaption confidence="0.895085">
+Table 3: Semi-supervised results on Chinese test set.
+Table 3 shows that the performance of the semi-
+</tableCaption>
+<bodyText confidence="0.998631384615385">
+supervised method improves with more additional
+data. We simply appended these data to the orig-
+inal training data. We also have done the experi-
+ments to down weight the additional training data
+by duplicating the original training data. There
+was some slight improvements, but not very signif-
+icant. Finally, when we add 80k sentences, the F1
+score is improved by 3.32%, which is significantly
+(p &amp;lt; 0.01) better than the baseline, and most of the
+contribution comes from recall improvement.
+Before the end of experimental section, let us
+summarize the usage of different kinds of data re-
+sources used in our experiments, as shown in Ta-
+ble 4, where \x08 and denote whether the corre-
+sponding resources are required. In the bilingual
+case, during training, only the monolingual named
+entity annotated data (NE-mono) is necessary to
+train a monolingual NER tagger. During the test,
+unannotated bitext (Bitext) is required by the word
+aligner and our bilingual NER tagger. Named entity
+annotated bitext (NE-bitext) is used to evaluate our
+bilingual model. In the semi-supervised case, be-
+sides the original NE-mono data, the Bitext is used
+as input to our bilingual NER tagger to product ad-
+ditional training data. To evaluate the final NER
+model, only NE-mono is needed.
+</bodyText>
+<table confidence="0.826256571428571">
+NE-mono Bitext NE-bitext
+Bilingual
+train \x08
+test \x08 \x08
+Semi
+train \x08 \x08
+test \x08
+</table>
+<tableCaption confidence="0.999443">
+Table 4: Summarization of the data resource usage
+</tableCaption>
+<sectionHeader confidence="0.999098" genericHeader="related work">
+8 Related Work
+</sectionHeader>
+<bodyText confidence="0.9993455">
+Previous work explored the use of bilingual corpora
+to improve existing monolingual analyzers. Huang
+et al. (2009) proposed methods to improve parsing
+performance using bilingual parallel corpus. Li et
+al. (2012) jointly labeled bilingual named entities
+with a cyclic CRF model, where approximate in-
+ference was done using loopy belief propagation.
+These methods require manually annotated bilingual
+</bodyText>
+<page confidence="0.978445">
+59
+</page>
+<bodyText confidence="0.999779354166667">
+\x0ccorpora, which are expensive to construct, and hard
+to obtain. Kim et al. (2012) proposed a method of
+labeling bilingual corpora with named entity labels
+automatically based on Wikipedia. However, this
+method is restricted to topics covered by Wikipedia.
+Similar to our work, Burkett et al. (2010) also as-
+sumed that annotated bilingual corpora are scarce.
+Beyond the difference discussed in Section 1, their
+re-ranking strategy may lose the correct named en-
+tity results if they are not included in the top-N out-
+puts. Furthermore, we consider the word alignment
+probabilities in our method which can reduce the in-
+fluence of word alignment errors. Finally, we test
+our method on a large standard publicly available
+corpus (8,249 sentences), while they used a much
+smaller (200 sentences) manually annotated bilin-
+gual NER corpus for results validation.
+In addition to bilingual corpora, bilingual dictio-
+naries are also useful resources. Huang and Vo-
+gel (2002) and Chen et al. (2010) proposed ap-
+proaches for extracting bilingual named entity pairs
+from unannotated bitext, in which verification is
+based on bilingual named entity dictionaries. How-
+ever, large-scale bilingual named entity dictionaries
+are difficult to obtain for most language pairs.
+Yarowsky and Ngai (2001) proposed a projection
+method that transforms high-quality analysis results
+of one language, such as English, into other lan-
+guages on the basis of word alignment. Das and
+Petrov (2011) applied the above idea to part-of-
+speech tagging with a more complex model. Fu et al.
+(2011) projected English named entities onto Chi-
+nese by carefully designed heuristic rules. Although
+this type of method does not require manually an-
+notated bilingual corpora or dictionaries, errors in
+source language results, wrong word alignments and
+inconsistencies between the languages limit applica-
+tion of this method.
+Constraint-based monolingual methods by using
+ILP have been successfully applied to many natural
+language processing tasks, such as Semantic Role
+Labeling (Punyakanok et al., 2004), Dependency
+Parsing (Martins et al., 2009) and Textual Entail-
+ment (Berant et al., 2011). Zhuang and Zong (2010)
+proposed a joint inference method for bilingual se-
+mantic role labeling with ILP. However, their ap-
+proach requires training an alignment model with a
+manually annotated corpus.
+</bodyText>
+<sectionHeader confidence="0.995292" genericHeader="conclusions">
+9 Conclusions
+</sectionHeader>
+<bodyText confidence="0.998898">
+We proposed a novel ILP based inference algorithm
+with bilingual constraints for NER. This method
+can jointly infer bilingual named entities without
+using any annotated bilingual corpus. We in-
+vestigate various bilingual constraints: hard and
+soft constraints. Out empirical study on large-
+scale OntoNotes Chinese-English parallel NER data
+showed that Soft-align method, which allows
+inconsistent named entity tags between two aligned
+words and considers word alignment probabilities,
+can significantly improve over the performance of
+a strong Chinese NER baseline. Our work is the
+first to evaluate performance on a large-scale stan-
+dard dataset. Finally, we can also improve mono-
+lingual Chinese NER performance significantly, by
+combining the original monolingual training data
+with new data obtained from bitext tagged by our
+method. The final ILP-based bilingual NER tag-
+ger with soft constraints is publicly available at:
+github.com/carfly/bi_ilp
+Future work could apply the bilingual constraint-
+based method to other tasks, such as part-of-speech
+tagging and relation extraction.
+</bodyText>
+<sectionHeader confidence="0.966999" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.990958333333333">
+The authors would like to thank Rob Voigt and the
+three anonymous reviewers for their valuable com-
+ments and suggestions. We gratefully acknowledge
+the support of the National Natural Science Foun-
+dation of China (NSFC) via grant 61133012, the
+National 863 Project via grant 2011AA01A207
+and 2012AA011102, the Ministry of Education Re-
+search of Social Sciences Youth funded projects
+via grant 12YJCZH304, the Defense Advanced Re-
+search Projects Agency (DARPA) Machine Read-
+ing Program under Air Force Research Laboratory
+(AFRL) prime contract no. FA8750-09-C-0181 and
+the support of the DARPA Broad Operational Lan-
+guage Translation (BOLT) program through IBM.
+Any opinions, findings, and conclusion or recom-
+mendations expressed in this material are those of
+the authors and do not necessarily reflect the view of
+the DARPA, AFRL, or the US government.
+</bodyText>
+<page confidence="0.708812">
+60
+</page>
+<reference confidence="0.993683311320755">
+\x0cReferences
+Jonathan Berant, Ido Dagan, and Jacob Goldberger.
+2011. Global learning of typed entailment rules. In
+Proceedings of the 49th Annual Meeting of the Asso-
+ciation for Computational Linguistics: Human Lan-
+guage Technologies, pages 610619, Portland, Ore-
+gon, USA, June. Association for Computational Lin-
+guistics.
+Peter F. Brown, Peter V. deSouza, Robert L. Mercer, Vin-
+cent J. Della Pietra, and Jenifer C. Lai. 1992. Class-
+based n-gram models of natural language. Comput.
+Linguist., 18(4):467479, December.
+David Burkett, Slav Petrov, John Blitzer, and Dan Klein.
+2010. Learning better monolingual models with unan-
+notated bilingual text. In Proceedings of the Four-
+teenth Conference on Computational Natural Lan-
+guage Learning, pages 4654, Uppsala, Sweden, July.
+Association for Computational Linguistics.
+Yufeng Chen, Chengqing Zong, and Keh-Yih Su. 2010.
+On jointly recognizing and aligning bilingual named
+entities. In Proceedings of the 48th Annual Meet-
+ing of the Association for Computational Linguistics,
+pages 631639, Uppsala, Sweden, July. Association
+for Computational Linguistics.
+Dipanjan Das and Slav Petrov. 2011. Unsupervised
+part-of-speech tagging with bilingual graph-based pro-
+jections. In Proceedings of the 49th Annual Meet-
+ing of the Association for Computational Linguistics:
+Human Language Technologies, pages 600609, Port-
+land, Oregon, USA, June. Association for Computa-
+tional Linguistics.
+B. Efron and R. J. Tibshirani. 1993. An Introduction to
+the Bootstrap. Chapman &amp; Hall, New York.
+Jenny Rose Finkel, Trond Grenager, and Christopher
+Manning. 2005. Incorporating non-local information
+into information extraction systems by gibbs sampling.
+In Proceedings of the 43rd Annual Meeting of the
+Association for Computational Linguistics (ACL05),
+pages 363370, Ann Arbor, Michigan, June. Associa-
+tion for Computational Linguistics.
+Ruiji Fu, Bing Qin, and Ting Liu. 2011. Generating
+chinese named entity data from a parallel corpus. In
+Proceedings of 5th International Joint Conference on
+Natural Language Processing, pages 264272, Chiang
+Mai, Thailand, November. Asian Federation of Natural
+Language Processing.
+Eduard Hovy, Mitchell Marcus, Martha Palmer, Lance
+Ramshaw, and Ralph Weischedel. 2006. Ontonotes:
+the 90% solution. In Proceedings of the Human Lan-
+guage Technology Conference of the NAACL, Com-
+panion Volume: Short Papers, NAACL-Short 06,
+pages 5760, Stroudsburg, PA, USA. Association for
+Computational Linguistics.
+Fei Huang and Stephan Vogel. 2002. Improved named
+entity translation and bilingual named entity extrac-
+tion. In Proceedings of the 4th IEEE International
+Conference on Multimodal Interfaces, ICMI 2002,
+Washington, DC, USA. IEEE Computer Society.
+Liang Huang, Wenbin Jiang, and Qun Liu. 2009.
+Bilingually-constrained (monolingual) shift-reduce
+parsing. In Proceedings of the 2009 Conference on
+Empirical Methods in Natural Language Processing,
+pages 12221231, Singapore, August. Association for
+Computational Linguistics.
+Sungchul Kim, Kristina Toutanova, and Hwanjo Yu.
+2012. Multilingual named entity recognition using
+parallel data and metadata from wikipedia. In Pro-
+ceedings of the 50th Annual Meeting of the Associa-
+tion for Computational Linguistics (Volume 1: Long
+Papers), pages 694702, Jeju Island, Korea, July. As-
+sociation for Computational Linguistics.
+Terry Koo, Xavier Carreras, and Michael Collins. 2008.
+Simple semi-supervised dependency parsing. In Pro-
+ceedings of ACL-08: HLT, pages 595603, Columbus,
+Ohio, June. Association for Computational Linguis-
+tics.
+Shankar Kumar. 2005. Minimum bayes-risk techniques
+in automatic speech recognition and statistical ma-
+chine translation. Ph.D. thesis, Baltimore, MD, USA.
+AAI3155633.
+John D. Lafferty, Andrew McCallum, and Fernando C. N.
+Pereira. 2001. Conditional random fields: Proba-
+bilistic models for segmenting and labeling sequence
+data. In Proceedings of the Eighteenth International
+Conference on Machine Learning, ICML 01, pages
+282289, San Francisco, CA, USA. Morgan Kauf-
+mann Publishers Inc.
+Qi Li, Haibo Li, Heng Ji, Wen Wang, Jing Zheng, and Fei
+Huang. 2012. Joint bilingual name tagging for paral-
+lel corpora. In Proceedings of the 21st ACM Inter-
+national Conference on Information and Knowledge
+Management (CIKM 2012), Honolulu, Hawaii, Octo-
+ber.
+Percy Liang. 2005. Semi-supervised learning for natural
+language. Masters thesis, MIT.
+Andre Martins, Noah Smith, and Eric Xing. 2009. Con-
+cise integer linear programming formulations for de-
+pendency parsing. In Proceedings of the Joint Con-
+ference of the 47th Annual Meeting of the ACL and
+the 4th International Joint Conference on Natural Lan-
+guage Processing of the AFNLP, pages 342350, Sun-
+tec, Singapore, August. Association for Computational
+Linguistics.
+Bernard Merialdo. 1994. Tagging english text with a
+probabilistic model. Comput. Linguist., 20(2):155
+171.
+</reference>
+<page confidence="0.974919">
+61
+</page>
+<reference confidence="0.998516567567568">
+\x0cScott Miller, Jethran Guinness, and Alex Zamanian.
+2004. Name tagging with word clusters and dis-
+criminative training. In Daniel Marcu Susan Dumais
+and Salim Roukos, editors, HLT-NAACL 2004: Main
+Proceedings, pages 337342, Boston, Massachusetts,
+USA, May 2 - May 7. Association for Computational
+Linguistics.
+Slav Petrov, Pi-Chuan Chang, Michael Ringgaard, and
+Hiyan Alshawi. 2010. Uptraining for accurate deter-
+ministic question parsing. In Proceedings of the 2010
+Conference on Empirical Methods in Natural Lan-
+guage Processing, pages 705713, Cambridge, MA,
+October. Association for Computational Linguistics.
+Vasin Punyakanok, Dan Roth, Wen-tau Yih, and Dav Zi-
+mak. 2004. Semantic role labeling via integer lin-
+ear programming inference. In Proceedings of Coling
+2004, pages 13461352, Geneva, Switzerland, Aug
+23Aug 27. COLING.
+Dan Roth and Wen-tau Yih. 2005. Integer linear pro-
+gramming inference for conditional random fields. In
+Proceedings of the 22nd international conference on
+Machine learning, ICML 05, pages 736743, New
+York, NY, USA. ACM.
+David Yarowsky and Grace Ngai. 2001. Inducing mul-
+tilingual POS taggers and NP bracketers via robust
+projection across aligned corpora. In Proceedings of
+the second meeting of the North American Chapter of
+the Association for Computational Linguistics on Lan-
+guage technologies, NAACL 01, pages 18, Strouds-
+burg, PA, USA. Association for Computational Lin-
+guistics.
+Tao Zhuang and Chengqing Zong. 2010. Joint inference
+for bilingual semantic role labeling. In Proceedings of
+the 2010 Conference on Empirical Methods in Natu-
+ral Language Processing, pages 304314, Cambridge,
+MA, October. Association for Computational Linguis-
+tics.
+</reference>
+<page confidence="0.911903">
+62
+</page>
+<figure confidence="0.301847">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.197526">
+<note confidence="0.842407666666667">b&apos;Proceedings of NAACL-HLT 2013, pages 5262, Atlanta, Georgia, 914 June 2013. c 2013 Association for Computational Linguistics</note>
+<title confidence="0.7928925">Named Entity Recognition with Bilingual Constraints Wanxiang Che</title>
+<author confidence="0.8569385">Mengqiu Wang Christopher D Manning Ting Liu car</author>
+<author confidence="0.8569385">tliuir hit edu cn</author>
+<affiliation confidence="0.997716">School of Computer Science and Technology Harbin Institute of Technology</affiliation>
+<address confidence="0.999935">Harbin, China, 150001</address>
+<email confidence="0.999907">mengqiu@stanford.edu</email>
+<email confidence="0.999907">manning@stanford.edu</email>
+<affiliation confidence="0.999631">Computer Science Department Stanford University</affiliation>
+<address confidence="0.999822">Stanford, CA, 94305</address>
+<abstract confidence="0.998371238095238">Different languages contain complementary cues about entities, which can be used to improve Named Entity Recognition (NER) systems. We propose a method that formulates the problem of exploring such signals on unannotated bilingual text as a simple Integer Linear Program, which encourages entity tags to agree via bilingual constraints. Bilingual NER experiments on the large OntoNotes 4.0 Chinese-English corpus show that the proposed method can improve strong baselines for both Chinese and English. In particular, Chinese performance improves by over 5% absolute F1 score. We can then annotate a large amount of bilingual text (80k sentence pairs) using our method, and add it as uptraining data to the original monolingual NER training corpus. The Chinese model retrained on this new combined dataset outperforms the strong baseline by over 3% F1 score.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>\x0cReferences Jonathan Berant</author>
+<author>Ido Dagan</author>
+<author>Jacob Goldberger</author>
+</authors>
+<title>Global learning of typed entailment rules.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics: Human Language Technologies,</booktitle>
+<pages>610619</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Portland, Oregon, USA,</location>
+<contexts>
+<context position="29964" citStr="Berant et al., 2011" startWordPosition="5052" endWordPosition="5055">e complex model. Fu et al. (2011) projected English named entities onto Chinese by carefully designed heuristic rules. Although this type of method does not require manually annotated bilingual corpora or dictionaries, errors in source language results, wrong word alignments and inconsistencies between the languages limit application of this method. Constraint-based monolingual methods by using ILP have been successfully applied to many natural language processing tasks, such as Semantic Role Labeling (Punyakanok et al., 2004), Dependency Parsing (Martins et al., 2009) and Textual Entailment (Berant et al., 2011). Zhuang and Zong (2010) proposed a joint inference method for bilingual semantic role labeling with ILP. However, their approach requires training an alignment model with a manually annotated corpus. 9 Conclusions We proposed a novel ILP based inference algorithm with bilingual constraints for NER. This method can jointly infer bilingual named entities without using any annotated bilingual corpus. We investigate various bilingual constraints: hard and soft constraints. Out empirical study on largescale OntoNotes Chinese-English parallel NER data showed that Soft-align method, which allows inc</context>
+</contexts>
+<marker>Berant, Dagan, Goldberger, 2011</marker>
+<rawString>\x0cReferences Jonathan Berant, Ido Dagan, and Jacob Goldberger. 2011. Global learning of typed entailment rules. In Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics: Human Language Technologies, pages 610619, Portland, Oregon, USA, June. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Peter F Brown</author>
+<author>Peter V deSouza</author>
+<author>Robert L Mercer</author>
+<author>Vincent J Della Pietra</author>
+<author>Jenifer C Lai</author>
+</authors>
+<title>Classbased n-gram models of natural language.</title>
+<date>1992</date>
+<journal>Comput. Linguist.,</journal>
+<volume>18</volume>
+<issue>4</issue>
+<contexts>
+<context position="19302" citStr="Brown et al., 1992" startWordPosition="3378" endWordPosition="3381"> both Chinese and English. Word clustering features have been successfully used in several English tasks, including 4 champollion.sourceforge.net 5 code.google.com/p/berkeleyaligner 6 nlp.stanford.edu/software/CRF-NER.shtml, which has included our English and Chinese NER implementations. 7 The radical of a Chinese character can be found at: www. unicode.org/charts/unihan.html NER (Miller et al., 2004) and dependency parsing (Koo et al., 2008). To our knowledge, this work is the first use of word clustering features for Chinese NER. A C++ implementation of the Brown word clustering algorithms (Brown et al., 1992) was used to obtain the word clusters (Liang, 2005).8 Raw text was obtained from the fifth edition of Chinese Gigaword (LDC2011T13). One million paragraphs from Xinhua news section were randomly selected, and the Stanford Word Segmenter with LDC standard was applied to segment Chinese text into words.9 About 46 million words were obtained which were clustered into 1,000 word classes. 5 Threshold Tuning During development, we tuned the word alignment probability thresholds to find the best value. Figure 3 shows the performance curves. When the word alignment probability threshold is set to 0.9,</context>
+</contexts>
+<marker>Brown, deSouza, Mercer, Pietra, Lai, 1992</marker>
+<rawString>Peter F. Brown, Peter V. deSouza, Robert L. Mercer, Vincent J. Della Pietra, and Jenifer C. Lai. 1992. Classbased n-gram models of natural language. Comput. Linguist., 18(4):467479, December.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Burkett</author>
+<author>Slav Petrov</author>
+<author>John Blitzer</author>
+<author>Dan Klein</author>
+</authors>
+<title>Learning better monolingual models with unannotated bilingual text.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the Fourteenth Conference on Computational Natural Language Learning,</booktitle>
+<pages>4654</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Uppsala, Sweden,</location>
+<contexts>
+<context position="2863" citStr="Burkett et al. (2010)" startWordPosition="441" endWordPosition="444">ual cues can help to recognize errors a monolingual tagger would make, allowing us to produce more accurately tagged bitext. Each side of the tagged bitext can then be used to expand the original monolingual training dataset, which may lead to higher accuracy in the monolingual taggers. Previous work such as Li et al. (2012) and Kim et al. (2012) demonstrated that bilingual corpus annotated with NER labels can be used to improve monolingual tagger performance. But a major drawback of their approaches are the need for manual annotation efforts to create such corpora. To avoid this requirement, Burkett et al. (2010) suggested a multi-view learning scheme based on re-ranking. Noisy output of a strong tagger is used as training data to learn parameters of a log-linear re-ranking model with additional bilingual features, simulated by a weak tagger. The learned parameters are then reused with the strong tagger to re-rank its own outputs for unseen inputs. Designing good weak taggers so that they complement the view of bilingual features in the log-linear re-ranker is crucial to the success of this algorithm. Unfortunately there is no principled way of designing such weak taggers. In this paper, we would like</context>
+<context position="28128" citStr="Burkett et al. (2010)" startWordPosition="4770" endWordPosition="4773">l analyzers. Huang et al. (2009) proposed methods to improve parsing performance using bilingual parallel corpus. Li et al. (2012) jointly labeled bilingual named entities with a cyclic CRF model, where approximate inference was done using loopy belief propagation. These methods require manually annotated bilingual 59 \x0ccorpora, which are expensive to construct, and hard to obtain. Kim et al. (2012) proposed a method of labeling bilingual corpora with named entity labels automatically based on Wikipedia. However, this method is restricted to topics covered by Wikipedia. Similar to our work, Burkett et al. (2010) also assumed that annotated bilingual corpora are scarce. Beyond the difference discussed in Section 1, their re-ranking strategy may lose the correct named entity results if they are not included in the top-N outputs. Furthermore, we consider the word alignment probabilities in our method which can reduce the influence of word alignment errors. Finally, we test our method on a large standard publicly available corpus (8,249 sentences), while they used a much smaller (200 sentences) manually annotated bilingual NER corpus for results validation. In addition to bilingual corpora, bilingual dic</context>
+</contexts>
+<marker>Burkett, Petrov, Blitzer, Klein, 2010</marker>
+<rawString>David Burkett, Slav Petrov, John Blitzer, and Dan Klein. 2010. Learning better monolingual models with unannotated bilingual text. In Proceedings of the Fourteenth Conference on Computational Natural Language Learning, pages 4654, Uppsala, Sweden, July. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yufeng Chen</author>
+<author>Chengqing Zong</author>
+<author>Keh-Yih Su</author>
+</authors>
+<title>On jointly recognizing and aligning bilingual named entities.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<pages>631639</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Uppsala, Sweden,</location>
+<contexts>
+<context position="28810" citStr="Chen et al. (2010)" startWordPosition="4880" endWordPosition="4883">d the difference discussed in Section 1, their re-ranking strategy may lose the correct named entity results if they are not included in the top-N outputs. Furthermore, we consider the word alignment probabilities in our method which can reduce the influence of word alignment errors. Finally, we test our method on a large standard publicly available corpus (8,249 sentences), while they used a much smaller (200 sentences) manually annotated bilingual NER corpus for results validation. In addition to bilingual corpora, bilingual dictionaries are also useful resources. Huang and Vogel (2002) and Chen et al. (2010) proposed approaches for extracting bilingual named entity pairs from unannotated bitext, in which verification is based on bilingual named entity dictionaries. However, large-scale bilingual named entity dictionaries are difficult to obtain for most language pairs. Yarowsky and Ngai (2001) proposed a projection method that transforms high-quality analysis results of one language, such as English, into other languages on the basis of word alignment. Das and Petrov (2011) applied the above idea to part-ofspeech tagging with a more complex model. Fu et al. (2011) projected English named entities</context>
+</contexts>
+<marker>Chen, Zong, Su, 2010</marker>
+<rawString>Yufeng Chen, Chengqing Zong, and Keh-Yih Su. 2010. On jointly recognizing and aligning bilingual named entities. In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics, pages 631639, Uppsala, Sweden, July. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Dipanjan Das</author>
+<author>Slav Petrov</author>
+</authors>
+<title>Unsupervised part-of-speech tagging with bilingual graph-based projections.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics: Human Language Technologies,</booktitle>
+<pages>600609</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Portland, Oregon, USA,</location>
+<contexts>
+<context position="29285" citStr="Das and Petrov (2011)" startWordPosition="4950" endWordPosition="4953">ults validation. In addition to bilingual corpora, bilingual dictionaries are also useful resources. Huang and Vogel (2002) and Chen et al. (2010) proposed approaches for extracting bilingual named entity pairs from unannotated bitext, in which verification is based on bilingual named entity dictionaries. However, large-scale bilingual named entity dictionaries are difficult to obtain for most language pairs. Yarowsky and Ngai (2001) proposed a projection method that transforms high-quality analysis results of one language, such as English, into other languages on the basis of word alignment. Das and Petrov (2011) applied the above idea to part-ofspeech tagging with a more complex model. Fu et al. (2011) projected English named entities onto Chinese by carefully designed heuristic rules. Although this type of method does not require manually annotated bilingual corpora or dictionaries, errors in source language results, wrong word alignments and inconsistencies between the languages limit application of this method. Constraint-based monolingual methods by using ILP have been successfully applied to many natural language processing tasks, such as Semantic Role Labeling (Punyakanok et al., 2004), Depende</context>
+</contexts>
+<marker>Das, Petrov, 2011</marker>
+<rawString>Dipanjan Das and Slav Petrov. 2011. Unsupervised part-of-speech tagging with bilingual graph-based projections. In Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics: Human Language Technologies, pages 600609, Portland, Oregon, USA, June. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>B Efron</author>
+<author>R J Tibshirani</author>
+</authors>
+<title>An Introduction to the Bootstrap.</title>
+<date>1993</date>
+<publisher>Chapman &amp; Hall,</publisher>
+<location>New York.</location>
+<contexts>
+<context position="22906" citStr="Efron and Tibshirani, 1993" startWordPosition="3934" endWordPosition="3937"> English NER has been proved in previous work. The performance of ILP with only monolingual constraints is quite comparable with the CRF results, especially on English. The greater ILP performance on English is probably due to more accurate marginal probabilities estimated by the English CRF model. The ILP model with hard bilingual constraints gives a slight performance improvement on Chinese, but affects performance negatively on English. Once we introduced tagging uncertainties into the Soft-tag bilingual constraints, we see a very sig10 We use paired bootstrap resampling significance test (Efron and Tibshirani, 1993). 11 To the best of our knowledge, there was no performance report of state-of-the-art NER results on the latest OntoNotes dataset. nificant (p &amp;lt; 0.01) performance boost on Chinese. This method also improves the recall on English, with a smaller decrease in precision. Overall, it improves English F1 score by about 0.4%, which is unfortunately not statistically significant. Compared with Soft-tag, the final Soft-align method can further improve performance on both Chinese and English. This is likely to be because: 1) Soft-align includes more word alignment pairs, thereby improving recall; and 2</context>
+</contexts>
+<marker>Efron, Tibshirani, 1993</marker>
+<rawString>B. Efron and R. J. Tibshirani. 1993. An Introduction to the Bootstrap. Chapman &amp; Hall, New York.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Rose Finkel</author>
+<author>Trond Grenager</author>
+<author>Christopher Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the 43rd Annual Meeting of the Association for Computational Linguistics (ACL05),</booktitle>
+<pages>363370</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Ann Arbor, Michigan,</location>
+<contexts>
+<context position="18170" citStr="Finkel et al. (2005)" startWordPosition="3203" endWordPosition="3206">Geo-Political Entities), and discarded the others. Since the bilingual corpus is only aligned at the document level, we performed sentence alignment using the Champollion Tool Kit (CTK).4 After removing sentences with no aligned sentence, a total of 8,249 sentence pairs were retained. We used the BerkeleyAligner,5 to produce word alignments over the sentence-aligned datasets. BerkeleyAligner also gives posterior probabilities Pa for each aligned word pair. We used the CRF-based Stanford NER tagger (using Viterbi decoding) as our baseline monolingual NER tool.6 English features were taken from Finkel et al. (2005). Table 1 lists the basic features of Chinese NER, where means string concatenation and yi is the named entity tag of the ith word wi. Moreover, shape(wi) is the shape of wi, such as date and number. prefix/suffix(wi, k) denotes the k-characters prefix/suffix of wi. radical(wi, k) denotes the radical of the kth Chinese character of wi.7 len(wi) is the number of Chinese characters in wi. To make the baseline CRF taggers stronger, we added word clustering features to improve generalization over unseen data for both Chinese and English. Word clustering features have been successfully used in seve</context>
+</contexts>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>Jenny Rose Finkel, Trond Grenager, and Christopher Manning. 2005. Incorporating non-local information into information extraction systems by gibbs sampling. In Proceedings of the 43rd Annual Meeting of the Association for Computational Linguistics (ACL05), pages 363370, Ann Arbor, Michigan, June. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ruiji Fu</author>
+<author>Bing Qin</author>
+<author>Ting Liu</author>
+</authors>
+<title>Generating chinese named entity data from a parallel corpus.</title>
+<date>2011</date>
+<journal>Asian Federation of Natural Language Processing.</journal>
+<booktitle>In Proceedings of 5th International Joint Conference on Natural Language Processing,</booktitle>
+<pages>264272</pages>
+<location>Chiang Mai, Thailand,</location>
+<contexts>
+<context position="29377" citStr="Fu et al. (2011)" startWordPosition="4967" endWordPosition="4970">es. Huang and Vogel (2002) and Chen et al. (2010) proposed approaches for extracting bilingual named entity pairs from unannotated bitext, in which verification is based on bilingual named entity dictionaries. However, large-scale bilingual named entity dictionaries are difficult to obtain for most language pairs. Yarowsky and Ngai (2001) proposed a projection method that transforms high-quality analysis results of one language, such as English, into other languages on the basis of word alignment. Das and Petrov (2011) applied the above idea to part-ofspeech tagging with a more complex model. Fu et al. (2011) projected English named entities onto Chinese by carefully designed heuristic rules. Although this type of method does not require manually annotated bilingual corpora or dictionaries, errors in source language results, wrong word alignments and inconsistencies between the languages limit application of this method. Constraint-based monolingual methods by using ILP have been successfully applied to many natural language processing tasks, such as Semantic Role Labeling (Punyakanok et al., 2004), Dependency Parsing (Martins et al., 2009) and Textual Entailment (Berant et al., 2011). Zhuang and </context>
+</contexts>
+<marker>Fu, Qin, Liu, 2011</marker>
+<rawString>Ruiji Fu, Bing Qin, and Ting Liu. 2011. Generating chinese named entity data from a parallel corpus. In Proceedings of 5th International Joint Conference on Natural Language Processing, pages 264272, Chiang Mai, Thailand, November. Asian Federation of Natural Language Processing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eduard Hovy</author>
+<author>Mitchell Marcus</author>
+<author>Martha Palmer</author>
+<author>Lance Ramshaw</author>
+<author>Ralph Weischedel</author>
+</authors>
+<title>Ontonotes: the 90% solution.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the Human Language Technology Conference of the NAACL, Companion Volume: Short Papers, NAACL-Short 06,</booktitle>
+<pages>5760</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Stroudsburg, PA, USA.</location>
+<contexts>
+<context position="16356" citStr="Hovy et al., 2006" startWordPosition="2904" endWordPosition="2907"> is then transformed into the following equation: max |Wc| X i X yY zy i log Py i + |We| X j X yY zy j log Py j + X aA X ycY X yeY zycye a Pa log ycye a (19) We name the set of constraints above Soft-align, which has the same constraints as Soft-tag, i.e., Eqs. (8), (9), (15) and (16). 4 Experimental Setup We conduct experiments on the latest OntoNotes 4.0 corpus (LDC2011T03). OntoNotes is a large, manually annotated corpus that contains various text genres and annotations, such as part-of-speech tags, named entity labels, syntactic parse trees, predicateargument structures and co-references (Hovy et al., 2006). Aside from English, this corpus also contains several Chinese and Arabic corpora. Some of these corpora contain bilingual parallel documents. We used the Chinese-English parallel corpus with named entity labels as our development and test data. This corpus includes about 400 document pairs (chtb 0001-0325, ectb 1001-1078). We used oddnumbered documents as development data and evennumbered documents as test data. We used all other portions of the named entity annotated corpus as training data for the monolingual systems. There were a total of 660 Chinese documents (16k sentences) and 1,400 En</context>
+</contexts>
+<marker>Hovy, Marcus, Palmer, Ramshaw, Weischedel, 2006</marker>
+<rawString>Eduard Hovy, Mitchell Marcus, Martha Palmer, Lance Ramshaw, and Ralph Weischedel. 2006. Ontonotes: the 90% solution. In Proceedings of the Human Language Technology Conference of the NAACL, Companion Volume: Short Papers, NAACL-Short 06, pages 5760, Stroudsburg, PA, USA. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Fei Huang</author>
+<author>Stephan Vogel</author>
+</authors>
+<title>Improved named entity translation and bilingual named entity extraction.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the 4th IEEE International Conference on Multimodal Interfaces, ICMI 2002,</booktitle>
+<publisher>IEEE Computer Society.</publisher>
+<location>Washington, DC, USA.</location>
+<contexts>
+<context position="28787" citStr="Huang and Vogel (2002)" startWordPosition="4874" endWordPosition="4878">l corpora are scarce. Beyond the difference discussed in Section 1, their re-ranking strategy may lose the correct named entity results if they are not included in the top-N outputs. Furthermore, we consider the word alignment probabilities in our method which can reduce the influence of word alignment errors. Finally, we test our method on a large standard publicly available corpus (8,249 sentences), while they used a much smaller (200 sentences) manually annotated bilingual NER corpus for results validation. In addition to bilingual corpora, bilingual dictionaries are also useful resources. Huang and Vogel (2002) and Chen et al. (2010) proposed approaches for extracting bilingual named entity pairs from unannotated bitext, in which verification is based on bilingual named entity dictionaries. However, large-scale bilingual named entity dictionaries are difficult to obtain for most language pairs. Yarowsky and Ngai (2001) proposed a projection method that transforms high-quality analysis results of one language, such as English, into other languages on the basis of word alignment. Das and Petrov (2011) applied the above idea to part-ofspeech tagging with a more complex model. Fu et al. (2011) projected</context>
+</contexts>
+<marker>Huang, Vogel, 2002</marker>
+<rawString>Fei Huang and Stephan Vogel. 2002. Improved named entity translation and bilingual named entity extraction. In Proceedings of the 4th IEEE International Conference on Multimodal Interfaces, ICMI 2002, Washington, DC, USA. IEEE Computer Society.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Liang Huang</author>
+<author>Wenbin Jiang</author>
+<author>Qun Liu</author>
+</authors>
+<date>2009</date>
+<contexts>
+<context position="27539" citStr="Huang et al. (2009)" startWordPosition="4682" endWordPosition="4685"> by the word aligner and our bilingual NER tagger. Named entity annotated bitext (NE-bitext) is used to evaluate our bilingual model. In the semi-supervised case, besides the original NE-mono data, the Bitext is used as input to our bilingual NER tagger to product additional training data. To evaluate the final NER model, only NE-mono is needed. NE-mono Bitext NE-bitext Bilingual train \x08 test \x08 \x08 Semi train \x08 \x08 test \x08 Table 4: Summarization of the data resource usage 8 Related Work Previous work explored the use of bilingual corpora to improve existing monolingual analyzers. Huang et al. (2009) proposed methods to improve parsing performance using bilingual parallel corpus. Li et al. (2012) jointly labeled bilingual named entities with a cyclic CRF model, where approximate inference was done using loopy belief propagation. These methods require manually annotated bilingual 59 \x0ccorpora, which are expensive to construct, and hard to obtain. Kim et al. (2012) proposed a method of labeling bilingual corpora with named entity labels automatically based on Wikipedia. However, this method is restricted to topics covered by Wikipedia. Similar to our work, Burkett et al. (2010) also assum</context>
+</contexts>
+<marker>Huang, Jiang, Liu, 2009</marker>
+<rawString>Liang Huang, Wenbin Jiang, and Qun Liu. 2009.</rawString>
+</citation>
+<citation valid="true">
+<title>Bilingually-constrained (monolingual) shift-reduce parsing.</title>
+<date></date>
+<booktitle>In Proceedings of the 2009 Conference on Empirical Methods in Natural Language Processing,</booktitle>
+<pages>12221231</pages>
+<marker></marker>
+<rawString>Bilingually-constrained (monolingual) shift-reduce parsing. In Proceedings of the 2009 Conference on Empirical Methods in Natural Language Processing, pages 12221231, Singapore, August. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sungchul Kim</author>
+<author>Kristina Toutanova</author>
+<author>Hwanjo Yu</author>
+</authors>
+<title>Multilingual named entity recognition using parallel data and metadata from wikipedia.</title>
+<date>2012</date>
+<booktitle>In Proceedings of the 50th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers),</booktitle>
+<pages>694702</pages>
+<institution>Jeju Island, Korea, July. Association for Computational Linguistics.</institution>
+<contexts>
+<context position="2590" citStr="Kim et al. (2012)" startWordPosition="397" endWordPosition="400">es about entities. For example, in Figure 1, the word (Ben) is common in Chinese but rarely appears as a translated foreign name. However, its aligned word on the English side (Ben) provides a strong clue that this is a person name. Judicious use of this type of bilingual cues can help to recognize errors a monolingual tagger would make, allowing us to produce more accurately tagged bitext. Each side of the tagged bitext can then be used to expand the original monolingual training dataset, which may lead to higher accuracy in the monolingual taggers. Previous work such as Li et al. (2012) and Kim et al. (2012) demonstrated that bilingual corpus annotated with NER labels can be used to improve monolingual tagger performance. But a major drawback of their approaches are the need for manual annotation efforts to create such corpora. To avoid this requirement, Burkett et al. (2010) suggested a multi-view learning scheme based on re-ranking. Noisy output of a strong tagger is used as training data to learn parameters of a log-linear re-ranking model with additional bilingual features, simulated by a weak tagger. The learned parameters are then reused with the strong tagger to re-rank its own outputs for</context>
+<context position="27911" citStr="Kim et al. (2012)" startWordPosition="4737" endWordPosition="4740">ilingual train \x08 test \x08 \x08 Semi train \x08 \x08 test \x08 Table 4: Summarization of the data resource usage 8 Related Work Previous work explored the use of bilingual corpora to improve existing monolingual analyzers. Huang et al. (2009) proposed methods to improve parsing performance using bilingual parallel corpus. Li et al. (2012) jointly labeled bilingual named entities with a cyclic CRF model, where approximate inference was done using loopy belief propagation. These methods require manually annotated bilingual 59 \x0ccorpora, which are expensive to construct, and hard to obtain. Kim et al. (2012) proposed a method of labeling bilingual corpora with named entity labels automatically based on Wikipedia. However, this method is restricted to topics covered by Wikipedia. Similar to our work, Burkett et al. (2010) also assumed that annotated bilingual corpora are scarce. Beyond the difference discussed in Section 1, their re-ranking strategy may lose the correct named entity results if they are not included in the top-N outputs. Furthermore, we consider the word alignment probabilities in our method which can reduce the influence of word alignment errors. Finally, we test our method on a l</context>
+</contexts>
+<marker>Kim, Toutanova, Yu, 2012</marker>
+<rawString>Sungchul Kim, Kristina Toutanova, and Hwanjo Yu. 2012. Multilingual named entity recognition using parallel data and metadata from wikipedia. In Proceedings of the 50th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), pages 694702, Jeju Island, Korea, July. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Terry Koo</author>
+<author>Xavier Carreras</author>
+<author>Michael Collins</author>
+</authors>
+<title>Simple semi-supervised dependency parsing.</title>
+<date>2008</date>
+<booktitle>In Proceedings of ACL-08: HLT,</booktitle>
+<pages>595603</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Columbus, Ohio,</location>
+<contexts>
+<context position="19129" citStr="Koo et al., 2008" startWordPosition="3348" endWordPosition="3351">(wi) is the number of Chinese characters in wi. To make the baseline CRF taggers stronger, we added word clustering features to improve generalization over unseen data for both Chinese and English. Word clustering features have been successfully used in several English tasks, including 4 champollion.sourceforge.net 5 code.google.com/p/berkeleyaligner 6 nlp.stanford.edu/software/CRF-NER.shtml, which has included our English and Chinese NER implementations. 7 The radical of a Chinese character can be found at: www. unicode.org/charts/unihan.html NER (Miller et al., 2004) and dependency parsing (Koo et al., 2008). To our knowledge, this work is the first use of word clustering features for Chinese NER. A C++ implementation of the Brown word clustering algorithms (Brown et al., 1992) was used to obtain the word clusters (Liang, 2005).8 Raw text was obtained from the fifth edition of Chinese Gigaword (LDC2011T13). One million paragraphs from Xinhua news section were randomly selected, and the Stanford Word Segmenter with LDC standard was applied to segment Chinese text into words.9 About 46 million words were obtained which were clustered into 1,000 word classes. 5 Threshold Tuning During development, w</context>
+</contexts>
+<marker>Koo, Carreras, Collins, 2008</marker>
+<rawString>Terry Koo, Xavier Carreras, and Michael Collins. 2008. Simple semi-supervised dependency parsing. In Proceedings of ACL-08: HLT, pages 595603, Columbus, Ohio, June. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Shankar Kumar</author>
+</authors>
+<title>Minimum bayes-risk techniques in automatic speech recognition and statistical machine translation.</title>
+<date>2005</date>
+<booktitle>Ph.D. thesis,</booktitle>
+<location>Baltimore, MD, USA. AAI3155633. John</location>
+<marker>Kumar, 2005</marker>
+<rawString>Shankar Kumar. 2005. Minimum bayes-risk techniques in automatic speech recognition and statistical machine translation. Ph.D. thesis, Baltimore, MD, USA. AAI3155633. John D. Lafferty, Andrew McCallum, and Fernando C. N.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Pereira</author>
+</authors>
+<title>Conditional random fields: Probabilistic models for segmenting and labeling sequence data.</title>
+<date>2001</date>
+<booktitle>In Proceedings of the Eighteenth International Conference on Machine Learning, ICML 01,</booktitle>
+<pages>282289</pages>
+<publisher>Morgan Kaufmann Publishers Inc.</publisher>
+<location>San Francisco, CA, USA.</location>
+<marker>Pereira, 2001</marker>
+<rawString>Pereira. 2001. Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In Proceedings of the Eighteenth International Conference on Machine Learning, ICML 01, pages 282289, San Francisco, CA, USA. Morgan Kaufmann Publishers Inc.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Qi Li</author>
+<author>Haibo Li</author>
+<author>Heng Ji</author>
+<author>Wen Wang</author>
+<author>Jing Zheng</author>
+<author>Fei Huang</author>
+</authors>
+<title>Joint bilingual name tagging for parallel corpora.</title>
+<date>2012</date>
+<booktitle>In Proceedings of the 21st ACM International Conference on Information and Knowledge Management (CIKM 2012),</booktitle>
+<location>Honolulu, Hawaii,</location>
+<contexts>
+<context position="2568" citStr="Li et al. (2012)" startWordPosition="392" endWordPosition="395">tain complementary cues about entities. For example, in Figure 1, the word (Ben) is common in Chinese but rarely appears as a translated foreign name. However, its aligned word on the English side (Ben) provides a strong clue that this is a person name. Judicious use of this type of bilingual cues can help to recognize errors a monolingual tagger would make, allowing us to produce more accurately tagged bitext. Each side of the tagged bitext can then be used to expand the original monolingual training dataset, which may lead to higher accuracy in the monolingual taggers. Previous work such as Li et al. (2012) and Kim et al. (2012) demonstrated that bilingual corpus annotated with NER labels can be used to improve monolingual tagger performance. But a major drawback of their approaches are the need for manual annotation efforts to create such corpora. To avoid this requirement, Burkett et al. (2010) suggested a multi-view learning scheme based on re-ranking. Noisy output of a strong tagger is used as training data to learn parameters of a log-linear re-ranking model with additional bilingual features, simulated by a weak tagger. The learned parameters are then reused with the strong tagger to re-ra</context>
+<context position="27637" citStr="Li et al. (2012)" startWordPosition="4696" endWordPosition="4699">to evaluate our bilingual model. In the semi-supervised case, besides the original NE-mono data, the Bitext is used as input to our bilingual NER tagger to product additional training data. To evaluate the final NER model, only NE-mono is needed. NE-mono Bitext NE-bitext Bilingual train \x08 test \x08 \x08 Semi train \x08 \x08 test \x08 Table 4: Summarization of the data resource usage 8 Related Work Previous work explored the use of bilingual corpora to improve existing monolingual analyzers. Huang et al. (2009) proposed methods to improve parsing performance using bilingual parallel corpus. Li et al. (2012) jointly labeled bilingual named entities with a cyclic CRF model, where approximate inference was done using loopy belief propagation. These methods require manually annotated bilingual 59 \x0ccorpora, which are expensive to construct, and hard to obtain. Kim et al. (2012) proposed a method of labeling bilingual corpora with named entity labels automatically based on Wikipedia. However, this method is restricted to topics covered by Wikipedia. Similar to our work, Burkett et al. (2010) also assumed that annotated bilingual corpora are scarce. Beyond the difference discussed in Section 1, thei</context>
+</contexts>
+<marker>Li, Li, Ji, Wang, Zheng, Huang, 2012</marker>
+<rawString>Qi Li, Haibo Li, Heng Ji, Wen Wang, Jing Zheng, and Fei Huang. 2012. Joint bilingual name tagging for parallel corpora. In Proceedings of the 21st ACM International Conference on Information and Knowledge Management (CIKM 2012), Honolulu, Hawaii, October.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Percy Liang</author>
+</authors>
+<title>Semi-supervised learning for natural language.</title>
+<date>2005</date>
+<tech>Masters thesis, MIT.</tech>
+<contexts>
+<context position="19353" citStr="Liang, 2005" startWordPosition="3389" endWordPosition="3390">een successfully used in several English tasks, including 4 champollion.sourceforge.net 5 code.google.com/p/berkeleyaligner 6 nlp.stanford.edu/software/CRF-NER.shtml, which has included our English and Chinese NER implementations. 7 The radical of a Chinese character can be found at: www. unicode.org/charts/unihan.html NER (Miller et al., 2004) and dependency parsing (Koo et al., 2008). To our knowledge, this work is the first use of word clustering features for Chinese NER. A C++ implementation of the Brown word clustering algorithms (Brown et al., 1992) was used to obtain the word clusters (Liang, 2005).8 Raw text was obtained from the fifth edition of Chinese Gigaword (LDC2011T13). One million paragraphs from Xinhua news section were randomly selected, and the Stanford Word Segmenter with LDC standard was applied to segment Chinese text into words.9 About 46 million words were obtained which were clustered into 1,000 word classes. 5 Threshold Tuning During development, we tuned the word alignment probability thresholds to find the best value. Figure 3 shows the performance curves. When the word alignment probability threshold is set to 0.9, the hard bilingual constraints perform well for bo</context>
+</contexts>
+<marker>Liang, 2005</marker>
+<rawString>Percy Liang. 2005. Semi-supervised learning for natural language. Masters thesis, MIT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andre Martins</author>
+<author>Noah Smith</author>
+<author>Eric Xing</author>
+</authors>
+<title>Concise integer linear programming formulations for dependency parsing.</title>
+<date>2009</date>
+<booktitle>In Proceedings of the Joint Conference of the 47th Annual Meeting of the ACL and the 4th International Joint Conference on Natural Language Processing of the AFNLP,</booktitle>
+<pages>342350</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Suntec, Singapore,</location>
+<contexts>
+<context position="29919" citStr="Martins et al., 2009" startWordPosition="5044" endWordPosition="5047">above idea to part-ofspeech tagging with a more complex model. Fu et al. (2011) projected English named entities onto Chinese by carefully designed heuristic rules. Although this type of method does not require manually annotated bilingual corpora or dictionaries, errors in source language results, wrong word alignments and inconsistencies between the languages limit application of this method. Constraint-based monolingual methods by using ILP have been successfully applied to many natural language processing tasks, such as Semantic Role Labeling (Punyakanok et al., 2004), Dependency Parsing (Martins et al., 2009) and Textual Entailment (Berant et al., 2011). Zhuang and Zong (2010) proposed a joint inference method for bilingual semantic role labeling with ILP. However, their approach requires training an alignment model with a manually annotated corpus. 9 Conclusions We proposed a novel ILP based inference algorithm with bilingual constraints for NER. This method can jointly infer bilingual named entities without using any annotated bilingual corpus. We investigate various bilingual constraints: hard and soft constraints. Out empirical study on largescale OntoNotes Chinese-English parallel NER data sh</context>
+</contexts>
+<marker>Martins, Smith, Xing, 2009</marker>
+<rawString>Andre Martins, Noah Smith, and Eric Xing. 2009. Concise integer linear programming formulations for dependency parsing. In Proceedings of the Joint Conference of the 47th Annual Meeting of the ACL and the 4th International Joint Conference on Natural Language Processing of the AFNLP, pages 342350, Suntec, Singapore, August. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Bernard Merialdo</author>
+</authors>
+<title>Tagging english text with a probabilistic model.</title>
+<date>1994</date>
+<journal>Comput. Linguist.,</journal>
+<volume>20</volume>
+<issue>2</issue>
+<pages>171</pages>
+<contexts>
+<context position="6382" citStr="Merialdo, 1994" startWordPosition="1017" endWordPosition="1018">nference algorithm, which can capture more task-specific and global constraints than the vanilla Viterbi algorithm. Our work is inspired by Roth and Yih (2005). But instead of directly solving the shortest-path problem in the ILP formulation, we re-define the conditional probability as: PMAR(y|x) = Y i P(yi|x) (2) where P(yi|x) is the marginal probability given by an underlying CRF model computed using forwardbackward inference. Since the early HMM literature, it has been well known that using the marginal distributions at each position works well, as opposed to Viterbi MAP sequence labeling (Merialdo, 1994). Our experimental results also supports this claim, as we will show in Section 6. Our objective is to find an optimal NER tag sequence: y = arg max y PMAR(y|x) = arg max y X i log P(yi|x) (3) Then an ILP can be used to solve the inference problem as classification problem with constraints. 53 \x0cThe objective function is: max |x| X i=1 X yY zy i log Py i (4) where Y is the set of all possible named entity tags. Py i = P(yi = y|x) is the CRF marginal probability that the ith word is tagged with y, and zy i is an indicator that equals 1 iff the ith word is tagged y; otherwise, zy i is 0. If no</context>
+</contexts>
+<marker>Merialdo, 1994</marker>
+<rawString>Bernard Merialdo. 1994. Tagging english text with a probabilistic model. Comput. Linguist., 20(2):155 171.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>\x0cScott Miller</author>
+<author>Jethran Guinness</author>
+<author>Alex Zamanian</author>
+</authors>
+<title>Name tagging with word clusters and discriminative training.</title>
+<date>2004</date>
+<booktitle>In Daniel Marcu Susan Dumais and Salim Roukos, editors, HLT-NAACL 2004: Main Proceedings,</booktitle>
+<volume>2</volume>
+<pages>337342</pages>
+<location>Boston, Massachusetts, USA,</location>
+<contexts>
+<context position="19087" citStr="Miller et al., 2004" startWordPosition="3340" endWordPosition="3343">ical of the kth Chinese character of wi.7 len(wi) is the number of Chinese characters in wi. To make the baseline CRF taggers stronger, we added word clustering features to improve generalization over unseen data for both Chinese and English. Word clustering features have been successfully used in several English tasks, including 4 champollion.sourceforge.net 5 code.google.com/p/berkeleyaligner 6 nlp.stanford.edu/software/CRF-NER.shtml, which has included our English and Chinese NER implementations. 7 The radical of a Chinese character can be found at: www. unicode.org/charts/unihan.html NER (Miller et al., 2004) and dependency parsing (Koo et al., 2008). To our knowledge, this work is the first use of word clustering features for Chinese NER. A C++ implementation of the Brown word clustering algorithms (Brown et al., 1992) was used to obtain the word clusters (Liang, 2005).8 Raw text was obtained from the fifth edition of Chinese Gigaword (LDC2011T13). One million paragraphs from Xinhua news section were randomly selected, and the Stanford Word Segmenter with LDC standard was applied to segment Chinese text into words.9 About 46 million words were obtained which were clustered into 1,000 word classes</context>
+</contexts>
+<marker>Miller, Guinness, Zamanian, 2004</marker>
+<rawString>\x0cScott Miller, Jethran Guinness, and Alex Zamanian. 2004. Name tagging with word clusters and discriminative training. In Daniel Marcu Susan Dumais and Salim Roukos, editors, HLT-NAACL 2004: Main Proceedings, pages 337342, Boston, Massachusetts, USA, May 2 - May 7. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Slav Petrov</author>
+<author>Pi-Chuan Chang</author>
+<author>Michael Ringgaard</author>
+<author>Hiyan Alshawi</author>
+</authors>
+<title>Uptraining for accurate deterministic question parsing.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 2010 Conference on Empirical Methods in Natural Language Processing,</booktitle>
+<pages>705713</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Cambridge, MA,</location>
+<contexts>
+<context position="4545" citStr="Petrov et al., 2010" startWordPosition="703" endWordPosition="706">em as an Integer Linear Program (ILP) and solves it during decoding. We propose a set of intuitive and effective bilingual constraints that encourage NER results to agree across the two languages. Experimental results on the OntoNotes 4.0 named entity annotated Chinese-English parallel corpus show that the proposed method can improve the strong Chinese NER baseline by over 5% F1 score and also give small improvements over the English baseline. Moreover, by adding the automatically tagged data to the original NER training corpus and retraining the monolingual model using an uptraining regimen (Petrov et al., 2010), we can improve the monolingual Chinese NER performance by over 3% F1 score. 2 Constraint-based Monolingual NER NER is a sequence labeling task where we assign a named entity tag to each word in an input sentence. One commonly used tagging scheme is the BIO scheme. The tag B-X (Begin) represents the first word of a named entity of type X, for example, PER (Person) or LOC (Location). The tag I-X (Inside) indicates that a word is part of an entity but not first word. The tag O (Outside) is used for all nonentity words.2 See Figure 1 for an example tagged sentence. Conditional Random Fields (CRF</context>
+</contexts>
+<marker>Petrov, Chang, Ringgaard, Alshawi, 2010</marker>
+<rawString>Slav Petrov, Pi-Chuan Chang, Michael Ringgaard, and Hiyan Alshawi. 2010. Uptraining for accurate deterministic question parsing. In Proceedings of the 2010 Conference on Empirical Methods in Natural Language Processing, pages 705713, Cambridge, MA, October. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Vasin Punyakanok</author>
+<author>Dan Roth</author>
+<author>Wen-tau Yih</author>
+<author>Dav Zimak</author>
+</authors>
+<title>Semantic role labeling via integer linear programming inference.</title>
+<date>2004</date>
+<booktitle>In Proceedings of Coling</booktitle>
+<pages>13461352</pages>
+<publisher>COLING.</publisher>
+<location>Geneva, Switzerland,</location>
+<contexts>
+<context position="29876" citStr="Punyakanok et al., 2004" startWordPosition="5038" endWordPosition="5041"> alignment. Das and Petrov (2011) applied the above idea to part-ofspeech tagging with a more complex model. Fu et al. (2011) projected English named entities onto Chinese by carefully designed heuristic rules. Although this type of method does not require manually annotated bilingual corpora or dictionaries, errors in source language results, wrong word alignments and inconsistencies between the languages limit application of this method. Constraint-based monolingual methods by using ILP have been successfully applied to many natural language processing tasks, such as Semantic Role Labeling (Punyakanok et al., 2004), Dependency Parsing (Martins et al., 2009) and Textual Entailment (Berant et al., 2011). Zhuang and Zong (2010) proposed a joint inference method for bilingual semantic role labeling with ILP. However, their approach requires training an alignment model with a manually annotated corpus. 9 Conclusions We proposed a novel ILP based inference algorithm with bilingual constraints for NER. This method can jointly infer bilingual named entities without using any annotated bilingual corpus. We investigate various bilingual constraints: hard and soft constraints. Out empirical study on largescale Ont</context>
+</contexts>
+<marker>Punyakanok, Roth, Yih, Zimak, 2004</marker>
+<rawString>Vasin Punyakanok, Dan Roth, Wen-tau Yih, and Dav Zimak. 2004. Semantic role labeling via integer linear programming inference. In Proceedings of Coling 2004, pages 13461352, Geneva, Switzerland, Aug 23Aug 27. COLING.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Dan Roth</author>
+<author>Wen-tau Yih</author>
+</authors>
+<title>Integer linear programming inference for conditional random fields.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the 22nd international conference on Machine learning, ICML 05,</booktitle>
+<pages>736743</pages>
+<publisher>ACM.</publisher>
+<location>New York, NY, USA.</location>
+<contexts>
+<context position="5749" citStr="Roth and Yih (2005)" startWordPosition="917" endWordPosition="920">dom Fields (CRF) (Lafferty et al., 2001) is a state-of-the-art sequence labeling model widely used in NER. A first-order linear-chain CRF 2 While the performance of NER is measured at the entity level (not the tag level). defines the following conditional probability: PCRF (y|x) = 1 Z(x) Y i Mi(yi, yi1|x) (1) where x and y are the input and output sequences, respectively, Z(x) is the partition function, and Mi is the clique potential for edge clique i. Decoding in CRF involves finding the most likely output sequence that maximizes this objective, and is commonly done by the Viterbi algorithm. Roth and Yih (2005) proposed an ILP inference algorithm, which can capture more task-specific and global constraints than the vanilla Viterbi algorithm. Our work is inspired by Roth and Yih (2005). But instead of directly solving the shortest-path problem in the ILP formulation, we re-define the conditional probability as: PMAR(y|x) = Y i P(yi|x) (2) where P(yi|x) is the marginal probability given by an underlying CRF model computed using forwardbackward inference. Since the early HMM literature, it has been well known that using the marginal distributions at each position works well, as opposed to Viterbi MAP s</context>
+</contexts>
+<marker>Roth, Yih, 2005</marker>
+<rawString>Dan Roth and Wen-tau Yih. 2005. Integer linear programming inference for conditional random fields. In Proceedings of the 22nd international conference on Machine learning, ICML 05, pages 736743, New York, NY, USA. ACM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Yarowsky</author>
+<author>Grace Ngai</author>
+</authors>
+<title>Inducing multilingual POS taggers and NP bracketers via robust projection across aligned corpora.</title>
+<date>2001</date>
+<booktitle>In Proceedings of the second meeting of the North American Chapter of the Association for Computational Linguistics on Language technologies, NAACL 01,</booktitle>
+<pages>18</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Stroudsburg, PA, USA.</location>
+<contexts>
+<context position="29101" citStr="Yarowsky and Ngai (2001)" startWordPosition="4921" endWordPosition="4924">Finally, we test our method on a large standard publicly available corpus (8,249 sentences), while they used a much smaller (200 sentences) manually annotated bilingual NER corpus for results validation. In addition to bilingual corpora, bilingual dictionaries are also useful resources. Huang and Vogel (2002) and Chen et al. (2010) proposed approaches for extracting bilingual named entity pairs from unannotated bitext, in which verification is based on bilingual named entity dictionaries. However, large-scale bilingual named entity dictionaries are difficult to obtain for most language pairs. Yarowsky and Ngai (2001) proposed a projection method that transforms high-quality analysis results of one language, such as English, into other languages on the basis of word alignment. Das and Petrov (2011) applied the above idea to part-ofspeech tagging with a more complex model. Fu et al. (2011) projected English named entities onto Chinese by carefully designed heuristic rules. Although this type of method does not require manually annotated bilingual corpora or dictionaries, errors in source language results, wrong word alignments and inconsistencies between the languages limit application of this method. Const</context>
+</contexts>
+<marker>Yarowsky, Ngai, 2001</marker>
+<rawString>David Yarowsky and Grace Ngai. 2001. Inducing multilingual POS taggers and NP bracketers via robust projection across aligned corpora. In Proceedings of the second meeting of the North American Chapter of the Association for Computational Linguistics on Language technologies, NAACL 01, pages 18, Stroudsburg, PA, USA. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Tao Zhuang</author>
+<author>Chengqing Zong</author>
+</authors>
+<title>Joint inference for bilingual semantic role labeling.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 2010 Conference on Empirical Methods in Natural Language Processing,</booktitle>
+<pages>304314</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Cambridge, MA,</location>
+<contexts>
+<context position="29988" citStr="Zhuang and Zong (2010)" startWordPosition="5056" endWordPosition="5059"> al. (2011) projected English named entities onto Chinese by carefully designed heuristic rules. Although this type of method does not require manually annotated bilingual corpora or dictionaries, errors in source language results, wrong word alignments and inconsistencies between the languages limit application of this method. Constraint-based monolingual methods by using ILP have been successfully applied to many natural language processing tasks, such as Semantic Role Labeling (Punyakanok et al., 2004), Dependency Parsing (Martins et al., 2009) and Textual Entailment (Berant et al., 2011). Zhuang and Zong (2010) proposed a joint inference method for bilingual semantic role labeling with ILP. However, their approach requires training an alignment model with a manually annotated corpus. 9 Conclusions We proposed a novel ILP based inference algorithm with bilingual constraints for NER. This method can jointly infer bilingual named entities without using any annotated bilingual corpus. We investigate various bilingual constraints: hard and soft constraints. Out empirical study on largescale OntoNotes Chinese-English parallel NER data showed that Soft-align method, which allows inconsistent named entity t</context>
+</contexts>
+<marker>Zhuang, Zong, 2010</marker>
+<rawString>Tao Zhuang and Chengqing Zong. 2010. Joint inference for bilingual semantic role labeling. In Proceedings of the 2010 Conference on Empirical Methods in Natural Language Processing, pages 304314, Cambridge, MA, October. Association for Computational Linguistics.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

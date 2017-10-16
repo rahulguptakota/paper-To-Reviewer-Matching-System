@@ -1,0 +1,1919 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.4721185">
+b&amp;apos;Proceedings of the 2011 Conference on Empirical Methods in Natural Language Processing, pages 15241534,
+Edinburgh, Scotland, UK, July 2731, 2011. c
+</bodyText>
+<sectionHeader confidence="0.370403" genericHeader="abstract">
+2011 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.9085795">
+Named Entity Recognition in Tweets:
+An Experimental Study
+</title>
+<author confidence="0.999749">
+Alan Ritter, Sam Clark, Mausam and Oren Etzioni
+</author>
+<affiliation confidence="0.9973135">
+Computer Science and Engineering
+University of Washington
+</affiliation>
+<address confidence="0.969572">
+Seattle, WA 98125, USA
+</address>
+<email confidence="0.998765">
+{aritter,ssclark,mausam,etzioni}@cs.washington.edu
+</email>
+<sectionHeader confidence="0.989433" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.9892644">
+People tweet more than 100 Million times
+daily, yielding a noisy, informal, but some-
+times informative corpus of 140-character
+messages that mirrors the zeitgeist in an un-
+precedented manner. The performance of
+standard NLP tools is severely degraded on
+tweets. This paper addresses this issue by
+re-building the NLP pipeline beginning with
+part-of-speech tagging, through chunking, to
+named-entity recognition. Our novel T-NER
+system doubles F1 score compared with the
+Stanford NER system. T-NER leverages the
+redundancy inherent in tweets to achieve this
+performance, using LabeledLDA to exploit
+Freebase dictionaries as a source of distant
+supervision. LabeledLDA outperforms co-
+training, increasing F1 by 25% over ten com-
+mon entity types.
+Our NLP tools are available at: http://
+github.com/aritter/twitter_nlp
+</bodyText>
+<sectionHeader confidence="0.995375" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.9925382">
+Status Messages posted on Social Media websites
+such as Facebook and Twitter present a new and
+challenging style of text for language technology
+due to their noisy and informal nature. Like SMS
+(Kobus et al., 2008), tweets are particularly terse
+and difficult (See Table 1). Yet tweets provide a
+unique compilation of information that is more up-
+to-date and inclusive than news articles, due to the
+low-barrier to tweeting, and the proliferation of mo-
+bile devices.1 The corpus of tweets already exceeds
+</bodyText>
+<page confidence="0.916714">
+1
+</page>
+<bodyText confidence="0.992567538461538">
+See the trending topics displayed on twitter.com
+the size of the Library of Congress (Hachman, 2011)
+and is growing far more rapidly. Due to the vol-
+ume of tweets, it is natural to consider named-entity
+recognition, information extraction, and text mining
+over tweets. Not surprisingly, the performance of
+off the shelf NLP tools, which were trained on
+news corpora, is weak on tweet corpora.
+In response, we report on a re-trained NLP
+pipeline that leverages previously-tagged out-of-
+domain text, 2 tagged tweets, and unlabeled tweets
+to achieve more effective part-of-speech tagging,
+chunking, and named-entity recognition.
+</bodyText>
+<footnote confidence="0.934207571428571">
+1 The Hobbit has FINALLY started filming! I
+cannot wait!
+2 Yess! Yess! Its official Nintendo announced
+today that they Will release the Nintendo 3DS
+in north America march 27 for $250
+3 Government confirms blast n nuclear plants n
+japan...dont knw wht s gona happen nw...
+</footnote>
+<tableCaption confidence="0.968319">
+Table 1: Examples of noisy text in tweets.
+</tableCaption>
+<bodyText confidence="0.9981234">
+We find that classifying named entities in tweets is
+a difficult task for two reasons. First, tweets contain
+a plethora of distinctive named entity types (Compa-
+nies, Products, Bands, Movies, and more). Almost
+all these types (except for People and Locations) are
+relatively infrequent, so even a large sample of man-
+ually annotated tweets will contain few training ex-
+amples. Secondly, due to Twitters 140 character
+limit, tweets often lack sufficient context to deter-
+mine an entitys type without the aid of background
+</bodyText>
+<page confidence="0.966426">
+2
+</page>
+<bodyText confidence="0.994277">
+Although tweets can be written on any subject, following
+convention we use the term domain to include text styles or
+genres such as Twitter, News or IRC Chat.
+</bodyText>
+<page confidence="0.949116">
+1524
+</page>
+<bodyText confidence="0.980016194444444">
+\x0cknowledge.
+To address these issues we propose a distantly su-
+pervised approach which applies LabeledLDA (Ra-
+mage et al., 2009) to leverage large amounts of unla-
+beled data in addition to large dictionaries of entities
+gathered from Freebase, and combines information
+about an entitys context across its mentions.
+We make the following contributions:
+1. We experimentally evaluate the performance of
+off-the-shelf news trained NLP tools when ap-
+plied to Twitter. For example POS tagging
+accuracy drops from about 0.97 on news to
+0.80 on tweets. By utilizing in-domain, out-
+of-domain, and unlabeled data we are able to
+substantially boost performance, for example
+obtaining a 52% increase in F1 score on seg-
+menting named entities.
+2. We introduce a novel approach to distant super-
+vision (Mintz et al., 2009) using Topic Models.
+LabeledLDA is applied, utilizing constraints
+based on an open-domain database (Freebase)
+as a source of supervision. This approach in-
+creases F1 score by 25% relative to co-training
+(Blum and Mitchell, 1998; Yarowsky, 1995) on
+the task of classifying named entities in Tweets.
+The rest of the paper is organized as follows.
+We successively build the NLP pipeline for Twitter
+feeds in Sections 2 and 3. We first present our ap-
+proaches to shallow syntax part of speech tagging
+(2.1), and shallow parsing (2.2). 2.3 describes a
+novel classifier that predicts the informativeness of
+capitalization in a tweet. All tools in 2 are used
+as features for named entity segmentation in 3.1.
+Next, we present our algorithms and evaluation for
+entity classification (3.2). We describe related work
+in 4 and conclude in 5.
+</bodyText>
+<sectionHeader confidence="0.961591" genericHeader="method">
+2 Shallow Syntax in Tweets
+</sectionHeader>
+<bodyText confidence="0.994706714285714">
+We first study two fundamental NLP tasks POS
+tagging and noun-phrase chunking. We also discuss
+a novel capitalization classifier in 2.3. The outputs
+of all these classifiers are used in feature generation
+for named entity recognition in the next section.
+For all experiments in this section we use a dataset
+of 800 randomly sampled tweets. All results (Tables
+</bodyText>
+<table confidence="0.925159090909091">
+Accuracy Error
+Reduction
+Majority Baseline (NN) 0.189 -
+Words Most Frequent Tag 0.760 -
+Stanford POS Tagger 0.801 -
+T-POS(PTB) 0.813 6%
+T-POS(Twitter) 0.853 26%
+T-POS(IRC + PTB) 0.869 34%
+T-POS(IRC + Twitter) 0.870 35%
+T-POS(PTB + Twitter) 0.873 36%
+T-POS(PTB + IRC + Twitter) 0.883 41%
+</table>
+<tableCaption confidence="0.993359">
+Table 2: POS tagging performance on tweets. By training
+</tableCaption>
+<bodyText confidence="0.9603592">
+on in-domain labeled data, in addition to annotated IRC
+chat data, we obtain a 41% reduction in error over the
+Stanford POS tagger.
+2, 4 and 5) represent 4-fold cross-validation experi-
+ments on the respective tasks.3
+</bodyText>
+<subsectionHeader confidence="0.999379">
+2.1 Part of Speech Tagging
+</subsectionHeader>
+<bodyText confidence="0.991769192307692">
+Part of speech tagging is applicable to a wide range
+of NLP tasks including named entity segmentation
+and information extraction.
+Prior experiments have suggested that POS tag-
+ging has a very strong baseline: assign each word
+to its most frequent tag and assign each Out of Vo-
+cabulary (OOV) word the most common POS tag.
+This baseline obtained a 0.9 accuracy on the Brown
+corpus (Charniak et al., 1993). However, the appli-
+cation of a similar baseline on tweets (see Table 2)
+obtains a much weaker 0.76, exposing the challeng-
+ing nature of Twitter data.
+A key reason for this drop in accuracy is that Twit-
+ter contains far more OOV words than grammatical
+text. Many of these OOV words come from spelling
+variation, e.g., the use of the word n for in in Ta-
+ble 1 example 3. Although NNP is the most frequent
+tag for OOV words, only about 1/3 are NNPs.
+The performance of off-the-shelf news-trained
+POS taggers also suffers on Twitter data. The state-
+of-the-art Stanford POS tagger (Toutanova et al.,
+2003) improves on the baseline, obtaining an accu-
+racy of 0.8. This performance is impressive given
+that its training data, the Penn Treebank WSJ (PTB),
+is so different in style from Twitter, however it is a
+huge drop from the 97% accuracy reported on the
+</bodyText>
+<page confidence="0.987373">
+3
+</page>
+<bodyText confidence="0.902873">
+We used Brendan OConnors Twitter tokenizer
+</bodyText>
+<page confidence="0.936039">
+1525
+</page>
+<table confidence="0.978487333333333">
+\x0cGold Predicted Stanford
+Error
+T-POS Error Error
+Reduction
+NN NNP 0.102 0.072 29%
+UH NN 0.387 0.047 88%
+VB NN 0.071 0.032 55%
+NNP NN 0.130 0.125 4%
+UH NNP 0.200 0.036 82%
+</table>
+<tableCaption confidence="0.963945">
+Table 3: Most common errors made by the Stanford POS
+</tableCaption>
+<bodyText confidence="0.995587">
+Tagger on tweets. For each case we list the fraction of
+times the gold tag is misclassified as the predicted for
+both our system and the Stanford POS tagger. All verbs
+are collapsed into VB for compactness.
+PTB. There are several reasons for this drop in per-
+formance. Table 3 lists common errors made by
+the Stanford tagger. First, due to unreliable capi-
+talization, common nouns are often misclassified as
+proper nouns, and vice versa. Also, interjections
+and verbs are frequently misclassified as nouns. In
+addition to differences in vocabulary, the grammar
+of tweets is quite different from edited news text.
+For instance, tweets often start with a verb (where
+the subject I is implied), as in: watchng american
+dad.
+To overcome these differences in style and vocab-
+ulary, we manually annotated a set of 800 tweets
+(16K tokens) with tags from the Penn TreeBank tag
+set for use as in-domain training data for our POS
+tagging system, T-POS.4 We add new tags for the
+Twitter specific phenomena: retweets, @usernames,
+#hashtags, and urls. Note that words in these cate-
+gories can be tagged with 100% accuracy using sim-
+ple regular expressions. To ensure fair comparison
+in Table 2, we include a postprocessing step which
+tags these words appropriately for all systems.
+To help address the issue of OOV words and
+lexical variations, we perform clustering to group
+together words which are distributionally similar
+(Brown et al., 1992; Turian et al., 2010). In particu-
+lar, we perform hierarchical clustering using Jcluster
+(Goodman, 2001) on 52 million tweets; each word
+is uniquely represented by a bit string based on the
+path from the root of the resulting hierarchy to the
+words leaf. We use the Brown clusters resulting
+from prefixes of 4, 8, and 12 bits. These clusters are
+often effective in capturing lexical variations, for ex-
+</bodyText>
+<page confidence="0.988048">
+4
+</page>
+<bodyText confidence="0.960041588235294">
+Using MMAX2 (Muller and Strube, 2006) for annotation.
+ample, following are lexical variations on the word
+tomorrow from one cluster after filtering out other
+words (most of which refer to days):
+2m, 2ma, 2mar, 2mara, 2maro,
+2marrow, 2mor, 2mora, 2moro, 2mo-
+row, 2morr, 2morro, 2morrow, 2moz,
+2mr, 2mro, 2mrrw, 2mrw, 2mw,
+tmmrw, tmo, tmoro, tmorrow, tmoz,
+tmr, tmro, tmrow, tmrrow, tm-
+rrw, tmrw, tmrww, tmw, tomaro,
+tomarow, tomarro, tomarrow, tomm,
+tommarow, tommarrow, tommoro, tom-
+morow, tommorrow, tommorw, tomm-
+row, tomo, tomolo, tomoro, tomorow,
+tomorro, tomorrw, tomoz, tomrw,
+tomz
+</bodyText>
+<sectionHeader confidence="0.401382" genericHeader="method">
+T-POS uses Conditional Random Fields5 (Laf-
+</sectionHeader>
+<bodyText confidence="0.997256346153846">
+ferty et al., 2001), both because of their ability to
+model strong dependencies between adjacent POS
+tags, and also to make use of highly correlated fea-
+tures (for example a words identity in addition to
+prefixes and suffixes). Besides employing the Brown
+clusters computed above, we use a fairly standard set
+of features that include POS dictionaries, spelling
+and contextual features.
+On a 4-fold cross validation over 800 tweets,
+T-POS outperforms the Stanford tagger, obtaining a
+26% reduction in error. In addition we include 40K
+tokens of annotated IRC chat data (Forsythand and
+Martell, 2007), which is similar in style. Like Twit-
+ter, IRC data contains many misspelled/abbreviated
+words, and also more pronouns, and interjections,
+but fewer determiners than news. Finally, we also
+leverage 50K POS-labeled tokens from the Penn
+Treebank (Marcus et al., 1994).
+Overall T-POS trained on 102K tokens (12K from
+Twitter, 40K from IRC and 50K from PTB) results
+in a 41% error reduction over the Stanford tagger,
+obtaining an accuracy of 0.883. Table 3 lists gains
+on some of the most common error types, for ex-
+ample, T-POS dramatically reduces error on inter-
+jections and verbs that are incorrectly classified as
+nouns by the Stanford tagger.
+</bodyText>
+<subsectionHeader confidence="0.999064">
+2.2 Shallow Parsing
+</subsectionHeader>
+<bodyText confidence="0.9961515">
+Shallow parsing, or chunking is the task of identi-
+fying non-recursive phrases, such as noun phrases,
+</bodyText>
+<page confidence="0.864148">
+5
+</page>
+<bodyText confidence="0.589807">
+We use MALLET (McCallum, 2002).
+</bodyText>
+<page confidence="0.767027">
+1526
+</page>
+<table confidence="0.886475857142857">
+\x0cAccuracy Error
+Reduction
+Majority Baseline (B-NP) 0.266 -
+OpenNLP 0.839 -
+T-CHUNK(CoNLL) 0.854 9%
+T-CHUNK(Twitter) 0.867 17%
+T-CHUNK(CoNLL + Twitter) 0.875 22%
+</table>
+<tableCaption confidence="0.992992">
+Table 4: Token-Level accuracy at shallow parsing tweets.
+</tableCaption>
+<bodyText confidence="0.998478173913043">
+We compare against the OpenNLP chunker as a baseline.
+verb phrases, and prepositional phrases in text. Ac-
+curate shallow parsing of tweets could benefit sev-
+eral applications such as Information Extraction and
+Named Entity Recognition.
+Off the shelf shallow parsers perform noticeably
+worse on tweets, motivating us again to annotate in-
+domain training data. We annotate the same set of
+800 tweets mentioned previously with tags from the
+CoNLL shared task (Tjong Kim Sang and Buchholz,
+2000). We use the set of shallow parsing features de-
+scribed by Sha and Pereira (2003), in addition to the
+Brown clusters mentioned above. Part-of-speech tag
+features are extracted based on cross-validation out-
+put predicted by T-POS. For inference and learning,
+again we use Conditional Random Fields. We utilize
+16K tokens of in-domain training data (using cross
+validation), in addition to 210K tokens of newswire
+text from the CoNLL dataset.
+Table 4 reports T-CHUNKs performance at shal-
+low parsing of tweets. We compare against the off-
+the shelf OpenNLP chunker6, obtaining a 22% re-
+duction in error.
+</bodyText>
+<subsectionHeader confidence="0.998122">
+2.3 Capitalization
+</subsectionHeader>
+<bodyText confidence="0.994942916666667">
+A key orthographic feature for recognizing named
+entities is capitalization (Florian, 2002; Downey et
+al., 2007). Unfortunately in tweets, capitalization
+is much less reliable than in edited texts. In addi-
+tion, there is a wide variety in the styles of capital-
+ization. In some tweets capitalization is informative,
+whereas in other cases, non-entity words are capital-
+ized simply for emphasis. Some tweets contain all
+lowercase words (8%), whereas others are in ALL
+CAPS (0.6%).
+To address this issue, it is helpful to incorporate
+information based on the entire content of the mes-
+</bodyText>
+<page confidence="0.984079">
+6
+</page>
+<table confidence="0.94312325">
+http://incubator.apache.org/opennlp/
+P R F1
+Majority Baseline 0.70 1.00 0.82
+T-CAP 0.77 0.98 0.86
+</table>
+<tableCaption confidence="0.995956">
+Table 5: Performance at predicting reliable capitalization.
+</tableCaption>
+<bodyText confidence="0.997486230769231">
+sage to determine whether or not its capitalization
+is informative. To this end, we build a capitaliza-
+tion classifier, T-CAP, which predicts whether or not
+a tweet is informatively capitalized. Its output is
+used as a feature for Named Entity Recognition. We
+manually labeled our 800 tweet corpus as having
+either informative or uninformative capitaliza-
+tion. The criteria we use for labeling is as follows:
+if a tweet contains any non-entity words which are
+capitalized, but do not begin a sentence, or it con-
+tains any entities which are not capitalized, then its
+capitalization is uninformative, otherwise it is in-
+formative.
+For learning , we use Support Vector Ma-
+chines.7 The features used include: the frac-
+tion of words in the tweet which are capitalized,
+the fraction which appear in a dictionary of fre-
+quently lowercase/capitalized words but are not low-
+ercase/capitalized in the tweet, the number of times
+the word I appears lowercase and whether or not
+the first word in the tweet is capitalized. Results
+comparing against the majority baseline, which pre-
+dicts capitalization is always informative, are shown
+in Table 5. Additionally, in 3 we show that fea-
+tures based on our capitalization classifier improve
+performance at named entity segmentation.
+</bodyText>
+<sectionHeader confidence="0.985732" genericHeader="method">
+3 Named Entity Recognition
+</sectionHeader>
+<bodyText confidence="0.805103181818182">
+We now discuss our approach to named entity recog-
+nition on Twitter data. As with POS tagging and
+shallow parsing, off the shelf named-entity recog-
+nizers perform poorly on tweets. For example, ap-
+plying the Stanford Named Entity Recognizer to one
+of the examples from Table 1 results in the following
+output:
+[Yess]ORG! [Yess]ORG! Its official
+[Nintendo]LOC announced today that they
+Will release the [Nintendo]ORG 3DS in north
+[America]LOC march 27 for $250
+</bodyText>
+<page confidence="0.893581">
+7
+</page>
+<equation confidence="0.5444935">
+http://www.chasen.org/ taku/software/
+TinySVM/
+</equation>
+<page confidence="0.795901">
+1527
+</page>
+<bodyText confidence="0.983702689655172">
+\x0cThe OOV word Yess is mistaken as a named en-
+tity. In addition, although the first occurrence of
+Nintendo is correctly segmented, it is misclassi-
+fied, whereas the second occurrence is improperly
+segmented it should be the product Nintendo
+3DS. Finally north America should be segmented
+as a LOCATION, rather than just America. In gen-
+eral, news-trained Named Entity Recognizers seem
+to rely heavily on capitalization, which we know to
+be unreliable in tweets.
+Following Collins and Singer (1999), Downey et
+al. (2007) and Elsner et al. (2009), we treat classi-
+fication and segmentation of named entities as sepa-
+rate tasks. This allows us to more easily apply tech-
+niques better suited towards each task. For exam-
+ple, we are able to use discriminative methods for
+named entity segmentation and distantly supervised
+approaches for classification. While it might be ben-
+eficial to jointly model segmentation and (distantly
+supervised) classification using a joint sequence la-
+beling and topic model similar to that proposed by
+Sauper et al. (2010), we leave this for potential fu-
+ture work.
+Because most words found in tweets are not part
+of an entity, we need a larger annotated dataset to ef-
+fectively learn a model of named entities. We there-
+fore use a randomly sampled set of 2,400 tweets for
+NER. All experiments (Tables 6, 8-10) report results
+using 4-fold cross validation.
+</bodyText>
+<subsectionHeader confidence="0.998802">
+3.1 Segmenting Named Entities
+</subsectionHeader>
+<bodyText confidence="0.9982935">
+Because capitalization in Twitter is less informative
+than news, in-domain data is needed to train models
+which rely less heavily on capitalization, and also
+are able to utilize features provided by T-CAP.
+We exhaustively annotated our set of 2,400 tweets
+(34K tokens) with named entities.8 A convention on
+Twitter is to refer to other users using the @ sym-
+bol followed by their unique username. We deliber-
+ately choose not to annotate @usernames as entities
+in our data set because they are both unambiguous,
+and trivial to identify with 100% accuracy using a
+simple regular expression, and would only serve to
+inflate our performance statistics. While there is am-
+biguity as to the type of @usernames (for example,
+</bodyText>
+<page confidence="0.983817">
+8
+</page>
+<bodyText confidence="0.6728845">
+We found that including out-of-domain training data from
+the MUC competitions lowered performance at this task.
+</bodyText>
+<table confidence="0.9983185">
+P R F1 F1 inc.
+Stanford NER 0.62 0.35 0.44 -
+T-SEG(None) 0.71 0.57 0.63 43%
+T-SEG(T-POS) 0.70 0.60 0.65 48%
+T-SEG(T-POS, T-CHUNK) 0.71 0.61 0.66 50%
+T-SEG(All Features) 0.73 0.61 0.67 52%
+</table>
+<tableCaption confidence="0.997587">
+Table 6: Performance at segmenting entities varying the
+</tableCaption>
+<bodyText confidence="0.968949277777778">
+features used. None removes POS, Chunk, and capital-
+ization features. Overall we obtain a 52% improvement
+in F1 score over the Stanford Named Entity Recognizer.
+they can refer to people or companies), we believe
+they could be more easily classified using features
+of their associated users profile than contextual fea-
+tures of the text.
+T-SEG models Named Entity Segmentation as a
+sequence-labeling task using IOB encoding for rep-
+resenting segmentations (each word either begins, is
+inside, or is outside of a named entity), and uses
+Conditional Random Fields for learning and infer-
+ence. Again we include orthographic, contextual
+and dictionary features; our dictionaries included a
+set of type lists gathered from Freebase. In addition,
+we use the Brown clusters and outputs of T-POS,
+T-CHUNK and T-CAP in generating features.
+We report results at segmenting named entities in
+</bodyText>
+<tableCaption confidence="0.5697635">
+Table 6. Compared with the state-of-the-art news-
+trained Stanford Named Entity Recognizer (Finkel
+</tableCaption>
+<bodyText confidence="0.875718">
+et al., 2005), T-SEG obtains a 52% increase in F1
+score.
+</bodyText>
+<subsectionHeader confidence="0.998866">
+3.2 Classifying Named Entities
+</subsectionHeader>
+<bodyText confidence="0.9964312">
+Because Twitter contains many distinctive, and in-
+frequent entity types, gathering sufficient training
+data for named entity classification is a difficult task.
+In any random sample of tweets, many types will
+only occur a few times. Moreover, due to their
+terse nature, individual tweets often do not contain
+enough context to determine the type of the enti-
+ties they contain. For example, consider following
+tweet:
+KKTNY in 45min..........
+without any prior knowledge, there is not enough
+context to determine what type of entity KKTNY
+refers to, however by exploiting redundancy in the
+data (Downey et al., 2010), we can determine it is
+likely a reference to a television show since it of-
+</bodyText>
+<page confidence="0.921573">
+1528
+</page>
+<bodyText confidence="0.996711891304348">
+\x0cten co-occurs with words such as watching and pre-
+mieres in other contexts.9
+In order to handle the problem of many infre-
+quent types, we leverage large lists of entities and
+their types gathered from an open-domain ontology
+(Freebase) as a source of distant supervision, allow-
+ing use of large amounts of unlabeled data in learn-
+ing.
+Freebase Baseline: Although Freebase has very
+broad coverage, simply looking up entities and their
+types is inadequate for classifying named entities in
+context (0.38 F-score, 3.2.1). For example, accord-
+ing to Freebase, the mention China could refer to
+a country, a band, a person, or a film. This prob-
+lem is very common: 35% of the entities in our data
+appear in more than one of our (mutually exclusive)
+Freebase dictionaries. Additionally, 30% of entities
+mentioned on Twitter do not appear in any Freebase
+dictionary, as they are either too new (for example a
+newly released videogame), or are misspelled or ab-
+breviated (for example mbp is often used to refer
+to the mac book pro).
+Distant Supervision with Topic Models: To
+model unlabeled entities and their possible types, we
+apply LabeledLDA (Ramage et al., 2009), constrain-
+ing each entitys distribution over topics based on
+its set of possible types according to Freebase. In
+contrast to previous weakly supervised approaches
+to Named Entity Classification, for example the Co-
+Training and Nave Bayes (EM) models of Collins
+and Singer (1999), LabeledLDA models each entity
+string as a mixture of types rather than using a single
+hidden variable to represent the type of each men-
+tion. This allows information about an entitys dis-
+tribution over types to be shared across mentions,
+naturally handling ambiguous entity strings whose
+mentions could refer to different types.
+Each entity string in our data is associated with a
+bag of words found within a context window around
+all of its mentions, and also within the entity itself.
+As in standard LDA (Blei et al., 2003), each bag of
+words is associated with a distribution over topics,
+Multinomial(e), and each topic is associated with a
+distribution over words, Multinomial(t). In addi-
+tion, there is a one-to-one mapping between topics
+and Freebase type dictionaries. These dictionaries
+</bodyText>
+<page confidence="0.951118">
+9
+</page>
+<bodyText confidence="0.984394318181818">
+Kourtney &amp; Kim Take New York.
+constrain e, the distribution over topics for each en-
+tity string, based on its set of possible types, FB[e].
+For example, Amazon could correspond to a distribu-
+tion over two types: COMPANY, and LOCATION,
+whereas Apple might represent a distribution over
+COMPANY, and FOOD. For entities which arent
+found in any of the Freebase dictionaries, we leave
+their topic distributions e unconstrained. Note that
+in absence of any constraints LabeledLDA reduces
+to standard LDA, and a fully unsupervised setting
+similar to that presented by Elsner et. al. (2009).
+In detail, the generative process that models our
+data for Named Entity Classification is as follows:
+for each type: t = 1 . . . T do
+Generate t according to symmetric Dirichlet
+distribution Dir().
+end for
+for each entity string e = 1 . . . |E |do
+Generate e over FB[e] according to Dirichlet
+distribution Dir(FB[e]).
+for each word position i = 1 . . . Ne do
+</bodyText>
+<figure confidence="0.368459166666667">
+Generate ze,i from Mult(e).
+Generate the word we,i from Mult(ze,i ).
+end for
+end for
+To infer values for the hidden variables, we apply
+Collapsed Gibbs sampling (Griffiths and Steyvers,
+</figure>
+<bodyText confidence="0.9959694">
+2004), where parameters are integrated out, and the
+ze,is are sampled directly.
+In making predictions, we found it beneficial to
+consider train
+e as a prior distribution over types for
+entities which were encountered during training. In
+practice this sharing of information across contexts
+is very beneficial as there is often insufficient evi-
+dence in an isolated tweet to determine an entitys
+type. For entities which werent encountered dur-
+ing training, we instead use a prior based on the dis-
+tribution of types across all entities. One approach
+to classifying entities in context is to assume that
+train
+e is fixed, and that all of the words inside the
+entity mention and context, w, are drawn based on
+a single topic, z, that is they are all drawn from
+Multinomial(z). We can then compute the poste-
+rior distribution over types in closed form with a
+simple application of Bayes rule:
+</bodyText>
+<equation confidence="0.9931878">
+P(z|w)
+Y
+ww
+P(w|z : )P(z : train
+e )
+</equation>
+<bodyText confidence="0.946934">
+During development, however, we found that rather
+than making these assumptions, using Gibbs Sam-
+</bodyText>
+<page confidence="0.93735">
+1529
+</page>
+<bodyText confidence="0.9232816">
+\x0cType Top 20 Entities not found in Freebase dictionaries
+PRODUCT nintendo ds lite, apple ipod, generation black, ipod nano, apple iphone, gb black, xperia, ipods, verizon
+media, mac app store, kde, hd video, nokia n8, ipads, iphone/ipod, galaxy tab, samsung galaxy, playstation
+portable, nintendo ds, vpn
+TV-SHOW pretty little, american skins, nof, order svu, greys, kktny, rhobh, parks &amp; recreation, parks &amp; rec, dawson
+s creek, big fat gypsy weddings, big fat gypsy wedding, winter wipeout, jersey shores, idiot abroad, royle,
+jerseyshore, mr . sunshine, hawaii five-0, new jersey shore
+FACILITY voodoo lounge, grand ballroom, crash mansion, sullivan hall, memorial union, rogers arena, rockwood
+music hall, amway center, el mocambo, madison square, bridgestone arena, cat club, le poisson rouge,
+bryant park, mandalay bay, broadway bar, ritz carlton, mgm grand, olympia theatre, consol energy center
+</bodyText>
+<tableCaption confidence="0.823032">
+Table 7: Example type lists produced by LabeledLDA. No entities which are shown were found in Freebase; these are
+</tableCaption>
+<bodyText confidence="0.980692090909091">
+typically either too new to have been added, or are misspelled/abbreviated (for example rhobh=Real Housewives of
+Beverly Hills). In a few cases there are segmentation errors.
+pling to estimate the posterior distribution over types
+performs slightly better. In order to make predic-
+tions, for each entity we use an informative Dirich-
+let prior based on train
+e and perform 100 iterations of
+Gibbs Sampling holding the hidden topic variables
+in the training data fixed (Yao et al., 2009). Fewer
+iterations are needed than in training since the type-
+word distributions, have already been inferred.
+</bodyText>
+<subsubsectionHeader confidence="0.983681">
+3.2.1 Classification Experiments
+</subsubsectionHeader>
+<bodyText confidence="0.994179275862069">
+To evaluate T-CLASSs ability to classify entity
+mentions in context, we annotated the 2,400 tweets
+with 10 types which are both popular on Twitter,
+and have good coverage in Freebase: PERSON,
+GEO-LOCATION, COMPANY, PRODUCT, FACIL-
+ITY, TV-SHOW, MOVIE, SPORTSTEAM, BAND,
+and OTHER. Note that these type annotations are
+only used for evaluation purposes, and not used dur-
+ing training T-CLASS, which relies only on distant
+supervision. In some cases, we combine multi-
+ple Freebase types to create a dictionary of entities
+representing a single type (for example the COM-
+PANY dictionary contains Freebase types /busi-
+ness/consumer company and /business/brand). Be-
+cause our approach does not rely on any manually
+labeled examples, it is straightforward to extend it
+for a different sets of types based on the needs of
+downstream applications.
+Training: To gather unlabeled data for inference,
+we run T-SEG, our entity segmenter (from 3.1), on
+60M tweets, and keep the entities which appear 100
+or more times. This results in a set of 23,651 dis-
+tinct entity strings. For each entity string, we col-
+lect words occurring in a context window of 3 words
+from all mentions in our data, and use a vocabulary
+of the 100K most frequent words. We run Gibbs
+sampling for 1,000 iterations, using the last sample
+to estimate entity-type distributions e, in addition
+to type-word distributions t. Table 7 displays the
+20 entities (not found in Freebase) whose posterior
+distribution e assigns highest probability to selected
+types.
+Results: Table 8 presents the classification re-
+sults of T-CLASS compared against a majority base-
+line which simply picks the most frequent class
+(PERSON), in addition to the Freebase baseline,
+which only makes predictions if an entity appears
+in exactly one dictionary (i.e., appears unambigu-
+ous). T-CLASS also outperforms a simple super-
+vised baseline which applies a MaxEnt classifier us-
+ing 4-fold cross validation over the 1,450 entities
+which were annotated for testing. Additionally we
+compare against the co-training algorithm of Collins
+and Singer (1999) which also leverages unlabeled
+data and uses our Freebase type lists; for seed rules
+we use the unambiguous Freebase entities. Our
+results demonstrate that T-CLASS outperforms the
+baselines and achieves a 25% increase in F1 score
+over co-training.
+Tables 9 and 10 present a breakdown of F1 scores
+by type, both collapsing types into the standard
+classes used in the MUC competitions (PERSON,
+LOCATION, ORGANIZATION), and using the 10
+popular Twitter types described earlier.
+Entity Strings vs. Entity Mentions: DL-Cotrain
+and LabeledLDA use two different representations
+for the unlabeled data during learning. LabeledLDA
+groups together words across all mentions of an en-
+</bodyText>
+<page confidence="0.975023">
+1530
+</page>
+<table confidence="0.999685666666667">
+\x0cSystem P R F1
+Majority Baseline 0.30 0.30 0.30
+Freebase Baseline 0.85 0.24 0.38
+Supervised Baseline 0.45 0.44 0.45
+DL-Cotrain 0.54 0.51 0.53
+LabeledLDA 0.72 0.60 0.66
+</table>
+<tableCaption confidence="0.893696">
+Table 8: Named Entity Classification performance on the
+10 types. Assumes segmentation is given as in (Collins
+</tableCaption>
+<table confidence="0.9255005">
+and Singer, 1999), and (Elsner et al., 2009).
+Type LL FB CT SP N
+PERSON 0.82 0.48 0.65 0.83 436
+LOCATION 0.74 0.21 0.55 0.67 372
+ORGANIZATION 0.66 0.52 0.55 0.31 319
+overall 0.75 0.39 0.59 0.49 1127
+</table>
+<tableCaption confidence="0.857075">
+Table 9: F1 classification scores for the 3 MUC types
+</tableCaption>
+<bodyText confidence="0.644653">
+PERSON, LOCATION, ORGANIZATION. Results are
+shown using LabeledLDA (LL), Freebase Baseline (FB),
+DL-Cotrain (CT) and Supervised Baseline (SP). N is the
+number of entities in the test set.
+</bodyText>
+<table confidence="0.99922925">
+Type LL FB CT SP N
+PERSON 0.82 0.48 0.65 0.86 436
+GEO-LOC 0.77 0.23 0.60 0.51 269
+COMPANY 0.71 0.66 0.50 0.29 162
+FACILITY 0.37 0.07 0.14 0.34 103
+PRODUCT 0.53 0.34 0.40 0.07 91
+BAND 0.44 0.40 0.42 0.01 54
+SPORTSTEAM 0.53 0.11 0.27 0.06 51
+MOVIE 0.54 0.65 0.54 0.05 34
+TV-SHOW 0.59 0.31 0.43 0.01 31
+OTHER 0.52 0.14 0.40 0.23 219
+overall 0.66 0.38 0.53 0.45 1450
+</table>
+<tableCaption confidence="0.937268">
+Table 10: F1 scores for classification broken down by
+type for LabeledLDA (LL), Freebase Baseline (FB), DL-
+</tableCaption>
+<table confidence="0.969507285714286">
+Cotrain (CT) and Supervised Baseline (SP). N is the num-
+ber of entities in the test set.
+P R F1
+DL-Cotrain-entity 0.47 0.45 0.46
+DL-Cotrain-mention 0.54 0.51 0.53
+LabeledLDA-entity 0.73 0.60 0.66
+LabeledLDA-mention 0.57 0.52 0.54
+</table>
+<tableCaption confidence="0.724743">
+Table 11: Comparing LabeledLDA and DL-Cotrain
+</tableCaption>
+<table confidence="0.946516714285714">
+grouping unlabeled data by entities vs. mentions.
+System P R F1
+COTRAIN-NER (10 types) 0.55 0.33 0.41
+T-NER(10 types) 0.65 0.42 0.51
+COTRAIN-NER (PLO) 0.57 0.42 0.49
+T-NER(PLO) 0.73 0.49 0.59
+Stanford NER (PLO) 0.30 0.27 0.29
+</table>
+<tableCaption confidence="0.996468">
+Table 12: Performance at predicting both segmentation
+</tableCaption>
+<bodyText confidence="0.992461620689655">
+and classification. Systems labeled with PLO are evalu-
+ated on the 3 MUC types PERSON, LOCATION, ORGA-
+NIZATION.
+tity string, and infers a distribution over its possi-
+ble types, whereas DL-Cotrain considers the entity
+mentions separately as unlabeled examples and pre-
+dicts a type independently for each. In order to
+ensure that the difference in performance between
+LabeledLDA and DL-Cotrain is not simply due to
+this difference in representation, we compare both
+DL-Cotrain and LabeledLDA using both unlabeled
+datasets (grouping words by all mentions vs. keep-
+ing mentions separate) in Table 11. As expected,
+DL-Cotrain performs poorly when the unlabeled ex-
+amples group mentions; this makes sense, since Co-
+Training uses a discriminative learning algorithm,
+so when trained on entities and tested on individual
+mentions, the performance decreases. Additionally,
+LabeledLDAs performance is poorer when consid-
+ering mentions as documents. This is likely due
+to the fact that there isnt enough context to effec-
+tively learn topics when the documents are very
+short (typically fewer than 10 words).
+End to End System: Finally we present the end
+to end performance on segmentation and classifica-
+tion (T-NER) in Table 12. We observe that T-NER
+again outperforms co-training. Moreover, compar-
+ing against the Stanford Named Entity Recognizer
+on the 3 MUC types, T-NER doubles F1 score.
+</bodyText>
+<sectionHeader confidence="0.999655" genericHeader="method">
+4 Related Work
+</sectionHeader>
+<bodyText confidence="0.999492">
+There has been relatively little previous work on
+building NLP tools for Twitter or similar text styles.
+Locke and Martin (2009) train a classifier to recog-
+nize named entities based on annotated Twitter data,
+handling the types PERSON, LOCATION, and OR-
+GANIZATION. Developed in parallel to our work,
+Liu et al. (2011) investigate NER on the same 3
+types, in addition to PRODUCTs and present a semi-
+</bodyText>
+<page confidence="0.856265">
+1531
+</page>
+<bodyText confidence="0.997819711538462">
+\x0csupervised approach using k-nearest neighbor. Also
+developed in parallel, Gimpell et al. (2011) build a
+POS tagger for tweets using 20 coarse-grained tags.
+Benson et. al. (2011) present a system which ex-
+tracts artists and venues associated with musical per-
+formances. Recent work (Han and Baldwin, 2011;
+Gouws et al., 2011) has proposed lexical normaliza-
+tion of tweets which may be useful as a preprocess-
+ing step for the upstream tasks like POS tagging and
+NER. In addition Finin et. al. (2010) investigate
+the use of Amazons Mechanical Turk for annotat-
+ing Named Entities in Twitter, Minkov et. al. (2005)
+investigate person name recognizers in email, and
+Singh et. al. (2010) apply a minimally supervised
+approach to extracting entities from text advertise-
+ments.
+In contrast to previous work, we have demon-
+strated the utility of features based on Twitter-
+specific POS taggers and Shallow Parsers in seg-
+menting Named Entities. In addition we take a dis-
+tantly supervised approach to Named Entity Classi-
+fication which exploits large dictionaries of entities
+gathered from Freebase, requires no manually anno-
+tated data, and as a result is able to handle a larger
+number of types than previous work. Although we
+found manually annotated data to be very beneficial
+for named entity segmentation, we were motivated
+to explore approaches that dont rely on manual la-
+bels for classification due to Twitters wide range of
+named entity types. Additionally, unlike previous
+work on NER in informal text, our approach allows
+the sharing of information across an entitys men-
+tions which is quite beneficial due to Twitters terse
+nature.
+Previous work on Semantic Bootstrapping has
+taken a weakly-supervised approach to classifying
+named entities based on large amounts of unla-
+beled text (Etzioni et al., 2005; Carlson et al., 2010;
+Kozareva and Hovy, 2010; Talukdar and Pereira,
+2010; McIntosh, 2010). In contrast, rather than
+predicting which classes an entity belongs to (e.g.
+a multi-label classification task), LabeledLDA esti-
+mates a distribution over its types, which is then use-
+ful as a prior when classifying mentions in context.
+In addition there has been been work on Skip-
+Chain CRFs (Sutton, 2004; Finkel et al., 2005)
+which enforce consistency when classifying multi-
+ple occurrences of an entity within a document. Us-
+ing topic models (e.g. LabeledLDA) for classifying
+named entities has a similar effect, in that informa-
+tion about an entitys distribution of possible types
+is shared across its mentions.
+</bodyText>
+<sectionHeader confidence="0.999167" genericHeader="conclusions">
+5 Conclusions
+</sectionHeader>
+<bodyText confidence="0.993562333333333">
+We have demonstrated that existing tools for POS
+tagging, Chunking and Named Entity Recognition
+perform quite poorly when applied to Tweets. To
+address this challenge we have annotated tweets and
+built tools trained on unlabeled, in-domain and out-
+of-domain data, showing substantial improvement
+over their state-of-the art news-trained counterparts,
+for example, T-POS outperforms the Stanford POS
+Tagger, reducing error by 41%. Additionally we
+have shown the benefits of features generated from
+T-POS and T-CHUNK in segmenting Named Entities.
+We identified named entity classification as a par-
+ticularly challenging task on Twitter. Due to their
+terse nature, tweets often lack enough context to
+identify the types of the entities they contain. In ad-
+dition, a plethora of distinctive named entity types
+are present, necessitating large amounts of training
+data. To address both these issues we have presented
+and evaluated a distantly supervised approach based
+on LabeledLDA, which obtains a 25% increase in F1
+score over the co-training approach to Named En-
+tity Classification suggested by Collins and Singer
+(1999) when applied to Twitter.
+Our POS tagger, Chunker Named Entity Rec-
+ognizer are available for use by the research
+community: http://github.com/aritter/
+twitter_nlp
+</bodyText>
+<sectionHeader confidence="0.965027" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.944872">
+We would like to thank Stephen Soderland, Dan
+Weld and Luke Zettlemoyer, in addition to the
+anonymous reviewers for helpful comments on a
+previous draft. This research was supported in part
+by NSF grant IIS-0803481, ONR grant N00014-11-
+</bodyText>
+<figure confidence="0.5875615">
+1-0294, Navy STTR contract N00014-10-M-0304, a
+National Defense Science and Engineering Graduate
+(NDSEG) Fellowship 32 CFR 168a and carried out
+at the University of Washingtons Turing Center.
+1532
+\x0cReferences
+</figure>
+<reference confidence="0.99457243814433">
+Edward Benson, Aria Haghighi, and Regina Barzilay.
+2011. Event discovery in social media feeds. In The
+49th Annual Meeting of the Association for Computa-
+tional Linguistics, Portland, Oregon, USA. To appear.
+David M. Blei, Andrew Y. Ng, and Michael I. Jordan.
+2003. Latent dirichlet allocation. J. Mach. Learn. Res.
+Avrim Blum and Tom M. Mitchell. 1998. Combining
+labeled and unlabeled sata with co-training. In COLT,
+pages 92100.
+Peter F. Brown, Peter V. deSouza, Robert L. Mercer, Vin-
+cent J. Della Pietra, and Jenifer C. Lai. 1992. Class-
+based n-gram models of natural language. Comput.
+Linguist.
+Andrew Carlson, Justin Betteridge, Richard C. Wang, Es-
+tevam R. Hruschka, Jr., and Tom M. Mitchell. 2010.
+Coupled semi-supervised learning for information ex-
+traction. In Proceedings of the third ACM interna-
+tional conference on Web search and data mining,
+WSDM 10.
+Eugene Charniak, Curtis Hendrickson, Neil Jacobson,
+and Mike Perkowitz. 1993. Equations for part-of-
+speech tagging. In AAAI, pages 784789.
+Michael Collins and Yoram Singer. 1999. Unsupervised
+models for named entity classification. In Empirical
+Methods in Natural Language Processing.
+Doug Downey, Matthew Broadhead, and Oren Etzioni.
+2007. Locating complex named entities in web text.
+In Proceedings of the 20th international joint confer-
+ence on Artifical intelligence.
+Doug Downey, Oren Etzioni, and Stephen Soderland.
+2010. Analysis of a probabilistic model of redundancy
+in unsupervised information extraction. Artif. Intell.,
+174(11):726748.
+Micha Elsner, Eugene Charniak, and Mark Johnson.
+2009. Structured generative models for unsupervised
+named-entity clustering. In Proceedings of Human
+Language Technologies: The 2009 Annual Conference
+of the North American Chapter of the Association for
+Computational Linguistics, NAACL 09.
+Oren Etzioni, Michael Cafarella, Doug Downey, Ana-
+Maria Popescu, Tal Shaked, Stephen Soderland,
+Daniel S. Weld, and Alexander Yates. 2005. Unsu-
+pervised named-entity extraction from the web: an ex-
+perimental study. Artif. Intell.
+Tim Finin, Will Murnane, Anand Karandikar, Nicholas
+Keller, Justin Martineau, and Mark Dredze. 2010.
+Annotating named entities in Twitter data with crowd-
+sourcing. In Proceedings of the NAACL Workshop on
+Creating Speech and Text Language Data With Ama-
+zons Mechanical Turk. Association for Computational
+Linguistics, June.
+Jenny Rose Finkel, Trond Grenager, and Christopher
+Manning. 2005. Incorporating non-local information
+into information extraction systems by gibbs sampling.
+In Proceedings of the 43rd Annual Meeting on Associ-
+ation for Computational Linguistics, ACL 05.
+Radu Florian. 2002. Named entity recognition as a house
+of cards: classifier stacking. In Proceedings of the 6th
+conference on Natural language learning - Volume 20,
+COLING-02.
+Eric N. Forsythand and Craig H. Martell. 2007. Lexical
+and discourse analysis of online chat dialog. In Pro-
+ceedings of the International Conference on Semantic
+Computing.
+Kevin Gimpel, Nathan Schneider, Brendan OConnor,
+Dipanjan Das, Daniel Mills, Jacob Eisenstein, Michael
+Heilman, Dani Yogatama, Jeffrey Flanigan, and
+Noah A. Smith. 2011. Part-of-speech tagging for twit-
+ter: Annotation, features, and experiments. In ACL.
+Joshua T. Goodman. 2001. A bit of progress in language
+modeling. Technical report, Microsoft Research.
+Stephan Gouws, Donald Metzler, Congxing Cai, and Ed-
+uard Hovy. 2011. Contextual bearing on linguistic
+variation in social media. In ACL Workshop on Lan-
+guage in Social Media, Portland, Oregon, USA. To
+appear.
+T. L. Griffiths and M. Steyvers. 2004. Finding scien-
+tific topics. Proceedings of the National Academy of
+Sciences, April.
+Mark Hachman. 2011. Humanitys tweets: Just 20 ter-
+abytes. In PCMAG.COM.
+Bo Han and Timothy Baldwin. 2011. Lexical normalisa-
+tion of short text messages: Makn sens a #twitter. In
+The 49th Annual Meeting of the Association for Com-
+putational Linguistics, Portland, Oregon, USA. To ap-
+pear.
+Catherine Kobus, Francois Yvon, and Geraldine
+Damnati. 2008. Normalizing sms: are two metaphors
+better than one ? In COLING, pages 441448.
+Zornitsa Kozareva and Eduard H. Hovy. 2010. Not all
+seeds are equal: Measuring the quality of text mining
+seeds. In HLT-NAACL.
+John D. Lafferty, Andrew McCallum, and Fernando C. N.
+Pereira. 2001. Conditional random fields: Proba-
+bilistic models for segmenting and labeling sequence
+data. In Proceedings of the Eighteenth International
+Conference on Machine Learning, ICML 01, pages
+282289, San Francisco, CA, USA. Morgan Kauf-
+mann Publishers Inc.
+Xiaohua Liu, Shaodian Zhang, Furu Wei, and Ming
+Zhou. 2011. Recognizing named entities in tweets.
+In ACL.
+Brian Locke and James Martin. 2009. Named entity
+recognition: Adapting to microblogging. In Senior
+Thesis, University of Colorado.
+1533
+\x0cMitchell P. Marcus, Beatrice Santorini, and Mary A.
+Marcinkiewicz. 1994. Building a large annotated cor-
+pus of english: The penn treebank. Computational
+Linguistics.
+Andrew Kachites McCallum. 2002. Mallet: A machine
+learning for language toolkit. In http://mallet.
+cs.umass.edu.
+Tara McIntosh. 2010. Unsupervised discovery of nega-
+tive categories in lexicon bootstrapping. In Proceed-
+ings of the 2010 Conference on Empirical Methods in
+Natural Language Processing, EMNLP 10.
+Einat Minkov, Richard C. Wang, and William W. Cohen.
+2005. Extracting personal names from email: apply-
+ing named entity recognition to informal text. In Pro-
+ceedings of the conference on Human Language Tech-
+nology and Empirical Methods in Natural Language
+Processing, HLT 05, pages 443450, Morristown, NJ,
+USA. Association for Computational Linguistics.
+Mike Mintz, Steven Bills, Rion Snow, and Dan Juraf-
+sky. 2009. Distant supervision for relation extraction
+without labeled data. In Proceedings of ACL-IJCNLP
+2009.
+Christoph Muller and Michael Strube. 2006. Multi-level
+annotation of linguistic data with MMAX2. In Sabine
+Braun, Kurt Kohn, and Joybrato Mukherjee, editors,
+Corpus Technology and Language Pedagogy: New Re-
+sources, New Tools, New Methods, pages 197214. Pe-
+ter Lang, Frankfurt a.M., Germany.
+Daniel Ramage, David Hall, Ramesh Nallapati, and
+Christopher D. Manning. 2009. Labeled lda: a super-
+vised topic model for credit attribution in multi-labeled
+corpora. In Proceedings of the 2009 Conference on
+Empirical Methods in Natural Language Processing:
+Volume 1 - Volume 1, EMNLP 09, pages 248256,
+Morristown, NJ, USA. Association for Computational
+Linguistics.
+Christina Sauper, Aria Haghighi, and Regina Barzilay.
+2010. Incorporating content structure into text anal-
+ysis applications. In Proceedings of the 2010 Con-
+ference on Empirical Methods in Natural Language
+Processing, EMNLP 10, pages 377387, Morristown,
+NJ, USA. Association for Computational Linguistics.
+Fei Sha and Fernando Pereira. 2003. Shallow parsing
+with conditional random fields. In Proceedings of the
+2003 Conference of the North American Chapter of the
+Association for Computational Linguistics on Human
+Language Technology - Volume 1, NAACL 03.
+Sameer Singh, Dustin Hillard, and Chris Leggetter. 2010.
+Minimally-supervised extraction of entities from text
+advertisements. In Human Language Technologies:
+Annual Conference of the North American Chap-
+ter of the Association for Computational Linguistics
+(NAACL HLT).
+Charles Sutton. 2004. Collective segmentation and la-
+beling of distant entities in information extraction.
+Partha Pratim Talukdar and Fernando Pereira. 2010.
+Experiments in graph-based semi-supervised learning
+methods for class-instance acquisition. In Proceed-
+ings of the 48th Annual Meeting of the Association for
+Computational Linguistics, pages 14731481. Associ-
+ation for Computational Linguistics.
+Erik F. Tjong Kim Sang and Sabine Buchholz. 2000.
+Introduction to the conll-2000 shared task: chunking.
+In Proceedings of the 2nd workshop on Learning lan-
+guage in logic and the 4th conference on Computa-
+tional natural language learning - Volume 7, ConLL
+00.
+Kristina Toutanova, Dan Klein, Christopher D. Manning,
+and Yoram Singer. 2003. Feature-rich part-of-speech
+tagging with a cyclic dependency network. In Pro-
+ceedings of the 2003 Conference of the North Ameri-
+can Chapter of the Association for Computational Lin-
+guistics on Human Language Technology - Volume 1,
+NAACL 03.
+Joseph Turian, Lev Ratinov, and Yoshua Bengio. 2010.
+Word representations: a simple and general method for
+semi-supervised learning. In Proceedings of the 48th
+Annual Meeting of the Association for Computational
+Linguistics, ACL 10.
+Limin Yao, David Mimno, and Andrew McCallum.
+2009. Efficient methods for topic model inference on
+streaming document collections. In Proceedings of
+the 15th ACM SIGKDD international conference on
+Knowledge discovery and data mining.
+David Yarowsky. 1995. Unsupervised word sense dis-
+ambiguation rivaling supervised methods. In Proceed-
+ings of the 33rd annual meeting on Association for
+Computational Linguistics, ACL 95.
+</reference>
+<page confidence="0.81878">
+1534
+</page>
+<figure confidence="0.259152">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.377976">
+<note confidence="0.963434">b&amp;apos;Proceedings of the 2011 Conference on Empirical Methods in Natural Language Processing, pages 15241534, Edinburgh, Scotland, UK, July 2731, 2011. c 2011 Association for Computational Linguistics</note>
+<title confidence="0.9816985">Named Entity Recognition in Tweets: An Experimental Study</title>
+<author confidence="0.99995">Alan Ritter</author>
+<author confidence="0.99995">Sam Clark</author>
+<author confidence="0.99995">Mausam</author>
+<author confidence="0.99995">Oren Etzioni</author>
+<affiliation confidence="0.999366">Computer Science and Engineering University of Washington</affiliation>
+<address confidence="0.999398">Seattle, WA 98125, USA</address>
+<email confidence="0.999789">aritter@cs.washington.edu</email>
+<email confidence="0.999789">ssclark@cs.washington.edu</email>
+<email confidence="0.999789">mausam@cs.washington.edu</email>
+<email confidence="0.999789">etzioni@cs.washington.edu</email>
+<abstract confidence="0.97749935">People tweet more than 100 Million times daily, yielding a noisy, informal, but sometimes informative corpus of 140-character messages that mirrors the zeitgeist in an unprecedented manner. The performance of standard NLP tools is severely degraded on tweets. This paper addresses this issue by re-building the NLP pipeline beginning with part-of-speech tagging, through chunking, to named-entity recognition. Our novel T-NER system doubles F1 score compared with the Stanford NER system. T-NER leverages the redundancy inherent in tweets to achieve this performance, using LabeledLDA to exploit Freebase dictionaries as a source of distant supervision. LabeledLDA outperforms cotraining, increasing F1 by 25% over ten common entity types. Our NLP tools are available at: http://</abstract>
+<intro confidence="0.736699">github.com/aritter/twitter_nlp</intro>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Edward Benson</author>
+<author>Aria Haghighi</author>
+<author>Regina Barzilay</author>
+</authors>
+<title>Event discovery in social media feeds.</title>
+<date>2011</date>
+<booktitle>In The 49th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<location>Portland, Oregon, USA.</location>
+<note>To appear.</note>
+<marker>Benson, Haghighi, Barzilay, 2011</marker>
+<rawString>Edward Benson, Aria Haghighi, and Regina Barzilay. 2011. Event discovery in social media feeds. In The 49th Annual Meeting of the Association for Computational Linguistics, Portland, Oregon, USA. To appear.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David M Blei</author>
+<author>Andrew Y Ng</author>
+<author>Michael I Jordan</author>
+</authors>
+<title>Latent dirichlet allocation.</title>
+<date>2003</date>
+<journal>J. Mach. Learn. Res.</journal>
+<contexts>
+<context position="21430" citStr="Blei et al., 2003" startWordPosition="3448" endWordPosition="3451">ification, for example the CoTraining and Nave Bayes (EM) models of Collins and Singer (1999), LabeledLDA models each entity string as a mixture of types rather than using a single hidden variable to represent the type of each mention. This allows information about an entitys distribution over types to be shared across mentions, naturally handling ambiguous entity strings whose mentions could refer to different types. Each entity string in our data is associated with a bag of words found within a context window around all of its mentions, and also within the entity itself. As in standard LDA (Blei et al., 2003), each bag of words is associated with a distribution over topics, Multinomial(e), and each topic is associated with a distribution over words, Multinomial(t). In addition, there is a one-to-one mapping between topics and Freebase type dictionaries. These dictionaries 9 Kourtney &amp; Kim Take New York. constrain e, the distribution over topics for each entity string, based on its set of possible types, FB[e]. For example, Amazon could correspond to a distribution over two types: COMPANY, and LOCATION, whereas Apple might represent a distribution over COMPANY, and FOOD. For entities which arent fo</context>
+</contexts>
+<marker>Blei, Ng, Jordan, 2003</marker>
+<rawString>David M. Blei, Andrew Y. Ng, and Michael I. Jordan. 2003. Latent dirichlet allocation. J. Mach. Learn. Res.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Avrim Blum</author>
+<author>Tom M Mitchell</author>
+</authors>
+<title>Combining labeled and unlabeled sata with co-training.</title>
+<date>1998</date>
+<booktitle>In COLT,</booktitle>
+<pages>92100</pages>
+<contexts>
+<context position="4426" citStr="Blum and Mitchell, 1998" startWordPosition="678" endWordPosition="681">-shelf news trained NLP tools when applied to Twitter. For example POS tagging accuracy drops from about 0.97 on news to 0.80 on tweets. By utilizing in-domain, outof-domain, and unlabeled data we are able to substantially boost performance, for example obtaining a 52% increase in F1 score on segmenting named entities. 2. We introduce a novel approach to distant supervision (Mintz et al., 2009) using Topic Models. LabeledLDA is applied, utilizing constraints based on an open-domain database (Freebase) as a source of supervision. This approach increases F1 score by 25% relative to co-training (Blum and Mitchell, 1998; Yarowsky, 1995) on the task of classifying named entities in Tweets. The rest of the paper is organized as follows. We successively build the NLP pipeline for Twitter feeds in Sections 2 and 3. We first present our approaches to shallow syntax part of speech tagging (2.1), and shallow parsing (2.2). 2.3 describes a novel classifier that predicts the informativeness of capitalization in a tweet. All tools in 2 are used as features for named entity segmentation in 3.1. Next, we present our algorithms and evaluation for entity classification (3.2). We describe related work in 4 and conclude in </context>
+</contexts>
+<marker>Blum, Mitchell, 1998</marker>
+<rawString>Avrim Blum and Tom M. Mitchell. 1998. Combining labeled and unlabeled sata with co-training. In COLT, pages 92100.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Peter F Brown</author>
+<author>Peter V deSouza</author>
+<author>Robert L Mercer</author>
+<author>Vincent J Della Pietra</author>
+<author>Jenifer C Lai</author>
+</authors>
+<title>Classbased n-gram models of natural language.</title>
+<date>1992</date>
+<journal>Comput. Linguist.</journal>
+<contexts>
+<context position="8954" citStr="Brown et al., 1992" startWordPosition="1447" endWordPosition="1450">tweets (16K tokens) with tags from the Penn TreeBank tag set for use as in-domain training data for our POS tagging system, T-POS.4 We add new tags for the Twitter specific phenomena: retweets, @usernames, #hashtags, and urls. Note that words in these categories can be tagged with 100% accuracy using simple regular expressions. To ensure fair comparison in Table 2, we include a postprocessing step which tags these words appropriately for all systems. To help address the issue of OOV words and lexical variations, we perform clustering to group together words which are distributionally similar (Brown et al., 1992; Turian et al., 2010). In particular, we perform hierarchical clustering using Jcluster (Goodman, 2001) on 52 million tweets; each word is uniquely represented by a bit string based on the path from the root of the resulting hierarchy to the words leaf. We use the Brown clusters resulting from prefixes of 4, 8, and 12 bits. These clusters are often effective in capturing lexical variations, for ex4 Using MMAX2 (Muller and Strube, 2006) for annotation. ample, following are lexical variations on the word tomorrow from one cluster after filtering out other words (most of which refer to days): 2m</context>
+</contexts>
+<marker>Brown, deSouza, Mercer, Pietra, Lai, 1992</marker>
+<rawString>Peter F. Brown, Peter V. deSouza, Robert L. Mercer, Vincent J. Della Pietra, and Jenifer C. Lai. 1992. Classbased n-gram models of natural language. Comput. Linguist.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andrew Carlson</author>
+<author>Justin Betteridge</author>
+<author>Richard C Wang</author>
+<author>Estevam R Hruschka</author>
+<author>Tom M Mitchell</author>
+</authors>
+<title>Coupled semi-supervised learning for information extraction.</title>
+<date>2010</date>
+<journal>WSDM</journal>
+<booktitle>In Proceedings of the third ACM international conference on Web</booktitle>
+<volume>10</volume>
+<contexts>
+<context position="33593" citStr="Carlson et al., 2010" startWordPosition="5410" endWordPosition="5413"> Although we found manually annotated data to be very beneficial for named entity segmentation, we were motivated to explore approaches that dont rely on manual labels for classification due to Twitters wide range of named entity types. Additionally, unlike previous work on NER in informal text, our approach allows the sharing of information across an entitys mentions which is quite beneficial due to Twitters terse nature. Previous work on Semantic Bootstrapping has taken a weakly-supervised approach to classifying named entities based on large amounts of unlabeled text (Etzioni et al., 2005; Carlson et al., 2010; Kozareva and Hovy, 2010; Talukdar and Pereira, 2010; McIntosh, 2010). In contrast, rather than predicting which classes an entity belongs to (e.g. a multi-label classification task), LabeledLDA estimates a distribution over its types, which is then useful as a prior when classifying mentions in context. In addition there has been been work on SkipChain CRFs (Sutton, 2004; Finkel et al., 2005) which enforce consistency when classifying multiple occurrences of an entity within a document. Using topic models (e.g. LabeledLDA) for classifying named entities has a similar effect, in that informat</context>
+</contexts>
+<marker>Carlson, Betteridge, Wang, Hruschka, Mitchell, 2010</marker>
+<rawString>Andrew Carlson, Justin Betteridge, Richard C. Wang, Estevam R. Hruschka, Jr., and Tom M. Mitchell. 2010. Coupled semi-supervised learning for information extraction. In Proceedings of the third ACM international conference on Web search and data mining, WSDM 10.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eugene Charniak</author>
+<author>Curtis Hendrickson</author>
+<author>Neil Jacobson</author>
+<author>Mike Perkowitz</author>
+</authors>
+<title>Equations for part-ofspeech tagging.</title>
+<date>1993</date>
+<booktitle>In AAAI,</booktitle>
+<pages>784789</pages>
+<contexts>
+<context position="6403" citStr="Charniak et al., 1993" startWordPosition="1008" endWordPosition="1011">ata, in addition to annotated IRC chat data, we obtain a 41% reduction in error over the Stanford POS tagger. 2, 4 and 5) represent 4-fold cross-validation experiments on the respective tasks.3 2.1 Part of Speech Tagging Part of speech tagging is applicable to a wide range of NLP tasks including named entity segmentation and information extraction. Prior experiments have suggested that POS tagging has a very strong baseline: assign each word to its most frequent tag and assign each Out of Vocabulary (OOV) word the most common POS tag. This baseline obtained a 0.9 accuracy on the Brown corpus (Charniak et al., 1993). However, the application of a similar baseline on tweets (see Table 2) obtains a much weaker 0.76, exposing the challenging nature of Twitter data. A key reason for this drop in accuracy is that Twitter contains far more OOV words than grammatical text. Many of these OOV words come from spelling variation, e.g., the use of the word n for in in Table 1 example 3. Although NNP is the most frequent tag for OOV words, only about 1/3 are NNPs. The performance of off-the-shelf news-trained POS taggers also suffers on Twitter data. The stateof-the-art Stanford POS tagger (Toutanova et al., 2003) im</context>
+</contexts>
+<marker>Charniak, Hendrickson, Jacobson, Perkowitz, 1993</marker>
+<rawString>Eugene Charniak, Curtis Hendrickson, Neil Jacobson, and Mike Perkowitz. 1993. Equations for part-ofspeech tagging. In AAAI, pages 784789.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+<author>Yoram Singer</author>
+</authors>
+<title>Unsupervised models for named entity classification.</title>
+<date>1999</date>
+<booktitle>In Empirical Methods in Natural Language Processing.</booktitle>
+<contexts>
+<context position="15738" citStr="Collins and Singer (1999)" startWordPosition="2518" endWordPosition="2521">Will release the [Nintendo]ORG 3DS in north [America]LOC march 27 for $250 7 http://www.chasen.org/ taku/software/ TinySVM/ 1527 \x0cThe OOV word Yess is mistaken as a named entity. In addition, although the first occurrence of Nintendo is correctly segmented, it is misclassified, whereas the second occurrence is improperly segmented it should be the product Nintendo 3DS. Finally north America should be segmented as a LOCATION, rather than just America. In general, news-trained Named Entity Recognizers seem to rely heavily on capitalization, which we know to be unreliable in tweets. Following Collins and Singer (1999), Downey et al. (2007) and Elsner et al. (2009), we treat classification and segmentation of named entities as separate tasks. This allows us to more easily apply techniques better suited towards each task. For example, we are able to use discriminative methods for named entity segmentation and distantly supervised approaches for classification. While it might be beneficial to jointly model segmentation and (distantly supervised) classification using a joint sequence labeling and topic model similar to that proposed by Sauper et al. (2010), we leave this for potential future work. Because most</context>
+<context position="20905" citStr="Collins and Singer (1999)" startWordPosition="3359" endWordPosition="3362">witter do not appear in any Freebase dictionary, as they are either too new (for example a newly released videogame), or are misspelled or abbreviated (for example mbp is often used to refer to the mac book pro). Distant Supervision with Topic Models: To model unlabeled entities and their possible types, we apply LabeledLDA (Ramage et al., 2009), constraining each entitys distribution over topics based on its set of possible types according to Freebase. In contrast to previous weakly supervised approaches to Named Entity Classification, for example the CoTraining and Nave Bayes (EM) models of Collins and Singer (1999), LabeledLDA models each entity string as a mixture of types rather than using a single hidden variable to represent the type of each mention. This allows information about an entitys distribution over types to be shared across mentions, naturally handling ambiguous entity strings whose mentions could refer to different types. Each entity string in our data is associated with a bag of words found within a context window around all of its mentions, and also within the entity itself. As in standard LDA (Blei et al., 2003), each bag of words is associated with a distribution over topics, Multinom</context>
+<context position="27564" citStr="Collins and Singer (1999)" startWordPosition="4435" endWordPosition="4438">ior distribution e assigns highest probability to selected types. Results: Table 8 presents the classification results of T-CLASS compared against a majority baseline which simply picks the most frequent class (PERSON), in addition to the Freebase baseline, which only makes predictions if an entity appears in exactly one dictionary (i.e., appears unambiguous). T-CLASS also outperforms a simple supervised baseline which applies a MaxEnt classifier using 4-fold cross validation over the 1,450 entities which were annotated for testing. Additionally we compare against the co-training algorithm of Collins and Singer (1999) which also leverages unlabeled data and uses our Freebase type lists; for seed rules we use the unambiguous Freebase entities. Our results demonstrate that T-CLASS outperforms the baselines and achieves a 25% increase in F1 score over co-training. Tables 9 and 10 present a breakdown of F1 scores by type, both collapsing types into the standard classes used in the MUC competitions (PERSON, LOCATION, ORGANIZATION), and using the 10 popular Twitter types described earlier. Entity Strings vs. Entity Mentions: DL-Cotrain and LabeledLDA use two different representations for the unlabeled data durin</context>
+<context position="35406" citStr="Collins and Singer (1999)" startWordPosition="5688" endWordPosition="5691">from T-POS and T-CHUNK in segmenting Named Entities. We identified named entity classification as a particularly challenging task on Twitter. Due to their terse nature, tweets often lack enough context to identify the types of the entities they contain. In addition, a plethora of distinctive named entity types are present, necessitating large amounts of training data. To address both these issues we have presented and evaluated a distantly supervised approach based on LabeledLDA, which obtains a 25% increase in F1 score over the co-training approach to Named Entity Classification suggested by Collins and Singer (1999) when applied to Twitter. Our POS tagger, Chunker Named Entity Recognizer are available for use by the research community: http://github.com/aritter/ twitter_nlp Acknowledgments We would like to thank Stephen Soderland, Dan Weld and Luke Zettlemoyer, in addition to the anonymous reviewers for helpful comments on a previous draft. This research was supported in part by NSF grant IIS-0803481, ONR grant N00014-11- 1-0294, Navy STTR contract N00014-10-M-0304, a National Defense Science and Engineering Graduate (NDSEG) Fellowship 32 CFR 168a and carried out at the University of Washingtons Turing C</context>
+</contexts>
+<marker>Collins, Singer, 1999</marker>
+<rawString>Michael Collins and Yoram Singer. 1999. Unsupervised models for named entity classification. In Empirical Methods in Natural Language Processing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Doug Downey</author>
+<author>Matthew Broadhead</author>
+<author>Oren Etzioni</author>
+</authors>
+<title>Locating complex named entities in web text.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the 20th international joint conference on Artifical intelligence.</booktitle>
+<contexts>
+<context position="12820" citStr="Downey et al., 2007" startWordPosition="2057" endWordPosition="2060">clusters mentioned above. Part-of-speech tag features are extracted based on cross-validation output predicted by T-POS. For inference and learning, again we use Conditional Random Fields. We utilize 16K tokens of in-domain training data (using cross validation), in addition to 210K tokens of newswire text from the CoNLL dataset. Table 4 reports T-CHUNKs performance at shallow parsing of tweets. We compare against the offthe shelf OpenNLP chunker6, obtaining a 22% reduction in error. 2.3 Capitalization A key orthographic feature for recognizing named entities is capitalization (Florian, 2002; Downey et al., 2007). Unfortunately in tweets, capitalization is much less reliable than in edited texts. In addition, there is a wide variety in the styles of capitalization. In some tweets capitalization is informative, whereas in other cases, non-entity words are capitalized simply for emphasis. Some tweets contain all lowercase words (8%), whereas others are in ALL CAPS (0.6%). To address this issue, it is helpful to incorporate information based on the entire content of the mes6 http://incubator.apache.org/opennlp/ P R F1 Majority Baseline 0.70 1.00 0.82 T-CAP 0.77 0.98 0.86 Table 5: Performance at predictin</context>
+<context position="15760" citStr="Downey et al. (2007)" startWordPosition="2522" endWordPosition="2525">ORG 3DS in north [America]LOC march 27 for $250 7 http://www.chasen.org/ taku/software/ TinySVM/ 1527 \x0cThe OOV word Yess is mistaken as a named entity. In addition, although the first occurrence of Nintendo is correctly segmented, it is misclassified, whereas the second occurrence is improperly segmented it should be the product Nintendo 3DS. Finally north America should be segmented as a LOCATION, rather than just America. In general, news-trained Named Entity Recognizers seem to rely heavily on capitalization, which we know to be unreliable in tweets. Following Collins and Singer (1999), Downey et al. (2007) and Elsner et al. (2009), we treat classification and segmentation of named entities as separate tasks. This allows us to more easily apply techniques better suited towards each task. For example, we are able to use discriminative methods for named entity segmentation and distantly supervised approaches for classification. While it might be beneficial to jointly model segmentation and (distantly supervised) classification using a joint sequence labeling and topic model similar to that proposed by Sauper et al. (2010), we leave this for potential future work. Because most words found in tweets</context>
+</contexts>
+<marker>Downey, Broadhead, Etzioni, 2007</marker>
+<rawString>Doug Downey, Matthew Broadhead, and Oren Etzioni. 2007. Locating complex named entities in web text. In Proceedings of the 20th international joint conference on Artifical intelligence.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Doug Downey</author>
+<author>Oren Etzioni</author>
+<author>Stephen Soderland</author>
+</authors>
+<title>Analysis of a probabilistic model of redundancy in unsupervised information extraction.</title>
+<date>2010</date>
+<journal>Artif. Intell.,</journal>
+<volume>174</volume>
+<issue>11</issue>
+<contexts>
+<context position="19391" citStr="Downey et al., 2010" startWordPosition="3107" endWordPosition="3110">ntities Because Twitter contains many distinctive, and infrequent entity types, gathering sufficient training data for named entity classification is a difficult task. In any random sample of tweets, many types will only occur a few times. Moreover, due to their terse nature, individual tweets often do not contain enough context to determine the type of the entities they contain. For example, consider following tweet: KKTNY in 45min.......... without any prior knowledge, there is not enough context to determine what type of entity KKTNY refers to, however by exploiting redundancy in the data (Downey et al., 2010), we can determine it is likely a reference to a television show since it of1528 \x0cten co-occurs with words such as watching and premieres in other contexts.9 In order to handle the problem of many infrequent types, we leverage large lists of entities and their types gathered from an open-domain ontology (Freebase) as a source of distant supervision, allowing use of large amounts of unlabeled data in learning. Freebase Baseline: Although Freebase has very broad coverage, simply looking up entities and their types is inadequate for classifying named entities in context (0.38 F-score, 3.2.1). </context>
+</contexts>
+<marker>Downey, Etzioni, Soderland, 2010</marker>
+<rawString>Doug Downey, Oren Etzioni, and Stephen Soderland. 2010. Analysis of a probabilistic model of redundancy in unsupervised information extraction. Artif. Intell., 174(11):726748.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Micha Elsner</author>
+<author>Eugene Charniak</author>
+<author>Mark Johnson</author>
+</authors>
+<title>Structured generative models for unsupervised named-entity clustering.</title>
+<date>2009</date>
+<booktitle>In Proceedings of Human Language Technologies: The 2009 Annual Conference of the North American Chapter of the Association for Computational Linguistics, NAACL 09.</booktitle>
+<contexts>
+<context position="15785" citStr="Elsner et al. (2009)" startWordPosition="2527" endWordPosition="2530">]LOC march 27 for $250 7 http://www.chasen.org/ taku/software/ TinySVM/ 1527 \x0cThe OOV word Yess is mistaken as a named entity. In addition, although the first occurrence of Nintendo is correctly segmented, it is misclassified, whereas the second occurrence is improperly segmented it should be the product Nintendo 3DS. Finally north America should be segmented as a LOCATION, rather than just America. In general, news-trained Named Entity Recognizers seem to rely heavily on capitalization, which we know to be unreliable in tweets. Following Collins and Singer (1999), Downey et al. (2007) and Elsner et al. (2009), we treat classification and segmentation of named entities as separate tasks. This allows us to more easily apply techniques better suited towards each task. For example, we are able to use discriminative methods for named entity segmentation and distantly supervised approaches for classification. While it might be beneficial to jointly model segmentation and (distantly supervised) classification using a joint sequence labeling and topic model similar to that proposed by Sauper et al. (2010), we leave this for potential future work. Because most words found in tweets are not part of an entit</context>
+<context position="28568" citStr="Elsner et al., 2009" startWordPosition="4590" endWordPosition="4593">(PERSON, LOCATION, ORGANIZATION), and using the 10 popular Twitter types described earlier. Entity Strings vs. Entity Mentions: DL-Cotrain and LabeledLDA use two different representations for the unlabeled data during learning. LabeledLDA groups together words across all mentions of an en1530 \x0cSystem P R F1 Majority Baseline 0.30 0.30 0.30 Freebase Baseline 0.85 0.24 0.38 Supervised Baseline 0.45 0.44 0.45 DL-Cotrain 0.54 0.51 0.53 LabeledLDA 0.72 0.60 0.66 Table 8: Named Entity Classification performance on the 10 types. Assumes segmentation is given as in (Collins and Singer, 1999), and (Elsner et al., 2009). Type LL FB CT SP N PERSON 0.82 0.48 0.65 0.83 436 LOCATION 0.74 0.21 0.55 0.67 372 ORGANIZATION 0.66 0.52 0.55 0.31 319 overall 0.75 0.39 0.59 0.49 1127 Table 9: F1 classification scores for the 3 MUC types PERSON, LOCATION, ORGANIZATION. Results are shown using LabeledLDA (LL), Freebase Baseline (FB), DL-Cotrain (CT) and Supervised Baseline (SP). N is the number of entities in the test set. Type LL FB CT SP N PERSON 0.82 0.48 0.65 0.86 436 GEO-LOC 0.77 0.23 0.60 0.51 269 COMPANY 0.71 0.66 0.50 0.29 162 FACILITY 0.37 0.07 0.14 0.34 103 PRODUCT 0.53 0.34 0.40 0.07 91 BAND 0.44 0.40 0.42 0.01 </context>
+</contexts>
+<marker>Elsner, Charniak, Johnson, 2009</marker>
+<rawString>Micha Elsner, Eugene Charniak, and Mark Johnson. 2009. Structured generative models for unsupervised named-entity clustering. In Proceedings of Human Language Technologies: The 2009 Annual Conference of the North American Chapter of the Association for Computational Linguistics, NAACL 09.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Oren Etzioni</author>
+<author>Michael Cafarella</author>
+<author>Doug Downey</author>
+<author>AnaMaria Popescu</author>
+<author>Tal Shaked</author>
+<author>Stephen Soderland</author>
+<author>Daniel S Weld</author>
+<author>Alexander Yates</author>
+</authors>
+<title>Unsupervised named-entity extraction from the web: an experimental study.</title>
+<date>2005</date>
+<journal>Artif. Intell.</journal>
+<contexts>
+<context position="33571" citStr="Etzioni et al., 2005" startWordPosition="5406" endWordPosition="5409">es than previous work. Although we found manually annotated data to be very beneficial for named entity segmentation, we were motivated to explore approaches that dont rely on manual labels for classification due to Twitters wide range of named entity types. Additionally, unlike previous work on NER in informal text, our approach allows the sharing of information across an entitys mentions which is quite beneficial due to Twitters terse nature. Previous work on Semantic Bootstrapping has taken a weakly-supervised approach to classifying named entities based on large amounts of unlabeled text (Etzioni et al., 2005; Carlson et al., 2010; Kozareva and Hovy, 2010; Talukdar and Pereira, 2010; McIntosh, 2010). In contrast, rather than predicting which classes an entity belongs to (e.g. a multi-label classification task), LabeledLDA estimates a distribution over its types, which is then useful as a prior when classifying mentions in context. In addition there has been been work on SkipChain CRFs (Sutton, 2004; Finkel et al., 2005) which enforce consistency when classifying multiple occurrences of an entity within a document. Using topic models (e.g. LabeledLDA) for classifying named entities has a similar ef</context>
+</contexts>
+<marker>Etzioni, Cafarella, Downey, Popescu, Shaked, Soderland, Weld, Yates, 2005</marker>
+<rawString>Oren Etzioni, Michael Cafarella, Doug Downey, AnaMaria Popescu, Tal Shaked, Stephen Soderland, Daniel S. Weld, and Alexander Yates. 2005. Unsupervised named-entity extraction from the web: an experimental study. Artif. Intell.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Tim Finin</author>
+<author>Will Murnane</author>
+<author>Anand Karandikar</author>
+<author>Nicholas Keller</author>
+<author>Justin Martineau</author>
+<author>Mark Dredze</author>
+</authors>
+<title>Annotating named entities in Twitter data with crowdsourcing.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the NAACL Workshop on Creating Speech and Text Language Data With Amazons Mechanical Turk. Association for Computational Linguistics,</booktitle>
+<marker>Finin, Murnane, Karandikar, Keller, Martineau, Dredze, 2010</marker>
+<rawString>Tim Finin, Will Murnane, Anand Karandikar, Nicholas Keller, Justin Martineau, and Mark Dredze. 2010. Annotating named entities in Twitter data with crowdsourcing. In Proceedings of the NAACL Workshop on Creating Speech and Text Language Data With Amazons Mechanical Turk. Association for Computational Linguistics, June.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Rose Finkel</author>
+<author>Trond Grenager</author>
+<author>Christopher Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the 43rd Annual Meeting on Association for Computational Linguistics, ACL 05.</booktitle>
+<contexts>
+<context position="18704" citStr="Finkel et al., 2005" startWordPosition="2998" endWordPosition="3001">ntation as a sequence-labeling task using IOB encoding for representing segmentations (each word either begins, is inside, or is outside of a named entity), and uses Conditional Random Fields for learning and inference. Again we include orthographic, contextual and dictionary features; our dictionaries included a set of type lists gathered from Freebase. In addition, we use the Brown clusters and outputs of T-POS, T-CHUNK and T-CAP in generating features. We report results at segmenting named entities in Table 6. Compared with the state-of-the-art newstrained Stanford Named Entity Recognizer (Finkel et al., 2005), T-SEG obtains a 52% increase in F1 score. 3.2 Classifying Named Entities Because Twitter contains many distinctive, and infrequent entity types, gathering sufficient training data for named entity classification is a difficult task. In any random sample of tweets, many types will only occur a few times. Moreover, due to their terse nature, individual tweets often do not contain enough context to determine the type of the entities they contain. For example, consider following tweet: KKTNY in 45min.......... without any prior knowledge, there is not enough context to determine what type of ent</context>
+<context position="33990" citStr="Finkel et al., 2005" startWordPosition="5474" endWordPosition="5477">due to Twitters terse nature. Previous work on Semantic Bootstrapping has taken a weakly-supervised approach to classifying named entities based on large amounts of unlabeled text (Etzioni et al., 2005; Carlson et al., 2010; Kozareva and Hovy, 2010; Talukdar and Pereira, 2010; McIntosh, 2010). In contrast, rather than predicting which classes an entity belongs to (e.g. a multi-label classification task), LabeledLDA estimates a distribution over its types, which is then useful as a prior when classifying mentions in context. In addition there has been been work on SkipChain CRFs (Sutton, 2004; Finkel et al., 2005) which enforce consistency when classifying multiple occurrences of an entity within a document. Using topic models (e.g. LabeledLDA) for classifying named entities has a similar effect, in that information about an entitys distribution of possible types is shared across its mentions. 5 Conclusions We have demonstrated that existing tools for POS tagging, Chunking and Named Entity Recognition perform quite poorly when applied to Tweets. To address this challenge we have annotated tweets and built tools trained on unlabeled, in-domain and outof-domain data, showing substantial improvement over </context>
+</contexts>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>Jenny Rose Finkel, Trond Grenager, and Christopher Manning. 2005. Incorporating non-local information into information extraction systems by gibbs sampling. In Proceedings of the 43rd Annual Meeting on Association for Computational Linguistics, ACL 05.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Radu Florian</author>
+</authors>
+<title>Named entity recognition as a house of cards: classifier stacking.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the 6th conference on Natural language learning - Volume</booktitle>
+<volume>20</volume>
+<pages>02</pages>
+<contexts>
+<context position="12798" citStr="Florian, 2002" startWordPosition="2055" endWordPosition="2056">n to the Brown clusters mentioned above. Part-of-speech tag features are extracted based on cross-validation output predicted by T-POS. For inference and learning, again we use Conditional Random Fields. We utilize 16K tokens of in-domain training data (using cross validation), in addition to 210K tokens of newswire text from the CoNLL dataset. Table 4 reports T-CHUNKs performance at shallow parsing of tweets. We compare against the offthe shelf OpenNLP chunker6, obtaining a 22% reduction in error. 2.3 Capitalization A key orthographic feature for recognizing named entities is capitalization (Florian, 2002; Downey et al., 2007). Unfortunately in tweets, capitalization is much less reliable than in edited texts. In addition, there is a wide variety in the styles of capitalization. In some tweets capitalization is informative, whereas in other cases, non-entity words are capitalized simply for emphasis. Some tweets contain all lowercase words (8%), whereas others are in ALL CAPS (0.6%). To address this issue, it is helpful to incorporate information based on the entire content of the mes6 http://incubator.apache.org/opennlp/ P R F1 Majority Baseline 0.70 1.00 0.82 T-CAP 0.77 0.98 0.86 Table 5: Pe</context>
+</contexts>
+<marker>Florian, 2002</marker>
+<rawString>Radu Florian. 2002. Named entity recognition as a house of cards: classifier stacking. In Proceedings of the 6th conference on Natural language learning - Volume 20, COLING-02.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eric N Forsythand</author>
+<author>Craig H Martell</author>
+</authors>
+<title>Lexical and discourse analysis of online chat dialog.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the International Conference on Semantic Computing.</booktitle>
+<contexts>
+<context position="10581" citStr="Forsythand and Martell, 2007" startWordPosition="1705" endWordPosition="1708">Conditional Random Fields5 (Lafferty et al., 2001), both because of their ability to model strong dependencies between adjacent POS tags, and also to make use of highly correlated features (for example a words identity in addition to prefixes and suffixes). Besides employing the Brown clusters computed above, we use a fairly standard set of features that include POS dictionaries, spelling and contextual features. On a 4-fold cross validation over 800 tweets, T-POS outperforms the Stanford tagger, obtaining a 26% reduction in error. In addition we include 40K tokens of annotated IRC chat data (Forsythand and Martell, 2007), which is similar in style. Like Twitter, IRC data contains many misspelled/abbreviated words, and also more pronouns, and interjections, but fewer determiners than news. Finally, we also leverage 50K POS-labeled tokens from the Penn Treebank (Marcus et al., 1994). Overall T-POS trained on 102K tokens (12K from Twitter, 40K from IRC and 50K from PTB) results in a 41% error reduction over the Stanford tagger, obtaining an accuracy of 0.883. Table 3 lists gains on some of the most common error types, for example, T-POS dramatically reduces error on interjections and verbs that are incorrectly c</context>
+</contexts>
+<marker>Forsythand, Martell, 2007</marker>
+<rawString>Eric N. Forsythand and Craig H. Martell. 2007. Lexical and discourse analysis of online chat dialog. In Proceedings of the International Conference on Semantic Computing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kevin Gimpel</author>
+<author>Nathan Schneider</author>
+<author>Brendan OConnor</author>
+<author>Dipanjan Das</author>
+<author>Daniel Mills</author>
+<author>Jacob Eisenstein</author>
+<author>Michael Heilman</author>
+<author>Dani Yogatama</author>
+<author>Jeffrey Flanigan</author>
+<author>Noah A Smith</author>
+</authors>
+<title>Part-of-speech tagging for twitter: Annotation, features, and experiments.</title>
+<date>2011</date>
+<booktitle>In ACL.</booktitle>
+<marker>Gimpel, Schneider, OConnor, Das, Mills, Eisenstein, Heilman, Yogatama, Flanigan, Smith, 2011</marker>
+<rawString>Kevin Gimpel, Nathan Schneider, Brendan OConnor, Dipanjan Das, Daniel Mills, Jacob Eisenstein, Michael Heilman, Dani Yogatama, Jeffrey Flanigan, and Noah A. Smith. 2011. Part-of-speech tagging for twitter: Annotation, features, and experiments. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Joshua T Goodman</author>
+</authors>
+<title>A bit of progress in language modeling.</title>
+<date>2001</date>
+<tech>Technical report, Microsoft Research.</tech>
+<contexts>
+<context position="9058" citStr="Goodman, 2001" startWordPosition="1464" endWordPosition="1465">tagging system, T-POS.4 We add new tags for the Twitter specific phenomena: retweets, @usernames, #hashtags, and urls. Note that words in these categories can be tagged with 100% accuracy using simple regular expressions. To ensure fair comparison in Table 2, we include a postprocessing step which tags these words appropriately for all systems. To help address the issue of OOV words and lexical variations, we perform clustering to group together words which are distributionally similar (Brown et al., 1992; Turian et al., 2010). In particular, we perform hierarchical clustering using Jcluster (Goodman, 2001) on 52 million tweets; each word is uniquely represented by a bit string based on the path from the root of the resulting hierarchy to the words leaf. We use the Brown clusters resulting from prefixes of 4, 8, and 12 bits. These clusters are often effective in capturing lexical variations, for ex4 Using MMAX2 (Muller and Strube, 2006) for annotation. ample, following are lexical variations on the word tomorrow from one cluster after filtering out other words (most of which refer to days): 2m, 2ma, 2mar, 2mara, 2maro, 2marrow, 2mor, 2mora, 2moro, 2morow, 2morr, 2morro, 2morrow, 2moz, 2mr, 2mro,</context>
+</contexts>
+<marker>Goodman, 2001</marker>
+<rawString>Joshua T. Goodman. 2001. A bit of progress in language modeling. Technical report, Microsoft Research.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Stephan Gouws</author>
+<author>Donald Metzler</author>
+<author>Congxing Cai</author>
+<author>Eduard Hovy</author>
+</authors>
+<title>Contextual bearing on linguistic variation in social media.</title>
+<date>2011</date>
+<booktitle>In ACL Workshop on Language in Social Media,</booktitle>
+<location>Portland, Oregon, USA.</location>
+<note>To appear.</note>
+<contexts>
+<context position="32102" citStr="Gouws et al., 2011" startWordPosition="5168" endWordPosition="5171">ke and Martin (2009) train a classifier to recognize named entities based on annotated Twitter data, handling the types PERSON, LOCATION, and ORGANIZATION. Developed in parallel to our work, Liu et al. (2011) investigate NER on the same 3 types, in addition to PRODUCTs and present a semi1531 \x0csupervised approach using k-nearest neighbor. Also developed in parallel, Gimpell et al. (2011) build a POS tagger for tweets using 20 coarse-grained tags. Benson et. al. (2011) present a system which extracts artists and venues associated with musical performances. Recent work (Han and Baldwin, 2011; Gouws et al., 2011) has proposed lexical normalization of tweets which may be useful as a preprocessing step for the upstream tasks like POS tagging and NER. In addition Finin et. al. (2010) investigate the use of Amazons Mechanical Turk for annotating Named Entities in Twitter, Minkov et. al. (2005) investigate person name recognizers in email, and Singh et. al. (2010) apply a minimally supervised approach to extracting entities from text advertisements. In contrast to previous work, we have demonstrated the utility of features based on Twitterspecific POS taggers and Shallow Parsers in segmenting Named Entitie</context>
+</contexts>
+<marker>Gouws, Metzler, Cai, Hovy, 2011</marker>
+<rawString>Stephan Gouws, Donald Metzler, Congxing Cai, and Eduard Hovy. 2011. Contextual bearing on linguistic variation in social media. In ACL Workshop on Language in Social Media, Portland, Oregon, USA. To appear.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T L Griffiths</author>
+<author>M Steyvers</author>
+</authors>
+<title>Finding scientific topics.</title>
+<date>2004</date>
+<booktitle>Proceedings of the National Academy of Sciences,</booktitle>
+<contexts>
+<context position="22834" citStr="Griffiths and Steyvers, 2004" startWordPosition="3683" endWordPosition="3686">fully unsupervised setting similar to that presented by Elsner et. al. (2009). In detail, the generative process that models our data for Named Entity Classification is as follows: for each type: t = 1 . . . T do Generate t according to symmetric Dirichlet distribution Dir(). end for for each entity string e = 1 . . . |E |do Generate e over FB[e] according to Dirichlet distribution Dir(FB[e]). for each word position i = 1 . . . Ne do Generate ze,i from Mult(e). Generate the word we,i from Mult(ze,i ). end for end for To infer values for the hidden variables, we apply Collapsed Gibbs sampling (Griffiths and Steyvers, 2004), where parameters are integrated out, and the ze,is are sampled directly. In making predictions, we found it beneficial to consider train e as a prior distribution over types for entities which were encountered during training. In practice this sharing of information across contexts is very beneficial as there is often insufficient evidence in an isolated tweet to determine an entitys type. For entities which werent encountered during training, we instead use a prior based on the distribution of types across all entities. One approach to classifying entities in context is to assume that train</context>
+</contexts>
+<marker>Griffiths, Steyvers, 2004</marker>
+<rawString>T. L. Griffiths and M. Steyvers. 2004. Finding scientific topics. Proceedings of the National Academy of Sciences, April.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mark Hachman</author>
+</authors>
+<title>Humanitys tweets: Just 20 terabytes.</title>
+<date>2011</date>
+<booktitle>In PCMAG.COM.</booktitle>
+<contexts>
+<context position="1874" citStr="Hachman, 2011" startWordPosition="271" endWordPosition="272">roduction Status Messages posted on Social Media websites such as Facebook and Twitter present a new and challenging style of text for language technology due to their noisy and informal nature. Like SMS (Kobus et al., 2008), tweets are particularly terse and difficult (See Table 1). Yet tweets provide a unique compilation of information that is more upto-date and inclusive than news articles, due to the low-barrier to tweeting, and the proliferation of mobile devices.1 The corpus of tweets already exceeds 1 See the trending topics displayed on twitter.com the size of the Library of Congress (Hachman, 2011) and is growing far more rapidly. Due to the volume of tweets, it is natural to consider named-entity recognition, information extraction, and text mining over tweets. Not surprisingly, the performance of off the shelf NLP tools, which were trained on news corpora, is weak on tweet corpora. In response, we report on a re-trained NLP pipeline that leverages previously-tagged out-ofdomain text, 2 tagged tweets, and unlabeled tweets to achieve more effective part-of-speech tagging, chunking, and named-entity recognition. 1 The Hobbit has FINALLY started filming! I cannot wait! 2 Yess! Yess! Its o</context>
+</contexts>
+<marker>Hachman, 2011</marker>
+<rawString>Mark Hachman. 2011. Humanitys tweets: Just 20 terabytes. In PCMAG.COM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Bo Han</author>
+<author>Timothy Baldwin</author>
+</authors>
+<title>Lexical normalisation of short text messages: Makn sens a #twitter.</title>
+<date>2011</date>
+<booktitle>In The 49th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<location>Portland, Oregon, USA.</location>
+<note>To appear.</note>
+<contexts>
+<context position="32081" citStr="Han and Baldwin, 2011" startWordPosition="5164" endWordPosition="5167">imilar text styles. Locke and Martin (2009) train a classifier to recognize named entities based on annotated Twitter data, handling the types PERSON, LOCATION, and ORGANIZATION. Developed in parallel to our work, Liu et al. (2011) investigate NER on the same 3 types, in addition to PRODUCTs and present a semi1531 \x0csupervised approach using k-nearest neighbor. Also developed in parallel, Gimpell et al. (2011) build a POS tagger for tweets using 20 coarse-grained tags. Benson et. al. (2011) present a system which extracts artists and venues associated with musical performances. Recent work (Han and Baldwin, 2011; Gouws et al., 2011) has proposed lexical normalization of tweets which may be useful as a preprocessing step for the upstream tasks like POS tagging and NER. In addition Finin et. al. (2010) investigate the use of Amazons Mechanical Turk for annotating Named Entities in Twitter, Minkov et. al. (2005) investigate person name recognizers in email, and Singh et. al. (2010) apply a minimally supervised approach to extracting entities from text advertisements. In contrast to previous work, we have demonstrated the utility of features based on Twitterspecific POS taggers and Shallow Parsers in seg</context>
+</contexts>
+<marker>Han, Baldwin, 2011</marker>
+<rawString>Bo Han and Timothy Baldwin. 2011. Lexical normalisation of short text messages: Makn sens a #twitter. In The 49th Annual Meeting of the Association for Computational Linguistics, Portland, Oregon, USA. To appear.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Catherine Kobus</author>
+<author>Francois Yvon</author>
+<author>Geraldine Damnati</author>
+</authors>
+<title>Normalizing sms: are two metaphors better than one ? In</title>
+<date>2008</date>
+<booktitle>COLING,</booktitle>
+<pages>441448</pages>
+<contexts>
+<context position="1484" citStr="Kobus et al., 2008" startWordPosition="206" endWordPosition="209">-NER system doubles F1 score compared with the Stanford NER system. T-NER leverages the redundancy inherent in tweets to achieve this performance, using LabeledLDA to exploit Freebase dictionaries as a source of distant supervision. LabeledLDA outperforms cotraining, increasing F1 by 25% over ten common entity types. Our NLP tools are available at: http:// github.com/aritter/twitter_nlp 1 Introduction Status Messages posted on Social Media websites such as Facebook and Twitter present a new and challenging style of text for language technology due to their noisy and informal nature. Like SMS (Kobus et al., 2008), tweets are particularly terse and difficult (See Table 1). Yet tweets provide a unique compilation of information that is more upto-date and inclusive than news articles, due to the low-barrier to tweeting, and the proliferation of mobile devices.1 The corpus of tweets already exceeds 1 See the trending topics displayed on twitter.com the size of the Library of Congress (Hachman, 2011) and is growing far more rapidly. Due to the volume of tweets, it is natural to consider named-entity recognition, information extraction, and text mining over tweets. Not surprisingly, the performance of off t</context>
+</contexts>
+<marker>Kobus, Yvon, Damnati, 2008</marker>
+<rawString>Catherine Kobus, Francois Yvon, and Geraldine Damnati. 2008. Normalizing sms: are two metaphors better than one ? In COLING, pages 441448.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Zornitsa Kozareva</author>
+<author>Eduard H Hovy</author>
+</authors>
+<title>Not all seeds are equal: Measuring the quality of text mining seeds. In</title>
+<date>2010</date>
+<contexts>
+<context position="33618" citStr="Kozareva and Hovy, 2010" startWordPosition="5414" endWordPosition="5417">ually annotated data to be very beneficial for named entity segmentation, we were motivated to explore approaches that dont rely on manual labels for classification due to Twitters wide range of named entity types. Additionally, unlike previous work on NER in informal text, our approach allows the sharing of information across an entitys mentions which is quite beneficial due to Twitters terse nature. Previous work on Semantic Bootstrapping has taken a weakly-supervised approach to classifying named entities based on large amounts of unlabeled text (Etzioni et al., 2005; Carlson et al., 2010; Kozareva and Hovy, 2010; Talukdar and Pereira, 2010; McIntosh, 2010). In contrast, rather than predicting which classes an entity belongs to (e.g. a multi-label classification task), LabeledLDA estimates a distribution over its types, which is then useful as a prior when classifying mentions in context. In addition there has been been work on SkipChain CRFs (Sutton, 2004; Finkel et al., 2005) which enforce consistency when classifying multiple occurrences of an entity within a document. Using topic models (e.g. LabeledLDA) for classifying named entities has a similar effect, in that information about an entitys dist</context>
+</contexts>
+<marker>Kozareva, Hovy, 2010</marker>
+<rawString>Zornitsa Kozareva and Eduard H. Hovy. 2010. Not all seeds are equal: Measuring the quality of text mining seeds. In HLT-NAACL. John D. Lafferty, Andrew McCallum, and Fernando C. N.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Pereira</author>
+</authors>
+<title>Conditional random fields: Probabilistic models for segmenting and labeling sequence data.</title>
+<date>2001</date>
+<booktitle>In Proceedings of the Eighteenth International Conference on Machine Learning, ICML 01,</booktitle>
+<pages>282289</pages>
+<publisher>Morgan Kaufmann Publishers Inc.</publisher>
+<location>San Francisco, CA, USA.</location>
+<marker>Pereira, 2001</marker>
+<rawString>Pereira. 2001. Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In Proceedings of the Eighteenth International Conference on Machine Learning, ICML 01, pages 282289, San Francisco, CA, USA. Morgan Kaufmann Publishers Inc.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Xiaohua Liu</author>
+<author>Shaodian Zhang</author>
+<author>Furu Wei</author>
+<author>Ming Zhou</author>
+</authors>
+<title>Recognizing named entities in tweets.</title>
+<date>2011</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="31691" citStr="Liu et al. (2011)" startWordPosition="5101" endWordPosition="5104">). End to End System: Finally we present the end to end performance on segmentation and classification (T-NER) in Table 12. We observe that T-NER again outperforms co-training. Moreover, comparing against the Stanford Named Entity Recognizer on the 3 MUC types, T-NER doubles F1 score. 4 Related Work There has been relatively little previous work on building NLP tools for Twitter or similar text styles. Locke and Martin (2009) train a classifier to recognize named entities based on annotated Twitter data, handling the types PERSON, LOCATION, and ORGANIZATION. Developed in parallel to our work, Liu et al. (2011) investigate NER on the same 3 types, in addition to PRODUCTs and present a semi1531 \x0csupervised approach using k-nearest neighbor. Also developed in parallel, Gimpell et al. (2011) build a POS tagger for tweets using 20 coarse-grained tags. Benson et. al. (2011) present a system which extracts artists and venues associated with musical performances. Recent work (Han and Baldwin, 2011; Gouws et al., 2011) has proposed lexical normalization of tweets which may be useful as a preprocessing step for the upstream tasks like POS tagging and NER. In addition Finin et. al. (2010) investigate the u</context>
+</contexts>
+<marker>Liu, Zhang, Wei, Zhou, 2011</marker>
+<rawString>Xiaohua Liu, Shaodian Zhang, Furu Wei, and Ming Zhou. 2011. Recognizing named entities in tweets. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Brian Locke</author>
+<author>James Martin</author>
+</authors>
+<title>Named entity recognition: Adapting to microblogging. In Senior Thesis,</title>
+<date>2009</date>
+<institution>University of Colorado.</institution>
+<note>x0cMitchell</note>
+<contexts>
+<context position="31503" citStr="Locke and Martin (2009)" startWordPosition="5070" endWordPosition="5073">when considering mentions as documents. This is likely due to the fact that there isnt enough context to effectively learn topics when the documents are very short (typically fewer than 10 words). End to End System: Finally we present the end to end performance on segmentation and classification (T-NER) in Table 12. We observe that T-NER again outperforms co-training. Moreover, comparing against the Stanford Named Entity Recognizer on the 3 MUC types, T-NER doubles F1 score. 4 Related Work There has been relatively little previous work on building NLP tools for Twitter or similar text styles. Locke and Martin (2009) train a classifier to recognize named entities based on annotated Twitter data, handling the types PERSON, LOCATION, and ORGANIZATION. Developed in parallel to our work, Liu et al. (2011) investigate NER on the same 3 types, in addition to PRODUCTs and present a semi1531 \x0csupervised approach using k-nearest neighbor. Also developed in parallel, Gimpell et al. (2011) build a POS tagger for tweets using 20 coarse-grained tags. Benson et. al. (2011) present a system which extracts artists and venues associated with musical performances. Recent work (Han and Baldwin, 2011; Gouws et al., 2011) </context>
+</contexts>
+<marker>Locke, Martin, 2009</marker>
+<rawString>Brian Locke and James Martin. 2009. Named entity recognition: Adapting to microblogging. In Senior Thesis, University of Colorado. \x0cMitchell P. Marcus, Beatrice Santorini, and Mary A.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Marcinkiewicz</author>
+</authors>
+<title>Building a large annotated corpus of english: The penn treebank. Computational Linguistics.</title>
+<date>1994</date>
+<marker>Marcinkiewicz, 1994</marker>
+<rawString>Marcinkiewicz. 1994. Building a large annotated corpus of english: The penn treebank. Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andrew Kachites McCallum</author>
+</authors>
+<title>Mallet: A machine learning for language toolkit. In</title>
+<date>2002</date>
+<note>http://mallet. cs.umass.edu.</note>
+<contexts>
+<context position="11377" citStr="McCallum, 2002" startWordPosition="1837" endWordPosition="1838">we also leverage 50K POS-labeled tokens from the Penn Treebank (Marcus et al., 1994). Overall T-POS trained on 102K tokens (12K from Twitter, 40K from IRC and 50K from PTB) results in a 41% error reduction over the Stanford tagger, obtaining an accuracy of 0.883. Table 3 lists gains on some of the most common error types, for example, T-POS dramatically reduces error on interjections and verbs that are incorrectly classified as nouns by the Stanford tagger. 2.2 Shallow Parsing Shallow parsing, or chunking is the task of identifying non-recursive phrases, such as noun phrases, 5 We use MALLET (McCallum, 2002). 1526 \x0cAccuracy Error Reduction Majority Baseline (B-NP) 0.266 - OpenNLP 0.839 - T-CHUNK(CoNLL) 0.854 9% T-CHUNK(Twitter) 0.867 17% T-CHUNK(CoNLL + Twitter) 0.875 22% Table 4: Token-Level accuracy at shallow parsing tweets. We compare against the OpenNLP chunker as a baseline. verb phrases, and prepositional phrases in text. Accurate shallow parsing of tweets could benefit several applications such as Information Extraction and Named Entity Recognition. Off the shelf shallow parsers perform noticeably worse on tweets, motivating us again to annotate indomain training data. We annotate the </context>
+</contexts>
+<marker>McCallum, 2002</marker>
+<rawString>Andrew Kachites McCallum. 2002. Mallet: A machine learning for language toolkit. In http://mallet. cs.umass.edu.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Tara McIntosh</author>
+</authors>
+<title>Unsupervised discovery of negative categories in lexicon bootstrapping.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 2010 Conference on Empirical Methods in Natural Language Processing, EMNLP 10.</booktitle>
+<contexts>
+<context position="33663" citStr="McIntosh, 2010" startWordPosition="5422" endWordPosition="5423">entity segmentation, we were motivated to explore approaches that dont rely on manual labels for classification due to Twitters wide range of named entity types. Additionally, unlike previous work on NER in informal text, our approach allows the sharing of information across an entitys mentions which is quite beneficial due to Twitters terse nature. Previous work on Semantic Bootstrapping has taken a weakly-supervised approach to classifying named entities based on large amounts of unlabeled text (Etzioni et al., 2005; Carlson et al., 2010; Kozareva and Hovy, 2010; Talukdar and Pereira, 2010; McIntosh, 2010). In contrast, rather than predicting which classes an entity belongs to (e.g. a multi-label classification task), LabeledLDA estimates a distribution over its types, which is then useful as a prior when classifying mentions in context. In addition there has been been work on SkipChain CRFs (Sutton, 2004; Finkel et al., 2005) which enforce consistency when classifying multiple occurrences of an entity within a document. Using topic models (e.g. LabeledLDA) for classifying named entities has a similar effect, in that information about an entitys distribution of possible types is shared across i</context>
+</contexts>
+<marker>McIntosh, 2010</marker>
+<rawString>Tara McIntosh. 2010. Unsupervised discovery of negative categories in lexicon bootstrapping. In Proceedings of the 2010 Conference on Empirical Methods in Natural Language Processing, EMNLP 10.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Einat Minkov</author>
+<author>Richard C Wang</author>
+<author>William W Cohen</author>
+</authors>
+<title>Extracting personal names from email: applying named entity recognition to informal text.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the conference on Human Language Technology and Empirical Methods in Natural Language Processing, HLT 05,</booktitle>
+<pages>443450</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Morristown, NJ, USA.</location>
+<marker>Minkov, Wang, Cohen, 2005</marker>
+<rawString>Einat Minkov, Richard C. Wang, and William W. Cohen. 2005. Extracting personal names from email: applying named entity recognition to informal text. In Proceedings of the conference on Human Language Technology and Empirical Methods in Natural Language Processing, HLT 05, pages 443450, Morristown, NJ, USA. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mike Mintz</author>
+<author>Steven Bills</author>
+<author>Rion Snow</author>
+<author>Dan Jurafsky</author>
+</authors>
+<title>Distant supervision for relation extraction without labeled data.</title>
+<date>2009</date>
+<booktitle>In Proceedings of ACL-IJCNLP</booktitle>
+<contexts>
+<context position="4200" citStr="Mintz et al., 2009" startWordPosition="644" endWordPosition="647">to large dictionaries of entities gathered from Freebase, and combines information about an entitys context across its mentions. We make the following contributions: 1. We experimentally evaluate the performance of off-the-shelf news trained NLP tools when applied to Twitter. For example POS tagging accuracy drops from about 0.97 on news to 0.80 on tweets. By utilizing in-domain, outof-domain, and unlabeled data we are able to substantially boost performance, for example obtaining a 52% increase in F1 score on segmenting named entities. 2. We introduce a novel approach to distant supervision (Mintz et al., 2009) using Topic Models. LabeledLDA is applied, utilizing constraints based on an open-domain database (Freebase) as a source of supervision. This approach increases F1 score by 25% relative to co-training (Blum and Mitchell, 1998; Yarowsky, 1995) on the task of classifying named entities in Tweets. The rest of the paper is organized as follows. We successively build the NLP pipeline for Twitter feeds in Sections 2 and 3. We first present our approaches to shallow syntax part of speech tagging (2.1), and shallow parsing (2.2). 2.3 describes a novel classifier that predicts the informativeness of c</context>
+</contexts>
+<marker>Mintz, Bills, Snow, Jurafsky, 2009</marker>
+<rawString>Mike Mintz, Steven Bills, Rion Snow, and Dan Jurafsky. 2009. Distant supervision for relation extraction without labeled data. In Proceedings of ACL-IJCNLP 2009.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Christoph Muller</author>
+<author>Michael Strube</author>
+</authors>
+<title>Multi-level annotation of linguistic data with MMAX2.</title>
+<date>2006</date>
+<booktitle>Corpus Technology and Language Pedagogy: New Resources,</booktitle>
+<pages>197214</pages>
+<editor>In Sabine Braun, Kurt Kohn, and Joybrato Mukherjee, editors,</editor>
+<location>New Tools, New Methods,</location>
+<contexts>
+<context position="9394" citStr="Muller and Strube, 2006" startWordPosition="1522" endWordPosition="1525">ely for all systems. To help address the issue of OOV words and lexical variations, we perform clustering to group together words which are distributionally similar (Brown et al., 1992; Turian et al., 2010). In particular, we perform hierarchical clustering using Jcluster (Goodman, 2001) on 52 million tweets; each word is uniquely represented by a bit string based on the path from the root of the resulting hierarchy to the words leaf. We use the Brown clusters resulting from prefixes of 4, 8, and 12 bits. These clusters are often effective in capturing lexical variations, for ex4 Using MMAX2 (Muller and Strube, 2006) for annotation. ample, following are lexical variations on the word tomorrow from one cluster after filtering out other words (most of which refer to days): 2m, 2ma, 2mar, 2mara, 2maro, 2marrow, 2mor, 2mora, 2moro, 2morow, 2morr, 2morro, 2morrow, 2moz, 2mr, 2mro, 2mrrw, 2mrw, 2mw, tmmrw, tmo, tmoro, tmorrow, tmoz, tmr, tmro, tmrow, tmrrow, tmrrw, tmrw, tmrww, tmw, tomaro, tomarow, tomarro, tomarrow, tomm, tommarow, tommarrow, tommoro, tommorow, tommorrow, tommorw, tommrow, tomo, tomolo, tomoro, tomorow, tomorro, tomorrw, tomoz, tomrw, tomz T-POS uses Conditional Random Fields5 (Lafferty et al</context>
+</contexts>
+<marker>Muller, Strube, 2006</marker>
+<rawString>Christoph Muller and Michael Strube. 2006. Multi-level annotation of linguistic data with MMAX2. In Sabine Braun, Kurt Kohn, and Joybrato Mukherjee, editors, Corpus Technology and Language Pedagogy: New Resources, New Tools, New Methods, pages 197214. Peter Lang, Frankfurt a.M., Germany.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Daniel Ramage</author>
+<author>David Hall</author>
+<author>Ramesh Nallapati</author>
+<author>Christopher D Manning</author>
+</authors>
+<title>Labeled lda: a supervised topic model for credit attribution in multi-labeled corpora.</title>
+<date>2009</date>
+<booktitle>In Proceedings of the 2009 Conference on Empirical Methods in Natural Language Processing: Volume 1 - Volume 1, EMNLP 09,</booktitle>
+<pages>248256</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Morristown, NJ, USA.</location>
+<contexts>
+<context position="3524" citStr="Ramage et al., 2009" startWordPosition="535" endWordPosition="539">and more). Almost all these types (except for People and Locations) are relatively infrequent, so even a large sample of manually annotated tweets will contain few training examples. Secondly, due to Twitters 140 character limit, tweets often lack sufficient context to determine an entitys type without the aid of background 2 Although tweets can be written on any subject, following convention we use the term domain to include text styles or genres such as Twitter, News or IRC Chat. 1524 \x0cknowledge. To address these issues we propose a distantly supervised approach which applies LabeledLDA (Ramage et al., 2009) to leverage large amounts of unlabeled data in addition to large dictionaries of entities gathered from Freebase, and combines information about an entitys context across its mentions. We make the following contributions: 1. We experimentally evaluate the performance of off-the-shelf news trained NLP tools when applied to Twitter. For example POS tagging accuracy drops from about 0.97 on news to 0.80 on tweets. By utilizing in-domain, outof-domain, and unlabeled data we are able to substantially boost performance, for example obtaining a 52% increase in F1 score on segmenting named entities. </context>
+<context position="20627" citStr="Ramage et al., 2009" startWordPosition="3316" endWordPosition="3319">ording to Freebase, the mention China could refer to a country, a band, a person, or a film. This problem is very common: 35% of the entities in our data appear in more than one of our (mutually exclusive) Freebase dictionaries. Additionally, 30% of entities mentioned on Twitter do not appear in any Freebase dictionary, as they are either too new (for example a newly released videogame), or are misspelled or abbreviated (for example mbp is often used to refer to the mac book pro). Distant Supervision with Topic Models: To model unlabeled entities and their possible types, we apply LabeledLDA (Ramage et al., 2009), constraining each entitys distribution over topics based on its set of possible types according to Freebase. In contrast to previous weakly supervised approaches to Named Entity Classification, for example the CoTraining and Nave Bayes (EM) models of Collins and Singer (1999), LabeledLDA models each entity string as a mixture of types rather than using a single hidden variable to represent the type of each mention. This allows information about an entitys distribution over types to be shared across mentions, naturally handling ambiguous entity strings whose mentions could refer to different </context>
+</contexts>
+<marker>Ramage, Hall, Nallapati, Manning, 2009</marker>
+<rawString>Daniel Ramage, David Hall, Ramesh Nallapati, and Christopher D. Manning. 2009. Labeled lda: a supervised topic model for credit attribution in multi-labeled corpora. In Proceedings of the 2009 Conference on Empirical Methods in Natural Language Processing: Volume 1 - Volume 1, EMNLP 09, pages 248256, Morristown, NJ, USA. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Christina Sauper</author>
+<author>Aria Haghighi</author>
+<author>Regina Barzilay</author>
+</authors>
+<title>Incorporating content structure into text analysis applications.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 2010 Conference on Empirical Methods in Natural Language Processing, EMNLP 10,</booktitle>
+<pages>377387</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Morristown, NJ, USA.</location>
+<contexts>
+<context position="16283" citStr="Sauper et al. (2010)" startWordPosition="2606" endWordPosition="2609">ich we know to be unreliable in tweets. Following Collins and Singer (1999), Downey et al. (2007) and Elsner et al. (2009), we treat classification and segmentation of named entities as separate tasks. This allows us to more easily apply techniques better suited towards each task. For example, we are able to use discriminative methods for named entity segmentation and distantly supervised approaches for classification. While it might be beneficial to jointly model segmentation and (distantly supervised) classification using a joint sequence labeling and topic model similar to that proposed by Sauper et al. (2010), we leave this for potential future work. Because most words found in tweets are not part of an entity, we need a larger annotated dataset to effectively learn a model of named entities. We therefore use a randomly sampled set of 2,400 tweets for NER. All experiments (Tables 6, 8-10) report results using 4-fold cross validation. 3.1 Segmenting Named Entities Because capitalization in Twitter is less informative than news, in-domain data is needed to train models which rely less heavily on capitalization, and also are able to utilize features provided by T-CAP. We exhaustively annotated our se</context>
+</contexts>
+<marker>Sauper, Haghighi, Barzilay, 2010</marker>
+<rawString>Christina Sauper, Aria Haghighi, and Regina Barzilay. 2010. Incorporating content structure into text analysis applications. In Proceedings of the 2010 Conference on Empirical Methods in Natural Language Processing, EMNLP 10, pages 377387, Morristown, NJ, USA. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Fei Sha</author>
+<author>Fernando Pereira</author>
+</authors>
+<title>Shallow parsing with conditional random fields.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the 2003 Conference of the North American Chapter of the Association for Computational Linguistics on Human Language Technology - Volume 1, NAACL 03.</booktitle>
+<contexts>
+<context position="12173" citStr="Sha and Pereira (2003)" startWordPosition="1958" endWordPosition="1961">le 4: Token-Level accuracy at shallow parsing tweets. We compare against the OpenNLP chunker as a baseline. verb phrases, and prepositional phrases in text. Accurate shallow parsing of tweets could benefit several applications such as Information Extraction and Named Entity Recognition. Off the shelf shallow parsers perform noticeably worse on tweets, motivating us again to annotate indomain training data. We annotate the same set of 800 tweets mentioned previously with tags from the CoNLL shared task (Tjong Kim Sang and Buchholz, 2000). We use the set of shallow parsing features described by Sha and Pereira (2003), in addition to the Brown clusters mentioned above. Part-of-speech tag features are extracted based on cross-validation output predicted by T-POS. For inference and learning, again we use Conditional Random Fields. We utilize 16K tokens of in-domain training data (using cross validation), in addition to 210K tokens of newswire text from the CoNLL dataset. Table 4 reports T-CHUNKs performance at shallow parsing of tweets. We compare against the offthe shelf OpenNLP chunker6, obtaining a 22% reduction in error. 2.3 Capitalization A key orthographic feature for recognizing named entities is capi</context>
+</contexts>
+<marker>Sha, Pereira, 2003</marker>
+<rawString>Fei Sha and Fernando Pereira. 2003. Shallow parsing with conditional random fields. In Proceedings of the 2003 Conference of the North American Chapter of the Association for Computational Linguistics on Human Language Technology - Volume 1, NAACL 03.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sameer Singh</author>
+<author>Dustin Hillard</author>
+<author>Chris Leggetter</author>
+</authors>
+<title>Minimally-supervised extraction of entities from text advertisements.</title>
+<date>2010</date>
+<booktitle>In Human Language Technologies: Annual Conference of the North American Chapter of the Association for Computational Linguistics (NAACL HLT).</booktitle>
+<marker>Singh, Hillard, Leggetter, 2010</marker>
+<rawString>Sameer Singh, Dustin Hillard, and Chris Leggetter. 2010. Minimally-supervised extraction of entities from text advertisements. In Human Language Technologies: Annual Conference of the North American Chapter of the Association for Computational Linguistics (NAACL HLT).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Charles Sutton</author>
+</authors>
+<title>Collective segmentation and labeling of distant entities in information extraction.</title>
+<date>2004</date>
+<contexts>
+<context position="33968" citStr="Sutton, 2004" startWordPosition="5472" endWordPosition="5473">te beneficial due to Twitters terse nature. Previous work on Semantic Bootstrapping has taken a weakly-supervised approach to classifying named entities based on large amounts of unlabeled text (Etzioni et al., 2005; Carlson et al., 2010; Kozareva and Hovy, 2010; Talukdar and Pereira, 2010; McIntosh, 2010). In contrast, rather than predicting which classes an entity belongs to (e.g. a multi-label classification task), LabeledLDA estimates a distribution over its types, which is then useful as a prior when classifying mentions in context. In addition there has been been work on SkipChain CRFs (Sutton, 2004; Finkel et al., 2005) which enforce consistency when classifying multiple occurrences of an entity within a document. Using topic models (e.g. LabeledLDA) for classifying named entities has a similar effect, in that information about an entitys distribution of possible types is shared across its mentions. 5 Conclusions We have demonstrated that existing tools for POS tagging, Chunking and Named Entity Recognition perform quite poorly when applied to Tweets. To address this challenge we have annotated tweets and built tools trained on unlabeled, in-domain and outof-domain data, showing substan</context>
+</contexts>
+<marker>Sutton, 2004</marker>
+<rawString>Charles Sutton. 2004. Collective segmentation and labeling of distant entities in information extraction.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Partha Pratim Talukdar</author>
+<author>Fernando Pereira</author>
+</authors>
+<title>Experiments in graph-based semi-supervised learning methods for class-instance acquisition.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<pages>14731481</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="33646" citStr="Talukdar and Pereira, 2010" startWordPosition="5418" endWordPosition="5421">e very beneficial for named entity segmentation, we were motivated to explore approaches that dont rely on manual labels for classification due to Twitters wide range of named entity types. Additionally, unlike previous work on NER in informal text, our approach allows the sharing of information across an entitys mentions which is quite beneficial due to Twitters terse nature. Previous work on Semantic Bootstrapping has taken a weakly-supervised approach to classifying named entities based on large amounts of unlabeled text (Etzioni et al., 2005; Carlson et al., 2010; Kozareva and Hovy, 2010; Talukdar and Pereira, 2010; McIntosh, 2010). In contrast, rather than predicting which classes an entity belongs to (e.g. a multi-label classification task), LabeledLDA estimates a distribution over its types, which is then useful as a prior when classifying mentions in context. In addition there has been been work on SkipChain CRFs (Sutton, 2004; Finkel et al., 2005) which enforce consistency when classifying multiple occurrences of an entity within a document. Using topic models (e.g. LabeledLDA) for classifying named entities has a similar effect, in that information about an entitys distribution of possible types i</context>
+</contexts>
+<marker>Talukdar, Pereira, 2010</marker>
+<rawString>Partha Pratim Talukdar and Fernando Pereira. 2010. Experiments in graph-based semi-supervised learning methods for class-instance acquisition. In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics, pages 14731481. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Erik</author>
+</authors>
+<title>Tjong Kim Sang and Sabine Buchholz.</title>
+<date>2000</date>
+<marker>Erik, 2000</marker>
+<rawString>Erik F. Tjong Kim Sang and Sabine Buchholz. 2000.</rawString>
+</citation>
+<citation valid="false">
+<title>Introduction to the conll-2000 shared task: chunking.</title>
+<booktitle>In Proceedings of the 2nd workshop on Learning language in logic and the 4th conference on Computational natural language learning - Volume 7, ConLL 00.</booktitle>
+<marker></marker>
+<rawString>Introduction to the conll-2000 shared task: chunking. In Proceedings of the 2nd workshop on Learning language in logic and the 4th conference on Computational natural language learning - Volume 7, ConLL 00.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kristina Toutanova</author>
+<author>Dan Klein</author>
+<author>Christopher D Manning</author>
+<author>Yoram Singer</author>
+</authors>
+<title>Feature-rich part-of-speech tagging with a cyclic dependency network.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the 2003 Conference of the North American Chapter of the Association for Computational Linguistics on Human Language Technology - Volume 1, NAACL 03.</booktitle>
+<contexts>
+<context position="7000" citStr="Toutanova et al., 2003" startWordPosition="1115" endWordPosition="1118">us (Charniak et al., 1993). However, the application of a similar baseline on tweets (see Table 2) obtains a much weaker 0.76, exposing the challenging nature of Twitter data. A key reason for this drop in accuracy is that Twitter contains far more OOV words than grammatical text. Many of these OOV words come from spelling variation, e.g., the use of the word n for in in Table 1 example 3. Although NNP is the most frequent tag for OOV words, only about 1/3 are NNPs. The performance of off-the-shelf news-trained POS taggers also suffers on Twitter data. The stateof-the-art Stanford POS tagger (Toutanova et al., 2003) improves on the baseline, obtaining an accuracy of 0.8. This performance is impressive given that its training data, the Penn Treebank WSJ (PTB), is so different in style from Twitter, however it is a huge drop from the 97% accuracy reported on the 3 We used Brendan OConnors Twitter tokenizer 1525 \x0cGold Predicted Stanford Error T-POS Error Error Reduction NN NNP 0.102 0.072 29% UH NN 0.387 0.047 88% VB NN 0.071 0.032 55% NNP NN 0.130 0.125 4% UH NNP 0.200 0.036 82% Table 3: Most common errors made by the Stanford POS Tagger on tweets. For each case we list the fraction of times the gold ta</context>
+</contexts>
+<marker>Toutanova, Klein, Manning, Singer, 2003</marker>
+<rawString>Kristina Toutanova, Dan Klein, Christopher D. Manning, and Yoram Singer. 2003. Feature-rich part-of-speech tagging with a cyclic dependency network. In Proceedings of the 2003 Conference of the North American Chapter of the Association for Computational Linguistics on Human Language Technology - Volume 1, NAACL 03.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Joseph Turian</author>
+<author>Lev Ratinov</author>
+<author>Yoshua Bengio</author>
+</authors>
+<title>Word representations: a simple and general method for semi-supervised learning.</title>
+<date>2010</date>
+<booktitle>In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics, ACL 10.</booktitle>
+<contexts>
+<context position="8976" citStr="Turian et al., 2010" startWordPosition="1451" endWordPosition="1454">with tags from the Penn TreeBank tag set for use as in-domain training data for our POS tagging system, T-POS.4 We add new tags for the Twitter specific phenomena: retweets, @usernames, #hashtags, and urls. Note that words in these categories can be tagged with 100% accuracy using simple regular expressions. To ensure fair comparison in Table 2, we include a postprocessing step which tags these words appropriately for all systems. To help address the issue of OOV words and lexical variations, we perform clustering to group together words which are distributionally similar (Brown et al., 1992; Turian et al., 2010). In particular, we perform hierarchical clustering using Jcluster (Goodman, 2001) on 52 million tweets; each word is uniquely represented by a bit string based on the path from the root of the resulting hierarchy to the words leaf. We use the Brown clusters resulting from prefixes of 4, 8, and 12 bits. These clusters are often effective in capturing lexical variations, for ex4 Using MMAX2 (Muller and Strube, 2006) for annotation. ample, following are lexical variations on the word tomorrow from one cluster after filtering out other words (most of which refer to days): 2m, 2ma, 2mar, 2mara, 2m</context>
+</contexts>
+<marker>Turian, Ratinov, Bengio, 2010</marker>
+<rawString>Joseph Turian, Lev Ratinov, and Yoshua Bengio. 2010. Word representations: a simple and general method for semi-supervised learning. In Proceedings of the 48th Annual Meeting of the Association for Computational Linguistics, ACL 10.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Limin Yao</author>
+<author>David Mimno</author>
+<author>Andrew McCallum</author>
+</authors>
+<title>Efficient methods for topic model inference on streaming document collections.</title>
+<date>2009</date>
+<booktitle>In Proceedings of the 15th ACM SIGKDD international conference on Knowledge discovery and data mining.</booktitle>
+<contexts>
+<context position="25356" citStr="Yao et al., 2009" startWordPosition="4088" endWordPosition="4091">onsol energy center Table 7: Example type lists produced by LabeledLDA. No entities which are shown were found in Freebase; these are typically either too new to have been added, or are misspelled/abbreviated (for example rhobh=Real Housewives of Beverly Hills). In a few cases there are segmentation errors. pling to estimate the posterior distribution over types performs slightly better. In order to make predictions, for each entity we use an informative Dirichlet prior based on train e and perform 100 iterations of Gibbs Sampling holding the hidden topic variables in the training data fixed (Yao et al., 2009). Fewer iterations are needed than in training since the typeword distributions, have already been inferred. 3.2.1 Classification Experiments To evaluate T-CLASSs ability to classify entity mentions in context, we annotated the 2,400 tweets with 10 types which are both popular on Twitter, and have good coverage in Freebase: PERSON, GEO-LOCATION, COMPANY, PRODUCT, FACILITY, TV-SHOW, MOVIE, SPORTSTEAM, BAND, and OTHER. Note that these type annotations are only used for evaluation purposes, and not used during training T-CLASS, which relies only on distant supervision. In some cases, we combine m</context>
+</contexts>
+<marker>Yao, Mimno, McCallum, 2009</marker>
+<rawString>Limin Yao, David Mimno, and Andrew McCallum. 2009. Efficient methods for topic model inference on streaming document collections. In Proceedings of the 15th ACM SIGKDD international conference on Knowledge discovery and data mining.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Yarowsky</author>
+</authors>
+<title>Unsupervised word sense disambiguation rivaling supervised methods.</title>
+<date>1995</date>
+<booktitle>In Proceedings of the 33rd annual meeting on Association for Computational Linguistics, ACL 95.</booktitle>
+<contexts>
+<context position="4443" citStr="Yarowsky, 1995" startWordPosition="682" endWordPosition="683">ools when applied to Twitter. For example POS tagging accuracy drops from about 0.97 on news to 0.80 on tweets. By utilizing in-domain, outof-domain, and unlabeled data we are able to substantially boost performance, for example obtaining a 52% increase in F1 score on segmenting named entities. 2. We introduce a novel approach to distant supervision (Mintz et al., 2009) using Topic Models. LabeledLDA is applied, utilizing constraints based on an open-domain database (Freebase) as a source of supervision. This approach increases F1 score by 25% relative to co-training (Blum and Mitchell, 1998; Yarowsky, 1995) on the task of classifying named entities in Tweets. The rest of the paper is organized as follows. We successively build the NLP pipeline for Twitter feeds in Sections 2 and 3. We first present our approaches to shallow syntax part of speech tagging (2.1), and shallow parsing (2.2). 2.3 describes a novel classifier that predicts the informativeness of capitalization in a tweet. All tools in 2 are used as features for named entity segmentation in 3.1. Next, we present our algorithms and evaluation for entity classification (3.2). We describe related work in 4 and conclude in 5. 2 Shallow Synt</context>
+</contexts>
+<marker>Yarowsky, 1995</marker>
+<rawString>David Yarowsky. 1995. Unsupervised word sense disambiguation rivaling supervised methods. In Proceedings of the 33rd annual meeting on Association for Computational Linguistics, ACL 95.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

@@ -1,0 +1,1641 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.87093">
+b&quot;Proceedings of the 2013 Conference on Empirical Methods in Natural Language Processing, pages 11701179,
+Seattle, Washington, USA, 18-21 October 2013. c
+</bodyText>
+<sectionHeader confidence="0.567772" genericHeader="abstract">
+2013 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.681152">
+Feature Noising for Log-linear Structured Prediction
+</title>
+<author confidence="0.69784">
+Sida I. Wang
+</author>
+<affiliation confidence="0.33017">
+, Mengqiu Wang
+</affiliation>
+<address confidence="0.390777">
+, Stefan Wager
+</address>
+<email confidence="0.343405">
+,
+</email>
+<author confidence="0.994656">
+Percy Liang, Christopher D. Manning
+</author>
+<affiliation confidence="0.9889035">
+Department of Computer Science,
+Department of Statistics
+</affiliation>
+<address confidence="0.806054">
+Stanford University, Stanford, CA 94305, USA
+</address>
+<email confidence="0.9848215">
+{sidaw, mengqiu, pliang, manning}@cs.stanford.edu
+swager@stanford.edu
+</email>
+<sectionHeader confidence="0.990694" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.993385571428571">
+NLP models have many and sparse features,
+and regularization is key for balancing model
+overfitting versus underfitting. A recently re-
+popularized form of regularization is to gen-
+erate fake training data by repeatedly adding
+noise to real data. We reinterpret this noising
+as an explicit regularizer, and approximate it
+with a second-order formula that can be used
+during training without actually generating
+fake data. We show how to apply this method
+to structured prediction using multinomial lo-
+gistic regression and linear-chain CRFs. We
+tackle the key challenge of developing a dy-
+namic program to compute the gradient of the
+regularizer efficiently. The regularizer is a
+sum over inputs, so we can estimate it more
+accurately via a semi-supervised or transduc-
+tive extension. Applied to text classification
+and NER, our method provides a &gt;1% abso-
+lute performance gain over use of standard L2
+regularization.
+</bodyText>
+<sectionHeader confidence="0.997919" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999535918367347">
+NLP models often have millions of mainly sparsely
+attested features. As a result, balancing overfitting
+versus underfitting through good weight regulariza-
+tion remains a key issue for achieving optimal per-
+formance. Traditionally, L2 or L1 regularization is
+employed, but these simple types of regularization
+penalize all features in a uniform way without tak-
+ing into account the properties of the actual model.
+An alternative approach to regularization is to
+generate fake training data by adding random noise
+to the input features of the original training data. In-
+tuitively, this can be thought of as simulating miss-
+Both authors contributed equally to the paper
+ing features, whether due to typos or use of a pre-
+viously unseen synonym. The effectiveness of this
+technique is well-known in machine learning (Abu-
+Mostafa, 1990; Burges and Scholkopf, 1997; Simard
+et al., 2000; Rifai et al., 2011a; van der Maaten
+et al., 2013), but working directly with many cor-
+rupted copies of a dataset can be computationally
+prohibitive. Fortunately, feature noising ideas often
+lead to tractable deterministic objectives that can be
+optimized directly. Sometimes, training with cor-
+rupted features reduces to a special form of reg-
+ularization (Matsuoka, 1992; Bishop, 1995; Rifai
+et al., 2011b; Wager et al., 2013). For example,
+Bishop (1995) showed that training with features
+that have been corrupted with additive Gaussian
+noise is equivalent to a form of L2 regularization in
+the low noise limit. In other cases it is possible to
+develop a new objective function by marginalizing
+over the artificial noise (Wang and Manning, 2013;
+van der Maaten et al., 2013).
+The central contribution of this paper is to show
+how to efficiently simulate training with artificially
+noised features in the context of log-linear struc-
+tured prediction, without actually having to gener-
+ate noised data. We focus on dropout noise (Hinton
+et al., 2012), a recently popularized form of artifi-
+cial feature noise where a random subset of features
+is omitted independently for each training example.
+Dropout and its variants have been shown to out-
+perform L2 regularization on various tasks (Hinton
+et al., 2012; Wang and Manning, 2013; Wan et al.,
+2013). Dropout is is similar in spirit to feature bag-
+ging in the deliberate removal of features, but per-
+forms the removal in a preset way rather than ran-
+domly (Bryll et al., 2003; Sutton et al., 2005; Smith
+et al., 2005).
+</bodyText>
+<page confidence="0.960534">
+1170
+</page>
+<bodyText confidence="0.998813625">
+\x0cOur approach is based on a second-order approx-
+imation to feature noising developed among others
+by Bishop (1995) and Wager et al. (2013), which al-
+lows us to convert dropout noise into a form of adap-
+tive regularization. This method is suitable for struc-
+tured prediction in log-linear models where second
+derivatives are computable. In particular, it can be
+used for multiclass classification with maximum en-
+tropy models (a.k.a., softmax or multinomial logis-
+tic regression) and for the sequence models that are
+ubiquitous in NLP, via linear chain Conditional Ran-
+dom Fields (CRFs).
+For linear chain CRFs, we additionally show how
+we can use a noising scheme that takes advantage
+of the clique structure so that the resulting noising
+regularizer can be computed in terms of the pair-
+wise marginals. A simple forward-backward-type
+dynamic program can then be used to compute the
+gradient tractably. For ease of implementation and
+scalability to semi-supervised learning, we also out-
+line an even faster approximation to the regularizer.
+The general approach also works in other clique
+structures in addition to the linear chain when the
+clique marginals can be computed efficiently.
+Finally, we extend feature noising for structured
+prediction to a transductive or semi-supervised set-
+ting. The regularizer induced by feature noising
+is label-independent for log-linear models, and so
+we can use unlabeled data to learn a better regu-
+larizer. NLP sequence labeling tasks are especially
+well suited to a semi-supervised approach, as input
+features are numerous but sparse, and labeled data
+is expensive to obtain but unlabeled data is abundant
+(Li and McCallum, 2005; Jiao et al., 2006).
+Wager et al. (2013) showed that semi-supervised
+dropout training for logistic regression captures a
+similar intuition to techniques such as entropy regu-
+larization (Grandvalet and Bengio, 2005) and trans-
+ductive SVMs (Joachims, 1999), which encourage
+confident predictions on the unlabeled data. Semi-
+supervised dropout has the advantage of only us-
+ing the predicted label probabilities on the unlabeled
+data to modulate an L2 regularizer, rather than re-
+quiring more heavy-handed modeling of the unla-
+beled data as in entropy regularization or expecta-
+tion regularization (Mann and McCallum, 2007).
+In experimental results, we show that simulated
+feature noising gives more than a 1% absolute boost
+</bodyText>
+<equation confidence="0.99823975">
+yt yt+1
+yt1
+f (yt, xt )
+f (yt1, yt ) f (yt, yt+1)
+yt yt+1
+yt1
+f (yt, xt )
+f (yt1, yt ) f (yt, yt+1)
+</equation>
+<figureCaption confidence="0.997298">
+Figure 1: An illustration of dropout feature noising
+</figureCaption>
+<bodyText confidence="0.9982196">
+in linear-chain CRFs with only transition features
+and node features. The green squares are node fea-
+tures f(yt, xt), and the orange squares are edge fea-
+tures f(yt1, yt). Conceptually, given a training ex-
+ample, we sample some features to ignore (generate
+fake data) and make a parameter update. Our goal is
+to train with a roughly equivalent objective, without
+actually sampling.
+in performance over L2 regularization, on both text
+classification and an NER sequence labeling task.
+</bodyText>
+<sectionHeader confidence="0.9839" genericHeader="method">
+2 Feature Noising Log-linear Models
+</sectionHeader>
+<bodyText confidence="0.998633571428572">
+Consider the standard structured prediction problem
+of mapping some input x X (e.g., a sentence)
+to an output y Y (e.g., a tag sequence). Let
+f(y, x) Rd be the feature vector, Rd be the
+weight vector, and s = (s1, . . . , s|Y|) be a vector of
+scores for each output, with sy = f(y, x) . Now
+define a log-linear model:
+</bodyText>
+<equation confidence="0.966125">
+p(y  |x; ) = exp{sy A(s)}, (1)
+where A(s) = log
+P
+y exp{sy} is the log-partition
+</equation>
+<bodyText confidence="0.9953742">
+function. Given an example (x, y), parameter esti-
+mation corresponds to choosing to maximize p(y |
+x; ).
+The key idea behind feature noising is to artifi-
+cially corrupt the feature vector f(y, x) randomly
+</bodyText>
+<page confidence="0.940095">
+1171
+</page>
+<bodyText confidence="0.959323722222222">
+\x0cinto some
+f(y, x) and then maximize the average
+log-likelihood of y given these corrupted features
+the motivation is to choose predictors that are ro-
+bust to noise (missing words for example). Let s,
+p(y  |x; ) be the randomly perturbed versions cor-
+responding to
+f(y, x). We will also assume the
+feature noising preserves the mean: E[
+f(y, x)] =
+f(y, x), so that E[s] = s. This can always be done
+by scaling the noised features as described in the list
+of noising schemes.
+It is useful to view feature noising as a form of
+regularization. Since feature noising preserves the
+mean, the feature noising objective can be written as
+the sum of the original log-likelihood plus the dif-
+ference in log-normalization constants:
+</bodyText>
+<equation confidence="0.9872508">
+E[log p(y  |x; )] = E[sy A(s)] (2)
+= log p(y  |x; ) R(, x), (3)
+R(, x)
+def
+= E[A(s)] A(s). (4)
+</equation>
+<bodyText confidence="0.973838866666667">
+Since A() is convex, R(, x) is always positive by
+Jensens inequality and can therefore be interpreted
+as a regularizer. Note that R(, x) is in general non-
+convex.
+Computing the regularizer (4) requires summing
+over all possible noised feature vectors, which can
+imply exponential effort in the number of features.
+This is intractable even for flat classification. Fol-
+lowing Bishop (1995) and Wager et al. (2013), we
+approximate R(, x) using a second-order Taylor
+expansion, which will allow us to work with only
+means and covariances of the noised features. We
+take a quadratic approximation of the log-partition
+function A() of the noised score vector s around
+the the unnoised score vector s:
+</bodyText>
+<figure confidence="0.92610652173913">
+A(s) u A(s) + A(s)&gt;
+(s s) (5)
++
+1
+2
+(s s)&gt;
+2
+A(s)(s s).
+Plugging (5) into (4), we obtain a new regularizer
+Rq(, x), which we will use as an approximation to
+R(, x):
+Rq
+(, x) =
+1
+2
+E[(s s)&gt;
+2
+A(s)(s s)] (6)
+=
+1
+2
+tr(2
+A(s) Cov(s)). (7)
+</figure>
+<bodyText confidence="0.994260857142857">
+This expression still has two sources of potential in-
+tractability, a sum over an exponential number of
+noised score vectors s and a sum over the |Y |com-
+ponents of s.
+Multiclass classification If we assume that the
+components of s are independent, then Cov(s)
+R|Y||Y |is diagonal, and we have
+</bodyText>
+<equation confidence="0.9691146">
+Rq
+(, x) =
+1
+2
+X
+yY
+y(1 y) Var[sy], (8)
+where the mean y
+def
+= p(y  |x) is the model prob-
+</equation>
+<bodyText confidence="0.8062525">
+ability, the variance y(1y) measures model un-
+certainty, and
+</bodyText>
+<equation confidence="0.897545666666667">
+Var[sy] = &gt;
+Cov[
+f(y, x)] (9)
+</equation>
+<bodyText confidence="0.979494117647059">
+measures the uncertainty caused by feature noising.1
+The regularizer Rq(, x) involves the product of two
+variance terms, the first is non-convex in and the
+second is quadratic in . Note that to reduce the reg-
+ularization, we will favor models that (i) predict con-
+fidently and (ii) have stable scores in the presence of
+feature noise.
+For multiclass classification, we can explicitly
+sum over each y Y to compute the regularizer,
+but this will be intractable for structured prediction.
+To specialize to multiclass classification for the
+moment, let us assume that we have a separate
+weight vector for each output y applied to the same
+feature vector g(x); that is, the score sy = y g(x).
+Further, assume that the components of the noised
+feature vector g(x) are independent. Then we can
+simplify (9) to the following:
+</bodyText>
+<equation confidence="0.9922216">
+Var[sy] =
+X
+j
+Var[gj(x)]2
+yj. (10)
+</equation>
+<bodyText confidence="0.743283555555556">
+Noising schemes We now give some examples of
+possible noise schemes for generating
+f(y, x) given
+the original features f(y, x). This distribution af-
+fects the regularization through the variance term
+Var[sy].
+Additive Gaussian:
+f(y, x) = f(y, x) + , where
+N(0, 2Idd).
+</bodyText>
+<page confidence="0.661354">
+1
+</page>
+<bodyText confidence="0.979111">
+Here, we are using the fact that first and second derivatives
+of the log-partition function are the mean and variance.
+</bodyText>
+<page confidence="0.948747">
+1172
+</page>
+<bodyText confidence="0.6742045">
+\x0cIn this case, the contribution to the regularizer
+from noising is Var[sy] =
+</bodyText>
+<equation confidence="0.8526025">
+P
+j 22
+</equation>
+<bodyText confidence="0.7329358">
+yj.
+Dropout:
+f(y, x) = f(y, x) \x0c z, where \x0c takes the el-
+ementwise product of two vectors. Here, z is
+a vector with independent components which
+</bodyText>
+<equation confidence="0.814270076923077">
+has zi = 0 with probability , zi = 1
+1 with
+probability 1 . In this case, Var[sy] =
+P
+j
+gj(x)2
+1 2
+yj.
+Multiplicative Gaussian:
+f(y, x) = f(y, x) \x0c (1 + ), where
+N(0, 2Idd). Here, Var[sy] =
+P
+j gj(x)222
+</equation>
+<bodyText confidence="0.99648">
+yj. Note that under our second-
+order approximation Rq(, x), the multiplica-
+tive Gaussian and dropout schemes are equiva-
+lent, but they differ under the original regular-
+izer R(, x).
+</bodyText>
+<subsectionHeader confidence="0.951498">
+2.1 Semi-supervised learning
+</subsectionHeader>
+<bodyText confidence="0.8987707">
+A key observation (Wager et al., 2013) is that
+the noising regularizer R (8), while involving a
+sum over examples, is independent of the output
+y. This suggests estimating R using unlabeled
+data. Specifically, if we have n labeled examples
+D = {x1, x2, . . . , xn} and m unlabeled examples
+Dunlabeled = {u1, u2, . . . , un}, then we can define a
+regularizer that is a linear combination the regular-
+izer estimated on both datasets, with tuning the
+tradeoff between the two:
+</bodyText>
+<equation confidence="0.997680466666667">
+R(, D, Dunlabeled) (11)
+def
+=
+n
+n + m
+\x10 n
+X
+i=1
+R(, xi) +
+m
+X
+i=1
+R(, ui)
+\x11
+.
+</equation>
+<sectionHeader confidence="0.975405" genericHeader="method">
+3 Feature Noising in Linear-Chain CRFs
+</sectionHeader>
+<bodyText confidence="0.999427833333333">
+So far, we have developed a regularizer that works
+for all log-linear models, butin its current form
+is only practical for multiclass classification. We
+now exploit the decomposable structure in CRFs to
+define a new noising scheme which does not require
+us to explicitly sum over all possible outputs y Y.
+The key idea will be to noise each local feature vec-
+tor (which implicitly affects many y) rather than
+noise each y independently.
+Assume that the output y = (y1, . . . , yT ) is a se-
+quence of T tags. In linear chain CRFs, the feature
+vector f decomposes into a sum of local feature vec-
+</bodyText>
+<equation confidence="0.917984833333333">
+tors gt:
+f(y, x) =
+T
+X
+t=1
+gt(yt1, yt, x), (12)
+</equation>
+<bodyText confidence="0.992215454545455">
+where gt(a, b, x) is defined on a pair of consecutive
+tags a, b for positions t 1 and t.
+Rather than working with a score sy for each
+y Y, we define a collection of local scores
+s = {sa,b,t}, for each tag pair (a, b) and posi-
+tion t = 1, . . . , T. We consider noising schemes
+which independently set gt(a, b, x) for each a, b, t.
+Let s = {sa,b,t} be the corresponding collection of
+noised scores.
+We can write the log-partition function of these
+local scores as follows:
+</bodyText>
+<equation confidence="0.9987502">
+A(s) = log
+X
+yY
+exp
+( T
+X
+t=1
+syt1,yt,t
+)
+. (13)
+</equation>
+<bodyText confidence="0.9976734">
+The first derivative yields the edge marginals under
+the model, a,b,t = p(yt1 = a, yt = b  |x), and
+the diagonal elements of the Hessian 2A(s) yield
+the marginal variances.
+Now, following (7) and (8), we obtain the follow-
+</bodyText>
+<equation confidence="0.838936333333333">
+ing regularizer:
+Rq
+(, x) =
+1
+2
+X
+a,b,t
+a,b,t(1 a,b,t) Var[sa,b,t],
+(14)
+</equation>
+<bodyText confidence="0.976868466666667">
+where a,b,t(1 a,b,t) measures model uncertainty
+about edge marginals, and Var[sa,b,t] is simply the
+uncertainty due to noising. Again, minimizing the
+regularizer means making confident predictions and
+having stable scores under feature noise.
+Computing partial derivatives So far, we have
+defined the regularizer Rq(, x) based on feature
+noising. In order to minimize Rq(, x), we need to
+take its derivative.
+First, note that log a,b,t is the difference of a re-
+stricted log-partition function and the log-partition
+function. So again by properties of its first deriva-
+tive, we have:
+log a,b,t = Ep(y|x,yt1=a,yt=b)[f(y, x)] (15)
+Ep(y|x)[f(y, x)].
+</bodyText>
+<page confidence="0.797692">
+1173
+</page>
+<bodyText confidence="0.987895">
+\x0cUsing the fact that a,b,t = a,b,t log a,b,t and
+the fact that Var[sa,b,t] is a quadratic function in ,
+we can simply apply the product rule to derive the
+final gradient Rq(, x).
+</bodyText>
+<subsectionHeader confidence="0.9602405">
+3.1 A Dynamic Program for the Conditional
+Expectation
+</subsectionHeader>
+<bodyText confidence="0.986454692307692">
+A naive computation of the gradient Rq(, x) re-
+quires a full forward-backward pass to compute
+Ep(y|yt1=a,yt=b,x)[f(y, x)] for each tag pair (a, b)
+and position t, resulting in a O(K4T2) time algo-
+rithm.
+In this section, we reduce the running time to
+O(K2T) using a more intricate dynamic program.
+By the Markov property of the CRF, y1:t2 only de-
+pends on (yt1, yt) through yt1 and yt+1:T only
+depends on (yt1, yt) through yt.
+First, it will be convenient to define the partial
+sum of the local feature vector from positions i to
+j as follows:
+</bodyText>
+<equation confidence="0.9875518">
+Gi:j =
+j
+X
+t=i
+gt(yt1, yt, x). (16)
+</equation>
+<bodyText confidence="0.995329">
+Consider the task of computing the feature expecta-
+tion Ep(y|yt1=a,yt=b)[f(y, x)] for a fixed (a, b, t).
+We can expand this quantity into
+</bodyText>
+<equation confidence="0.965060952380952">
+X
+y:yt1=a,yt=b
+p(y(t1:t)  |yt1 = a, yt = b)G1:T .
+Conditioning on yt1, yt decomposes the sum into
+three pieces:
+X
+y:yt1=a,yt=b
+[gt(yt1 = a, yt = b, x) + Fa
+t + Bb
+t ],
+where
+Fa
+t =
+X
+y1:t2
+p(y1:t2  |yt1 = a)G1:t1, (17)
+Bb
+t =
+X
+yt+1:T
+p(yt+1:T  |yt = b)Gt+1:T , (18)
+</equation>
+<bodyText confidence="0.997286">
+are the expected feature vectors summed over the
+prefix and suffix of the tag sequence, respectively.
+</bodyText>
+<equation confidence="0.4546145">
+Note that Fa
+t and Bb
+</equation>
+<bodyText confidence="0.9849755">
+t are analogous to the forward
+and backward messages of standard CRF inference,
+with the exception that they are vectors rather than
+scalars.
+We can compute these messages recursively in the
+standard way. The forward recurrence is
+</bodyText>
+<equation confidence="0.9942517">
+Fa
+t =
+X
+b
+p(yt2 = b  |yt1 = a)
+h
+gt(yt2 = b, yt1 = a, x) + Fb
+t1
+i
+,
+</equation>
+<bodyText confidence="0.732884">
+and a similar recurrence holds for the backward mes-
+sages Bb
+</bodyText>
+<equation confidence="0.804495">
+t .
+</equation>
+<bodyText confidence="0.994459375">
+Running the resulting dynamic program takes
+O(K2Tq) time and requires O(KTq) storage,
+where K is the number of tags, T is the sequence
+length and q is the number of active features. Note
+that this is the same order of dependence as normal
+CRF training, but there is an additional dependence
+on the number of active features q, which makes
+training slower.
+</bodyText>
+<sectionHeader confidence="0.957392" genericHeader="method">
+4 Fast Gradient Computations
+</sectionHeader>
+<bodyText confidence="0.9990775">
+In this section, we provide two ways to further im-
+prove the efficiency of the gradient calculation based
+on ignoring long-range interactions and based on ex-
+ploiting feature sparsity.
+</bodyText>
+<subsectionHeader confidence="0.885893">
+4.1 Exploiting Feature Sparsity and
+Co-occurrence
+</subsectionHeader>
+<bodyText confidence="0.999176181818182">
+In each forward-backward pass over a training ex-
+ample, we need to compute the conditional ex-
+pectations for all features active in that example.
+Naively applying the dynamic program in Section 3
+is O(K2T) for each active feature. The total com-
+plexity has to factor in the number of active fea-
+tures, q. Although q only scales linearly with sen-
+tence length, in practice this number could get large
+pretty quickly. For example, in the NER tagging ex-
+periments (cf. Section 5), the average number of
+active features per token is about 20, which means
+q &apos; 20T; this term quickly dominates the compu-
+tational costs. Fortunately, in sequence tagging and
+other NLP tasks, the majority of features are sparse
+and they often co-occur. That is, some of the ac-
+tive features would fire and only fire at the same lo-
+cations in a given sequence. This happens when a
+particular token triggers multiple rare features.
+We observe that all indicator features that only
+fired once at position t have the same conditional ex-
+pectations (and model expectations). As a result, we
+can collapse such a group of features into a single
+</bodyText>
+<page confidence="0.929493">
+1174
+</page>
+<bodyText confidence="0.998434714285714">
+\x0cfeature as a preprocessing step to avoid computing
+identical expectations for each of the features. Do-
+ing so on the same NER tagging experiments cuts
+down q/T from 20 to less than 5, and gives us a 4
+times speed up at no loss of accuracy. The exact
+same trick is applicable to the general CRF gradient
+computation as well and gives similar speedup.
+</bodyText>
+<subsectionHeader confidence="0.921602">
+4.2 Short-range interactions
+</subsectionHeader>
+<bodyText confidence="0.9996035">
+It is also possible to speed up the method by re-
+sorting to approximate gradients. In our case, the
+dynamic program from Section 3 together with the
+trick described above ran in a manageable amount
+of time. The techniques developed here, however,
+could prove to be useful on larger tasks.
+Let us rewrite the quantity we want to compute
+slightly differently (again, for all a, b, t):
+</bodyText>
+<equation confidence="0.990697">
+T
+X
+i=1
+Ep(y|x,yt1=a,yt=b)[gi(yi1, yi, x)]. (19)
+</equation>
+<bodyText confidence="0.9331865">
+The intuition is that conditioned on yt1, yt, the
+terms gi(yi1, yi, x) where i is far from t will be
+close to Ep(y|x)[gi(yi1, yi, x)].
+This motivates replacing the former with the latter
+whenever |i k |r where r is some window size.
+This approximation results in an expression which
+only has to consider the sum of the local feature vec-
+tors from ir to i+r, which is captured by Gir:i+r:
+</bodyText>
+<equation confidence="0.937997666666667">
+Ep(y|yt1=a,yt=b,x)[f(y, x)] Ep(y|x)[f(y, x)]
+Ep(y|yt1=a,yt=b,x)[Gtr:t+r] (20)
+Ep(y|x)[Gtr:t+r].
+</equation>
+<bodyText confidence="0.643463">
+We can further approximate this last expression by
+</bodyText>
+<equation confidence="0.984153">
+letting r = 0, obtaining:
+gt(a, b, x) Ep(y|x)[gt(yt1, yt, x)]. (21)
+</equation>
+<bodyText confidence="0.973713545454545">
+The second expectation can be computed from the
+edge marginals.
+The accuracy of this approximation hinges on the
+lack of long range dependencies. Equation (21)
+shows the case of r = 0; this takes almost no addi-
+tional effort to compute. However, for some of our
+experiments, we observed a 20% difference with the
+real derivative. For r &gt; 0, the computational savings
+are more limited, but the bounded-window method
+is easier to implement.
+Dataset q d K Ntrain Ntest
+</bodyText>
+<table confidence="0.994052333333333">
+CoNLL 20 437906 5 204567 46666
+SANCL 5 679959 12 761738 82405
+20news 81 62061 20 15935 3993
+RCV14 76 29992 4 9625/2 9625/2
+R21578 47 18933 65 5946 2347
+TDT2 130 36771 30 9394/2 9394/2
+</table>
+<tableCaption confidence="0.999433">
+Table 1: Description of datasets. q: average number
+</tableCaption>
+<bodyText confidence="0.8999935">
+of non-zero features per example, d: total number
+of features, K: number of classes to predict, Ntrain:
+number of training examples, Ntest: number of test
+examples.
+</bodyText>
+<sectionHeader confidence="0.998993" genericHeader="method">
+5 Experiments
+</sectionHeader>
+<bodyText confidence="0.932460923076923">
+We show experimental results on the CoNLL-2003
+Named Entity Recognition (NER) task, the SANCL
+Part-of-speech (POS) tagging task, and several doc-
+ument classification tasks.2 The datasets used are
+described in Table 1. We used standard splits when-
+ever available; otherwise we split the data at ran-
+dom into a test set and a train set of equal sizes
+(RCV14, TDT2). CoNLL has a development set
+of size 51578, which we used to tune regulariza-
+tion parameters. The SANCL test set is divided into
+3 genres, namely answers, newsgroups, and
+reviews, each of which has a corresponding de-
+velopment set.3
+</bodyText>
+<subsectionHeader confidence="0.996368">
+5.1 Multiclass Classification
+</subsectionHeader>
+<bodyText confidence="0.997958777777778">
+We begin by testing our regularizer in the simple
+case of classification where Y = {1, 2, . . . , K} for
+K classes. We examine the performance of the nois-
+ing regularizer in both the fully supervised setting as
+well as the transductive learning setting.
+In the transductive learning setting, the learner
+is allowed to inspect the test features at train time
+(without the labels). We used the method described
+in Section 2.1 for transductive dropout.
+</bodyText>
+<page confidence="0.76613">
+2
+</page>
+<bodyText confidence="0.541946">
+The document classification data are available
+</bodyText>
+<footnote confidence="0.575021333333333">
+at http://www.csie.ntu.edu.tw/ cjlin/
+libsvmtools/datasets and http://www.cad.
+zju.edu.cn/home/dengcai/Data/TextData.html
+</footnote>
+<page confidence="0.858577">
+3
+</page>
+<bodyText confidence="0.83185">
+The SANCL dataset has two additional genresemails and
+weblogsthat we did not use, as we did not have access to
+development sets for these genres.
+</bodyText>
+<page confidence="0.967543">
+1175
+</page>
+<table confidence="0.9983505">
+\x0cDataset K None L2 Drop +Test
+CoNLL 5 78.03 80.12 80.90 81.66
+20news 20 81.44 82.19 83.37 84.71
+RCV14 4 95.76 95.90 96.03 96.11
+R21578 65 92.24 92.24 92.24 92.58
+TDT2 30 97.74 97.91 98.00 98.12
+</table>
+<tableCaption confidence="0.999504">
+Table 2: Classification performance and transduc-
+</tableCaption>
+<bodyText confidence="0.991091">
+tive learning results on some standard datasets.
+None: use no regularization, Drop: quadratic ap-
+proximation to the dropout noise (8), +Test: also use
+the test set to estimate the noising regularizer (11).
+</bodyText>
+<subsubsectionHeader confidence="0.692522">
+5.1.1 Semi-supervised Learning with Feature
+</subsubsectionHeader>
+<subsectionHeader confidence="0.627579">
+Noising
+</subsectionHeader>
+<bodyText confidence="0.992184928571429">
+In the transductive setting, we used test data
+(without labels) to learn a better regularizer. As an
+alternative, we could also use unlabeled data in place
+of the test data to accomplish a similar goal; this
+leads to a semi-supervised setting.
+To test the semi-supervised idea, we use the same
+datasets as above. We split each dataset evenly into
+3 thirds that we use as a training set, a test set and an
+unlabeled dataset. Results are given in Table 3.
+In most cases, our semi-supervised accuracies are
+lower than the transductive accuracies given in Table
+2; this is normal in our setup, because we used less
+labeled data to train the semi-supervised classifier
+than the transductive one.4
+</bodyText>
+<subsubsectionHeader confidence="0.934105">
+5.1.2 The Second-Order Approximation
+</subsubsectionHeader>
+<bodyText confidence="0.999651666666667">
+The results reported above all rely on the ap-
+proximate dropout regularizer (8) that is based on a
+second-order Taylor expansion. To test the validity
+of this approximation we compare it to the Gaussian
+method developed by Wang and Manning (2013) on
+a two-class classification task.
+We use the 20-newsgroups alt.atheism vs
+soc.religion.christian classification task;
+results are shown in Figure 2. There are 1427 exam-
+</bodyText>
+<page confidence="0.980643">
+4
+</page>
+<bodyText confidence="0.947109375">
+The CoNNL results look somewhat surprising, as the semi-
+supervised results are better than the transductive ones. The
+reason for this is that the original CoNLL test set came from a
+different distributions than the training set, and this made the
+task more difficult. Meanwhile, in our semi-supervised experi-
+ment, the test and train sets are drawn from the same distribu-
+tion and so our semi-supervised task is actually easier than the
+original one.
+</bodyText>
+<table confidence="0.998801166666667">
+Dataset K L2 Drop +Unlabeled
+CoNLL 5 91.46 91.81 92.02
+20news 20 76.55 79.07 80.47
+RCV14 4 94.76 94.79 95.16
+R21578 65 90.67 91.24 90.30
+TDT2 30 97.34 97.54 97.89
+</table>
+<tableCaption confidence="0.78652775">
+Table 3: Semisupervised learning results on some
+standard datasets. A third (33%) of the full dataset
+was used for training, a third for testing, and the rest
+as unlabeled.
+</tableCaption>
+<figure confidence="0.973723217391304">
+10
+6
+10
+4
+10
+2
+10
+0
+10
+2
+0.78
+0.8
+0.82
+0.84
+0.86
+0.88
+0.9
+L2
+regularization strength ()
+Accuracy
+L2 only
+L2+Gaussian dropout
+L2+Quadratic dropout
+</figure>
+<figureCaption confidence="0.998287">
+Figure 2: Effect of in kk2
+</figureCaption>
+<sectionHeader confidence="0.351139" genericHeader="method">
+2 on the testset perfor-
+</sectionHeader>
+<bodyText confidence="0.9944853">
+mance. Plotted is the test set accuracy with logis-
+tic regression as a function of for the L2 regular-
+izer, Gaussian dropout (Wang and Manning, 2013)
++ additional L2, and quadratic dropout (8) + L2 de-
+scribed in this paper. The default noising regularizer
+is quite good, and additional L2 does not help. No-
+tice that no choice of in L2 can help us combat
+overfitting as effectively as (8) without underfitting.
+ples with 22178 features, split evenly and randomly
+into a training set and a test set.
+Over a broad range of values, we find that
+dropout plus L2 regularization performs far better
+than using just L2 regularization for any value of
+. We see that Gaussian dropout appears to per-
+form slightly better than the quadratic approxima-
+tion discussed in this paper. However, our quadratic
+approximation extends easily to the multiclass case
+and to structured prediction in general, while Gaus-
+sian dropout does not. Thus, it appears that our ap-
+proximation presents a reasonable trade-off between
+</bodyText>
+<page confidence="0.945022">
+1176
+</page>
+<bodyText confidence="0.5095">
+\x0ccomputational efficiency and prediction accuracy.
+</bodyText>
+<subsectionHeader confidence="0.995475">
+5.2 CRF Experiments
+</subsectionHeader>
+<bodyText confidence="0.995787395348837">
+We evaluate the quadratic dropout regularizer in
+linear-chain CRFs on two sequence tagging tasks:
+the CoNLL 2003 NER shared task (Tjong Kim Sang
+and De Meulder, 2003) and the SANCL 2012 POS
+tagging task (Petrov and McDonald, 2012) .
+The standard CoNLL-2003 English shared task
+benchmark dataset (Tjong Kim Sang and De Meul-
+der, 2003) is a collection of documents from
+Reuters newswire articles, annotated with four en-
+tity types: Person, Location, Organization, and
+Miscellaneous. We predicted the label sequence
+Y = {LOC, MISC, ORG, PER, O}T without con-
+sidering the BIO tags.
+For training the CRF model, we used a compre-
+hensive set of features from Finkel et al. (2005) that
+gives state-of-the-art results on this task. A total
+number of 437906 features were generated on the
+CoNLL-2003 training dataset. The most important
+features are:
+The word, word shape, and letter n-grams (up to
+6gram) at current position
+The prediction, word, and word shape of the pre-
+vious and next position
+Previous word shape in conjunction with current
+word shape
+Disjunctive word set of the previous and next 4
+positions
+Capitalization pattern in a 3 word window
+Previous two words in conjunction with the word
+shape of the previous word
+The current word matched against a list of name
+titles (e.g., Mr., Mrs.)
+The F=1 results are summarized in Table 4. We
+obtain a 1.6% and 1.1% absolute gain on the test
+and dev set, respectively. Detailed results are bro-
+ken down by precision and recall for each tag and are
+shown in Table 6. These improvements are signifi-
+cant at the 0.1% level according to the paired boot-
+strap resampling method of 2000 iterations (Efron
+and Tibshirani, 1993).
+For the SANCL (Petrov and McDonald, 2012)
+POS tagging task, we used the same CRF framework
+with a much simpler set of features
+</bodyText>
+<table confidence="0.9470962">
+word unigrams: w1, w0, w1
+word bigram: (w1, w0) and (w0, w1)
+F=1 None L2 Drop
+Dev 89.40 90.73 91.86
+Test 84.67 85.82 87.42
+</table>
+<tableCaption confidence="0.92376">
+Table 4: CoNLL summary of results. None: no reg-
+ularization, Drop: quadratic dropout regularization
+</tableCaption>
+<table confidence="0.973555090909091">
+(14) described in this paper.
+F=1 None L2 Drop
+newsgroups
+Dev 91.34 91.34 91.47
+Test 91.44 91.44 91.81
+reviews
+Dev 91.97 91.95 92.10
+Test 90.70 90.67 91.07
+answers
+Dev 90.78 90.79 90.70
+Test 91.00 90.99 91.09
+</table>
+<tableCaption confidence="0.7627825">
+Table 5: SANCL POS tagging F=1 scores for the 3
+official evaluation sets.
+</tableCaption>
+<bodyText confidence="0.9995419">
+We obtained a small but consistent improvement
+using the quadratic dropout regularizer in (14) over
+the L2-regularized CRFs baseline.
+Although the difference on SANCL is small,
+the performance differences on the test sets of
+reviews and newsgroups are statistically sig-
+nificant at the 0.1% level. This is also interesting
+because here is a situation where the features are ex-
+tremely sparse, L2 regularization gave no improve-
+ment, and where regularization overall matters less.
+</bodyText>
+<sectionHeader confidence="0.997852" genericHeader="conclusions">
+6 Conclusion
+</sectionHeader>
+<bodyText confidence="0.999485428571428">
+We have presented a new regularizer for learning
+log-linear models such as multiclass logistic regres-
+sion and conditional random fields. This regularizer
+is based on a second-order approximation of fea-
+ture noising schemes, and attempts to favor mod-
+els that predict confidently and are robust to noise
+in the data. In order to apply our method to CRFs,
+we tackle the key challenge of dealing with feature
+correlations that arise in the structured prediction
+setting in several ways. In addition, we show that
+the regularizer can be applied naturally in the semi-
+supervised setting. Finally, we applied our method
+to a range of different datasets and demonstrate con-
+sistent gains over standard L2 regularization. Inves-
+</bodyText>
+<page confidence="0.954289">
+1177
+</page>
+<table confidence="0.988099956521739">
+\x0cPrecision Recall F=1
+LOC 91.47% 91.12% 91.29
+MISC 88.77% 81.07% 84.75
+ORG 85.22% 84.08% 84.65
+PER 92.12% 93.97% 93.04
+Overall 89.84% 88.97% 89.40
+(a) CoNLL dev. set with no regularization
+Precision Recall F=1
+92.05% 92.84% 92.44
+90.51% 83.52% 86.87
+88.35% 85.23% 86.76
+93.12% 94.19% 93.65
+91.36% 90.11% 90.73
+(b) CoNLL dev. set with L2 reg-
+ularization
+Precision Recall F=1
+93.59% 92.69% 93.14
+93.99% 81.47% 87.28
+92.48% 84.61% 88.37
+94.81% 95.11% 94.96
+93.85% 89.96% 91.86
+(c) CoNLL dev. set with dropout
+regularization
+Tag Precision Recall F=1
+LOC 87.33% 84.47% 85.87
+MISC 78.93% 77.12% 78.02
+ORG 78.70% 79.49% 79.09
+PER 88.82% 93.11% 90.92
+Overall 84.28% 85.06% 84.67
+(d) CoNLL test set with no regularization
+Precision Recall F=1
+87.96% 86.13% 87.03
+77.53% 79.30% 78.41
+81.30% 80.49% 80.89
+90.30% 93.33% 91.79
+85.57% 86.08% 85.82
+(e) CoNLL test set with L2 reg-
+ularization
+Precision Recall F=1
+86.26% 87.74% 86.99
+81.52% 77.34% 79.37
+88.29% 81.89% 84.97
+92.15% 92.68% 92.41
+88.40% 86.45% 87.42
+(f) CoNLL test set with dropout
+regularization
+</table>
+<tableCaption confidence="0.992818">
+Table 6: CoNLL NER results broken down by tags and by precision, recall, and F=1. Top: development
+</tableCaption>
+<bodyText confidence="0.8922036">
+set, bottom: test set performance.
+tigating how to better optimize this non-convex reg-
+ularizer online and convincingly scale it to the semi-
+supervised setting seem to be promising future di-
+rections.
+</bodyText>
+<sectionHeader confidence="0.962986" genericHeader="acknowledgments">
+Acknowledgements
+</sectionHeader>
+<bodyText confidence="0.9142798">
+The authors would like to thank the anonymous re-
+viewers for their comments. We gratefully acknowl-
+edge the support of the Defense Advanced Research
+Projects Agency (DARPA) Broad Operational Lan-
+guage Translation (BOLT) program through IBM.
+Any opinions, findings, and conclusions or recom-
+mendations expressed in this material are those of
+the author(s) and do not necessarily reflect the view
+of the DARPA, or the US government. S. Wager is
+supported by a BC and EJ Eaves SGF Fellowship.
+</bodyText>
+<sectionHeader confidence="0.986082" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.998450783783784">
+Yaser S. Abu-Mostafa. 1990. Learning from hints in
+neural networks. Journal of Complexity, 6(2):192
+198.
+Chris M. Bishop. 1995. Training with noise is equiva-
+lent to Tikhonov regularization. Neural computation,
+7(1):108116.
+Robert Bryll, Ricardo Gutierrez-Osuna, and Francis
+Quek. 2003. Attribute bagging: improving accuracy
+of classifier ensembles by using random feature sub-
+sets. Pattern recognition, 36(6):12911302.
+Chris J.C. Burges and Bernhard Scholkopf. 1997. Im-
+proving the accuracy and speed of support vector ma-
+chines. In Advances in Neural Information Processing
+Systems, pages 375381.
+Brad Efron and Robert Tibshirani. 1993. An Introduction
+to the Bootstrap. Chapman &amp; Hall, New York.
+Jenny Rose Finkel, Trond Grenager, and Christopher
+Manning. 2005. Incorporating non-local informa-
+tion into information extraction systems by Gibbs sam-
+pling. In Proceedings of the 43rd annual meeting of
+the Association for Computational Linguistics, pages
+363370.
+Yves Grandvalet and Yoshua Bengio. 2005. Entropy
+regularization. In Semi-Supervised Learning, United
+Kingdom. Springer.
+Geoffrey E. Hinton, Nitish Srivastava, Alex Krizhevsky,
+Ilya Sutskever, and Ruslan R. Salakhutdinov.
+2012. Improving neural networks by preventing
+co-adaptation of feature detectors. arXiv preprint
+arXiv:1207.0580.
+Feng Jiao, Shaojun Wang, Chi-Hoon Lee, Russell
+Greiner, and Dale Schuurmans. 2006. Semi-
+supervised conditional random fields for improved se-
+quence segmentation and labeling. In Proceedings of
+the 44th annual meeting of the Association for Com-
+putational Linguistics, ACL-44, pages 209216.
+Thorsten Joachims. 1999. Transductive inference for
+</reference>
+<page confidence="0.55101">
+1178
+</page>
+<reference confidence="0.998351064516129">
+\x0ctext classification using support vector machines. In
+Proceedings of the International Conference on Ma-
+chine Learning, pages 200209.
+Wei Li and Andrew McCallum. 2005. Semi-supervised
+sequence modeling with syntactic topic models. In
+Proceedings of the 20th national conference on Arti-
+ficial Intelligence - Volume 2, AAAI05, pages 813
+818.
+Gideon S. Mann and Andrew McCallum. 2007. Sim-
+ple, robust, scalable semi-supervised learning via ex-
+pectation regularization. In Proceedings of the Inter-
+national Conference on Machine Learning.
+Kiyotoshi Matsuoka. 1992. Noise injection into inputs
+in back-propagation learning. Systems, Man and Cy-
+bernetics, IEEE Transactions on, 22(3):436440.
+Slav Petrov and Ryan McDonald. 2012. Overview of the
+2012 shared task on parsing the web. Notes of the First
+Workshop on Syntactic Analysis of Non-Canonical
+Language (SANCL).
+Salah Rifai, Yann Dauphin, Pascal Vincent, Yoshua Ben-
+gio, and Xavier Muller. 2011a. The manifold tangent
+classifier. Advances in Neural Information Processing
+Systems, 24:22942302.
+Salah Rifai, Xavier Glorot, Yoshua Bengio, and Pascal
+Vincent. 2011b. Adding noise to the input of a model
+trained with a regularized objective. arXiv preprint
+arXiv:1104.3250.
+Patrice Y. Simard, Yann A. Le Cun, John S. Denker, and
+Bernard Victorri. 2000. Transformation invariance in
+pattern recognition: Tangent distance and propagation.
+International Journal of Imaging Systems and Tech-
+nology, 11(3):181197.
+Andrew Smith, Trevor Cohn, and Miles Osborne. 2005.
+Logarithmic opinion pools for conditional random
+fields. In Proceedings of the 43rd Annual Meeting on
+Association for Computational Linguistics, pages 18
+25. Association for Computational Linguistics.
+Charles Sutton, Michael Sindelar, and Andrew McCal-
+lum. 2005. Feature bagging: Preventing weight un-
+dertraining in structured discriminative learning. Cen-
+ter for Intelligent Information Retrieval, U. of Mas-
+sachusetts.
+Erik F. Tjong Kim Sang and Fien De Meulder. 2003.
+Introduction to the conll-2003 shared task: language-
+independent named entity recognition. In Proceedings
+of the seventh conference on Natural language learn-
+ing at HLT-NAACL 2003 - Volume 4, CONLL 03,
+pages 142147.
+Laurens van der Maaten, Minmin Chen, Stephen Tyree,
+and Kilian Q. Weinberger. 2013. Learning with
+marginalized corrupted features. In Proceedings of the
+International Conference on Machine Learning.
+Stefan Wager, Sida Wang, and Percy Liang. 2013.
+Dropout training as adaptive regularization. arXiv
+preprint:1307.1493.
+Li Wan, Matthew Zeiler, Sixin Zhang, Yann LeCun, and
+Rob Fergus. 2013. Regularization of neural networks
+using dropconnect. In Proceedings of the Interna-
+tional Conference on Machine learning.
+Sida Wang and Christopher D. Manning. 2013. Fast
+dropout training. In Proceedings of the International
+Conference on Machine Learning.
+</reference>
+<page confidence="0.787904">
+1179
+</page>
+<figure confidence="0.27718">
+\x0c&quot;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.302245">
+<note confidence="0.945263666666667">b&quot;Proceedings of the 2013 Conference on Empirical Methods in Natural Language Processing, pages 11701179, Seattle, Washington, USA, 18-21 October 2013. c 2013 Association for Computational Linguistics</note>
+<title confidence="0.969666">Feature Noising for Log-linear Structured Prediction</title>
+<author confidence="0.93538">Mengqiu Wang</author>
+<email confidence="0.634819">,</email>
+<author confidence="0.999642">Percy Liang</author>
+<author confidence="0.999642">Christopher D Manning</author>
+<affiliation confidence="0.99985">Department of Computer Science, Department of Statistics</affiliation>
+<address confidence="0.869413">Stanford University, Stanford, CA 94305, USA</address>
+<email confidence="0.997669">sidaw@cs.stanford.eduswager@stanford.edu</email>
+<email confidence="0.997669">mengqiu@cs.stanford.eduswager@stanford.edu</email>
+<email confidence="0.997669">pliang@cs.stanford.eduswager@stanford.edu</email>
+<email confidence="0.997669">manning@cs.stanford.eduswager@stanford.edu</email>
+<abstract confidence="0.989029409090909">NLP models have many and sparse features, and regularization is key for balancing model overfitting versus underfitting. A recently repopularized form of regularization is to generate fake training data by repeatedly adding noise to real data. We reinterpret this noising as an explicit regularizer, and approximate it with a second-order formula that can be used during training without actually generating fake data. We show how to apply this method to structured prediction using multinomial logistic regression and linear-chain CRFs. We tackle the key challenge of developing a dynamic program to compute the gradient of the regularizer efficiently. The regularizer is a sum over inputs, so we can estimate it more accurately via a semi-supervised or transductive extension. Applied to text classification and NER, our method provides a &gt;1% absolute performance gain over use of standard L2 regularization.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Yaser S Abu-Mostafa</author>
+</authors>
+<title>Learning from hints in neural networks.</title>
+<date>1990</date>
+<journal>Journal of Complexity,</journal>
+<volume>6</volume>
+<issue>2</issue>
+<pages>198</pages>
+<marker>Abu-Mostafa, 1990</marker>
+<rawString>Yaser S. Abu-Mostafa. 1990. Learning from hints in neural networks. Journal of Complexity, 6(2):192 198.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Chris M Bishop</author>
+</authors>
+<title>Training with noise is equivalent to Tikhonov regularization.</title>
+<date>1995</date>
+<booktitle>Neural computation,</booktitle>
+<pages>7--1</pages>
+<contexts>
+<context position="2697" citStr="Bishop, 1995" startWordPosition="405" endWordPosition="406">ually to the paper ing features, whether due to typos or use of a previously unseen synonym. The effectiveness of this technique is well-known in machine learning (AbuMostafa, 1990; Burges and Scholkopf, 1997; Simard et al., 2000; Rifai et al., 2011a; van der Maaten et al., 2013), but working directly with many corrupted copies of a dataset can be computationally prohibitive. Fortunately, feature noising ideas often lead to tractable deterministic objectives that can be optimized directly. Sometimes, training with corrupted features reduces to a special form of regularization (Matsuoka, 1992; Bishop, 1995; Rifai et al., 2011b; Wager et al., 2013). For example, Bishop (1995) showed that training with features that have been corrupted with additive Gaussian noise is equivalent to a form of L2 regularization in the low noise limit. In other cases it is possible to develop a new objective function by marginalizing over the artificial noise (Wang and Manning, 2013; van der Maaten et al., 2013). The central contribution of this paper is to show how to efficiently simulate training with artificially noised features in the context of log-linear structured prediction, without actually having to generat</context>
+<context position="3994" citStr="Bishop (1995)" startWordPosition="623" endWordPosition="624">ed form of artificial feature noise where a random subset of features is omitted independently for each training example. Dropout and its variants have been shown to outperform L2 regularization on various tasks (Hinton et al., 2012; Wang and Manning, 2013; Wan et al., 2013). Dropout is is similar in spirit to feature bagging in the deliberate removal of features, but performs the removal in a preset way rather than randomly (Bryll et al., 2003; Sutton et al., 2005; Smith et al., 2005). 1170 \x0cOur approach is based on a second-order approximation to feature noising developed among others by Bishop (1995) and Wager et al. (2013), which allows us to convert dropout noise into a form of adaptive regularization. This method is suitable for structured prediction in log-linear models where second derivatives are computable. In particular, it can be used for multiclass classification with maximum entropy models (a.k.a., softmax or multinomial logistic regression) and for the sequence models that are ubiquitous in NLP, via linear chain Conditional Random Fields (CRFs). For linear chain CRFs, we additionally show how we can use a noising scheme that takes advantage of the clique structure so that the </context>
+<context position="8730" citStr="Bishop (1995)" startWordPosition="1420" endWordPosition="1421">eature noising objective can be written as the sum of the original log-likelihood plus the difference in log-normalization constants: E[log p(y |x; )] = E[sy A(s)] (2) = log p(y |x; ) R(, x), (3) R(, x) def = E[A(s)] A(s). (4) Since A() is convex, R(, x) is always positive by Jensens inequality and can therefore be interpreted as a regularizer. Note that R(, x) is in general nonconvex. Computing the regularizer (4) requires summing over all possible noised feature vectors, which can imply exponential effort in the number of features. This is intractable even for flat classification. Following Bishop (1995) and Wager et al. (2013), we approximate R(, x) using a second-order Taylor expansion, which will allow us to work with only means and covariances of the noised features. We take a quadratic approximation of the log-partition function A() of the noised score vector s around the the unnoised score vector s: A(s) u A(s) + A(s)&gt; (s s) (5) + 1 2 (s s)&gt; 2 A(s)(s s). Plugging (5) into (4), we obtain a new regularizer Rq(, x), which we will use as an approximation to R(, x): Rq (, x) = 1 2 E[(s s)&gt; 2 A(s)(s s)] (6) = 1 2 tr(2 A(s) Cov(s)). (7) This expression still has two sources of potential intrac</context>
+</contexts>
+<marker>Bishop, 1995</marker>
+<rawString>Chris M. Bishop. 1995. Training with noise is equivalent to Tikhonov regularization. Neural computation, 7(1):108116.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Robert Bryll</author>
+<author>Ricardo Gutierrez-Osuna</author>
+<author>Francis Quek</author>
+</authors>
+<title>Attribute bagging: improving accuracy of classifier ensembles by using random feature subsets. Pattern recognition,</title>
+<date>2003</date>
+<pages>36--6</pages>
+<contexts>
+<context position="3829" citStr="Bryll et al., 2003" startWordPosition="594" endWordPosition="597">in the context of log-linear structured prediction, without actually having to generate noised data. We focus on dropout noise (Hinton et al., 2012), a recently popularized form of artificial feature noise where a random subset of features is omitted independently for each training example. Dropout and its variants have been shown to outperform L2 regularization on various tasks (Hinton et al., 2012; Wang and Manning, 2013; Wan et al., 2013). Dropout is is similar in spirit to feature bagging in the deliberate removal of features, but performs the removal in a preset way rather than randomly (Bryll et al., 2003; Sutton et al., 2005; Smith et al., 2005). 1170 \x0cOur approach is based on a second-order approximation to feature noising developed among others by Bishop (1995) and Wager et al. (2013), which allows us to convert dropout noise into a form of adaptive regularization. This method is suitable for structured prediction in log-linear models where second derivatives are computable. In particular, it can be used for multiclass classification with maximum entropy models (a.k.a., softmax or multinomial logistic regression) and for the sequence models that are ubiquitous in NLP, via linear chain Co</context>
+</contexts>
+<marker>Bryll, Gutierrez-Osuna, Quek, 2003</marker>
+<rawString>Robert Bryll, Ricardo Gutierrez-Osuna, and Francis Quek. 2003. Attribute bagging: improving accuracy of classifier ensembles by using random feature subsets. Pattern recognition, 36(6):12911302.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Chris J C Burges</author>
+<author>Bernhard Scholkopf</author>
+</authors>
+<title>Improving the accuracy and speed of support vector machines.</title>
+<date>1997</date>
+<booktitle>In Advances in Neural Information Processing Systems,</booktitle>
+<pages>375381</pages>
+<contexts>
+<context position="2293" citStr="Burges and Scholkopf, 1997" startWordPosition="341" endWordPosition="344">ly, L2 or L1 regularization is employed, but these simple types of regularization penalize all features in a uniform way without taking into account the properties of the actual model. An alternative approach to regularization is to generate fake training data by adding random noise to the input features of the original training data. Intuitively, this can be thought of as simulating missBoth authors contributed equally to the paper ing features, whether due to typos or use of a previously unseen synonym. The effectiveness of this technique is well-known in machine learning (AbuMostafa, 1990; Burges and Scholkopf, 1997; Simard et al., 2000; Rifai et al., 2011a; van der Maaten et al., 2013), but working directly with many corrupted copies of a dataset can be computationally prohibitive. Fortunately, feature noising ideas often lead to tractable deterministic objectives that can be optimized directly. Sometimes, training with corrupted features reduces to a special form of regularization (Matsuoka, 1992; Bishop, 1995; Rifai et al., 2011b; Wager et al., 2013). For example, Bishop (1995) showed that training with features that have been corrupted with additive Gaussian noise is equivalent to a form of L2 regula</context>
+</contexts>
+<marker>Burges, Scholkopf, 1997</marker>
+<rawString>Chris J.C. Burges and Bernhard Scholkopf. 1997. Improving the accuracy and speed of support vector machines. In Advances in Neural Information Processing Systems, pages 375381.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Brad Efron</author>
+<author>Robert Tibshirani</author>
+</authors>
+<title>An Introduction to the Bootstrap.</title>
+<date>1993</date>
+<publisher>Chapman &amp; Hall,</publisher>
+<location>New York.</location>
+<contexts>
+<context position="26813" citStr="Efron and Tibshirani, 1993" startWordPosition="4582" endWordPosition="4585">rd shape Disjunctive word set of the previous and next 4 positions Capitalization pattern in a 3 word window Previous two words in conjunction with the word shape of the previous word The current word matched against a list of name titles (e.g., Mr., Mrs.) The F=1 results are summarized in Table 4. We obtain a 1.6% and 1.1% absolute gain on the test and dev set, respectively. Detailed results are broken down by precision and recall for each tag and are shown in Table 6. These improvements are significant at the 0.1% level according to the paired bootstrap resampling method of 2000 iterations (Efron and Tibshirani, 1993). For the SANCL (Petrov and McDonald, 2012) POS tagging task, we used the same CRF framework with a much simpler set of features word unigrams: w1, w0, w1 word bigram: (w1, w0) and (w0, w1) F=1 None L2 Drop Dev 89.40 90.73 91.86 Test 84.67 85.82 87.42 Table 4: CoNLL summary of results. None: no regularization, Drop: quadratic dropout regularization (14) described in this paper. F=1 None L2 Drop newsgroups Dev 91.34 91.34 91.47 Test 91.44 91.44 91.81 reviews Dev 91.97 91.95 92.10 Test 90.70 90.67 91.07 answers Dev 90.78 90.79 90.70 Test 91.00 90.99 91.09 Table 5: SANCL POS tagging F=1 scores fo</context>
+</contexts>
+<marker>Efron, Tibshirani, 1993</marker>
+<rawString>Brad Efron and Robert Tibshirani. 1993. An Introduction to the Bootstrap. Chapman &amp; Hall, New York.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Rose Finkel</author>
+<author>Trond Grenager</author>
+<author>Christopher Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by Gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the 43rd annual meeting of the Association for Computational Linguistics,</booktitle>
+<pages>363370</pages>
+<contexts>
+<context position="25821" citStr="Finkel et al. (2005)" startWordPosition="4413" endWordPosition="4416"> linear-chain CRFs on two sequence tagging tasks: the CoNLL 2003 NER shared task (Tjong Kim Sang and De Meulder, 2003) and the SANCL 2012 POS tagging task (Petrov and McDonald, 2012) . The standard CoNLL-2003 English shared task benchmark dataset (Tjong Kim Sang and De Meulder, 2003) is a collection of documents from Reuters newswire articles, annotated with four entity types: Person, Location, Organization, and Miscellaneous. We predicted the label sequence Y = {LOC, MISC, ORG, PER, O}T without considering the BIO tags. For training the CRF model, we used a comprehensive set of features from Finkel et al. (2005) that gives state-of-the-art results on this task. A total number of 437906 features were generated on the CoNLL-2003 training dataset. The most important features are: The word, word shape, and letter n-grams (up to 6gram) at current position The prediction, word, and word shape of the previous and next position Previous word shape in conjunction with current word shape Disjunctive word set of the previous and next 4 positions Capitalization pattern in a 3 word window Previous two words in conjunction with the word shape of the previous word The current word matched against a list of name tit</context>
+</contexts>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>Jenny Rose Finkel, Trond Grenager, and Christopher Manning. 2005. Incorporating non-local information into information extraction systems by Gibbs sampling. In Proceedings of the 43rd annual meeting of the Association for Computational Linguistics, pages 363370.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yves Grandvalet</author>
+<author>Yoshua Bengio</author>
+</authors>
+<title>Entropy regularization.</title>
+<date>2005</date>
+<booktitle>In Semi-Supervised Learning,</booktitle>
+<publisher>Springer.</publisher>
+<location>United Kingdom.</location>
+<contexts>
+<context position="5752" citStr="Grandvalet and Bengio, 2005" startWordPosition="895" endWordPosition="898">transductive or semi-supervised setting. The regularizer induced by feature noising is label-independent for log-linear models, and so we can use unlabeled data to learn a better regularizer. NLP sequence labeling tasks are especially well suited to a semi-supervised approach, as input features are numerous but sparse, and labeled data is expensive to obtain but unlabeled data is abundant (Li and McCallum, 2005; Jiao et al., 2006). Wager et al. (2013) showed that semi-supervised dropout training for logistic regression captures a similar intuition to techniques such as entropy regularization (Grandvalet and Bengio, 2005) and transductive SVMs (Joachims, 1999), which encourage confident predictions on the unlabeled data. Semisupervised dropout has the advantage of only using the predicted label probabilities on the unlabeled data to modulate an L2 regularizer, rather than requiring more heavy-handed modeling of the unlabeled data as in entropy regularization or expectation regularization (Mann and McCallum, 2007). In experimental results, we show that simulated feature noising gives more than a 1% absolute boost yt yt+1 yt1 f (yt, xt ) f (yt1, yt ) f (yt, yt+1) yt yt+1 yt1 f (yt, xt ) f (yt1, yt ) f (yt, yt+1)</context>
+</contexts>
+<marker>Grandvalet, Bengio, 2005</marker>
+<rawString>Yves Grandvalet and Yoshua Bengio. 2005. Entropy regularization. In Semi-Supervised Learning, United Kingdom. Springer.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Geoffrey E Hinton</author>
+<author>Nitish Srivastava</author>
+<author>Alex Krizhevsky</author>
+<author>Ilya Sutskever</author>
+<author>Ruslan R Salakhutdinov</author>
+</authors>
+<title>Improving neural networks by preventing co-adaptation of feature detectors. arXiv preprint arXiv:1207.0580.</title>
+<date>2012</date>
+<contexts>
+<context position="3359" citStr="Hinton et al., 2012" startWordPosition="512" endWordPosition="515">. For example, Bishop (1995) showed that training with features that have been corrupted with additive Gaussian noise is equivalent to a form of L2 regularization in the low noise limit. In other cases it is possible to develop a new objective function by marginalizing over the artificial noise (Wang and Manning, 2013; van der Maaten et al., 2013). The central contribution of this paper is to show how to efficiently simulate training with artificially noised features in the context of log-linear structured prediction, without actually having to generate noised data. We focus on dropout noise (Hinton et al., 2012), a recently popularized form of artificial feature noise where a random subset of features is omitted independently for each training example. Dropout and its variants have been shown to outperform L2 regularization on various tasks (Hinton et al., 2012; Wang and Manning, 2013; Wan et al., 2013). Dropout is is similar in spirit to feature bagging in the deliberate removal of features, but performs the removal in a preset way rather than randomly (Bryll et al., 2003; Sutton et al., 2005; Smith et al., 2005). 1170 \x0cOur approach is based on a second-order approximation to feature noising deve</context>
+</contexts>
+<marker>Hinton, Srivastava, Krizhevsky, Sutskever, Salakhutdinov, 2012</marker>
+<rawString>Geoffrey E. Hinton, Nitish Srivastava, Alex Krizhevsky, Ilya Sutskever, and Ruslan R. Salakhutdinov. 2012. Improving neural networks by preventing co-adaptation of feature detectors. arXiv preprint arXiv:1207.0580.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Feng Jiao</author>
+<author>Shaojun Wang</author>
+<author>Chi-Hoon Lee</author>
+<author>Russell Greiner</author>
+<author>Dale Schuurmans</author>
+</authors>
+<title>Semisupervised conditional random fields for improved sequence segmentation and labeling.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the 44th annual meeting of the Association for Computational Linguistics, ACL-44,</booktitle>
+<pages>209216</pages>
+<contexts>
+<context position="5558" citStr="Jiao et al., 2006" startWordPosition="868" endWordPosition="871">rks in other clique structures in addition to the linear chain when the clique marginals can be computed efficiently. Finally, we extend feature noising for structured prediction to a transductive or semi-supervised setting. The regularizer induced by feature noising is label-independent for log-linear models, and so we can use unlabeled data to learn a better regularizer. NLP sequence labeling tasks are especially well suited to a semi-supervised approach, as input features are numerous but sparse, and labeled data is expensive to obtain but unlabeled data is abundant (Li and McCallum, 2005; Jiao et al., 2006). Wager et al. (2013) showed that semi-supervised dropout training for logistic regression captures a similar intuition to techniques such as entropy regularization (Grandvalet and Bengio, 2005) and transductive SVMs (Joachims, 1999), which encourage confident predictions on the unlabeled data. Semisupervised dropout has the advantage of only using the predicted label probabilities on the unlabeled data to modulate an L2 regularizer, rather than requiring more heavy-handed modeling of the unlabeled data as in entropy regularization or expectation regularization (Mann and McCallum, 2007). In ex</context>
+</contexts>
+<marker>Jiao, Wang, Lee, Greiner, Schuurmans, 2006</marker>
+<rawString>Feng Jiao, Shaojun Wang, Chi-Hoon Lee, Russell Greiner, and Dale Schuurmans. 2006. Semisupervised conditional random fields for improved sequence segmentation and labeling. In Proceedings of the 44th annual meeting of the Association for Computational Linguistics, ACL-44, pages 209216.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Thorsten Joachims</author>
+</authors>
+<title>Transductive inference for \x0ctext classification using support vector machines.</title>
+<date>1999</date>
+<booktitle>In Proceedings of the International Conference on Machine Learning,</booktitle>
+<pages>200209</pages>
+<contexts>
+<context position="5791" citStr="Joachims, 1999" startWordPosition="903" endWordPosition="904">izer induced by feature noising is label-independent for log-linear models, and so we can use unlabeled data to learn a better regularizer. NLP sequence labeling tasks are especially well suited to a semi-supervised approach, as input features are numerous but sparse, and labeled data is expensive to obtain but unlabeled data is abundant (Li and McCallum, 2005; Jiao et al., 2006). Wager et al. (2013) showed that semi-supervised dropout training for logistic regression captures a similar intuition to techniques such as entropy regularization (Grandvalet and Bengio, 2005) and transductive SVMs (Joachims, 1999), which encourage confident predictions on the unlabeled data. Semisupervised dropout has the advantage of only using the predicted label probabilities on the unlabeled data to modulate an L2 regularizer, rather than requiring more heavy-handed modeling of the unlabeled data as in entropy regularization or expectation regularization (Mann and McCallum, 2007). In experimental results, we show that simulated feature noising gives more than a 1% absolute boost yt yt+1 yt1 f (yt, xt ) f (yt1, yt ) f (yt, yt+1) yt yt+1 yt1 f (yt, xt ) f (yt1, yt ) f (yt, yt+1) Figure 1: An illustration of dropout f</context>
+</contexts>
+<marker>Joachims, 1999</marker>
+<rawString>Thorsten Joachims. 1999. Transductive inference for \x0ctext classification using support vector machines. In Proceedings of the International Conference on Machine Learning, pages 200209.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Wei Li</author>
+<author>Andrew McCallum</author>
+</authors>
+<title>Semi-supervised sequence modeling with syntactic topic models.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the 20th national conference on Artificial Intelligence - Volume 2, AAAI05,</booktitle>
+<pages>813--818</pages>
+<contexts>
+<context position="5538" citStr="Li and McCallum, 2005" startWordPosition="864" endWordPosition="867">eneral approach also works in other clique structures in addition to the linear chain when the clique marginals can be computed efficiently. Finally, we extend feature noising for structured prediction to a transductive or semi-supervised setting. The regularizer induced by feature noising is label-independent for log-linear models, and so we can use unlabeled data to learn a better regularizer. NLP sequence labeling tasks are especially well suited to a semi-supervised approach, as input features are numerous but sparse, and labeled data is expensive to obtain but unlabeled data is abundant (Li and McCallum, 2005; Jiao et al., 2006). Wager et al. (2013) showed that semi-supervised dropout training for logistic regression captures a similar intuition to techniques such as entropy regularization (Grandvalet and Bengio, 2005) and transductive SVMs (Joachims, 1999), which encourage confident predictions on the unlabeled data. Semisupervised dropout has the advantage of only using the predicted label probabilities on the unlabeled data to modulate an L2 regularizer, rather than requiring more heavy-handed modeling of the unlabeled data as in entropy regularization or expectation regularization (Mann and Mc</context>
+</contexts>
+<marker>Li, McCallum, 2005</marker>
+<rawString>Wei Li and Andrew McCallum. 2005. Semi-supervised sequence modeling with syntactic topic models. In Proceedings of the 20th national conference on Artificial Intelligence - Volume 2, AAAI05, pages 813 818.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Gideon S Mann</author>
+<author>Andrew McCallum</author>
+</authors>
+<title>Simple, robust, scalable semi-supervised learning via expectation regularization.</title>
+<date>2007</date>
+<booktitle>In Proceedings of the International Conference on Machine Learning.</booktitle>
+<contexts>
+<context position="6151" citStr="Mann and McCallum, 2007" startWordPosition="956" endWordPosition="959">allum, 2005; Jiao et al., 2006). Wager et al. (2013) showed that semi-supervised dropout training for logistic regression captures a similar intuition to techniques such as entropy regularization (Grandvalet and Bengio, 2005) and transductive SVMs (Joachims, 1999), which encourage confident predictions on the unlabeled data. Semisupervised dropout has the advantage of only using the predicted label probabilities on the unlabeled data to modulate an L2 regularizer, rather than requiring more heavy-handed modeling of the unlabeled data as in entropy regularization or expectation regularization (Mann and McCallum, 2007). In experimental results, we show that simulated feature noising gives more than a 1% absolute boost yt yt+1 yt1 f (yt, xt ) f (yt1, yt ) f (yt, yt+1) yt yt+1 yt1 f (yt, xt ) f (yt1, yt ) f (yt, yt+1) Figure 1: An illustration of dropout feature noising in linear-chain CRFs with only transition features and node features. The green squares are node features f(yt, xt), and the orange squares are edge features f(yt1, yt). Conceptually, given a training example, we sample some features to ignore (generate fake data) and make a parameter update. Our goal is to train with a roughly equivalent obje</context>
+</contexts>
+<marker>Mann, McCallum, 2007</marker>
+<rawString>Gideon S. Mann and Andrew McCallum. 2007. Simple, robust, scalable semi-supervised learning via expectation regularization. In Proceedings of the International Conference on Machine Learning.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kiyotoshi Matsuoka</author>
+</authors>
+<title>Noise injection into inputs in back-propagation learning.</title>
+<date>1992</date>
+<journal>Systems, Man and Cybernetics, IEEE Transactions on,</journal>
+<volume>22</volume>
+<issue>3</issue>
+<contexts>
+<context position="2683" citStr="Matsuoka, 1992" startWordPosition="403" endWordPosition="404">s contributed equally to the paper ing features, whether due to typos or use of a previously unseen synonym. The effectiveness of this technique is well-known in machine learning (AbuMostafa, 1990; Burges and Scholkopf, 1997; Simard et al., 2000; Rifai et al., 2011a; van der Maaten et al., 2013), but working directly with many corrupted copies of a dataset can be computationally prohibitive. Fortunately, feature noising ideas often lead to tractable deterministic objectives that can be optimized directly. Sometimes, training with corrupted features reduces to a special form of regularization (Matsuoka, 1992; Bishop, 1995; Rifai et al., 2011b; Wager et al., 2013). For example, Bishop (1995) showed that training with features that have been corrupted with additive Gaussian noise is equivalent to a form of L2 regularization in the low noise limit. In other cases it is possible to develop a new objective function by marginalizing over the artificial noise (Wang and Manning, 2013; van der Maaten et al., 2013). The central contribution of this paper is to show how to efficiently simulate training with artificially noised features in the context of log-linear structured prediction, without actually hav</context>
+</contexts>
+<marker>Matsuoka, 1992</marker>
+<rawString>Kiyotoshi Matsuoka. 1992. Noise injection into inputs in back-propagation learning. Systems, Man and Cybernetics, IEEE Transactions on, 22(3):436440.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Slav Petrov</author>
+<author>Ryan McDonald</author>
+</authors>
+<title>Overview of the 2012 shared task on parsing the web. Notes of the First Workshop on Syntactic Analysis of Non-Canonical Language (SANCL).</title>
+<date>2012</date>
+<contexts>
+<context position="25383" citStr="Petrov and McDonald, 2012" startWordPosition="4340" endWordPosition="4343">rs to perform slightly better than the quadratic approximation discussed in this paper. However, our quadratic approximation extends easily to the multiclass case and to structured prediction in general, while Gaussian dropout does not. Thus, it appears that our approximation presents a reasonable trade-off between 1176 \x0ccomputational efficiency and prediction accuracy. 5.2 CRF Experiments We evaluate the quadratic dropout regularizer in linear-chain CRFs on two sequence tagging tasks: the CoNLL 2003 NER shared task (Tjong Kim Sang and De Meulder, 2003) and the SANCL 2012 POS tagging task (Petrov and McDonald, 2012) . The standard CoNLL-2003 English shared task benchmark dataset (Tjong Kim Sang and De Meulder, 2003) is a collection of documents from Reuters newswire articles, annotated with four entity types: Person, Location, Organization, and Miscellaneous. We predicted the label sequence Y = {LOC, MISC, ORG, PER, O}T without considering the BIO tags. For training the CRF model, we used a comprehensive set of features from Finkel et al. (2005) that gives state-of-the-art results on this task. A total number of 437906 features were generated on the CoNLL-2003 training dataset. The most important feature</context>
+<context position="26856" citStr="Petrov and McDonald, 2012" startWordPosition="4589" endWordPosition="4592">s and next 4 positions Capitalization pattern in a 3 word window Previous two words in conjunction with the word shape of the previous word The current word matched against a list of name titles (e.g., Mr., Mrs.) The F=1 results are summarized in Table 4. We obtain a 1.6% and 1.1% absolute gain on the test and dev set, respectively. Detailed results are broken down by precision and recall for each tag and are shown in Table 6. These improvements are significant at the 0.1% level according to the paired bootstrap resampling method of 2000 iterations (Efron and Tibshirani, 1993). For the SANCL (Petrov and McDonald, 2012) POS tagging task, we used the same CRF framework with a much simpler set of features word unigrams: w1, w0, w1 word bigram: (w1, w0) and (w0, w1) F=1 None L2 Drop Dev 89.40 90.73 91.86 Test 84.67 85.82 87.42 Table 4: CoNLL summary of results. None: no regularization, Drop: quadratic dropout regularization (14) described in this paper. F=1 None L2 Drop newsgroups Dev 91.34 91.34 91.47 Test 91.44 91.44 91.81 reviews Dev 91.97 91.95 92.10 Test 90.70 90.67 91.07 answers Dev 90.78 90.79 90.70 Test 91.00 90.99 91.09 Table 5: SANCL POS tagging F=1 scores for the 3 official evaluation sets. We obtain</context>
+</contexts>
+<marker>Petrov, McDonald, 2012</marker>
+<rawString>Slav Petrov and Ryan McDonald. 2012. Overview of the 2012 shared task on parsing the web. Notes of the First Workshop on Syntactic Analysis of Non-Canonical Language (SANCL).</rawString>
+</citation>
+<citation valid="false">
+<authors>
+<author>Salah Rifai</author>
+<author>Yann Dauphin</author>
+<author>Pascal Vincent</author>
+<author>Yoshua Bengio</author>
+<author>Xavier Muller</author>
+</authors>
+<booktitle>2011a. The manifold tangent classifier. Advances in Neural Information Processing Systems,</booktitle>
+<pages>24--22942302</pages>
+<marker>Rifai, Dauphin, Vincent, Bengio, Muller, </marker>
+<rawString>Salah Rifai, Yann Dauphin, Pascal Vincent, Yoshua Bengio, and Xavier Muller. 2011a. The manifold tangent classifier. Advances in Neural Information Processing Systems, 24:22942302.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Salah Rifai</author>
+<author>Xavier Glorot</author>
+<author>Yoshua Bengio</author>
+<author>Pascal Vincent</author>
+</authors>
+<title>Adding noise to the input of a model trained with a regularized objective. arXiv preprint arXiv:1104.3250.</title>
+<date>2011</date>
+<contexts>
+<context position="2334" citStr="Rifai et al., 2011" startWordPosition="349" endWordPosition="352">e simple types of regularization penalize all features in a uniform way without taking into account the properties of the actual model. An alternative approach to regularization is to generate fake training data by adding random noise to the input features of the original training data. Intuitively, this can be thought of as simulating missBoth authors contributed equally to the paper ing features, whether due to typos or use of a previously unseen synonym. The effectiveness of this technique is well-known in machine learning (AbuMostafa, 1990; Burges and Scholkopf, 1997; Simard et al., 2000; Rifai et al., 2011a; van der Maaten et al., 2013), but working directly with many corrupted copies of a dataset can be computationally prohibitive. Fortunately, feature noising ideas often lead to tractable deterministic objectives that can be optimized directly. Sometimes, training with corrupted features reduces to a special form of regularization (Matsuoka, 1992; Bishop, 1995; Rifai et al., 2011b; Wager et al., 2013). For example, Bishop (1995) showed that training with features that have been corrupted with additive Gaussian noise is equivalent to a form of L2 regularization in the low noise limit. In other</context>
+</contexts>
+<marker>Rifai, Glorot, Bengio, Vincent, 2011</marker>
+<rawString>Salah Rifai, Xavier Glorot, Yoshua Bengio, and Pascal Vincent. 2011b. Adding noise to the input of a model trained with a regularized objective. arXiv preprint arXiv:1104.3250.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Patrice Y Simard</author>
+<author>Yann A Le Cun</author>
+<author>John S Denker</author>
+<author>Bernard Victorri</author>
+</authors>
+<title>Transformation invariance in pattern recognition: Tangent distance and propagation.</title>
+<date>2000</date>
+<journal>International Journal of Imaging Systems and Technology,</journal>
+<volume>11</volume>
+<issue>3</issue>
+<marker>Simard, Le Cun, Denker, Victorri, 2000</marker>
+<rawString>Patrice Y. Simard, Yann A. Le Cun, John S. Denker, and Bernard Victorri. 2000. Transformation invariance in pattern recognition: Tangent distance and propagation. International Journal of Imaging Systems and Technology, 11(3):181197.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andrew Smith</author>
+<author>Trevor Cohn</author>
+<author>Miles Osborne</author>
+</authors>
+<title>Logarithmic opinion pools for conditional random fields.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the 43rd Annual Meeting on Association for Computational Linguistics,</booktitle>
+<pages>18--25</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<contexts>
+<context position="3871" citStr="Smith et al., 2005" startWordPosition="602" endWordPosition="605">rediction, without actually having to generate noised data. We focus on dropout noise (Hinton et al., 2012), a recently popularized form of artificial feature noise where a random subset of features is omitted independently for each training example. Dropout and its variants have been shown to outperform L2 regularization on various tasks (Hinton et al., 2012; Wang and Manning, 2013; Wan et al., 2013). Dropout is is similar in spirit to feature bagging in the deliberate removal of features, but performs the removal in a preset way rather than randomly (Bryll et al., 2003; Sutton et al., 2005; Smith et al., 2005). 1170 \x0cOur approach is based on a second-order approximation to feature noising developed among others by Bishop (1995) and Wager et al. (2013), which allows us to convert dropout noise into a form of adaptive regularization. This method is suitable for structured prediction in log-linear models where second derivatives are computable. In particular, it can be used for multiclass classification with maximum entropy models (a.k.a., softmax or multinomial logistic regression) and for the sequence models that are ubiquitous in NLP, via linear chain Conditional Random Fields (CRFs). For linear</context>
+</contexts>
+<marker>Smith, Cohn, Osborne, 2005</marker>
+<rawString>Andrew Smith, Trevor Cohn, and Miles Osborne. 2005. Logarithmic opinion pools for conditional random fields. In Proceedings of the 43rd Annual Meeting on Association for Computational Linguistics, pages 18 25. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Charles Sutton</author>
+<author>Michael Sindelar</author>
+<author>Andrew McCallum</author>
+</authors>
+<title>Feature bagging: Preventing weight undertraining in structured discriminative learning.</title>
+<date>2005</date>
+<institution>Center for Intelligent Information Retrieval, U. of Massachusetts.</institution>
+<contexts>
+<context position="3850" citStr="Sutton et al., 2005" startWordPosition="598" endWordPosition="601">g-linear structured prediction, without actually having to generate noised data. We focus on dropout noise (Hinton et al., 2012), a recently popularized form of artificial feature noise where a random subset of features is omitted independently for each training example. Dropout and its variants have been shown to outperform L2 regularization on various tasks (Hinton et al., 2012; Wang and Manning, 2013; Wan et al., 2013). Dropout is is similar in spirit to feature bagging in the deliberate removal of features, but performs the removal in a preset way rather than randomly (Bryll et al., 2003; Sutton et al., 2005; Smith et al., 2005). 1170 \x0cOur approach is based on a second-order approximation to feature noising developed among others by Bishop (1995) and Wager et al. (2013), which allows us to convert dropout noise into a form of adaptive regularization. This method is suitable for structured prediction in log-linear models where second derivatives are computable. In particular, it can be used for multiclass classification with maximum entropy models (a.k.a., softmax or multinomial logistic regression) and for the sequence models that are ubiquitous in NLP, via linear chain Conditional Random Fiel</context>
+</contexts>
+<marker>Sutton, Sindelar, McCallum, 2005</marker>
+<rawString>Charles Sutton, Michael Sindelar, and Andrew McCallum. 2005. Feature bagging: Preventing weight undertraining in structured discriminative learning. Center for Intelligent Information Retrieval, U. of Massachusetts.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Erik</author>
+</authors>
+<title>Tjong Kim Sang and Fien De Meulder.</title>
+<date>2003</date>
+<marker>Erik, 2003</marker>
+<rawString>Erik F. Tjong Kim Sang and Fien De Meulder. 2003.</rawString>
+</citation>
+<citation valid="false">
+<title>Introduction to the conll-2003 shared task: languageindependent named entity recognition.</title>
+<booktitle>In Proceedings of the seventh conference on Natural language learning at HLT-NAACL 2003 - Volume 4, CONLL 03,</booktitle>
+<pages>142147</pages>
+<marker></marker>
+<rawString>Introduction to the conll-2003 shared task: languageindependent named entity recognition. In Proceedings of the seventh conference on Natural language learning at HLT-NAACL 2003 - Volume 4, CONLL 03, pages 142147.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Laurens van der Maaten</author>
+<author>Minmin Chen</author>
+<author>Stephen Tyree</author>
+<author>Kilian Q Weinberger</author>
+</authors>
+<title>Learning with marginalized corrupted features.</title>
+<date>2013</date>
+<booktitle>In Proceedings of the International Conference on Machine Learning.</booktitle>
+<marker>van der Maaten, Chen, Tyree, Weinberger, 2013</marker>
+<rawString>Laurens van der Maaten, Minmin Chen, Stephen Tyree, and Kilian Q. Weinberger. 2013. Learning with marginalized corrupted features. In Proceedings of the International Conference on Machine Learning.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Stefan Wager</author>
+<author>Sida Wang</author>
+<author>Percy Liang</author>
+</authors>
+<date>2013</date>
+<contexts>
+<context position="2739" citStr="Wager et al., 2013" startWordPosition="411" endWordPosition="414">ether due to typos or use of a previously unseen synonym. The effectiveness of this technique is well-known in machine learning (AbuMostafa, 1990; Burges and Scholkopf, 1997; Simard et al., 2000; Rifai et al., 2011a; van der Maaten et al., 2013), but working directly with many corrupted copies of a dataset can be computationally prohibitive. Fortunately, feature noising ideas often lead to tractable deterministic objectives that can be optimized directly. Sometimes, training with corrupted features reduces to a special form of regularization (Matsuoka, 1992; Bishop, 1995; Rifai et al., 2011b; Wager et al., 2013). For example, Bishop (1995) showed that training with features that have been corrupted with additive Gaussian noise is equivalent to a form of L2 regularization in the low noise limit. In other cases it is possible to develop a new objective function by marginalizing over the artificial noise (Wang and Manning, 2013; van der Maaten et al., 2013). The central contribution of this paper is to show how to efficiently simulate training with artificially noised features in the context of log-linear structured prediction, without actually having to generate noised data. We focus on dropout noise (</context>
+<context position="4018" citStr="Wager et al. (2013)" startWordPosition="626" endWordPosition="629">ial feature noise where a random subset of features is omitted independently for each training example. Dropout and its variants have been shown to outperform L2 regularization on various tasks (Hinton et al., 2012; Wang and Manning, 2013; Wan et al., 2013). Dropout is is similar in spirit to feature bagging in the deliberate removal of features, but performs the removal in a preset way rather than randomly (Bryll et al., 2003; Sutton et al., 2005; Smith et al., 2005). 1170 \x0cOur approach is based on a second-order approximation to feature noising developed among others by Bishop (1995) and Wager et al. (2013), which allows us to convert dropout noise into a form of adaptive regularization. This method is suitable for structured prediction in log-linear models where second derivatives are computable. In particular, it can be used for multiclass classification with maximum entropy models (a.k.a., softmax or multinomial logistic regression) and for the sequence models that are ubiquitous in NLP, via linear chain Conditional Random Fields (CRFs). For linear chain CRFs, we additionally show how we can use a noising scheme that takes advantage of the clique structure so that the resulting noising regula</context>
+<context position="5579" citStr="Wager et al. (2013)" startWordPosition="872" endWordPosition="875">structures in addition to the linear chain when the clique marginals can be computed efficiently. Finally, we extend feature noising for structured prediction to a transductive or semi-supervised setting. The regularizer induced by feature noising is label-independent for log-linear models, and so we can use unlabeled data to learn a better regularizer. NLP sequence labeling tasks are especially well suited to a semi-supervised approach, as input features are numerous but sparse, and labeled data is expensive to obtain but unlabeled data is abundant (Li and McCallum, 2005; Jiao et al., 2006). Wager et al. (2013) showed that semi-supervised dropout training for logistic regression captures a similar intuition to techniques such as entropy regularization (Grandvalet and Bengio, 2005) and transductive SVMs (Joachims, 1999), which encourage confident predictions on the unlabeled data. Semisupervised dropout has the advantage of only using the predicted label probabilities on the unlabeled data to modulate an L2 regularizer, rather than requiring more heavy-handed modeling of the unlabeled data as in entropy regularization or expectation regularization (Mann and McCallum, 2007). In experimental results, w</context>
+<context position="8754" citStr="Wager et al. (2013)" startWordPosition="1423" endWordPosition="1426">ective can be written as the sum of the original log-likelihood plus the difference in log-normalization constants: E[log p(y |x; )] = E[sy A(s)] (2) = log p(y |x; ) R(, x), (3) R(, x) def = E[A(s)] A(s). (4) Since A() is convex, R(, x) is always positive by Jensens inequality and can therefore be interpreted as a regularizer. Note that R(, x) is in general nonconvex. Computing the regularizer (4) requires summing over all possible noised feature vectors, which can imply exponential effort in the number of features. This is intractable even for flat classification. Following Bishop (1995) and Wager et al. (2013), we approximate R(, x) using a second-order Taylor expansion, which will allow us to work with only means and covariances of the noised features. We take a quadratic approximation of the log-partition function A() of the noised score vector s around the the unnoised score vector s: A(s) u A(s) + A(s)&gt; (s s) (5) + 1 2 (s s)&gt; 2 A(s)(s s). Plugging (5) into (4), we obtain a new regularizer Rq(, x), which we will use as an approximation to R(, x): Rq (, x) = 1 2 E[(s s)&gt; 2 A(s)(s s)] (6) = 1 2 tr(2 A(s) Cov(s)). (7) This expression still has two sources of potential intractability, a sum over an </context>
+<context position="11675" citStr="Wager et al., 2013" startWordPosition="1958" endWordPosition="1961"> Var[sy] = P j 22 yj. Dropout: f(y, x) = f(y, x) \x0c z, where \x0c takes the elementwise product of two vectors. Here, z is a vector with independent components which has zi = 0 with probability , zi = 1 1 with probability 1 . In this case, Var[sy] = P j gj(x)2 1 2 yj. Multiplicative Gaussian: f(y, x) = f(y, x) \x0c (1 + ), where N(0, 2Idd). Here, Var[sy] = P j gj(x)222 yj. Note that under our secondorder approximation Rq(, x), the multiplicative Gaussian and dropout schemes are equivalent, but they differ under the original regularizer R(, x). 2.1 Semi-supervised learning A key observation (Wager et al., 2013) is that the noising regularizer R (8), while involving a sum over examples, is independent of the output y. This suggests estimating R using unlabeled data. Specifically, if we have n labeled examples D = {x1, x2, . . . , xn} and m unlabeled examples Dunlabeled = {u1, u2, . . . , un}, then we can define a regularizer that is a linear combination the regularizer estimated on both datasets, with tuning the tradeoff between the two: R(, D, Dunlabeled) (11) def = n n + m \x10 n X i=1 R(, xi) + m X i=1 R(, ui) \x11 . 3 Feature Noising in Linear-Chain CRFs So far, we have developed a regularizer th</context>
+</contexts>
+<marker>Wager, Wang, Liang, 2013</marker>
+<rawString>Stefan Wager, Sida Wang, and Percy Liang. 2013.</rawString>
+</citation>
+<citation valid="false">
+<title>Dropout training as adaptive regularization. arXiv preprint:1307.1493.</title>
+<marker></marker>
+<rawString>Dropout training as adaptive regularization. arXiv preprint:1307.1493.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Li Wan</author>
+<author>Matthew Zeiler</author>
+<author>Sixin Zhang</author>
+<author>Yann LeCun</author>
+<author>Rob Fergus</author>
+</authors>
+<title>Regularization of neural networks using dropconnect.</title>
+<date>2013</date>
+<booktitle>In Proceedings of the International Conference on Machine learning.</booktitle>
+<contexts>
+<context position="3656" citStr="Wan et al., 2013" startWordPosition="561" endWordPosition="564">g and Manning, 2013; van der Maaten et al., 2013). The central contribution of this paper is to show how to efficiently simulate training with artificially noised features in the context of log-linear structured prediction, without actually having to generate noised data. We focus on dropout noise (Hinton et al., 2012), a recently popularized form of artificial feature noise where a random subset of features is omitted independently for each training example. Dropout and its variants have been shown to outperform L2 regularization on various tasks (Hinton et al., 2012; Wang and Manning, 2013; Wan et al., 2013). Dropout is is similar in spirit to feature bagging in the deliberate removal of features, but performs the removal in a preset way rather than randomly (Bryll et al., 2003; Sutton et al., 2005; Smith et al., 2005). 1170 \x0cOur approach is based on a second-order approximation to feature noising developed among others by Bishop (1995) and Wager et al. (2013), which allows us to convert dropout noise into a form of adaptive regularization. This method is suitable for structured prediction in log-linear models where second derivatives are computable. In particular, it can be used for multiclas</context>
+</contexts>
+<marker>Wan, Zeiler, Zhang, LeCun, Fergus, 2013</marker>
+<rawString>Li Wan, Matthew Zeiler, Sixin Zhang, Yann LeCun, and Rob Fergus. 2013. Regularization of neural networks using dropconnect. In Proceedings of the International Conference on Machine learning.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sida Wang</author>
+<author>Christopher D Manning</author>
+</authors>
+<title>Fast dropout training.</title>
+<date>2013</date>
+<booktitle>In Proceedings of the International Conference on Machine Learning.</booktitle>
+<contexts>
+<context position="3058" citStr="Wang and Manning, 2013" startWordPosition="463" endWordPosition="466">omputationally prohibitive. Fortunately, feature noising ideas often lead to tractable deterministic objectives that can be optimized directly. Sometimes, training with corrupted features reduces to a special form of regularization (Matsuoka, 1992; Bishop, 1995; Rifai et al., 2011b; Wager et al., 2013). For example, Bishop (1995) showed that training with features that have been corrupted with additive Gaussian noise is equivalent to a form of L2 regularization in the low noise limit. In other cases it is possible to develop a new objective function by marginalizing over the artificial noise (Wang and Manning, 2013; van der Maaten et al., 2013). The central contribution of this paper is to show how to efficiently simulate training with artificially noised features in the context of log-linear structured prediction, without actually having to generate noised data. We focus on dropout noise (Hinton et al., 2012), a recently popularized form of artificial feature noise where a random subset of features is omitted independently for each training example. Dropout and its variants have been shown to outperform L2 regularization on various tasks (Hinton et al., 2012; Wang and Manning, 2013; Wan et al., 2013). </context>
+<context position="22928" citStr="Wang and Manning (2013)" startWordPosition="3928" endWordPosition="3931">irds that we use as a training set, a test set and an unlabeled dataset. Results are given in Table 3. In most cases, our semi-supervised accuracies are lower than the transductive accuracies given in Table 2; this is normal in our setup, because we used less labeled data to train the semi-supervised classifier than the transductive one.4 5.1.2 The Second-Order Approximation The results reported above all rely on the approximate dropout regularizer (8) that is based on a second-order Taylor expansion. To test the validity of this approximation we compare it to the Gaussian method developed by Wang and Manning (2013) on a two-class classification task. We use the 20-newsgroups alt.atheism vs soc.religion.christian classification task; results are shown in Figure 2. There are 1427 exam4 The CoNNL results look somewhat surprising, as the semisupervised results are better than the transductive ones. The reason for this is that the original CoNLL test set came from a different distributions than the training set, and this made the task more difficult. Meanwhile, in our semi-supervised experiment, the test and train sets are drawn from the same distribution and so our semi-supervised task is actually easier th</context>
+<context position="24228" citStr="Wang and Manning, 2013" startWordPosition="4151" endWordPosition="4154">0news 20 76.55 79.07 80.47 RCV14 4 94.76 94.79 95.16 R21578 65 90.67 91.24 90.30 TDT2 30 97.34 97.54 97.89 Table 3: Semisupervised learning results on some standard datasets. A third (33%) of the full dataset was used for training, a third for testing, and the rest as unlabeled. 10 6 10 4 10 2 10 0 10 2 0.78 0.8 0.82 0.84 0.86 0.88 0.9 L2 regularization strength () Accuracy L2 only L2+Gaussian dropout L2+Quadratic dropout Figure 2: Effect of in kk2 2 on the testset performance. Plotted is the test set accuracy with logistic regression as a function of for the L2 regularizer, Gaussian dropout (Wang and Manning, 2013) + additional L2, and quadratic dropout (8) + L2 described in this paper. The default noising regularizer is quite good, and additional L2 does not help. Notice that no choice of in L2 can help us combat overfitting as effectively as (8) without underfitting. ples with 22178 features, split evenly and randomly into a training set and a test set. Over a broad range of values, we find that dropout plus L2 regularization performs far better than using just L2 regularization for any value of . We see that Gaussian dropout appears to perform slightly better than the quadratic approximation discusse</context>
+</contexts>
+<marker>Wang, Manning, 2013</marker>
+<rawString>Sida Wang and Christopher D. Manning. 2013. Fast dropout training. In Proceedings of the International Conference on Machine Learning.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

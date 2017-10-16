@@ -1,0 +1,1224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.248952">
+b&amp;apos;Proceedings of ACL-08: HLT, pages 263271,
+Columbus, Ohio, USA, June 2008. c
+</bodyText>
+<sectionHeader confidence="0.337986" genericHeader="abstract">
+2008 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.925839">
+Learning Document-Level Semantic Properties from Free-text Annotations
+</title>
+<author confidence="0.917367">
+S.R.K. Branavan Harr Chen Jacob Eisenstein Regina Barzilay
+</author>
+<affiliation confidence="0.9850995">
+Computer Science and Artificial Intelligence Laboratory
+Massachusetts Institute of Technology
+</affiliation>
+<email confidence="0.984406">
+{branavan, harr, jacobe, regina}@csail.mit.edu
+</email>
+<sectionHeader confidence="0.990408" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999481">
+This paper demonstrates a new method for
+leveraging free-text annotations to infer se-
+mantic properties of documents. Free-text an-
+notations are becoming increasingly abundant,
+due to the recent dramatic growth in semi-
+structured, user-generated online content. An
+example of such content is product reviews,
+which are often annotated by their authors
+with pros/cons keyphrases such as a real bar-
+gain or good value. To exploit such noisy
+annotations, we simultaneously find a hid-
+den paraphrase structure of the keyphrases, a
+model of the document texts, and the underly-
+ing semantic properties that link the two. This
+allows us to predict properties of unannotated
+documents. Our approach is implemented as
+a hierarchical Bayesian model with joint in-
+ference, which increases the robustness of the
+keyphrase clustering and encourages the doc-
+ument model to correlate with semantically
+meaningful properties. We perform several
+evaluations of our model, and find that it sub-
+stantially outperforms alternative approaches.
+</bodyText>
+<sectionHeader confidence="0.99831" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.994123368421053">
+A central problem in language understanding is
+transforming raw text into structured representa-
+tions. Learning-based approaches have dramatically
+increased the scope and robustness of this type of
+automatic language processing, but they are typi-
+cally dependent on large expert-annotated datasets,
+which are costly to produce. In this paper, we show
+how novice-generated free-text annotations avail-
+able online can be leveraged to automatically infer
+document-level semantic properties.
+With the rapid increase of online content cre-
+ated by end users, noisy free-text annotations have
+pros/cons: great nutritional value
+... combines it all: an amazing product, quick and
+friendly service, cleanliness, great nutrition ...
+pros/cons: a bit pricey, healthy
+... is an awesome place to go if you are health con-
+scious. They have some really great low calorie dishes
+and they publish the calories and fat grams per serving.
+</bodyText>
+<figureCaption confidence="0.959457">
+Figure 1: Excerpts from online restaurant reviews with
+</figureCaption>
+<bodyText confidence="0.970680653846154">
+pros/cons phrase lists. Both reviews discuss healthiness,
+but use different keyphrases.
+become widely available (Vickery and Wunsch-
+Vincent, 2007; Sterling, 2005). For example, con-
+sider reviews of consumer products and services.
+Often, such reviews are annotated with keyphrase
+lists of pros and cons. We would like to use these
+keyphrase lists as training labels, so that the proper-
+ties of unannotated reviews can be predicted. Hav-
+ing such a system would facilitate structured access
+and summarization of this data. However, novice-
+generated keyphrase annotations are incomplete de-
+scriptions of their corresponding review texts. Fur-
+thermore, they lack consistency: the same under-
+lying property may be expressed in many ways,
+e.g., healthy and great nutritional value (see Fig-
+ure 1). To take advantage of such noisy labels, a sys-
+tem must both uncover their hidden clustering into
+properties, and learn to predict these properties from
+review text.
+This paper presents a model that addresses both
+problems simultaneously. We assume that both the
+document text and the selection of keyphrases are
+governed by the underlying hidden properties of the
+document. Each property indexes a language model,
+thus allowing documents that incorporate the same
+</bodyText>
+<page confidence="0.99525">
+263
+</page>
+<bodyText confidence="0.999341956521739">
+\x0cproperty to share similar features. In addition, each
+keyphrase is associated with a property; keyphrases
+that are associated with the same property should
+have similar distributional and surface features.
+We link these two ideas in a joint hierarchical
+Bayesian model. Keyphrases are clustered based
+on their distributional and lexical properties, and a
+hidden topic model is applied to the document text.
+Crucially, the keyphrase clusters and document top-
+ics are linked, and inference is performed jointly.
+This increases the robustness of the keyphrase clus-
+tering, and ensures that the inferred hidden topics
+are indicative of salient semantic properties.
+Our model is broadly applicable to many scenar-
+ios where documents are annotated in a noisy man-
+ner. In this work, we apply our method to a col-
+lection of reviews in two categories: restaurants and
+cell phones. The training data consists of review text
+and the associated pros/cons lists. We then evaluate
+the ability of our model to predict review properties
+when the pros/cons list is hidden. Across a variety
+of evaluation scenarios, our algorithm consistently
+outperforms alternative strategies by a wide margin.
+</bodyText>
+<sectionHeader confidence="0.999599" genericHeader="related work">
+2 Related Work
+</sectionHeader>
+<bodyText confidence="0.995599">
+Review Analysis Our approach relates to previous
+work on property extraction from reviews (Popescu
+et al., 2005; Hu and Liu, 2004; Kim and Hovy,
+2006). These methods extract lists of phrases, which
+are analogous to the keyphrases we use as input
+to our algorithm. However, our approach is dis-
+tinguished in two ways: first, we are able to pre-
+dict keyphrases beyond those that appear verbatim
+in the text. Second, our approach learns the rela-
+tionships between keyphrases, allowing us to draw
+direct comparisons between reviews.
+Bayesian Topic Modeling One aspect of our
+model views properties as distributions over words
+in the document. This approach is inspired by meth-
+ods in the topic modeling literature, such as Latent
+Dirichlet Allocation (LDA) (Blei et al., 2003), where
+topics are treated as hidden variables that govern the
+distribution of words in a text. Our algorithm ex-
+tends this notion by biasing the induced hidden top-
+ics toward a clustering of known keyphrases. Tying
+these two information sources together enhances the
+robustness of the hidden topics, thereby increasing
+the chance that the induced structure corresponds to
+semantically meaningful properties.
+Recent work has examined coupling topic mod-
+els with explicit supervision (Blei and McAuliffe,
+2007; Titov and McDonald, 2008). However, such
+approaches assume that the documents are labeled
+within a predefined annotation structure, e.g., the
+properties of food, ambiance, and service for restau-
+rants. In contrast, we address free-text annotations
+created by end users, without known semantic prop-
+erties. Rather than requiring a predefined annotation
+structure, our model infers one from the data.
+</bodyText>
+<sectionHeader confidence="0.989119" genericHeader="method">
+3 Problem Formulation
+</sectionHeader>
+<bodyText confidence="0.999789538461538">
+We formulate our problem as follows. We assume
+a dataset composed of documents with associated
+keyphrases. Each document may be marked with
+multiple keyphrases that express unseen semantic
+properties. Across the entire collection, several
+keyphrases may express the same property. The
+keyphrases are also incomplete review texts of-
+ten express properties that are not mentioned in their
+keyphrases. At training time, our model has access
+to both text and keyphrases; at test time, the goal is
+to predict the properties supported by a previously
+unseen document. We can then use this property list
+to generate an appropriate set of keyphrases.
+</bodyText>
+<sectionHeader confidence="0.994612" genericHeader="method">
+4 Model Description
+</sectionHeader>
+<bodyText confidence="0.9996475">
+Our approach leverages both keyphrase clustering
+and distributional analysis of the text in a joint, hi-
+erarchical Bayesian model. Keyphrases are drawn
+from a set of clusters; words in the documents are
+drawn from language models indexed by a set of
+topics, where the topics correspond to the keyphrase
+clusters. Crucially, we bias the assignment of hid-
+den topics in the text to be similar to the topics rep-
+resented by the keyphrases of the document, but we
+permit some words to be drawn from other topics
+not represented by the keyphrases. This flexibility in
+the coupling allows the model to learn effectively in
+the presence of incomplete keyphrase annotations,
+while still encouraging the keyphrase clustering to
+cohere with the topics supported by the text.
+We train the model on documents annotated with
+keyphrases. During training, we learn a hidden
+topic model from the text; each topic is also asso-
+</bodyText>
+<page confidence="0.998436">
+264
+</page>
+<bodyText confidence="0.813447">
+\x0c keyphrase cluster model
+x keyphrase cluster assignment
+s keyphrase similarity values
+h document keyphrases
+document keyphrase topics
+probability of selecting instead of
+c selects between and for word topics
+document topic model
+z word topic assignment
+language models of each topic
+</bodyText>
+<equation confidence="0.977408333333333">
+w document words
+Dirichlet(0)
+xl Multinomial()
+sl,l
+(
+Beta(=) if xl = xl
+Beta(6=) otherwise
+d = [d,1 . . . d,K]
+T
+where
+d,k
+(
+1 if xl = k for any l hd
+0 otherwise
+Beta(0)
+cd,n Bernoulli()
+d Dirichlet(0)
+zd,n
+(
+Multinomial(d) if cd,n = 1
+Multinomial(d) otherwise
+k Dirichlet(0)
+wd,n Multinomial(zd,n
+)
+</equation>
+<figureCaption confidence="0.997249">
+Figure 2: The plate diagram for our model. Shaded circles denote observed variables, and squares denote hyper
+</figureCaption>
+<bodyText confidence="0.9996188">
+parameters. The dotted arrows indicate that is constructed deterministically from x and h.
+ciated with a cluster of keyphrases. At test time,
+we are presented with documents that do not con-
+tain keyphrase annotations. The hidden topic model
+of the review text is used to determine the proper-
+ties that a document as a whole supports. For each
+property, we compute the proportion of the docu-
+ments words assigned to it. Properties with propor-
+tions above a set threshold (tuned on a development
+set) are predicted as being supported.
+</bodyText>
+<subsectionHeader confidence="0.997404">
+4.1 Keyphrase Clustering
+</subsectionHeader>
+<bodyText confidence="0.996638142857143">
+One of our goals is to cluster the keyphrases, such
+that each cluster corresponds to a well-defined prop-
+erty. We represent each distinct keyphrase as a vec-
+tor of similarity scores computed over the set of
+observed keyphrases; these scores are represented
+by s in Figure 2, the plate diagram of our model.1
+Modeling the similarity matrix rather than the sur-
+</bodyText>
+<page confidence="0.892445">
+1
+</page>
+<bodyText confidence="0.999263625">
+We assume that similarity scores are conditionally inde-
+pendent given the keyphrase clustering, though the scores are
+in fact related. Such simplifying assumptions have been previ-
+ously used with success in NLP (e.g., Toutanova and Johnson,
+2007), though a more theoretically sound treatment of the sim-
+ilarity matrix is an area for future research.
+face forms allows arbitrary comparisons between
+keyphrases, e.g., permitting the use of both lexical
+and distributional information. The lexical com-
+parison is based on the cosine similarity between
+the keyphrase words. The distributional similar-
+ity is quantified in terms of the co-occurrence of
+keyphrases across review texts. Our model is inher-
+ently capable of using any arbitrary source of simi-
+larity information; for a discussion of similarity met-
+rics, see Lin (1998).
+</bodyText>
+<subsectionHeader confidence="0.998949">
+4.2 Document-level Distributional Analysis
+</subsectionHeader>
+<bodyText confidence="0.993336363636364">
+Our analysis of the document text is based on proba-
+bilistic topic models such as LDA (Blei et al., 2003).
+In the LDA framework, each word is generated from
+a language model that is indexed by the words topic
+assignment. Thus, rather than identifying a single
+topic for a document, LDA identifies a distribution
+over topics.
+Our word model operates similarly, identifying a
+topic for each word, written as z in Figure 2. To
+tie these topics to the keyphrases, we deterministi-
+cally construct a document-specific topic distribu-
+</bodyText>
+<page confidence="0.99257">
+265
+</page>
+<bodyText confidence="0.994846333333333">
+\x0ction from the clusters represented by the documents
+keyphrases this is in the figure. assigns equal
+probability to all topics that are represented in the
+keyphrases, and a small smoothing probability to
+other topics.
+As noted above, properties may be expressed in
+the text even when no related keyphrase appears. For
+this reason, we also construct a document-specific
+topic distribution . The auxiliary variable c indi-
+cates whether a given words topic is drawn from
+the set of keyphrase clusters, or from this topic dis-
+tribution.
+</bodyText>
+<subsectionHeader confidence="0.686549">
+4.3 Generative Process
+</subsectionHeader>
+<bodyText confidence="0.992543090909091">
+In this section, we describe the underlying genera-
+tive process more formally.
+First we consider the set of all keyphrases ob-
+served across the entire corpus, of which there are
+L. We draw a multinomial distribution over the K
+keyphrase clusters from a symmetric Dirichlet prior
+0. Then for the lth keyphrase, a cluster assign-
+ment xl is drawn from the multinomial . Finally,
+the similarity matrix s [0, 1]LL is constructed.
+Each entry sl,l is drawn independently, depending
+on the cluster assignments xl and xl . Specifically,
+sl,l is drawn from a Beta distribution with parame-
+ters = if xl = xl and 6= otherwise. The parame-
+ters = linearly bias sl,l towards one (Beta(=)
+Beta(2, 1)), and the parameters 6= linearly bias sl,l
+towards zero (Beta(6=) Beta(1, 2)).
+Next, the words in each of the D documents
+are generated. Document d has Nd words; zd,n is
+the topic for word wd,n. These latent topics are
+drawn either from the set of clusters represented by
+the documents keyphrases, or from the documents
+topic model d. We deterministically construct a
+document-specific keyphrase topic model d, based
+on the keyphrase cluster assignments x and the ob-
+served keyphrases hd. The multinomial d assigns
+equal probability to each topic that is represented by
+a phrase in hd, and a small probability to other top-
+ics.
+As noted earlier, a documents text may support
+properties that are not mentioned in its observed
+keyphrases. For that reason, we draw a document
+topic multinomial d from a symmetric Dirichlet
+prior 0. The binary auxiliary variable cd,n deter-
+mines whether the words topic is drawn from the
+keyphrase model d or the document topic model
+d. cd,n is drawn from a weighted coin flip, with
+probability ; is drawn from a Beta distribution
+with prior 0. We have zd,n d if cd,n = 1,
+and zd,n d otherwise. Finally, the word wd,n
+is drawn from the multinomial zd,n
+, where zd,n in-
+dexes a topic-specific language model. Each of the
+K language models k is drawn from a symmetric
+Dirichlet prior 0.
+</bodyText>
+<sectionHeader confidence="0.90293" genericHeader="method">
+5 Posterior Sampling
+</sectionHeader>
+<bodyText confidence="0.995402222222222">
+Ultimately, we need to compute the models poste-
+rior distribution given the training data. Doing so
+analytically is intractable due to the complexity of
+the model, but sampling-based techniques can be
+used to estimate the posterior. We employ Gibbs
+sampling, previously used in NLP by Finkel et al.
+(2005) and Goldwater et al. (2006), among others.
+This technique repeatedly samples from the condi-
+tional distributions of each hidden variable, eventu-
+ally converging on a Markov chain whose stationary
+distribution is the posterior distribution of the hid-
+den variables in the model (Gelman et al., 2004).
+We now present sampling equations for each of the
+hidden variables in Figure 2.
+The prior over keyphrase clusters is sampled
+based on hyperprior 0 and keyphrase cluster as-
+signments x. We write p(  |. . .) to mean the prob-
+ability conditioned on all the other variables.
+</bodyText>
+<equation confidence="0.999334466666667">
+p(  |. . .) p(  |0)p(x  |),
+= p(  |0)
+L
+Y
+l
+p(xl  |)
+= Dir(; 0)
+L
+Y
+l
+Mul(xl; )
+= Dir(;
+),
+where
+i = 0 + count(xl = i). This update rule
+</equation>
+<bodyText confidence="0.972000166666667">
+is due to the conjugacy of the multinomial to the
+Dirichlet distribution. The first line follows from
+Bayes rule, and the second line from the conditional
+independence of each keyphrase assignment xl from
+the others, given .
+d and k are resampled in a similar manner:
+</bodyText>
+<equation confidence="0.981826230769231">
+p(d  |. . .) Dir(d;
+d),
+p(k  |. . .) Dir(k;
+k),
+266
+\x0cp(xl  |. . .) p(xl  |)p(s  |xl, xl, )p(z  |, , c)
+p(xl  |)
+Y
+l6=l
+p(sl,l  |xl, xl , )
+D
+Y
+d
+Y
+cd,n=1
+p(zd,n  |d)
+= Mul(xl; )
+Y
+l6=l
+Beta(sl,l ; xl,xl )
+D
+Y
+d
+Y
+cd,n=1
+Mul(zd,n; d)
+</equation>
+<figureCaption confidence="0.989961">
+Figure 3: The resampling equation for the keyphrase cluster assignments.
+</figureCaption>
+<equation confidence="0.9715572">
+where
+d,i = 0 + count(zd,n = i cd,n = 0)
+and
+k,i = 0 +
+P
+</equation>
+<bodyText confidence="0.974974333333333">
+d count(wd,n = i zd,n = k). In
+building the counts for
+d,i, we consider only cases
+in which cd,n = 0, indicating that the topic zd,n is
+indeed drawn from the document topic model d.
+Similarly, when building the counts for
+k, we con-
+sider only cases in which the word wd,n is drawn
+from topic k.
+To resample , we employ the conjugacy of the
+Beta prior to the Bernoulli observation likelihoods,
+adding counts of c to the prior 0.
+</bodyText>
+<equation confidence="0.99572">
+p(  |. . .) Beta(;
+),
+where = 0 +
+\x14 P
+d count(cd,n = 1)
+P
+d count(cd,n = 0)
+\x15
+.
+</equation>
+<bodyText confidence="0.9965016">
+The keyphrase cluster assignments are repre-
+sented by x, whose sampling distribution depends
+on , s, and z, via . The equation is shown in Fig-
+ure 3. The first term is the prior on xl. The second
+term encodes the dependence of the similarity ma-
+trix s on the cluster assignments; with slight abuse of
+notation, we write xl,xl to denote = if xl = xl ,
+and 6= otherwise. The third term is the dependence
+of the word topics zd,n on the topic distribution d.
+We compute the final result of Figure 3 for each pos-
+sible setting of xl, and then sample from the normal-
+ized multinomial.
+The word topics z are sampled according to
+keyphrase topic distribution d, document topic dis-
+tribution d, words w, and auxiliary variables c:
+</bodyText>
+<equation confidence="0.957867625">
+p(zd,n  |. . .)
+p(zd,n  |d, d, cd,n)p(wd,n  |zd,n, )
+=
+(
+Mul(zd,n; d)Mul(wd,n; zd,n
+) if cd,n = 1,
+Mul(zd,n; d)Mul(wd,n; zd,n
+) otherwise.
+</equation>
+<bodyText confidence="0.9993655">
+As with xl, each zd,n is sampled by computing
+the conditional likelihood of each possible setting
+within a constant of proportionality, and then sam-
+pling from the normalized multinomial.
+Finally, we sample each auxiliary variable cd,n,
+which indicates whether the hidden topic zd,n is
+drawn from d or d. The conditional probability
+for cd,n depends on its prior and the hidden topic
+</bodyText>
+<equation confidence="0.923308571428571">
+assignments zd,n:
+p(cd,n  |. . .)
+p(cd,n  |)p(zd,n  |d, d, cd,n)
+=
+(
+Bern(cd,n; )Mul(zd,n; d) if cd,n = 1,
+Bern(cd,n; )Mul(zd,n; d) otherwise.
+</equation>
+<bodyText confidence="0.998863333333333">
+We compute the likelihood of cd,n = 0 and cd,n = 1
+within a constant of proportionality, and then sample
+from the normalized Bernoulli distribution.
+</bodyText>
+<sectionHeader confidence="0.979861" genericHeader="method">
+6 Experimental Setup
+</sectionHeader>
+<bodyText confidence="0.961491357142857">
+Data Sets We evaluate our system on reviews from
+two categories, restaurants and cell phones. These
+reviews were downloaded from the popular Epin-
+ions2 website. Users of this website evaluate prod-
+ucts by providing both a textual description of their
+opinion, as well as concise lists of keyphrases (pros
+and cons) summarizing the review. The statistics of
+this dataset are provided in Table 1. For each of
+the categories, we randomly selected 50%, 15%, and
+35% of the documents as training, development, and
+test sets, respectively.
+Manual analysis of this data reveals that authors
+often omit properties mentioned in the text from
+the list of keyphrases. To obtain a complete gold
+</bodyText>
+<equation confidence="0.2666995">
+2
+http://www.epinions.com/
+</equation>
+<page confidence="0.961818">
+267
+</page>
+<table confidence="0.98365875">
+\x0cRestaurants Cell Phones
+# of reviews 3883 1112
+Avg. review length 916.9 1056.9
+Avg. keyphrases / review 3.42 4.91
+</table>
+<tableCaption confidence="0.999039">
+Table 1: Statistics of the reviews dataset by category.
+</tableCaption>
+<bodyText confidence="0.999425784090909">
+standard, we hand-annotated a subset of the reviews
+from the restaurant category. The annotation effort
+focused on eight commonly mentioned properties,
+such as those underlying the keyphrases pleasant
+atmosphere and attentive staff. Two raters anno-
+tated 160 reviews, 30 of which were annotated by
+both. Cohens kappa, a measure of interrater agree-
+ment ranging from zero to one, was 0.78 for this sub-
+set, indicating high agreement (Cohen, 1960).
+Each review was annotated with 2.56 properties
+on average. Each manually-annotated property cor-
+responded to an average of 19.1 keyphrases in the
+restaurant data, and 6.7 keyphrases in the cell phone
+data. This supports our intuition that a single se-
+mantic property may be expressed using a variety of
+different keyphrases.
+Training Our model needs to be provided with the
+number of clusters K. We set K large enough for the
+model to learn effectively on the development set.
+For the restaurant data where the gold standard
+identified eight semantic properties we set K to
+20, allowing the model to account for keyphrases not
+included in the eight most common properties. For
+the cell phones category, we set K to 30.
+To improve the models convergence rate, we per-
+form two initialization steps for the Gibbs sampler.
+First, sampling is done only on the keyphrase clus-
+tering component of the model, ignoring document
+text. Second, we fix this clustering and sample the
+remaining model parameters. These two steps are
+run for 5,000 iterations each. The full joint model
+is then sampled for 100,000 iterations. Inspection
+of the parameter estimates confirms model conver-
+gence. On a 2GHz dual-core desktop machine, a
+multi-threaded C++ implementation of model train-
+ing takes about two hours for each dataset.
+Inference The final point estimate used for test-
+ing is an average (for continuous variables) or a
+mode (for discrete variables) over the last 1,000
+Gibbs sampling iterations. Averaging is a heuris-
+tic that is applicable in our case because our sam-
+ple histograms are unimodal and exhibit low skew.
+The model usually works equally well using single-
+sample estimates, but is more prone to estimation
+noise.
+As previously mentioned, we convert word topic
+assignments to document properties by examining
+the proportion of words supporting each property. A
+threshold for this proportion is set for each property
+via the development set.
+Evaluation Our first evaluation examines the ac-
+curacy of our model and the baselines by compar-
+ing their output against the keyphrases provided by
+the review authors. More specifically, the model
+first predicts the properties supported by a given re-
+view. We then test whether the original authors
+keyphrases are contained in the clusters associated
+with these properties.
+As noted above, the authors keyphrases are of-
+ten incomplete. To perform a noise-free compari-
+son, we based our second evaluation on the man-
+ually constructed gold standard for the restaurant
+category. We took the most commonly observed
+keyphrase from each of the eight annotated proper-
+ties, and tested whether they are supported by the
+model based on the document text.
+In both types of evaluation, we measure the
+models performance using precision, recall, and F-
+score. These are computed in the standard manner,
+based on the models keyphrase predictions com-
+pared against the corresponding references. The
+sign test was used for statistical significance test-
+ing (De Groot and Schervish, 2001).
+Baselines To the best of our knowledge, this task
+not been previously addressed in the literature. We
+therefore consider five baselines that allow us to ex-
+plore the properties of this task and our model.
+Random: Each keyphrase is supported by a doc-
+ument with probability of one half. This baselines
+results are computed (in expectation) rather than ac-
+tually run. This method is expected to have a recall
+of 0.5, because in expectation it will select half of
+the correct keyphrases. Its precision is the propor-
+tion of supported keyphrases in the test set.
+Phrase in text: A keyphrase is supported by a doc-
+ument if it appears verbatim in the text. Because of
+this narrow requirement, precision should be high
+whereas recall will be low.
+</bodyText>
+<page confidence="0.99762">
+268
+</page>
+<table confidence="0.9951336">
+\x0cRestaurants Restaurants Cell Phones
+gold standard annotation free-text annotation free-text annotation
+Recall Prec. F-score Recall Prec. F-score Recall Prec. F-score
+Random 0.500 0.300 0.375 0.500 0.500 0.500 0.500 0.489 0.494
+Phrase in text 0.048 0.500 0.087 0.078 0.909 0.144 0.171 0.529 0.259
+Cluster in text 0.223 0.534 0.314 0.517 0.640 0.572 0.829 0.547 0.659
+Phrase classifier 0.028 0.636 0.053 0.068 0.963 0.126 0.029 0.600 0.055
+Cluster classifier 0.113 0.622 0.192 0.255 0.907 0.398 0.210 0.759 0.328
+Our model 0.625 0.416 0.500 0.901 0.652 0.757 0.886 0.585 0.705
+Our model + gold clusters 0.582 0.398 0.472 0.795 0.627 0.701 0.886 0.520 0.655
+</table>
+<tableCaption confidence="0.653465">
+Table 2: Comparison of the property predictions made by our model and the baselines in the two categories as evaluated
+against the gold and free-text annotations. Results for our model using the fixed, manually-created gold clusterings are
+also shown. The methods against which our model has significantly better results on the sign test are indicated with a
+</tableCaption>
+<bodyText confidence="0.984117275862069">
+for p &amp;lt;= 0.05, and for p &amp;lt;= 0.1.
+Cluster in text: A keyphrase is supported by a
+document if it or any of its paraphrases appears in
+the text. Paraphrasing is based on our models clus-
+tering of the keyphrases. The use of paraphrasing
+information enhances recall at the potential cost of
+precision, depending on the quality of the clustering.
+Phrase classifier: Discriminative classifiers are
+trained for each keyphrase. Positive examples are
+documents that are labeled with the keyphrase;
+all other documents are negative examples. A
+keyphrase is supported by a document if that
+keyphrases classifier returns positive.
+Cluster classifier: Discriminative classifiers are
+trained for each cluster of keyphrases, using our
+models clustering. Positive examples are docu-
+ments that are labeled with any keyphrase from the
+cluster; all other documents are negative examples.
+All keyphrases of a cluster are supported by a docu-
+ment if that clusters classifier returns positive.
+Phrase classifier and cluster classifier employ
+maximum entropy classifiers, trained on the same
+features as our model, i.e., word counts. The former
+is high-precision/low-recall, because for any partic-
+ular keyphrase, its synonymous keyphrases would
+be considered negative examples. The latter broad-
+ens the positive examples, which should improve re-
+call. We used Zhang Les MaxEnt toolkit3 to build
+these classifiers.
+</bodyText>
+<figure confidence="0.314108666666667">
+3
+http://homepages.inf.ed.ac.uk/s0450736/
+maxent_toolkit.html
+</figure>
+<sectionHeader confidence="0.999183" genericHeader="evaluation">
+7 Results
+</sectionHeader>
+<bodyText confidence="0.999279806451613">
+Comparative performance Table 2 presents the
+results of the evaluation scenarios described above.
+Our model outperforms every baseline by a wide
+margin in all evaluations.
+The absolute performance of the automatic meth-
+ods indicates the difficulty of the task. For instance,
+evaluation against gold standard annotations shows
+that the random baseline outperforms all of the other
+baselines. We observe similar disappointing results
+for the non-random baselines against the free-text
+annotations. The precision and recall characteristics
+of the baselines match our previously described ex-
+pectations.
+The poor performance of the discriminative mod-
+els seems surprising at first. However, these re-
+sults can be explained by the degree of noise in
+the training data, specifically, the aforementioned
+sparsity of free-text annotations. As previously de-
+scribed, our technique allows document text topics
+to stochastically derive from either the keyphrases or
+a background distribution this allows our model
+to learn effectively from incomplete annotations. In
+fact, when we force all text topics to derive from
+keyphrase clusters in our model, its performance de-
+grades to the level of the classifiers or worse, with
+an F-score of 0.390 in the restaurant category and
+0.171 in the cell phone category.
+Impact of paraphrasing As previously ob-
+served in entailment research (Dagan et al., 2006),
+paraphrasing information contributes greatly to im-
+proved performance on semantic inference. This is
+</bodyText>
+<page confidence="0.986277">
+269
+</page>
+<figureCaption confidence="0.526081">
+\x0cFigure 4: Sample keyphrase clusters that our model infers
+</figureCaption>
+<bodyText confidence="0.988685333333333">
+in the cell phone category.
+confirmed by the dramatic difference in results be-
+tween the cluster in text and phrase in text baselines.
+Therefore it is important to quantify the quality of
+automatically computed paraphrases, such as those
+illustrated in Figure 4.
+</bodyText>
+<table confidence="0.828209333333333">
+Restaurants Cell Phones
+Keyphrase similarity only 0.931 0.759
+Joint training 0.966 0.876
+</table>
+<tableCaption confidence="0.997918">
+Table 3: Rand Index scores of our models clusters, using
+</tableCaption>
+<bodyText confidence="0.99644335">
+only keyphrase similarity vs. using keyphrases and text
+jointly. Comparison of cluster quality is against the gold
+standard.
+One way to assess clustering quality is to com-
+pare it against a gold standard clustering, as con-
+structed in Section 6. For this purpose, we use the
+Rand Index (Rand, 1971), a measure of cluster sim-
+ilarity. This measure varies from zero to one; higher
+scores are better. Table 3 shows the Rand Indices
+for our models clustering, as well as the clustering
+obtained by using only keyphrase similarity. These
+scores confirm that joint inference produces better
+clusters than using only keyphrases.
+Another way of assessing cluster quality is to con-
+sider the impact of using the gold standard clustering
+instead of our models clustering. As shown in the
+last two lines of Table 2, using the gold clustering
+yields results worse than using the model clustering.
+This indicates that for the purposes of our task, the
+model clustering is of sufficient quality.
+</bodyText>
+<sectionHeader confidence="0.993432" genericHeader="conclusions">
+8 Conclusions and Future Work
+</sectionHeader>
+<bodyText confidence="0.99974175">
+In this paper, we have shown how free-text anno-
+tations provided by novice users can be leveraged
+as a training set for document-level semantic infer-
+ence. The resulting hierarchical Bayesian model
+overcomes the lack of consistency in such anno-
+tations by inducing a hidden structure of seman-
+tic properties, which correspond both to clusters of
+keyphrases and hidden topic models in the text. Our
+system successfully extracts semantic properties of
+unannotated restaurant and cell phone reviews, em-
+pirically validating our approach.
+Our present model makes strong assumptions
+about the independence of similarity scores. We be-
+lieve this could be avoided by modeling the genera-
+tion of the entire similarity matrix jointly. We have
+also assumed that the properties themselves are un-
+structured, but they are in fact related in interest-
+ing ways. For example, it would be desirable to
+model antonyms explicitly, e.g., no restaurant review
+should be simultaneously labeled as having good
+and bad food. The correlated topic model (Blei and
+Lafferty, 2006) is one way to account for relation-
+ships between hidden topics; more structured repre-
+sentations, such as hierarchies, may also be consid-
+ered.
+Finally, the core idea of using free-text as a
+source of training labels has wide applicability, and
+has the potential to enable sophisticated content
+search and analysis. For example, online blog en-
+tries are often tagged with short keyphrases. Our
+technique could be used to standardize these tags,
+and assign keyphrases to untagged blogs. The no-
+tion of free-text annotations is also very broad
+we are currently exploring the applicability of this
+model to Wikipedia articles, using section titles as
+keyphrases, to build standard article schemas.
+</bodyText>
+<sectionHeader confidence="0.984029" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<reference confidence="0.77103525">
+The authors acknowledge the support of the NSF,
+Quanta Computer, the U.S. Office of Naval Re-
+search, and DARPA. Thanks to Michael Collins,
+Dina Katabi, Kristian Kersting, Terry Koo, Brian
+Milch, Tahira Naseem, Dan Roy, Benjamin Snyder,
+Luke Zettlemoyer, and the anonymous reviewers for
+helpful comments and suggestions. Any opinions,
+findings, and conclusions or recommendations ex-
+</reference>
+<bodyText confidence="0.9335965">
+pressed above are those of the authors and do not
+necessarily reflect the views of the NSF.
+</bodyText>
+<page confidence="0.958079">
+270
+</page>
+<reference confidence="0.997468086206896">
+\x0cReferences
+David M. Blei and John D. Lafferty. 2006. Correlated
+topic models. In Advances in NIPS, pages 147154.
+David M. Blei and Jon McAuliffe. 2007. Supervised
+topic models. In Advances in NIPS.
+David M. Blei, Andrew Y. Ng, and Michael I. Jordan.
+2003. Latent Dirichlet allocation. Journal of Machine
+Learning Research, 3:9931022.
+Jacob Cohen. 1960. A coefficient of agreement for nom-
+inal scales. Educational and Psychological Measure-
+ment, 20(1):3746.
+Ido Dagan, Oren Glickman, and Bernardo Magnini.
+2006. The PASCAL recognising textual entail-
+ment challenge. Lecture Notes in Computer Science,
+3944:177190.
+Morris H. De Groot and Mark J. Schervish. 2001. Prob-
+ability and Statistics. Addison Wesley.
+Jenny R. Finkel, Trond Grenager, and Christopher Man-
+ning. 2005. Incorporating non-local information into
+information extraction systems by Gibbs sampling. In
+Proceedings of the ACL, pages 363370.
+Andrew Gelman, John B. Carlin, Hal S. Stern, and Don-
+ald B. Rubin. 2004. Bayesian Data Analysis. Texts
+in Statistical Science. Chapman &amp; Hall/CRC, 2nd edi-
+tion.
+Sharon Goldwater, Thomas L. Griffiths, and Mark John-
+son. 2006. Contextual dependencies in unsupervised
+word segmentation. In Proceedings of ACL, pages
+673680.
+Minqing Hu and Bing Liu. 2004. Mining and summa-
+rizing customer reviews. In Proceedings of SIGKDD,
+pages 168177.
+Soo-Min Kim and Eduard Hovy. 2006. Automatic iden-
+tification of pro and con reasons in online reviews. In
+Proceedings of the COLING/ACL, pages 483490.
+Dekang Lin. 1998. An information-theoretic definition
+of similarity. In Proceedings of ICML, pages 296304.
+Ana-Maria Popescu, Bao Nguyen, and Oren Etzioni.
+2005. OPINE: Extracting product features and opin-
+ions from reviews. In Proceedings of HLT/EMNLP,
+pages 339346.
+William M. Rand. 1971. Objective criteria for the eval-
+uation of clustering methods. Journal of the American
+Statistical Association, 66(336):846850, December.
+Bruce Sterling. 2005. Order out of chaos: What is the
+best way to tag, bag, and sort data? Give it to the
+unorganized masses. http://www.wired.com/
+wired/archive/13.04/view.html?pg=4.
+Accessed April 21, 2008.
+Ivan Titov and Ryan McDonald. 2008. A joint model of
+text and aspect ratings for sentiment summarization.
+In Proceedings of the ACL.
+Kristina Toutanova and Mark Johnson. 2007. A
+Bayesian LDA-based model for semi-supervised part-
+of-speech tagging. In Advances in NIPS.
+Graham Vickery and Sacha Wunsch-Vincent. 2007. Par-
+ticipative Web and User-Created Content: Web 2.0,
+Wikis and Social Networking. OECD Publishing.
+</reference>
+<page confidence="0.966388">
+271
+</page>
+<figure confidence="0.251471">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.757572">
+<note confidence="0.883252">b&amp;apos;Proceedings of ACL-08: HLT, pages 263271, Columbus, Ohio, USA, June 2008. c 2008 Association for Computational Linguistics</note>
+<title confidence="0.990905">Learning Document-Level Semantic Properties from Free-text Annotations</title>
+<author confidence="0.999414">S R K Branavan Harr Chen Jacob Eisenstein Regina Barzilay</author>
+<affiliation confidence="0.9999735">Computer Science and Artificial Intelligence Laboratory Massachusetts Institute of Technology</affiliation>
+<email confidence="0.99122">branavan@csail.mit.edu</email>
+<email confidence="0.99122">harr@csail.mit.edu</email>
+<email confidence="0.99122">jacobe@csail.mit.edu</email>
+<email confidence="0.99122">regina@csail.mit.edu</email>
+<abstract confidence="0.999449916666667">This paper demonstrates a new method for leveraging free-text annotations to infer semantic properties of documents. Free-text annotations are becoming increasingly abundant, due to the recent dramatic growth in semistructured, user-generated online content. An example of such content is product reviews, which are often annotated by their authors with pros/cons keyphrases such as a real bargain or good value. To exploit such noisy annotations, we simultaneously find a hidden paraphrase structure of the keyphrases, a model of the document texts, and the underlying semantic properties that link the two. This allows us to predict properties of unannotated documents. Our approach is implemented as a hierarchical Bayesian model with joint inference, which increases the robustness of the keyphrase clustering and encourages the document model to correlate with semantically meaningful properties. We perform several evaluations of our model, and find that it substantially outperforms alternative approaches.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="false">
+<authors>
+<author>David M Blei</author>
+<author>John D Lafferty</author>
+</authors>
+<title>The authors acknowledge the support of the NSF, Quanta Computer, the U.S. Office of Naval Research, and DARPA. Thanks to Michael Collins,</title>
+<date>2006</date>
+<booktitle>In Advances in NIPS,</booktitle>
+<pages>147154</pages>
+<location>Dina Katabi, Kristian Kersting, Terry Koo, Brian Milch, Tahira Naseem, Dan Roy, Benjamin Snyder, Luke</location>
+<contexts>
+<context position="28914" citStr="Blei and Lafferty, 2006" startWordPosition="4672" endWordPosition="4675">s semantic properties of unannotated restaurant and cell phone reviews, empirically validating our approach. Our present model makes strong assumptions about the independence of similarity scores. We believe this could be avoided by modeling the generation of the entire similarity matrix jointly. We have also assumed that the properties themselves are unstructured, but they are in fact related in interesting ways. For example, it would be desirable to model antonyms explicitly, e.g., no restaurant review should be simultaneously labeled as having good and bad food. The correlated topic model (Blei and Lafferty, 2006) is one way to account for relationships between hidden topics; more structured representations, such as hierarchies, may also be considered. Finally, the core idea of using free-text as a source of training labels has wide applicability, and has the potential to enable sophisticated content search and analysis. For example, online blog entries are often tagged with short keyphrases. Our technique could be used to standardize these tags, and assign keyphrases to untagged blogs. The notion of free-text annotations is also very broad we are currently exploring the applicability of this model to </context>
+</contexts>
+<marker>Blei, Lafferty, 2006</marker>
+<rawString>The authors acknowledge the support of the NSF, Quanta Computer, the U.S. Office of Naval Research, and DARPA. Thanks to Michael Collins, Dina Katabi, Kristian Kersting, Terry Koo, Brian Milch, Tahira Naseem, Dan Roy, Benjamin Snyder, Luke Zettlemoyer, and the anonymous reviewers for helpful comments and suggestions. Any opinions, findings, and conclusions or recommendations ex\x0cReferences David M. Blei and John D. Lafferty. 2006. Correlated topic models. In Advances in NIPS, pages 147154.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David M Blei</author>
+<author>Jon McAuliffe</author>
+</authors>
+<title>Supervised topic models.</title>
+<date>2007</date>
+<booktitle>In Advances in NIPS.</booktitle>
+<contexts>
+<context position="6118" citStr="Blei and McAuliffe, 2007" startWordPosition="921" endWordPosition="924"> is inspired by methods in the topic modeling literature, such as Latent Dirichlet Allocation (LDA) (Blei et al., 2003), where topics are treated as hidden variables that govern the distribution of words in a text. Our algorithm extends this notion by biasing the induced hidden topics toward a clustering of known keyphrases. Tying these two information sources together enhances the robustness of the hidden topics, thereby increasing the chance that the induced structure corresponds to semantically meaningful properties. Recent work has examined coupling topic models with explicit supervision (Blei and McAuliffe, 2007; Titov and McDonald, 2008). However, such approaches assume that the documents are labeled within a predefined annotation structure, e.g., the properties of food, ambiance, and service for restaurants. In contrast, we address free-text annotations created by end users, without known semantic properties. Rather than requiring a predefined annotation structure, our model infers one from the data. 3 Problem Formulation We formulate our problem as follows. We assume a dataset composed of documents with associated keyphrases. Each document may be marked with multiple keyphrases that express unseen</context>
+</contexts>
+<marker>Blei, McAuliffe, 2007</marker>
+<rawString>David M. Blei and Jon McAuliffe. 2007. Supervised topic models. In Advances in NIPS.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David M Blei</author>
+<author>Andrew Y Ng</author>
+<author>Michael I Jordan</author>
+</authors>
+<title>Latent Dirichlet allocation.</title>
+<date>2003</date>
+<journal>Journal of Machine Learning Research,</journal>
+<pages>3--9931022</pages>
+<contexts>
+<context position="5613" citStr="Blei et al., 2003" startWordPosition="845" endWordPosition="848">. These methods extract lists of phrases, which are analogous to the keyphrases we use as input to our algorithm. However, our approach is distinguished in two ways: first, we are able to predict keyphrases beyond those that appear verbatim in the text. Second, our approach learns the relationships between keyphrases, allowing us to draw direct comparisons between reviews. Bayesian Topic Modeling One aspect of our model views properties as distributions over words in the document. This approach is inspired by methods in the topic modeling literature, such as Latent Dirichlet Allocation (LDA) (Blei et al., 2003), where topics are treated as hidden variables that govern the distribution of words in a text. Our algorithm extends this notion by biasing the induced hidden topics toward a clustering of known keyphrases. Tying these two information sources together enhances the robustness of the hidden topics, thereby increasing the chance that the induced structure corresponds to semantically meaningful properties. Recent work has examined coupling topic models with explicit supervision (Blei and McAuliffe, 2007; Titov and McDonald, 2008). However, such approaches assume that the documents are labeled wit</context>
+<context position="10688" citStr="Blei et al., 2003" startWordPosition="1655" endWordPosition="1658">ce forms allows arbitrary comparisons between keyphrases, e.g., permitting the use of both lexical and distributional information. The lexical comparison is based on the cosine similarity between the keyphrase words. The distributional similarity is quantified in terms of the co-occurrence of keyphrases across review texts. Our model is inherently capable of using any arbitrary source of similarity information; for a discussion of similarity metrics, see Lin (1998). 4.2 Document-level Distributional Analysis Our analysis of the document text is based on probabilistic topic models such as LDA (Blei et al., 2003). In the LDA framework, each word is generated from a language model that is indexed by the words topic assignment. Thus, rather than identifying a single topic for a document, LDA identifies a distribution over topics. Our word model operates similarly, identifying a topic for each word, written as z in Figure 2. To tie these topics to the keyphrases, we deterministically construct a document-specific topic distribu265 \x0ction from the clusters represented by the documents keyphrases this is in the figure. assigns equal probability to all topics that are represented in the keyphrases, and a </context>
+</contexts>
+<marker>Blei, Ng, Jordan, 2003</marker>
+<rawString>David M. Blei, Andrew Y. Ng, and Michael I. Jordan. 2003. Latent Dirichlet allocation. Journal of Machine Learning Research, 3:9931022.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jacob Cohen</author>
+</authors>
+<title>A coefficient of agreement for nominal scales.</title>
+<date>1960</date>
+<booktitle>Educational and Psychological Measurement,</booktitle>
+<pages>20--1</pages>
+<contexts>
+<context position="18692" citStr="Cohen, 1960" startWordPosition="3062" endWordPosition="3063">Restaurants Cell Phones # of reviews 3883 1112 Avg. review length 916.9 1056.9 Avg. keyphrases / review 3.42 4.91 Table 1: Statistics of the reviews dataset by category. standard, we hand-annotated a subset of the reviews from the restaurant category. The annotation effort focused on eight commonly mentioned properties, such as those underlying the keyphrases pleasant atmosphere and attentive staff. Two raters annotated 160 reviews, 30 of which were annotated by both. Cohens kappa, a measure of interrater agreement ranging from zero to one, was 0.78 for this subset, indicating high agreement (Cohen, 1960). Each review was annotated with 2.56 properties on average. Each manually-annotated property corresponded to an average of 19.1 keyphrases in the restaurant data, and 6.7 keyphrases in the cell phone data. This supports our intuition that a single semantic property may be expressed using a variety of different keyphrases. Training Our model needs to be provided with the number of clusters K. We set K large enough for the model to learn effectively on the development set. For the restaurant data where the gold standard identified eight semantic properties we set K to 20, allowing the model to </context>
+</contexts>
+<marker>Cohen, 1960</marker>
+<rawString>Jacob Cohen. 1960. A coefficient of agreement for nominal scales. Educational and Psychological Measurement, 20(1):3746.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ido Dagan</author>
+<author>Oren Glickman</author>
+<author>Bernardo Magnini</author>
+</authors>
+<title>The PASCAL recognising textual entailment challenge.</title>
+<date>2006</date>
+<journal>Lecture Notes in Computer Science,</journal>
+<pages>3944--177190</pages>
+<contexts>
+<context position="26285" citStr="Dagan et al., 2006" startWordPosition="4254" endWordPosition="4257">ecifically, the aforementioned sparsity of free-text annotations. As previously described, our technique allows document text topics to stochastically derive from either the keyphrases or a background distribution this allows our model to learn effectively from incomplete annotations. In fact, when we force all text topics to derive from keyphrase clusters in our model, its performance degrades to the level of the classifiers or worse, with an F-score of 0.390 in the restaurant category and 0.171 in the cell phone category. Impact of paraphrasing As previously observed in entailment research (Dagan et al., 2006), paraphrasing information contributes greatly to improved performance on semantic inference. This is 269 \x0cFigure 4: Sample keyphrase clusters that our model infers in the cell phone category. confirmed by the dramatic difference in results between the cluster in text and phrase in text baselines. Therefore it is important to quantify the quality of automatically computed paraphrases, such as those illustrated in Figure 4. Restaurants Cell Phones Keyphrase similarity only 0.931 0.759 Joint training 0.966 0.876 Table 3: Rand Index scores of our models clusters, using only keyphrase similarit</context>
+</contexts>
+<marker>Dagan, Glickman, Magnini, 2006</marker>
+<rawString>Ido Dagan, Oren Glickman, and Bernardo Magnini. 2006. The PASCAL recognising textual entailment challenge. Lecture Notes in Computer Science, 3944:177190.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Morris H De Groot</author>
+<author>Mark J Schervish</author>
+</authors>
+<title>Probability and Statistics.</title>
+<date>2001</date>
+<publisher>Addison Wesley.</publisher>
+<marker>De Groot, Schervish, 2001</marker>
+<rawString>Morris H. De Groot and Mark J. Schervish. 2001. Probability and Statistics. Addison Wesley.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny R Finkel</author>
+<author>Trond Grenager</author>
+<author>Christopher Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by Gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the ACL,</booktitle>
+<pages>363370</pages>
+<contexts>
+<context position="13984" citStr="Finkel et al. (2005)" startWordPosition="2211" endWordPosition="2214">ility ; is drawn from a Beta distribution with prior 0. We have zd,n d if cd,n = 1, and zd,n d otherwise. Finally, the word wd,n is drawn from the multinomial zd,n , where zd,n indexes a topic-specific language model. Each of the K language models k is drawn from a symmetric Dirichlet prior 0. 5 Posterior Sampling Ultimately, we need to compute the models posterior distribution given the training data. Doing so analytically is intractable due to the complexity of the model, but sampling-based techniques can be used to estimate the posterior. We employ Gibbs sampling, previously used in NLP by Finkel et al. (2005) and Goldwater et al. (2006), among others. This technique repeatedly samples from the conditional distributions of each hidden variable, eventually converging on a Markov chain whose stationary distribution is the posterior distribution of the hidden variables in the model (Gelman et al., 2004). We now present sampling equations for each of the hidden variables in Figure 2. The prior over keyphrase clusters is sampled based on hyperprior 0 and keyphrase cluster assignments x. We write p( |. . .) to mean the probability conditioned on all the other variables. p( |. . .) p( |0)p(x |), = p( |0) </context>
+</contexts>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>Jenny R. Finkel, Trond Grenager, and Christopher Manning. 2005. Incorporating non-local information into information extraction systems by Gibbs sampling. In Proceedings of the ACL, pages 363370.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andrew Gelman</author>
+<author>John B Carlin</author>
+<author>Hal S Stern</author>
+<author>Donald B Rubin</author>
+</authors>
+<title>Bayesian Data Analysis. Texts in Statistical Science. Chapman &amp; Hall/CRC, 2nd edition.</title>
+<date>2004</date>
+<contexts>
+<context position="14280" citStr="Gelman et al., 2004" startWordPosition="2257" endWordPosition="2260"> Posterior Sampling Ultimately, we need to compute the models posterior distribution given the training data. Doing so analytically is intractable due to the complexity of the model, but sampling-based techniques can be used to estimate the posterior. We employ Gibbs sampling, previously used in NLP by Finkel et al. (2005) and Goldwater et al. (2006), among others. This technique repeatedly samples from the conditional distributions of each hidden variable, eventually converging on a Markov chain whose stationary distribution is the posterior distribution of the hidden variables in the model (Gelman et al., 2004). We now present sampling equations for each of the hidden variables in Figure 2. The prior over keyphrase clusters is sampled based on hyperprior 0 and keyphrase cluster assignments x. We write p( |. . .) to mean the probability conditioned on all the other variables. p( |. . .) p( |0)p(x |), = p( |0) L Y l p(xl |) = Dir(; 0) L Y l Mul(xl; ) = Dir(; ), where i = 0 + count(xl = i). This update rule is due to the conjugacy of the multinomial to the Dirichlet distribution. The first line follows from Bayes rule, and the second line from the conditional independence of each keyphrase assignment x</context>
+</contexts>
+<marker>Gelman, Carlin, Stern, Rubin, 2004</marker>
+<rawString>Andrew Gelman, John B. Carlin, Hal S. Stern, and Donald B. Rubin. 2004. Bayesian Data Analysis. Texts in Statistical Science. Chapman &amp; Hall/CRC, 2nd edition.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sharon Goldwater</author>
+<author>Thomas L Griffiths</author>
+<author>Mark Johnson</author>
+</authors>
+<title>Contextual dependencies in unsupervised word segmentation.</title>
+<date>2006</date>
+<booktitle>In Proceedings of ACL,</booktitle>
+<pages>673680</pages>
+<contexts>
+<context position="14012" citStr="Goldwater et al. (2006)" startWordPosition="2216" endWordPosition="2219">eta distribution with prior 0. We have zd,n d if cd,n = 1, and zd,n d otherwise. Finally, the word wd,n is drawn from the multinomial zd,n , where zd,n indexes a topic-specific language model. Each of the K language models k is drawn from a symmetric Dirichlet prior 0. 5 Posterior Sampling Ultimately, we need to compute the models posterior distribution given the training data. Doing so analytically is intractable due to the complexity of the model, but sampling-based techniques can be used to estimate the posterior. We employ Gibbs sampling, previously used in NLP by Finkel et al. (2005) and Goldwater et al. (2006), among others. This technique repeatedly samples from the conditional distributions of each hidden variable, eventually converging on a Markov chain whose stationary distribution is the posterior distribution of the hidden variables in the model (Gelman et al., 2004). We now present sampling equations for each of the hidden variables in Figure 2. The prior over keyphrase clusters is sampled based on hyperprior 0 and keyphrase cluster assignments x. We write p( |. . .) to mean the probability conditioned on all the other variables. p( |. . .) p( |0)p(x |), = p( |0) L Y l p(xl |) = Dir(; 0) L Y</context>
+</contexts>
+<marker>Goldwater, Griffiths, Johnson, 2006</marker>
+<rawString>Sharon Goldwater, Thomas L. Griffiths, and Mark Johnson. 2006. Contextual dependencies in unsupervised word segmentation. In Proceedings of ACL, pages 673680.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Minqing Hu</author>
+<author>Bing Liu</author>
+</authors>
+<title>Mining and summarizing customer reviews.</title>
+<date>2004</date>
+<booktitle>In Proceedings of SIGKDD,</booktitle>
+<pages>168177</pages>
+<contexts>
+<context position="4974" citStr="Hu and Liu, 2004" startWordPosition="741" endWordPosition="744">enarios where documents are annotated in a noisy manner. In this work, we apply our method to a collection of reviews in two categories: restaurants and cell phones. The training data consists of review text and the associated pros/cons lists. We then evaluate the ability of our model to predict review properties when the pros/cons list is hidden. Across a variety of evaluation scenarios, our algorithm consistently outperforms alternative strategies by a wide margin. 2 Related Work Review Analysis Our approach relates to previous work on property extraction from reviews (Popescu et al., 2005; Hu and Liu, 2004; Kim and Hovy, 2006). These methods extract lists of phrases, which are analogous to the keyphrases we use as input to our algorithm. However, our approach is distinguished in two ways: first, we are able to predict keyphrases beyond those that appear verbatim in the text. Second, our approach learns the relationships between keyphrases, allowing us to draw direct comparisons between reviews. Bayesian Topic Modeling One aspect of our model views properties as distributions over words in the document. This approach is inspired by methods in the topic modeling literature, such as Latent Dirichl</context>
+</contexts>
+<marker>Hu, Liu, 2004</marker>
+<rawString>Minqing Hu and Bing Liu. 2004. Mining and summarizing customer reviews. In Proceedings of SIGKDD, pages 168177.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Soo-Min Kim</author>
+<author>Eduard Hovy</author>
+</authors>
+<title>Automatic identification of pro and con reasons in online reviews.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the COLING/ACL,</booktitle>
+<pages>483490</pages>
+<contexts>
+<context position="4995" citStr="Kim and Hovy, 2006" startWordPosition="745" endWordPosition="748">ments are annotated in a noisy manner. In this work, we apply our method to a collection of reviews in two categories: restaurants and cell phones. The training data consists of review text and the associated pros/cons lists. We then evaluate the ability of our model to predict review properties when the pros/cons list is hidden. Across a variety of evaluation scenarios, our algorithm consistently outperforms alternative strategies by a wide margin. 2 Related Work Review Analysis Our approach relates to previous work on property extraction from reviews (Popescu et al., 2005; Hu and Liu, 2004; Kim and Hovy, 2006). These methods extract lists of phrases, which are analogous to the keyphrases we use as input to our algorithm. However, our approach is distinguished in two ways: first, we are able to predict keyphrases beyond those that appear verbatim in the text. Second, our approach learns the relationships between keyphrases, allowing us to draw direct comparisons between reviews. Bayesian Topic Modeling One aspect of our model views properties as distributions over words in the document. This approach is inspired by methods in the topic modeling literature, such as Latent Dirichlet Allocation (LDA) (</context>
+</contexts>
+<marker>Kim, Hovy, 2006</marker>
+<rawString>Soo-Min Kim and Eduard Hovy. 2006. Automatic identification of pro and con reasons in online reviews. In Proceedings of the COLING/ACL, pages 483490.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Dekang Lin</author>
+</authors>
+<title>An information-theoretic definition of similarity.</title>
+<date>1998</date>
+<booktitle>In Proceedings of ICML,</booktitle>
+<pages>296304</pages>
+<contexts>
+<context position="10539" citStr="Lin (1998)" startWordPosition="1633" endWordPosition="1634"> (e.g., Toutanova and Johnson, 2007), though a more theoretically sound treatment of the similarity matrix is an area for future research. face forms allows arbitrary comparisons between keyphrases, e.g., permitting the use of both lexical and distributional information. The lexical comparison is based on the cosine similarity between the keyphrase words. The distributional similarity is quantified in terms of the co-occurrence of keyphrases across review texts. Our model is inherently capable of using any arbitrary source of similarity information; for a discussion of similarity metrics, see Lin (1998). 4.2 Document-level Distributional Analysis Our analysis of the document text is based on probabilistic topic models such as LDA (Blei et al., 2003). In the LDA framework, each word is generated from a language model that is indexed by the words topic assignment. Thus, rather than identifying a single topic for a document, LDA identifies a distribution over topics. Our word model operates similarly, identifying a topic for each word, written as z in Figure 2. To tie these topics to the keyphrases, we deterministically construct a document-specific topic distribu265 \x0ction from the clusters </context>
+</contexts>
+<marker>Lin, 1998</marker>
+<rawString>Dekang Lin. 1998. An information-theoretic definition of similarity. In Proceedings of ICML, pages 296304.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ana-Maria Popescu</author>
+<author>Bao Nguyen</author>
+<author>Oren Etzioni</author>
+</authors>
+<title>OPINE: Extracting product features and opinions from reviews.</title>
+<date>2005</date>
+<booktitle>In Proceedings of HLT/EMNLP,</booktitle>
+<pages>339346</pages>
+<contexts>
+<context position="4956" citStr="Popescu et al., 2005" startWordPosition="737" endWordPosition="740"> applicable to many scenarios where documents are annotated in a noisy manner. In this work, we apply our method to a collection of reviews in two categories: restaurants and cell phones. The training data consists of review text and the associated pros/cons lists. We then evaluate the ability of our model to predict review properties when the pros/cons list is hidden. Across a variety of evaluation scenarios, our algorithm consistently outperforms alternative strategies by a wide margin. 2 Related Work Review Analysis Our approach relates to previous work on property extraction from reviews (Popescu et al., 2005; Hu and Liu, 2004; Kim and Hovy, 2006). These methods extract lists of phrases, which are analogous to the keyphrases we use as input to our algorithm. However, our approach is distinguished in two ways: first, we are able to predict keyphrases beyond those that appear verbatim in the text. Second, our approach learns the relationships between keyphrases, allowing us to draw direct comparisons between reviews. Bayesian Topic Modeling One aspect of our model views properties as distributions over words in the document. This approach is inspired by methods in the topic modeling literature, such</context>
+</contexts>
+<marker>Popescu, Nguyen, Etzioni, 2005</marker>
+<rawString>Ana-Maria Popescu, Bao Nguyen, and Oren Etzioni. 2005. OPINE: Extracting product features and opinions from reviews. In Proceedings of HLT/EMNLP, pages 339346.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>William M Rand</author>
+</authors>
+<title>Objective criteria for the evaluation of clustering methods.</title>
+<date>1971</date>
+<journal>Journal of the American Statistical Association,</journal>
+<volume>66</volume>
+<issue>336</issue>
+<contexts>
+<context position="27157" citStr="Rand, 1971" startWordPosition="4393" endWordPosition="4394">er in text and phrase in text baselines. Therefore it is important to quantify the quality of automatically computed paraphrases, such as those illustrated in Figure 4. Restaurants Cell Phones Keyphrase similarity only 0.931 0.759 Joint training 0.966 0.876 Table 3: Rand Index scores of our models clusters, using only keyphrase similarity vs. using keyphrases and text jointly. Comparison of cluster quality is against the gold standard. One way to assess clustering quality is to compare it against a gold standard clustering, as constructed in Section 6. For this purpose, we use the Rand Index (Rand, 1971), a measure of cluster similarity. This measure varies from zero to one; higher scores are better. Table 3 shows the Rand Indices for our models clustering, as well as the clustering obtained by using only keyphrase similarity. These scores confirm that joint inference produces better clusters than using only keyphrases. Another way of assessing cluster quality is to consider the impact of using the gold standard clustering instead of our models clustering. As shown in the last two lines of Table 2, using the gold clustering yields results worse than using the model clustering. This indicates </context>
+</contexts>
+<marker>Rand, 1971</marker>
+<rawString>William M. Rand. 1971. Objective criteria for the evaluation of clustering methods. Journal of the American Statistical Association, 66(336):846850, December.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Bruce Sterling</author>
+</authors>
+<title>Order out of chaos: What is the best way to tag, bag, and sort data? Give it to the unorganized masses.</title>
+<date>2005</date>
+<note>http://www.wired.com/ wired/archive/13.04/view.html?pg=4.</note>
+<contexts>
+<context position="2565" citStr="Sterling, 2005" startWordPosition="366" endWordPosition="367">ne content created by end users, noisy free-text annotations have pros/cons: great nutritional value ... combines it all: an amazing product, quick and friendly service, cleanliness, great nutrition ... pros/cons: a bit pricey, healthy ... is an awesome place to go if you are health conscious. They have some really great low calorie dishes and they publish the calories and fat grams per serving. Figure 1: Excerpts from online restaurant reviews with pros/cons phrase lists. Both reviews discuss healthiness, but use different keyphrases. become widely available (Vickery and WunschVincent, 2007; Sterling, 2005). For example, consider reviews of consumer products and services. Often, such reviews are annotated with keyphrase lists of pros and cons. We would like to use these keyphrase lists as training labels, so that the properties of unannotated reviews can be predicted. Having such a system would facilitate structured access and summarization of this data. However, novicegenerated keyphrase annotations are incomplete descriptions of their corresponding review texts. Furthermore, they lack consistency: the same underlying property may be expressed in many ways, e.g., healthy and great nutritional v</context>
+</contexts>
+<marker>Sterling, 2005</marker>
+<rawString>Bruce Sterling. 2005. Order out of chaos: What is the best way to tag, bag, and sort data? Give it to the unorganized masses. http://www.wired.com/ wired/archive/13.04/view.html?pg=4.</rawString>
+</citation>
+<citation valid="false">
+<date>2008</date>
+<institution>Accessed</institution>
+<marker>2008</marker>
+<rawString>Accessed April 21, 2008.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ivan Titov</author>
+<author>Ryan McDonald</author>
+</authors>
+<title>A joint model of text and aspect ratings for sentiment summarization.</title>
+<date>2008</date>
+<booktitle>In Proceedings of the ACL.</booktitle>
+<contexts>
+<context position="6145" citStr="Titov and McDonald, 2008" startWordPosition="925" endWordPosition="928"> the topic modeling literature, such as Latent Dirichlet Allocation (LDA) (Blei et al., 2003), where topics are treated as hidden variables that govern the distribution of words in a text. Our algorithm extends this notion by biasing the induced hidden topics toward a clustering of known keyphrases. Tying these two information sources together enhances the robustness of the hidden topics, thereby increasing the chance that the induced structure corresponds to semantically meaningful properties. Recent work has examined coupling topic models with explicit supervision (Blei and McAuliffe, 2007; Titov and McDonald, 2008). However, such approaches assume that the documents are labeled within a predefined annotation structure, e.g., the properties of food, ambiance, and service for restaurants. In contrast, we address free-text annotations created by end users, without known semantic properties. Rather than requiring a predefined annotation structure, our model infers one from the data. 3 Problem Formulation We formulate our problem as follows. We assume a dataset composed of documents with associated keyphrases. Each document may be marked with multiple keyphrases that express unseen semantic properties. Acros</context>
+</contexts>
+<marker>Titov, McDonald, 2008</marker>
+<rawString>Ivan Titov and Ryan McDonald. 2008. A joint model of text and aspect ratings for sentiment summarization. In Proceedings of the ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kristina Toutanova</author>
+<author>Mark Johnson</author>
+</authors>
+<title>A Bayesian LDA-based model for semi-supervised partof-speech tagging.</title>
+<date>2007</date>
+<booktitle>In Advances in NIPS.</booktitle>
+<contexts>
+<context position="9965" citStr="Toutanova and Johnson, 2007" startWordPosition="1542" endWordPosition="1545"> 4.1 Keyphrase Clustering One of our goals is to cluster the keyphrases, such that each cluster corresponds to a well-defined property. We represent each distinct keyphrase as a vector of similarity scores computed over the set of observed keyphrases; these scores are represented by s in Figure 2, the plate diagram of our model.1 Modeling the similarity matrix rather than the sur1 We assume that similarity scores are conditionally independent given the keyphrase clustering, though the scores are in fact related. Such simplifying assumptions have been previously used with success in NLP (e.g., Toutanova and Johnson, 2007), though a more theoretically sound treatment of the similarity matrix is an area for future research. face forms allows arbitrary comparisons between keyphrases, e.g., permitting the use of both lexical and distributional information. The lexical comparison is based on the cosine similarity between the keyphrase words. The distributional similarity is quantified in terms of the co-occurrence of keyphrases across review texts. Our model is inherently capable of using any arbitrary source of similarity information; for a discussion of similarity metrics, see Lin (1998). 4.2 Document-level Distr</context>
+</contexts>
+<marker>Toutanova, Johnson, 2007</marker>
+<rawString>Kristina Toutanova and Mark Johnson. 2007. A Bayesian LDA-based model for semi-supervised partof-speech tagging. In Advances in NIPS.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Graham Vickery</author>
+<author>Sacha Wunsch-Vincent</author>
+</authors>
+<title>Participative Web and User-Created Content: Web 2.0, Wikis and Social Networking.</title>
+<date>2007</date>
+<publisher>OECD Publishing.</publisher>
+<marker>Vickery, Wunsch-Vincent, 2007</marker>
+<rawString>Graham Vickery and Sacha Wunsch-Vincent. 2007. Participative Web and User-Created Content: Web 2.0, Wikis and Social Networking. OECD Publishing.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

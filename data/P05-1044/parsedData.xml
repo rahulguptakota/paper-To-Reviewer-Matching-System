@@ -1,0 +1,1930 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.626433">
+b&amp;apos;Proceedings of the 43rd Annual Meeting of the ACL, pages 354362,
+Ann Arbor, June 2005. c
+</bodyText>
+<sectionHeader confidence="0.432957" genericHeader="abstract">
+2005 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.693013">
+Contrastive Estimation: Training Log-Linear Models on Unlabeled Data
+</title>
+<author confidence="0.855555">
+Noah A. Smith and Jason Eisner
+</author>
+<affiliation confidence="0.8748755">
+Department of Computer Science / Center for Language and Speech Processing
+Johns Hopkins University, Baltimore, MD 21218 USA
+</affiliation>
+<email confidence="0.998271">
+{nasmith,jason}@cs.jhu.edu
+</email>
+<sectionHeader confidence="0.990811" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999454">
+Conditional random fields (Lafferty et al., 2001) are
+quite effective at sequence labeling tasks like shal-
+low parsing (Sha and Pereira, 2003) and named-
+entity extraction (McCallum and Li, 2003). CRFs
+are log-linear, allowing the incorporation of arbi-
+trary features into the model. To train on unlabeled
+data, we require unsupervised estimation methods
+for log-linear models; few exist. We describe a novel
+approach, contrastive estimation. We show that the
+new technique can be intuitively understood as ex-
+ploiting implicit negative evidence and is computa-
+tionally efficient. Applied to a sequence labeling
+problemPOS tagging given a tagging dictionary
+and unlabeled textcontrastive estimation outper-
+forms EM (with the same feature set), is more robust
+to degradations of the dictionary, and can largely re-
+cover by modeling additional features.
+</bodyText>
+<sectionHeader confidence="0.9982" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.994048631578947">
+Finding linguistic structure in raw text is not easy.
+The classical forward-backward and inside-outside
+algorithms try to guide probabilistic models to dis-
+cover structure in text, but they tend to get stuck in
+local maxima (Charniak, 1993). Even when they
+avoid local maxima (e.g., through clever initializa-
+tion) they typically deviate from human ideas of
+what the right structure is (Merialdo, 1994).
+One strategy is to incorporate domain knowledge
+into the models structure. Instead of blind HMMs
+or PCFGs, one could use models whose features
+This work was supported by a Fannie and John Hertz
+Foundation fellowship to the first author and NSF ITR grant IIS-
+0313193 to the second author. The views expressed are not nec-
+essarily endorsed by the sponsors. The authors also thank three
+anonymous ACL reviewers for helpful comments, colleagues
+at JHU CLSP (especially David Smith and Roy Tromble) and
+Miles Osborne for insightful feedback, and Eric Goldlust and
+Markus Dreyer for Dyna language support.
+are crafted to pay attention to a range of domain-
+specific linguistic cues. Log-linear models can be so
+crafted and have already achieved excellent perfor-
+mance when trained on annotated data, where they
+are known as maximum entropy models (Ratna-
+parkhi et al., 1994; Rosenfeld, 1994).
+Our goal is to learn log-linear models from
+unannotated data. Since the forward-backward
+and inside-outside algorithms are instances of
+Expectation-Maximization (EM) (Dempster et al.,
+1977), a natural approach is to construct EM algo-
+rithms that handle log-linear models. Riezler (1999)
+did so, then resorted to an approximation because
+the true objective function was hard to normalize.
+Stepping back from EM, we may generally en-
+vision parameter estimation for probabilistic mod-
+eling as pushing probability mass toward the train-
+ing examples. We must consider not only where
+the learner pushes the mass, but also from where the
+mass is taken. In this paper, we describe an alterna-
+tive to EM: contrastive estimation (CE), which (un-
+like EM) explicitly states the source of the probabil-
+ity mass that is to be given to an example.1
+One reason is to make normalization efficient. In-
+deed, CE generalizes EM and other practical tech-
+niques used to train log-linear models, including
+conditional estimation (for the supervised case) and
+Riezlers approximation (for the unsupervised case).
+The other reason to use CE is to improve accu-
+racy. CE offers an additional way to inject domain
+knowledge into unsupervised learning (Smith and
+Eisner, 2005). CE hypothesizes that each positive
+example in training implies a domain-specific set
+of examples which are (for the most part) degraded
+(2). This class of implicit negative evidence pro-
+vides the source of probability mass for the observed
+example. We discuss the application of CE to log-
+linear models in 3.
+</bodyText>
+<page confidence="0.876611">
+1
+</page>
+<bodyText confidence="0.954198">
+Not to be confused with contrastive divergence minimiza-
+tion (Hinton, 2003), a technique for training products of experts.
+</bodyText>
+<page confidence="0.99798">
+354
+</page>
+<bodyText confidence="0.993173111111111">
+\x0cWe are particularly interested in log-linear models
+over sequences, like the conditional random fields
+(CRFs) of Lafferty et al. (2001) and weighted CFGs
+(Miyao and Tsujii, 2002). For a given sequence, im-
+plicit negative evidence can be represented as a lat-
+tice derived by finite-state operations (4). Effec-
+tiveness of the approach on POS tagging using un-
+labeled data is demonstrated (5). We discuss future
+work (6) and conclude (7).
+</bodyText>
+<sectionHeader confidence="0.960397" genericHeader="method">
+2 Implicit Negative Evidence
+</sectionHeader>
+<bodyText confidence="0.999354076923077">
+Natural language is a delicate thing. For any plausi-
+ble sentence, there are many slight perturbations of
+it that will make it implausible. Consider, for ex-
+ample, the first sentence of this section. Suppose
+we choose one of its six words at random and re-
+move it; on this example, odds are two to one that
+the resulting sentence will be ungrammatical. Or,
+we could randomly choose two adjacent words and
+transpose them; none of the results are valid conver-
+sational English. The learner we describe here takes
+into account not only the observed positive exam-
+ple, but also a set of similar but deprecated negative
+examples.
+</bodyText>
+<subsectionHeader confidence="0.995077">
+2.1 Learning setting
+</subsectionHeader>
+<bodyText confidence="0.88449075">
+Let ~
+x = hx1, x2, ...i, be our observed example sen-
+tences, where each xi X, and let y
+i Y be the
+unobserved correct hidden structure for xi (e.g., a
+POS sequence). We seek a model, parameterized by
+~
+, such that the (unknown) correct analysis y
+i is the
+best analysis for xi (under the model). If y
+i were ob-
+served, a variety of training criteria would be avail-
+able (see Tab. 1), but y
+i is unknown, so none apply.
+Typically one turns to the EM algorithm (Dempster
+et al., 1977), which locally maximizes
+</bodyText>
+<equation confidence="0.99702525">
+Y
+i
+p
+\x10
+X = xi  |~
+\x11
+=
+Y
+i
+X
+yY
+p
+\x10
+X = xi, Y = y  |~
+\x11
+(1)
+</equation>
+<bodyText confidence="0.961651142857143">
+where X is a random variable over sentences and
+Y a random variable over analyses (notation is of-
+ten abbreviated, eliminating the random variables).
+An often-used alternative to EM is a class of so-
+called Viterbi approximations, which iteratively find
+the probabilistically-best y and then, on each itera-
+tion, solve a supervised problem (see Tab. 1).
+</bodyText>
+<equation confidence="0.981986107692308">
+joint likelihood (JL) Y
+i
+p
+\x10
+xi, y
+i  |~
+\x11
+conditional
+likelihood (CL)
+Y
+i
+p
+\x10
+y
+i  |xi, ~
+\x11
+classification
+accuracy (Juang
+and Katagiri, 1992)
+X
+i
+(y
+i , y(xi))
+expected
+classification
+accuracy (Klein and
+Manning, 2002)
+X
+i
+p
+\x10
+y
+i  |xi, ~
+\x11
+negated boosting
+loss (Collins, 2000)
+X
+i
+p
+\x10
+y
+i  |xi, ~
+\x111
+margin (Crammer
+and Singer, 2001)
+s.t. k~
+k 1; i, y 6= y
+i ,
+~
+(~
+f(xi, y
+i ) ~
+f(xi, y))
+expected local
+accuracy (Altun et
+al., 2003)
+Y
+i
+Y
+j
+p
+\x10
+`j(Y ) = `j(y
+i )  |xi, ~
+\x11
+</equation>
+<tableCaption confidence="0.991944">
+Table 1: Various supervised training criteria. All functions are
+</tableCaption>
+<bodyText confidence="0.4340025">
+written so as to be maximized. None of these criteria are avail-
+able for unsupervised estimation because they all depend on the
+correct label, y
+.
+</bodyText>
+<subsectionHeader confidence="0.556662">
+2.2 A new approach: contrastive estimation
+</subsectionHeader>
+<bodyText confidence="0.622341">
+Our approach instead maximizes
+</bodyText>
+<equation confidence="0.982070833333333">
+Y
+i
+p
+\x10
+Xi = xi  |Xi N(xi), ~
+\x11
+</equation>
+<bodyText confidence="0.982426086956522">
+(2)
+where the neighborhood N(xi) X is a set of
+implicit negative examples plus the example xi it-
+self. As in EM, p(xi  |..., ~
+) is found by marginal-
+izing over hidden variables (Eq. 1). Note that the
+x0 N(xi) are not treated as hard negative exam-
+ples; we merely seek to move probability mass from
+them to the observed x.
+The neighborhood of x, N(x), contains examples
+that are perturbations of x. We refer to the mapping
+N : X 2X as the neighborhood function, and the
+optimization of Eq. 2 as contrastive estimation (CE).
+CE seeks to move probability mass from the
+neighborhood of an observed xi to xi itself. The
+learner hypothesizes that good models are those
+which discriminate an observed example from its
+neighborhood. Put another way, the learner assumes
+not only that xi is good, but that xi is locally op-
+timal in example space (X), and that alternative,
+similar examples (from the neighborhood) are infe-
+rior. Rather than explain all of the data, the model
+must only explain (using hidden variables) why the
+</bodyText>
+<page confidence="0.997202">
+355
+</page>
+<bodyText confidence="0.99690975">
+\x0cobserved sentence is better than its neighbors. Of
+course, the validity of this hypothesis will depend
+on the form of the neighborhood function.
+Consider, as a concrete example, learning nat-
+ural language syntax. In Smith and Eisner (2005),
+we define a sentences neighborhood to be a set of
+slightly-altered sentences that use the same lexemes,
+as suggested at the start of this section. While their
+syntax is degraded, the inferred meaning of any of
+these altered sentences is typically close to the in-
+tended meaning, yet the speaker chose x and not
+one of the other x0 N(x). Why? Deletions
+are likely to violate subcategorization requirements,
+and transpositions are likely to violate word order
+requirementsboth of which have something to do
+with syntax. x was the most grammatical option that
+conveyed the speakers meaning, hence (we hope)
+roughly the most grammatical option in the neigh-
+borhood N(x), and the syntactic model should make
+it so.
+</bodyText>
+<sectionHeader confidence="0.999832" genericHeader="method">
+3 Log-Linear Models
+</sectionHeader>
+<bodyText confidence="0.9919044">
+We have not yet specified the form of our probabilis-
+tic model, only that it is parameterized by ~
+Rn.
+Log-linear models, which we will show are a natural
+fit for CE, assign probability to an (example, label)
+</bodyText>
+<equation confidence="0.9675823125">
+pair (x, y) according to
+p
+\x10
+x, y  |~
+\x11
+def
+=
+1
+Z
+\x10
+~
+\x11u
+\x10
+x, y  |~
+\x11
+(3)
+</equation>
+<bodyText confidence="0.861759">
+where the unnormalized score u(x, y  |~
+</bodyText>
+<equation confidence="0.991264">
+) is
+u
+\x10
+x, y  |~
+\x11
+def
+= exp
+\x10
+~
+~
+f(x, y)
+\x11
+(4)
+</equation>
+<bodyText confidence="0.786863">
+The notation above is defined as follows. ~
+</bodyText>
+<equation confidence="0.9785275">
+f : X
+Y Rn
+</equation>
+<bodyText confidence="0.854372">
+0 is a nonnegative vector feature function,
+and ~
+Rn are the corresponding feature weights
+(the models parameters). Because the features can
+take any form and need not be orthogonal, log-linear
+models can capture arbitrary dependencies in the
+data and cleanly incorporate them into a model.
+</bodyText>
+<equation confidence="0.925519555555555">
+Z(~
+) (the partition function) is chosen so that
+P
+(x,y) p(x, y  |~
+) = 1; i.e., Z(~
+) =
+P
+(x,y) u(x, y |
+~
+</equation>
+<bodyText confidence="0.965337">
+). u is typically easy to compute for a given (x, y),
+but Z may be much harder to compute. All the ob-
+jective functions in this paper take the form
+</bodyText>
+<equation confidence="0.944430857142857">
+Y
+i
+P
+(x,y)Ai
+p
+\x10
+x, y  |~
+\x11
+P
+(x,y)Bi
+p
+\x10
+x, y  |~
+\x11 (5)
+likelihood criterion Ai Bi
+joint {(xi, y
+i )} X Y
+conditional {(xi, y
+i )} {xi} Y
+marginal (a la EM) {xi} Y X Y
+contrastive {xi} Y N(xi) Y
+</equation>
+<tableCaption confidence="0.975145">
+Table 2: Supervised (upper box) and unsupervised (lower box)
+</tableCaption>
+<bodyText confidence="0.922384666666667">
+estimation with log-linear models in terms of Eq. 5.
+where Ai Bi (for each i). For log-linear models
+this is simply
+</bodyText>
+<equation confidence="0.999020928571429">
+Y
+i
+P
+(x,y)Ai
+u
+\x10
+x, y  |~
+\x11
+P
+(x,y)Bi
+u
+\x10
+x, y  |~
+\x11 (6)
+</equation>
+<bodyText confidence="0.97157425">
+So there is no need to compute Z(~
+), but we do need
+to compute sums over A and B. Tab. 2 summarizes
+some concrete examples; see also 3.13.2.
+We would prefer to choose an objective function
+such that these sums are easy. CE focuses on choos-
+ing appropriate small contrast sets Bi, both for effi-
+ciency and to guide the learner. The natural choice
+for Ai (which is usually easier to sum over) is the set
+of (x, y) that are consistent with what was observed
+(partially or completely) about the ith training ex-
+ample, i.e., the numerator
+</bodyText>
+<equation confidence="0.97645975">
+P
+(x,y)Ai
+p(x, y  |~
+) is
+</equation>
+<bodyText confidence="0.99201516">
+designed to find p(observation i  |~
+). The idea is to
+focus the probability mass within Bi on the subset
+Ai where the i the training example is known to be.
+It is possible to build log-linear models where
+each xi is a sequence.2 In this paper, each model
+is a weighted finite-state automaton (WFSA) where
+states correspond to POS tags. The parameter vector
+~
+Rn specifies a weight for each of the n transi-
+tions in the automaton. y is a hidden path through
+the automaton (determining a POS sequence), and x
+is the string it emits. u(x, y  |~
+) is defined by ap-
+plying exp to the total weight of all transitions in y.
+This is an example of Eqs. 4 and 6 where fj(x, y) is
+the number of times the path y takes the jth transi-
+tion.
+The partition function Z(~
+) of the WFSA is found
+by adding up the u-scores of all paths through the
+WFSA. For a k-state WFSA, this equates to solving
+a linear system of k equations in k variables (Tarjan,
+1981). But if the WFSA contains cycles this infi-
+nite sum may diverge. Alternatives to exact com-
+</bodyText>
+<page confidence="0.972772">
+2
+</page>
+<bodyText confidence="0.9865782">
+These are exemplified by CRFs (Lafferty et al., 2001),
+which can be viewed alternately as undirected dynamic graph-
+ical models with a chain topology, as log-linear models over
+entire sequences with local features, or as WFSAs. Because
+CRF implies CL estimation, we use the term WFSA.
+</bodyText>
+<page confidence="0.996849">
+356
+</page>
+<bodyText confidence="0.9949296">
+\x0cputation, like random sampling (see, e.g., Abney,
+1997), will not help to avoid this difficulty; in addi-
+tion, convergence rates are in general unknown and
+bounds difficult to prove. We would prefer to sum
+over finitely many paths in Bi.
+</bodyText>
+<subsectionHeader confidence="0.977469">
+3.1 Parameter estimation (supervised)
+</subsectionHeader>
+<bodyText confidence="0.80692">
+For log-linear models, both CL and JL estimation
+(Tab. 1) are available. In terms of Eq. 5, both
+</bodyText>
+<listItem confidence="0.4245854">
+set Ai = {(xi, y
+i )}. The difference is in B: for
+JL, Bi = X Y, so summing over Bi is equiva-
+lent to computing the partition function Z(~
+). Be-
+</listItem>
+<bodyText confidence="0.975048071428572">
+cause that sum is typically difficult, CL is preferred;
+Bi = {xi} Y for xi, which is often tractable.
+For sequence models like WFSAs it is computed us-
+ing a dynamic programming algorithm (the forward
+algorithm for WFSAs). Klein and Manning (2002)
+argue for CL on grounds of accuracy, but see also
+Johnson (2001). See Tab. 2; other contrast sets Bi
+are also possible.
+When Bi contains only xi paired with the current
+best competitor (y) to y
+i , we have a technique that
+resembles maximum margin training (Crammer and
+Singer, 2001). Note that y will then change across
+training iterations, making Bi dynamic.
+</bodyText>
+<subsectionHeader confidence="0.996252">
+3.2 Parameter estimation (unsupervised)
+</subsectionHeader>
+<bodyText confidence="0.99951475">
+The difference between supervised and unsuper-
+vised learning is that in the latter case, Ai is forced
+to sum over label sequences y because they werent
+observed. In the unsupervised case, CE maximizes
+</bodyText>
+<equation confidence="0.997665736842105">
+LN
+\x10
+~
+\x11
+= log
+Y
+i
+X
+yY
+u
+\x10
+xi, y  |~
+\x11
+X
+(x,y)N(xi)Y
+u
+\x10
+x, y  |~
+\x11 (7)
+</equation>
+<bodyText confidence="0.984054125">
+In terms of Eq. 5, A = {xi}Y and B = N(xi)Y.
+EMs objective function (Eq. 1) is a special case
+where N(xi) = X, for all i, and the denomina-
+tor becomes Z(~
+). An alternative is to restrict the
+neighborhood to the set of observed training exam-
+ples rather than all possible examples (Riezler, 1999;
+Johnson et al., 1999; Riezler et al., 2000):
+</bodyText>
+<equation confidence="0.9952198125">
+Y
+i
+&amp;quot;
+u
+\x10
+xi  |~
+\x11
+,
+X
+j
+u
+\x10
+xj  |~
+\x11
+#
+(8)
+</equation>
+<bodyText confidence="0.995441666666667">
+Viewed as a CE method, this approach (though ef-
+fective when there are few hypotheses) seems mis-
+guided; the objective says to move mass to each ex-
+ample at the expense of all other training examples.
+Another variant is conditional EM. Let xi be a
+pair (xi,1, xi,2) and define the neighborhood to be
+</bodyText>
+<equation confidence="0.950009">
+N(xi) = {x = (x1, xi,2)}. This approach has
+</equation>
+<bodyText confidence="0.996444">
+been applied to conditional densities (Jebara and
+Pentland, 1998) and conditional training of acoustic
+models with hidden variables (Valtchev et al., 1997).
+Generally speaking, CE is equivalent to some
+kind of EM when N() is an equivalence relation
+on examples, so that the neighborhoods partition X.
+Then if q is any fixed (untrained) distribution over
+neighborhoods, CE equates to running EM on the
+model defined by
+</bodyText>
+<equation confidence="0.9969873">
+p0
+\x10
+x, y  |~
+\x11
+def
+= q (N(x)) p
+\x10
+x, y  |N(x), ~
+\x11
+(9)
+</equation>
+<bodyText confidence="0.973841789473684">
+CE may also be viewed as an importance sam-
+pling approximation to EM, where the sample space
+X is replaced by N(xi). We will demonstrate ex-
+perimentally that CE is not just an approximation to
+EM; it makes sense from a modeling perspective.
+In 4, we will describe neighborhoods of se-
+quences that can be represented as acyclic lattices
+built directly from an observed sequence. The sum
+over Bi is then the total u-score in our model of all
+paths in the neighborhood lattice. To compute this,
+intersect the WFSA and the lattice, obtaining a new
+acyclic WFSA, and sum the u-scores of all its paths
+(Eisner, 2002) using a simple dynamic programming
+algorithm akin to the forward algorithm. The sum
+over Ai may be computed similarly.
+CE with lattice neighborhoods is not confined to
+the WFSAs of this paper; when estimating weighted
+CFGs, the key algorithm is the inside algorithm for
+lattice parsing (Smith and Eisner, 2005).
+</bodyText>
+<subsectionHeader confidence="0.996991">
+3.3 Numerical optimization
+</subsectionHeader>
+<bodyText confidence="0.998541666666667">
+To maximize the neighborhood likelihood (Eq. 7),
+we apply a standard numerical optimization method
+(L-BFGS) that iteratively climbs the function using
+knowledge of its value and gradient (Liu and No-
+cedal, 1989). The partial derivative of LN with re-
+spect to the jth feature weight j is
+</bodyText>
+<equation confidence="0.995441625">
+LN
+j
+=
+X
+i
+E~
+[fj  |xi] E~
+[fj  |N(xi)] (10)
+</equation>
+<bodyText confidence="0.9765474">
+This looks similar to the gradient of log-linear like-
+lihood functions on complete data, though the ex-
+pectation on the left is in those cases replaced by an
+observed feature value fj(xi, y
+i ). In this paper, the
+</bodyText>
+<page confidence="0.975866">
+357
+</page>
+<bodyText confidence="0.80772625">
+\x0cnatural language is a delicate thing
+a. DEL1WORD:
+natural language is a delicate thing
+language is a delicate thing
+</bodyText>
+<figure confidence="0.995732035087719">
+is a
+delicate
+thing
+?:
+? ?
+b. TRANS1:
+natural language a delicate thing
+is
+delicate
+is
+is
+a
+natural
+a
+is a delicate thing
+language
+language
+delicate
+thing
+:x
+x2 1
+x2
+x1
+:
+:
+x x
+2 3
+:
+x x
+3 2
+:
+x x
+m m
+1
+xm
+1
+:xm
+? ?
+...
+(Each bigram xi+1
+i in the sentence has an
+arc pair (xi : xi+1, xi+1 : xi).)
+c. DEL1SUBSEQ:
+natural language is a delicate thing
+language
+is
+is
+a
+a
+a delicate thing
+?:
+?:
+?:
+?
+?
+?
+?
+</figure>
+<figureCaption confidence="0.999759">
+Figure 1: A sentence and three lattices representing some of its neighborhoods. The transducer used to generate each neighborhood
+</figureCaption>
+<bodyText confidence="0.97892325">
+lattice (via composition with the sentence, followed by determinization and minimization) is shown to its right.
+expectations in Eq. 10 are computed by the forward-
+backward algorithm generalized to lattices.
+We emphasize that the function LN is not glob-
+ally concave; our search will lead only to a local op-
+timum.3 Therefore, as with all unsupervised statisti-
+cal learning, the bias in the initialization of ~
+will af-
+fect the quality of the estimate and the performance
+of the method. In future we might wish to apply
+techniques for avoiding local optima, such as deter-
+ministic annealing (Smith and Eisner, 2004).
+</bodyText>
+<sectionHeader confidence="0.989065" genericHeader="method">
+4 Lattice Neighborhoods
+</sectionHeader>
+<bodyText confidence="0.940192363636363">
+We next consider some non-classical neighborhood
+functions for sequences. When X = + for some
+symbol alphabet , certain kinds of neighborhoods
+have natural, compact representations. Given an in-
+put string x = hx1, x2, ..., xmi, we write xj
+i for
+the substring hxi, xi+1, ..., xji and xm
+1 for the whole
+string. Consider first the neighborhood consisting of
+all sequences generated by deleting a single symbol
+from the m-length sequence xm
+</bodyText>
+<equation confidence="0.9895328">
+1 :
+DEL1WORD(xm
+1 ) =
+n
+x`1
+1 xm
+`+1  |1 ` m
+o
+{xm
+1 }
+</equation>
+<bodyText confidence="0.989912">
+This set consists of m + 1 strings and can be com-
+pactly represented as a lattice (see Fig. 1a). Another
+</bodyText>
+<page confidence="0.880277">
+3
+</page>
+<bodyText confidence="0.636119">
+Without any hidden variables, LN is globally concave.
+neighborhood involves transposing any pair of adja-
+cent words:
+</bodyText>
+<equation confidence="0.819737777777778">
+TRANS1(xm
+1 ) =
+n
+x`1
+1 x`+1x`xm
+`+2  |1 ` &amp;lt; m
+o
+{xm
+1 }
+</equation>
+<bodyText confidence="0.99724825">
+This set can also be compactly represented as a lat-
+tice (Fig. 1b). We can combine DEL1WORD and
+TRANS1 by taking their union; this gives a larger
+neighborhood, DELORTRANS1.4
+The DEL1SUBSEQ neighborhood allows the dele-
+tion of any contiguous subsequence of words that is
+strictly smaller than the whole sequence. This lattice
+is similar to that of DEL1WORD, but adds some arcs
+(Fig. 1c); the size of this neighborhood is O(m2).
+A final neighborhood we will consider is
+LENGTH, which consists of m. CE with the
+LENGTH neighborhood is very similar to EM; it is
+equivalent to using EM to estimate the parameters
+of a model defined by Eq. 9 where q is any fixed
+(untrained) distribution over lengths.
+When the vocabulary is the set of words in a
+natural language, it is never fully known; approx-
+imations for defining LENGTH = m include us-
+ing observed from the training set (as we do) or
+adding a special OOV symbol.
+</bodyText>
+<page confidence="0.983901">
+4
+</page>
+<bodyText confidence="0.999595">
+In general, the lattices are obtained by composing the ob-
+served sequence with a small FST and determinizing and mini-
+mizing the result; the relevant transducers are shown in Fig. 1.
+</bodyText>
+<page confidence="0.968168">
+358
+</page>
+<figure confidence="0.996755357142857">
+\x0c30
+40
+50
+60
+70
+80
+90
+100
+0.1 1 10
+%
+correct
+tags
+smoothing parameter
+0
+</figure>
+<page confidence="0.697477">
+8
+</page>
+<table confidence="0.900881916666667">
+12K 24K 48K 96K
+sel. oracle sel. oracle sel. oracle sel. oracle
+CRF (supervised) 100.0 99.8 99.8 99.5
+HMM (supervised) 99.3 98.5 97.9 97.2
+LENGTH 74.9 77.4 78.7 81.5 78.3 81.3 78.9 79.3
+DELORTR1 70.8 70.8 78.6 78.6 78.3 79.1 75.2 78.8
+TRANS1 72.7 72.7 77.2 77.2 78.1 79.4 74.7 79.0
+EM 49.5 52.9 55.5 58.0 59.4 60.9 60.9 62.1
+DEL1WORD 55.4 55.6 58.6 60.3 59.9 60.2 59.9 60.4
+DEL1SSQ 53.0 53.3 55.0 56.7 55.3 55.4 57.3 58.7
+random expected 35.2 35.1 35.1 35.1
+ambiguous words 6,244 12,923 25,879 51,521
+</table>
+<figureCaption confidence="0.694857">
+Figure 2: Percent ambiguous words tagged correctly in the 96K dataset, as the smoothing parameter ( in the case of EM, 2
+</figureCaption>
+<bodyText confidence="0.863918">
+in the
+CE cases) varies. The model selected from each criterion using unlabeled development data is circled in the plot. Dataset size is
+varied in the table at right, which shows models selected using unlabeled development data (sel.) and using an oracle (oracle,
+the highest point on a curve). Across conditions, some neighborhood roughly splits the difference between supervised models and
+EM.
+</bodyText>
+<sectionHeader confidence="0.995602" genericHeader="method">
+5 Experiments
+</sectionHeader>
+<bodyText confidence="0.993933">
+We compare CE (using neighborhoods from 4)
+with EM on POS tagging using unlabeled data.
+</bodyText>
+<subsectionHeader confidence="0.997408">
+5.1 Comparison with EM
+</subsectionHeader>
+<bodyText confidence="0.998814166666667">
+Our experiments are inspired by those in
+Merialdo (1994); we train a trigram tagger using
+only unlabeled data, assuming complete knowledge
+of the tagging dictionary.5 In our experiments,
+we varied the amount of data available (12K96K
+words of WSJ), the heaviness of smoothing, and the
+estimation criterion. In all cases, training stopped
+when the relative change in the criterion fell below
+104 between steps (typically 100 steps). For this
+corpus and tag set, on average, a tagger must decide
+between 2.3 tags for a given token.
+The generative model trained by EM was identical
+to Merialdos: a second-order HMM. We smoothed
+using a flat Dirichlet prior with single parameter
+for all distributions (-values from 0 to 10 were
+tested).6 The model was initialized uniformly.
+The log-linear models trained by CE used the
+same feature set, though the feature weights are no
+longer log-probabilities and there are no sum-to-one
+constraints. In addition to an unsmoothed trial, we
+tried diagonal Gaussian priors (quadratic penalty)
+with 2 ranging from 0.1 to 10. The models were
+initialized with all j = 0.
+Unsupervised model selection. For each (crite-
+</bodyText>
+<page confidence="0.965543">
+5
+</page>
+<bodyText confidence="0.997714">
+Without a tagging dictionary, tag names are interchange-
+able and cannot be evaluated on gold-standard accuracy. We
+address the tagging dictionary assumption in 5.2.
+</bodyText>
+<page confidence="0.991216">
+6
+</page>
+<bodyText confidence="0.998556441176471">
+This is equivalent to add- smoothing within every M step.
+rion, dataset) pair, we selected the smoothing trial
+that gave the highest estimation criterion score on a
+5K-word development set (also unlabeled).
+Results. The plot in Fig. 2 shows the Viterbi ac-
+curacy of each criterion trained on the 96K-word
+dataset as smoothing was varied; the table shows,
+for each (criterion, dataset) pair the performance of
+the selected or 2 and the one chosen by an oracle.
+LENGTH, TRANS1, and DELORTRANS1 are con-
+sistently the best, far out-stripping EM. These gains
+dwarf the performance of EM on over 1.1M words
+(66.6% as reported by Smith and Eisner (2004)),
+even when the latter uses improved search (70.0%).
+DEL1WORD and DEL1SUBSEQ, on the other hand,
+are poor, even worse than EM on larger datasets.
+An important result is that neighborhoods do not
+succeed by virtue of approximating log-linear EM;
+if that were so, we would expect larger neighbor-
+hoods (like DEL1SUBSEQ) to out-perform smaller
+ones (like TRANS1)this is not so. DEL1SUBSEQ
+and DEL1WORD are poor because they do not give
+helpful classes of negative evidence: deleting a word
+or a short subsequence often does very little dam-
+age. Put another way, models that do a good job of
+explaining why no word or subsequence should be
+deleted do not do so using the familiar POS cate-
+gories.
+The LENGTH neighborhood is as close to log-
+linear EM as it is practical to get. The inconsis-
+tencies in the LENGTH curve (Fig. 2) are notable
+and also appeared at the other training set sizes.
+Believing this might be indicative of brittleness in
+Viterbi label selection, we computed the expected
+</bodyText>
+<page confidence="0.997525">
+359
+</page>
+<table confidence="0.951979125">
+\x0cDELORTRANS1 TRANS1 LENGTH EM
+words in trigram
+trigram
++ spelling trigram
+trigram
++ spelling trigram
+trigram
++ spelling trigram
+</table>
+<bodyText confidence="0.757768">
+tagging dict. sel. oracle sel. oracle sel. oracle sel. oracle sel. oracle sel. oracle sel. oracle
+</bodyText>
+<figure confidence="0.985308595238095">
+r
+a
+n
+d
+o
+m
+e
+x
+p
+e
+c
+t
+e
+d
+a
+m
+b
+i
+g
+u
+o
+u
+s
+w
+o
+r
+d
+s
+a
+v
+e
+.
+t
+a
+g
+s
+/
+t
+o
+k
+e
+n
+</figure>
+<table confidence="0.6872788">
+all train &amp; dev. 78.3 90.1 80.9 91.1 90.4 90.4 88.7 90.9 87.8 90.4 87.1 91.9 78.0 84.4 69.5 13,150 2.3
+1st
+500 sents. 72.3 84.8 80.2 90.8 80.8 82.9 88.1 90.1 68.1 78.3 76.9 83.2 77.2 80.5 60.5 13,841 3.7
+count 2 69.5 81.3 79.5 90.3 77.0 78.6 78.7 90.1 65.3 75.2 73.3 73.8 70.1 70.9 56.6 14,780 4.4
+count 3 65.0 77.2 78.3 89.8 71.7 73.4 78.4 89.5 62.8 72.3 73.2 73.6 66.5 66.5 51.0 15,996 5.5
+</table>
+<tableCaption confidence="0.995563">
+Table 3: Percent of all words correctly tagged in the 24K dataset, as the tagging dictionary is diluted. Unsupervised model selection
+</tableCaption>
+<bodyText confidence="0.954208888888889">
+(sel.) and oracle model selection (oracle) across smoothing parameters are shown. Note that we evaluated on all words (unlike
+Fig. 3) and used 17 coarse tags, giving higher scores than in Fig. 2.
+accuracy of the LENGTH models; the same dips
+were present. This could indicate that the learner
+was trapped in a local maximum, suggesting that,
+since other criteria did not exhibit this behavior,
+LENGTH might be a bumpier objective surface. It
+would be interesting to measure the bumpiness (sen-
+sitivity to initial conditions) of different contrastive
+</bodyText>
+<subsectionHeader confidence="0.7377895">
+objectives.7
+5.2 Removing knowledge, adding features
+</subsectionHeader>
+<bodyText confidence="0.999700833333333">
+The assumption that the tagging dictionary is com-
+pletely known is difficult to justify. While a POS
+lexicon might be available for a new language, cer-
+tainly it will not give exhaustive information about
+all word types in a corpus. We experimented with
+removing knowledge from the tagging dictionary,
+thereby increasing the difficulty of the task, to see
+how well various objective functions could recover.
+One means to recovery is the addition of features to
+the modelthis is easy with log-linear models but
+not with classical generative models.
+We compared the performance of the best
+neighborhoods (LENGTH, DELORTRANS1, and
+TRANS1) from the first experiment, plus EM, us-
+ing three diluted dictionaries and the original one,
+on the 24K dataset. A diluted dictionary adds (tag,
+word) entries so that rare words are allowed with
+any tag, simulating zero prior knowledge about the
+word. Rare might be defined in different ways;
+we used three definitions: words unseen in the first
+500 sentences (about half of the 24K training cor-
+pus); singletons (words with count 1); and words
+with count 2. To allow more trials, we projected
+the original 45 tags onto a coarser set of 17 (e.g.,
+</bodyText>
+<page confidence="0.993911">
+7
+</page>
+<bodyText confidence="0.993413022222222">
+A reviewer suggested including a table comparing different
+criterion values for each learned model (i.e., each neighborhood
+evaluated on each other neighborhood). This table contained no
+big surprises; we note only that most models were the best on
+their own criterion, and among unsupervised models, LENGTH
+performed best on the CL criterion.
+RB ADV).
+To take better advantage of the power of log-
+linear modelsspecifically, their ability to incorpo-
+rate novel featureswe also ran trials augmenting
+the model with spelling features, allowing exploita-
+tion of correlations between parts of the word and a
+possible tag. Our spelling features included all ob-
+served 1-, 2-, and 3-character suffixes, initial capital-
+ization, containing a hyphen, and containing a digit.
+Results. Fig. 3 plots tagging accuracy (on am-
+biguous words) for each dictionary on the 24K
+dataset. The x-axis is the smoothing parameter (
+for EM, 2 for CE). Note that the different plots are
+not comparable, because their y-axes are based on
+different sets of ambiguous words.
+So that models under different dilution conditions
+could be compared, we computed accuracy on all
+words; these are shown in Tab. 3. The reader will
+notice that there is often a large gap between unsu-
+pervised and oracle model selection; this draws at-
+tention to a need for better unsupervised regulariza-
+tion and model selection techniques.
+Without spelling features, all models perform
+worse as knowledge is removed. But LENGTH suf-
+fers most substantially, relative to its initial perfor-
+mance. Why is this? LENGTH (like EM) requires
+the model to explain why a given sentence was seen
+instead of some other sentence of the same length.
+One way to make this explanation is to manipulate
+emission weights (i.e., for (tag, word) features): the
+learner can construct a good class-based unigram
+model of the text (where classes are tags). This is
+good for the LENGTH objective, but not for learning
+good POS tag sequences.
+In contrast, DELORTRANS1 and TRANS1 do not
+allow the learner to manipulate emission weights for
+words not in the sentence. The sentences good-
+ness must be explained in a way other than by the
+words it contains: namely through the POS tags. To
+</bodyText>
+<page confidence="0.951062">
+360
+</page>
+<bodyText confidence="0.997840904761905">
+\x0ccheck this intuition, we built local normalized mod-
+els p(word  |tag) from the parameters learned by
+TRANS1 and LENGTH. For each tag, these were
+compared by KL divergence to the empirical lexical
+distributions (from labeled data). For the ten tags
+accounting for 95.6% of the data, LENGTH more
+closely matched the empirical lexical distributions.
+LENGTH is learning a correct distribution, but that
+distribution is not helpful for the task.
+The improvement from adding spelling features
+is striking: DELORTRANS1 and TRANS1 recover
+nearly completely (modulo the model selection
+problem) from the diluted dictionaries. LENGTH
+sees far less recovery. Hence even our improved fea-
+ture sets cannot compensate for the choice of neigh-
+borhood. This highlights our argument that a neigh-
+borhood is not an approximation to log-linear EM;
+LENGTH tries very hard to approximate log-linear
+EM but requires a good dictionary to be on par with
+the other criteria. Good neighborhoods, rather, per-
+form well in their own right.
+</bodyText>
+<sectionHeader confidence="0.998866" genericHeader="method">
+6 Future Work
+</sectionHeader>
+<bodyText confidence="0.999538222222222">
+Foremost for future work is the minimally super-
+vised paradigm in which a small amount of la-
+beled data is available (see, e.g., Clark et al. (2003)).
+Unlike well-known bootstrapping approaches
+(Yarowsky, 1995), EM and CE have the possible ad-
+vantage of maintaining posteriors over hidden labels
+(or structure) throughout learning; bootstrapping ei-
+ther chooses, for each example, a single label, or
+remains completely agnostic. One can envision a
+mixed objective function that tries to fit the labeled
+examples while discriminating unlabeled examples
+from their neighborhoods.8
+Regardless of how much (if any) data are labeled,
+the question of good smoothing techniques requires
+more attention. Here we used a single zero-mean,
+constant-variance Gaussian prior for all parameters.
+Better performance might be achieved by allowing
+different variances for different feature types. This
+</bodyText>
+<page confidence="0.97148">
+8
+</page>
+<bodyText confidence="0.9604005">
+Zhu and Ghahramani (2002) explored the semi-supervised
+classification problem for spatially-distributed data, where
+some data are labeled, using a Boltzmann machine to model
+the dataset. For them, the Markov random field is over label-
+ing configurations for all examples, not, as in our case, com-
+plex structured labels for a particular example. Hence their B
+(Eq. 5), though very large, was finite and could be sampled.
+All train &amp; development words are in the tagging dictionary:
+</bodyText>
+<figure confidence="0.993949108695652">
+40
+45
+50
+55
+60
+65
+70
+75
+80
+85
+Tagging dictionary taken from the first 500 sentences:
+40
+45
+50
+55
+60
+65
+70
+75
+80
+85
+Tagging dictionary contains words with count 2:
+40
+45
+50
+55
+60
+65
+70
+75
+80
+85
+Tagging dictionary contains words with count 3:
+40
+45
+50
+55
+60
+65
+70
+75
+80
+85
+40
+45
+50
+55
+60
+65
+70
+75
+80
+85
+0.1 1 10
+smoothing parameter
+0
+8
+50
+DELORTRANS1 \x04
+\x04
+TRANS1 \x03
+\x03
+LENGTH 4 5
+EM
+t
+r
+i
+g
+r
+a
+m
+m
+o
+d
+e
+l
+t
+r
+i
+g
+r
+a
+m
++
+s
+p
+e
+l
+l
+i
+n
+g
+</figure>
+<figureCaption confidence="0.9988">
+Figure 3: Percent ambiguous words tagged correctly (with
+</figureCaption>
+<bodyText confidence="0.982500666666667">
+coarse tags) on the 24K dataset, as the dictionary is diluted and
+with spelling features. Each graph corresponds to a different
+level of dilution. Models selected using unlabeled development
+data are circled. These plots (unlike Tab. 3) are not compara-
+ble to each other because each is measured on a different set of
+ambiguous words.
+</bodyText>
+<page confidence="0.986975">
+361
+</page>
+<bodyText confidence="0.99819965">
+\x0cleads to a need for more efficient tuning of the prior
+parameters on development data.
+The effectiveness of CE (and different neighbor-
+hoods) for dependency grammar induction is ex-
+plored in Smith and Eisner (2005) with considerable
+success. We introduce there the notion of design-
+ing neighborhoods to guide learning for particular
+tasks. Instead of guiding an unsupervised learner to
+match linguists annotations, the choice of neighbor-
+hood might be made to direct the learner toward hid-
+den structure that is helpful for error-correction tasks
+like spelling correction and punctuation restoration
+that may benefit from a grammatical model.
+Wang et al. (2002) discuss the latent maximum
+entropy principle. They advocate running EM many
+times and selecting the local maximum that maxi-
+mizes entropy. One might do the same for the local
+maxima of any CE objective, though theoretical and
+experimental support for this idea remain for future
+work.
+</bodyText>
+<sectionHeader confidence="0.998163" genericHeader="conclusions">
+7 Conclusion
+</sectionHeader>
+<bodyText confidence="0.997131933333333">
+We have presented contrastive estimation, a new
+probabilistic estimation criterion that forces a model
+to explain why the given training data were better
+than bad data implied by the positive examples. We
+have shown that for unsupervised sequence model-
+ing, this technique is efficient and drastically out-
+performs EM; for POS tagging, the gain in accu-
+racy over EM is twice what we would get from ten
+times as much data and improved search, sticking
+with EMs criterion (Smith and Eisner, 2004). On
+this task, with certain neighborhoods, contrastive
+estimation suffers less than EM does from dimin-
+ished prior knowledge and is able to exploit new
+featuresthat EM cantto largely recover from
+the loss of knowledge.
+</bodyText>
+<sectionHeader confidence="0.98397" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.99978136">
+S. P. Abney. 1997. Stochastic attribute-value grammars. Com-
+putational Linguistics, 23(4):597617.
+Y. Altun, M. Johnson, and T. Hofmann. 2003. Investigating
+loss functions and optimization methods for discriminative
+learning of label sequences. In Proc. of EMNLP.
+E. Charniak. 1993. Statistical Language Learning. MIT Press.
+S. Clark, J. R. Curran, and M. Osborne. 2003. Bootstrapping
+POS taggers using unlabelled data. In Proc. of CoNLL.
+M. Collins. 2000. Discriminative reranking for natural lan-
+guage parsing. In Proc. of ICML.
+K. Crammer and Y. Singer. 2001. On the algorithmic imple-
+mentation of multiclass kernel-based vector machines. Jour-
+nal of Machine Learning Research, 2(5):26592.
+A. Dempster, N. Laird, and D. Rubin. 1977. Maximum likeli-
+hood estimation from incomplete data via the EM algorithm.
+Journal of the Royal Statistical Society B, 39:138.
+J. Eisner. 2002. Parameter estimation for probabilistic finite-
+state transducers. In Proc. of ACL.
+G. E. Hinton. 2003. Training products of experts by mini-
+mizing contrastive divergence. Technical Report GCNU TR
+2000-004, University College London.
+T. Jebara and A. Pentland. 1998. Maximum conditional like-
+lihood via bound maximization and the CEM algorithm. In
+Proc. of NIPS.
+M. Johnson, S. Geman, S. Canon, Z. Chi, and S. Riezler. 1999.
+Estimators for stochastic unification-based grammars. In
+Proc. of ACL.
+M. Johnson. 2001. Joint and conditional estimation of tagging
+and parsing models. In Proc. of ACL.
+B.-H. Juang and S. Katagiri. 1992. Discriminative learning for
+minimum error classification. IEEE Trans. Signal Process-
+ing, 40:304354.
+D. Klein and C. D. Manning. 2002. Conditional structure vs.
+conditional estimation in NLP models. In Proc. of EMNLP.
+J. Lafferty, A. McCallum, and F. Pereira. 2001. Conditional
+random fields: Probabilistic models for segmenting and la-
+beling sequence data. In Proc. of ICML.
+D. C. Liu and J. Nocedal. 1989. On the limited memory method
+for large scale optimization. Mathematical Programming B,
+45(3):50328.
+A. McCallum and W. Li. 2003. Early results for named-
+entity extraction with conditional random fields. In Proc.
+of CoNLL.
+B. Merialdo. 1994. Tagging English text with a probabilistic
+model. Computational Linguistics, 20(2):15572.
+Y. Miyao and J. Tsujii. 2002. Maximum entropy estimation for
+feature forests. In Proc. of HLT.
+A. Ratnaparkhi, S. Roukos, and R. T. Ward. 1994. A maximum
+entropy model for parsing. In Proc. of ICSLP.
+S. Riezler, D. Prescher, J. Kuhn, and M. Johnson. 2000. Lex-
+icalized stochastic modeling of constraint-based grammars
+using log-linear measures and EM training. In Proc. of ACL.
+S. Riezler. 1999. Probabilistic Constraint Logic Programming.
+Ph.D. thesis, Universitat Tubingen.
+R. Rosenfeld. 1994. Adaptive Statistical Language Modeling:
+A Maximum Entropy Approach. Ph.D. thesis, CMU.
+F. Sha and F. Pereira. 2003. Shallow parsing with conditional
+random fields. In Proc. of HLT-NAACL.
+N. A. Smith and J. Eisner. 2004. Annealing techniques for
+unsupervised statistical language learning. In Proc. of ACL.
+N. A. Smith and J. Eisner. 2005. Guiding unsupervised gram-
+mar induction using contrastive estimation. In Proc. of IJ-
+CAI Workshop on Grammatical Inference Applications.
+R. E. Tarjan. 1981. A unified approach to path problems. Jour-
+nal of the ACM, 28(3):57793.
+V. Valtchev, J. J. Odell, P. C. Woodland, and S. J. Young. 1997.
+MMIE training of large vocabulary speech recognition sys-
+tems. Speech Communication, 22(4):30314.
+S. Wang, R. Rosenfeld, Y. Zhao, and D. Schuurmans. 2002.
+The latent maximum entropy principle. In Proc. of ISIT.
+D. Yarowsky. 1995. Unsupervised word sense disambiguation
+rivaling supervised methods. In Proc. of ACL.
+X. Zhu and Z. Ghahramani. 2002. Towards semi-supervised
+classification with Markov random fields. Technical Report
+CMU-CALD-02-106, Carnegie Mellon University.
+</reference>
+<page confidence="0.987384">
+362
+</page>
+<figure confidence="0.246693">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.752720">
+<note confidence="0.951842333333333">b&amp;apos;Proceedings of the 43rd Annual Meeting of the ACL, pages 354362, Ann Arbor, June 2005. c 2005 Association for Computational Linguistics</note>
+<title confidence="0.956217">Contrastive Estimation: Training Log-Linear Models on Unlabeled Data</title>
+<author confidence="0.999814">Noah A Smith</author>
+<author confidence="0.999814">Jason Eisner</author>
+<affiliation confidence="0.999643">Department of Computer Science / Center for Language and Speech Processing</affiliation>
+<address confidence="0.984024">Johns Hopkins University, Baltimore, MD 21218 USA</address>
+<email confidence="0.999773">nasmith@cs.jhu.edu</email>
+<email confidence="0.999773">jason@cs.jhu.edu</email>
+<abstract confidence="0.995791166666667">Conditional random fields (Lafferty et al., 2001) are quite effective at sequence labeling tasks like shallow parsing (Sha and Pereira, 2003) and namedentity extraction (McCallum and Li, 2003). CRFs are log-linear, allowing the incorporation of arbitrary features into the model. To train on unlabeled data, we require unsupervised estimation methods for log-linear models; few exist. We describe a novel approach, contrastive estimation. We show that the new technique can be intuitively understood as exploiting implicit negative evidence and is computationally efficient. Applied to a sequence labeling problemPOS tagging given a tagging dictionary and unlabeled textcontrastive estimation outperforms EM (with the same feature set), is more robust to degradations of the dictionary, and can largely recover by modeling additional features.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>S P Abney</author>
+</authors>
+<title>Stochastic attribute-value grammars.</title>
+<date>1997</date>
+<journal>Computational Linguistics,</journal>
+<volume>23</volume>
+<issue>4</issue>
+<contexts>
+<context position="12442" citStr="Abney, 1997" startWordPosition="2187" endWordPosition="2188">FSA is found by adding up the u-scores of all paths through the WFSA. For a k-state WFSA, this equates to solving a linear system of k equations in k variables (Tarjan, 1981). But if the WFSA contains cycles this infinite sum may diverge. Alternatives to exact com2 These are exemplified by CRFs (Lafferty et al., 2001), which can be viewed alternately as undirected dynamic graphical models with a chain topology, as log-linear models over entire sequences with local features, or as WFSAs. Because CRF implies CL estimation, we use the term WFSA. 356 \x0cputation, like random sampling (see, e.g., Abney, 1997), will not help to avoid this difficulty; in addition, convergence rates are in general unknown and bounds difficult to prove. We would prefer to sum over finitely many paths in Bi. 3.1 Parameter estimation (supervised) For log-linear models, both CL and JL estimation (Tab. 1) are available. In terms of Eq. 5, both set Ai = {(xi, y i )}. The difference is in B: for JL, Bi = X Y, so summing over Bi is equivalent to computing the partition function Z(~ ). Because that sum is typically difficult, CL is preferred; Bi = {xi} Y for xi, which is often tractable. For sequence models like WFSAs it is c</context>
+</contexts>
+<marker>Abney, 1997</marker>
+<rawString>S. P. Abney. 1997. Stochastic attribute-value grammars. Computational Linguistics, 23(4):597617.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y Altun</author>
+<author>M Johnson</author>
+<author>T Hofmann</author>
+</authors>
+<title>Investigating loss functions and optimization methods for discriminative learning of label sequences.</title>
+<date>2003</date>
+<booktitle>In Proc. of EMNLP.</booktitle>
+<contexts>
+<context position="6705" citStr="Altun et al., 2003" startWordPosition="1112" endWordPosition="1115">s of socalled Viterbi approximations, which iteratively find the probabilistically-best y and then, on each iteration, solve a supervised problem (see Tab. 1). joint likelihood (JL) Y i p \x10 xi, y i |~ \x11 conditional likelihood (CL) Y i p \x10 y i |xi, ~ \x11 classification accuracy (Juang and Katagiri, 1992) X i (y i , y(xi)) expected classification accuracy (Klein and Manning, 2002) X i p \x10 y i |xi, ~ \x11 negated boosting loss (Collins, 2000) X i p \x10 y i |xi, ~ \x111 margin (Crammer and Singer, 2001) s.t. k~ k 1; i, y 6= y i , ~ (~ f(xi, y i ) ~ f(xi, y)) expected local accuracy (Altun et al., 2003) Y i Y j p \x10 `j(Y ) = `j(y i ) |xi, ~ \x11 Table 1: Various supervised training criteria. All functions are written so as to be maximized. None of these criteria are available for unsupervised estimation because they all depend on the correct label, y . 2.2 A new approach: contrastive estimation Our approach instead maximizes Y i p \x10 Xi = xi |Xi N(xi), ~ \x11 (2) where the neighborhood N(xi) X is a set of implicit negative examples plus the example xi itself. As in EM, p(xi |..., ~ ) is found by marginalizing over hidden variables (Eq. 1). Note that the x0 N(xi) are not treated as hard n</context>
+</contexts>
+<marker>Altun, Johnson, Hofmann, 2003</marker>
+<rawString>Y. Altun, M. Johnson, and T. Hofmann. 2003. Investigating loss functions and optimization methods for discriminative learning of label sequences. In Proc. of EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Charniak</author>
+</authors>
+<title>Statistical Language Learning.</title>
+<date>1993</date>
+<publisher>MIT Press.</publisher>
+<contexts>
+<context position="1497" citStr="Charniak, 1993" startWordPosition="218" endWordPosition="219">ively understood as exploiting implicit negative evidence and is computationally efficient. Applied to a sequence labeling problemPOS tagging given a tagging dictionary and unlabeled textcontrastive estimation outperforms EM (with the same feature set), is more robust to degradations of the dictionary, and can largely recover by modeling additional features. 1 Introduction Finding linguistic structure in raw text is not easy. The classical forward-backward and inside-outside algorithms try to guide probabilistic models to discover structure in text, but they tend to get stuck in local maxima (Charniak, 1993). Even when they avoid local maxima (e.g., through clever initialization) they typically deviate from human ideas of what the right structure is (Merialdo, 1994). One strategy is to incorporate domain knowledge into the models structure. Instead of blind HMMs or PCFGs, one could use models whose features This work was supported by a Fannie and John Hertz Foundation fellowship to the first author and NSF ITR grant IIS0313193 to the second author. The views expressed are not necessarily endorsed by the sponsors. The authors also thank three anonymous ACL reviewers for helpful comments, colleague</context>
+</contexts>
+<marker>Charniak, 1993</marker>
+<rawString>E. Charniak. 1993. Statistical Language Learning. MIT Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Clark</author>
+<author>J R Curran</author>
+<author>M Osborne</author>
+</authors>
+<title>Bootstrapping POS taggers using unlabelled data.</title>
+<date>2003</date>
+<booktitle>In Proc. of CoNLL.</booktitle>
+<contexts>
+<context position="29857" citStr="Clark et al. (2003)" startWordPosition="5225" endWordPosition="5228">(modulo the model selection problem) from the diluted dictionaries. LENGTH sees far less recovery. Hence even our improved feature sets cannot compensate for the choice of neighborhood. This highlights our argument that a neighborhood is not an approximation to log-linear EM; LENGTH tries very hard to approximate log-linear EM but requires a good dictionary to be on par with the other criteria. Good neighborhoods, rather, perform well in their own right. 6 Future Work Foremost for future work is the minimally supervised paradigm in which a small amount of labeled data is available (see, e.g., Clark et al. (2003)). Unlike well-known bootstrapping approaches (Yarowsky, 1995), EM and CE have the possible advantage of maintaining posteriors over hidden labels (or structure) throughout learning; bootstrapping either chooses, for each example, a single label, or remains completely agnostic. One can envision a mixed objective function that tries to fit the labeled examples while discriminating unlabeled examples from their neighborhoods.8 Regardless of how much (if any) data are labeled, the question of good smoothing techniques requires more attention. Here we used a single zero-mean, constant-variance Gau</context>
+</contexts>
+<marker>Clark, Curran, Osborne, 2003</marker>
+<rawString>S. Clark, J. R. Curran, and M. Osborne. 2003. Bootstrapping POS taggers using unlabelled data. In Proc. of CoNLL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+</authors>
+<title>Discriminative reranking for natural language parsing.</title>
+<date>2000</date>
+<booktitle>In Proc. of ICML.</booktitle>
+<contexts>
+<context position="6542" citStr="Collins, 2000" startWordPosition="1074" endWordPosition="1075">r sentences and Y a random variable over analyses (notation is often abbreviated, eliminating the random variables). An often-used alternative to EM is a class of socalled Viterbi approximations, which iteratively find the probabilistically-best y and then, on each iteration, solve a supervised problem (see Tab. 1). joint likelihood (JL) Y i p \x10 xi, y i |~ \x11 conditional likelihood (CL) Y i p \x10 y i |xi, ~ \x11 classification accuracy (Juang and Katagiri, 1992) X i (y i , y(xi)) expected classification accuracy (Klein and Manning, 2002) X i p \x10 y i |xi, ~ \x11 negated boosting loss (Collins, 2000) X i p \x10 y i |xi, ~ \x111 margin (Crammer and Singer, 2001) s.t. k~ k 1; i, y 6= y i , ~ (~ f(xi, y i ) ~ f(xi, y)) expected local accuracy (Altun et al., 2003) Y i Y j p \x10 `j(Y ) = `j(y i ) |xi, ~ \x11 Table 1: Various supervised training criteria. All functions are written so as to be maximized. None of these criteria are available for unsupervised estimation because they all depend on the correct label, y . 2.2 A new approach: contrastive estimation Our approach instead maximizes Y i p \x10 Xi = xi |Xi N(xi), ~ \x11 (2) where the neighborhood N(xi) X is a set of implicit negative exam</context>
+</contexts>
+<marker>Collins, 2000</marker>
+<rawString>M. Collins. 2000. Discriminative reranking for natural language parsing. In Proc. of ICML.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K Crammer</author>
+<author>Y Singer</author>
+</authors>
+<title>On the algorithmic implementation of multiclass kernel-based vector machines.</title>
+<date>2001</date>
+<journal>Journal of Machine Learning Research,</journal>
+<volume>2</volume>
+<issue>5</issue>
+<contexts>
+<context position="6604" citStr="Crammer and Singer, 2001" startWordPosition="1086" endWordPosition="1089">notation is often abbreviated, eliminating the random variables). An often-used alternative to EM is a class of socalled Viterbi approximations, which iteratively find the probabilistically-best y and then, on each iteration, solve a supervised problem (see Tab. 1). joint likelihood (JL) Y i p \x10 xi, y i |~ \x11 conditional likelihood (CL) Y i p \x10 y i |xi, ~ \x11 classification accuracy (Juang and Katagiri, 1992) X i (y i , y(xi)) expected classification accuracy (Klein and Manning, 2002) X i p \x10 y i |xi, ~ \x11 negated boosting loss (Collins, 2000) X i p \x10 y i |xi, ~ \x111 margin (Crammer and Singer, 2001) s.t. k~ k 1; i, y 6= y i , ~ (~ f(xi, y i ) ~ f(xi, y)) expected local accuracy (Altun et al., 2003) Y i Y j p \x10 `j(Y ) = `j(y i ) |xi, ~ \x11 Table 1: Various supervised training criteria. All functions are written so as to be maximized. None of these criteria are available for unsupervised estimation because they all depend on the correct label, y . 2.2 A new approach: contrastive estimation Our approach instead maximizes Y i p \x10 Xi = xi |Xi N(xi), ~ \x11 (2) where the neighborhood N(xi) X is a set of implicit negative examples plus the example xi itself. As in EM, p(xi |..., ~ ) is f</context>
+<context position="13431" citStr="Crammer and Singer, 2001" startWordPosition="2365" endWordPosition="2368">for JL, Bi = X Y, so summing over Bi is equivalent to computing the partition function Z(~ ). Because that sum is typically difficult, CL is preferred; Bi = {xi} Y for xi, which is often tractable. For sequence models like WFSAs it is computed using a dynamic programming algorithm (the forward algorithm for WFSAs). Klein and Manning (2002) argue for CL on grounds of accuracy, but see also Johnson (2001). See Tab. 2; other contrast sets Bi are also possible. When Bi contains only xi paired with the current best competitor (y) to y i , we have a technique that resembles maximum margin training (Crammer and Singer, 2001). Note that y will then change across training iterations, making Bi dynamic. 3.2 Parameter estimation (unsupervised) The difference between supervised and unsupervised learning is that in the latter case, Ai is forced to sum over label sequences y because they werent observed. In the unsupervised case, CE maximizes LN \x10 ~ \x11 = log Y i X yY u \x10 xi, y |~ \x11 X (x,y)N(xi)Y u \x10 x, y |~ \x11 (7) In terms of Eq. 5, A = {xi}Y and B = N(xi)Y. EMs objective function (Eq. 1) is a special case where N(xi) = X, for all i, and the denominator becomes Z(~ ). An alternative is to restrict the ne</context>
+</contexts>
+<marker>Crammer, Singer, 2001</marker>
+<rawString>K. Crammer and Y. Singer. 2001. On the algorithmic implementation of multiclass kernel-based vector machines. Journal of Machine Learning Research, 2(5):26592.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Dempster</author>
+<author>N Laird</author>
+<author>D Rubin</author>
+</authors>
+<title>Maximum likelihood estimation from incomplete data via the EM algorithm.</title>
+<date>1977</date>
+<journal>Journal of the Royal Statistical Society B,</journal>
+<pages>39--138</pages>
+<contexts>
+<context position="2730" citStr="Dempster et al., 1977" startWordPosition="409" endWordPosition="412">SP (especially David Smith and Roy Tromble) and Miles Osborne for insightful feedback, and Eric Goldlust and Markus Dreyer for Dyna language support. are crafted to pay attention to a range of domainspecific linguistic cues. Log-linear models can be so crafted and have already achieved excellent performance when trained on annotated data, where they are known as maximum entropy models (Ratnaparkhi et al., 1994; Rosenfeld, 1994). Our goal is to learn log-linear models from unannotated data. Since the forward-backward and inside-outside algorithms are instances of Expectation-Maximization (EM) (Dempster et al., 1977), a natural approach is to construct EM algorithms that handle log-linear models. Riezler (1999) did so, then resorted to an approximation because the true objective function was hard to normalize. Stepping back from EM, we may generally envision parameter estimation for probabilistic modeling as pushing probability mass toward the training examples. We must consider not only where the learner pushes the mass, but also from where the mass is taken. In this paper, we describe an alternative to EM: contrastive estimation (CE), which (unlike EM) explicitly states the source of the probability mas</context>
+<context position="5800" citStr="Dempster et al., 1977" startWordPosition="931" endWordPosition="934">re takes into account not only the observed positive example, but also a set of similar but deprecated negative examples. 2.1 Learning setting Let ~ x = hx1, x2, ...i, be our observed example sentences, where each xi X, and let y i Y be the unobserved correct hidden structure for xi (e.g., a POS sequence). We seek a model, parameterized by ~ , such that the (unknown) correct analysis y i is the best analysis for xi (under the model). If y i were observed, a variety of training criteria would be available (see Tab. 1), but y i is unknown, so none apply. Typically one turns to the EM algorithm (Dempster et al., 1977), which locally maximizes Y i p \x10 X = xi |~ \x11 = Y i X yY p \x10 X = xi, Y = y |~ \x11 (1) where X is a random variable over sentences and Y a random variable over analyses (notation is often abbreviated, eliminating the random variables). An often-used alternative to EM is a class of socalled Viterbi approximations, which iteratively find the probabilistically-best y and then, on each iteration, solve a supervised problem (see Tab. 1). joint likelihood (JL) Y i p \x10 xi, y i |~ \x11 conditional likelihood (CL) Y i p \x10 y i |xi, ~ \x11 classification accuracy (Juang and Katagiri, 1992)</context>
+</contexts>
+<marker>Dempster, Laird, Rubin, 1977</marker>
+<rawString>A. Dempster, N. Laird, and D. Rubin. 1977. Maximum likelihood estimation from incomplete data via the EM algorithm. Journal of the Royal Statistical Society B, 39:138.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Eisner</author>
+</authors>
+<title>Parameter estimation for probabilistic finitestate transducers.</title>
+<date>2002</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="15664" citStr="Eisner, 2002" startWordPosition="2779" endWordPosition="2780">1 (9) CE may also be viewed as an importance sampling approximation to EM, where the sample space X is replaced by N(xi). We will demonstrate experimentally that CE is not just an approximation to EM; it makes sense from a modeling perspective. In 4, we will describe neighborhoods of sequences that can be represented as acyclic lattices built directly from an observed sequence. The sum over Bi is then the total u-score in our model of all paths in the neighborhood lattice. To compute this, intersect the WFSA and the lattice, obtaining a new acyclic WFSA, and sum the u-scores of all its paths (Eisner, 2002) using a simple dynamic programming algorithm akin to the forward algorithm. The sum over Ai may be computed similarly. CE with lattice neighborhoods is not confined to the WFSAs of this paper; when estimating weighted CFGs, the key algorithm is the inside algorithm for lattice parsing (Smith and Eisner, 2005). 3.3 Numerical optimization To maximize the neighborhood likelihood (Eq. 7), we apply a standard numerical optimization method (L-BFGS) that iteratively climbs the function using knowledge of its value and gradient (Liu and Nocedal, 1989). The partial derivative of LN with respect to the</context>
+</contexts>
+<marker>Eisner, 2002</marker>
+<rawString>J. Eisner. 2002. Parameter estimation for probabilistic finitestate transducers. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>G E Hinton</author>
+</authors>
+<title>Training products of experts by minimizing contrastive divergence.</title>
+<date>2003</date>
+<tech>Technical Report GCNU TR 2000-004,</tech>
+<institution>University College London.</institution>
+<contexts>
+<context position="4162" citStr="Hinton, 2003" startWordPosition="645" endWordPosition="646">pervised case) and Riezlers approximation (for the unsupervised case). The other reason to use CE is to improve accuracy. CE offers an additional way to inject domain knowledge into unsupervised learning (Smith and Eisner, 2005). CE hypothesizes that each positive example in training implies a domain-specific set of examples which are (for the most part) degraded (2). This class of implicit negative evidence provides the source of probability mass for the observed example. We discuss the application of CE to loglinear models in 3. 1 Not to be confused with contrastive divergence minimization (Hinton, 2003), a technique for training products of experts. 354 \x0cWe are particularly interested in log-linear models over sequences, like the conditional random fields (CRFs) of Lafferty et al. (2001) and weighted CFGs (Miyao and Tsujii, 2002). For a given sequence, implicit negative evidence can be represented as a lattice derived by finite-state operations (4). Effectiveness of the approach on POS tagging using unlabeled data is demonstrated (5). We discuss future work (6) and conclude (7). 2 Implicit Negative Evidence Natural language is a delicate thing. For any plausible sentence, there are many s</context>
+</contexts>
+<marker>Hinton, 2003</marker>
+<rawString>G. E. Hinton. 2003. Training products of experts by minimizing contrastive divergence. Technical Report GCNU TR 2000-004, University College London.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Jebara</author>
+<author>A Pentland</author>
+</authors>
+<title>Maximum conditional likelihood via bound maximization and the CEM algorithm.</title>
+<date>1998</date>
+<booktitle>In Proc. of NIPS.</booktitle>
+<contexts>
+<context position="14638" citStr="Jebara and Pentland, 1998" startWordPosition="2594" endWordPosition="2597"> to restrict the neighborhood to the set of observed training examples rather than all possible examples (Riezler, 1999; Johnson et al., 1999; Riezler et al., 2000): Y i &amp;quot; u \x10 xi |~ \x11 , X j u \x10 xj |~ \x11 # (8) Viewed as a CE method, this approach (though effective when there are few hypotheses) seems misguided; the objective says to move mass to each example at the expense of all other training examples. Another variant is conditional EM. Let xi be a pair (xi,1, xi,2) and define the neighborhood to be N(xi) = {x = (x1, xi,2)}. This approach has been applied to conditional densities (Jebara and Pentland, 1998) and conditional training of acoustic models with hidden variables (Valtchev et al., 1997). Generally speaking, CE is equivalent to some kind of EM when N() is an equivalence relation on examples, so that the neighborhoods partition X. Then if q is any fixed (untrained) distribution over neighborhoods, CE equates to running EM on the model defined by p0 \x10 x, y |~ \x11 def = q (N(x)) p \x10 x, y |N(x), ~ \x11 (9) CE may also be viewed as an importance sampling approximation to EM, where the sample space X is replaced by N(xi). We will demonstrate experimentally that CE is not just an approxi</context>
+</contexts>
+<marker>Jebara, Pentland, 1998</marker>
+<rawString>T. Jebara and A. Pentland. 1998. Maximum conditional likelihood via bound maximization and the CEM algorithm. In Proc. of NIPS.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Johnson</author>
+<author>S Geman</author>
+<author>S Canon</author>
+<author>Z Chi</author>
+<author>S Riezler</author>
+</authors>
+<title>Estimators for stochastic unification-based grammars.</title>
+<date>1999</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="14153" citStr="Johnson et al., 1999" startWordPosition="2500" endWordPosition="2503"> (unsupervised) The difference between supervised and unsupervised learning is that in the latter case, Ai is forced to sum over label sequences y because they werent observed. In the unsupervised case, CE maximizes LN \x10 ~ \x11 = log Y i X yY u \x10 xi, y |~ \x11 X (x,y)N(xi)Y u \x10 x, y |~ \x11 (7) In terms of Eq. 5, A = {xi}Y and B = N(xi)Y. EMs objective function (Eq. 1) is a special case where N(xi) = X, for all i, and the denominator becomes Z(~ ). An alternative is to restrict the neighborhood to the set of observed training examples rather than all possible examples (Riezler, 1999; Johnson et al., 1999; Riezler et al., 2000): Y i &amp;quot; u \x10 xi |~ \x11 , X j u \x10 xj |~ \x11 # (8) Viewed as a CE method, this approach (though effective when there are few hypotheses) seems misguided; the objective says to move mass to each example at the expense of all other training examples. Another variant is conditional EM. Let xi be a pair (xi,1, xi,2) and define the neighborhood to be N(xi) = {x = (x1, xi,2)}. This approach has been applied to conditional densities (Jebara and Pentland, 1998) and conditional training of acoustic models with hidden variables (Valtchev et al., 1997). Generally speaking, CE </context>
+</contexts>
+<marker>Johnson, Geman, Canon, Chi, Riezler, 1999</marker>
+<rawString>M. Johnson, S. Geman, S. Canon, Z. Chi, and S. Riezler. 1999. Estimators for stochastic unification-based grammars. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Johnson</author>
+</authors>
+<title>Joint and conditional estimation of tagging and parsing models.</title>
+<date>2001</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="13212" citStr="Johnson (2001)" startWordPosition="2328" endWordPosition="2329">initely many paths in Bi. 3.1 Parameter estimation (supervised) For log-linear models, both CL and JL estimation (Tab. 1) are available. In terms of Eq. 5, both set Ai = {(xi, y i )}. The difference is in B: for JL, Bi = X Y, so summing over Bi is equivalent to computing the partition function Z(~ ). Because that sum is typically difficult, CL is preferred; Bi = {xi} Y for xi, which is often tractable. For sequence models like WFSAs it is computed using a dynamic programming algorithm (the forward algorithm for WFSAs). Klein and Manning (2002) argue for CL on grounds of accuracy, but see also Johnson (2001). See Tab. 2; other contrast sets Bi are also possible. When Bi contains only xi paired with the current best competitor (y) to y i , we have a technique that resembles maximum margin training (Crammer and Singer, 2001). Note that y will then change across training iterations, making Bi dynamic. 3.2 Parameter estimation (unsupervised) The difference between supervised and unsupervised learning is that in the latter case, Ai is forced to sum over label sequences y because they werent observed. In the unsupervised case, CE maximizes LN \x10 ~ \x11 = log Y i X yY u \x10 xi, y |~ \x11 X (x,y)N(xi)</context>
+</contexts>
+<marker>Johnson, 2001</marker>
+<rawString>M. Johnson. 2001. Joint and conditional estimation of tagging and parsing models. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>B-H Juang</author>
+<author>S Katagiri</author>
+</authors>
+<title>Discriminative learning for minimum error classification.</title>
+<date>1992</date>
+<journal>IEEE Trans. Signal Processing,</journal>
+<pages>40--304354</pages>
+<contexts>
+<context position="6400" citStr="Juang and Katagiri, 1992" startWordPosition="1045" endWordPosition="1048">m (Dempster et al., 1977), which locally maximizes Y i p \x10 X = xi |~ \x11 = Y i X yY p \x10 X = xi, Y = y |~ \x11 (1) where X is a random variable over sentences and Y a random variable over analyses (notation is often abbreviated, eliminating the random variables). An often-used alternative to EM is a class of socalled Viterbi approximations, which iteratively find the probabilistically-best y and then, on each iteration, solve a supervised problem (see Tab. 1). joint likelihood (JL) Y i p \x10 xi, y i |~ \x11 conditional likelihood (CL) Y i p \x10 y i |xi, ~ \x11 classification accuracy (Juang and Katagiri, 1992) X i (y i , y(xi)) expected classification accuracy (Klein and Manning, 2002) X i p \x10 y i |xi, ~ \x11 negated boosting loss (Collins, 2000) X i p \x10 y i |xi, ~ \x111 margin (Crammer and Singer, 2001) s.t. k~ k 1; i, y 6= y i , ~ (~ f(xi, y i ) ~ f(xi, y)) expected local accuracy (Altun et al., 2003) Y i Y j p \x10 `j(Y ) = `j(y i ) |xi, ~ \x11 Table 1: Various supervised training criteria. All functions are written so as to be maximized. None of these criteria are available for unsupervised estimation because they all depend on the correct label, y . 2.2 A new approach: contrastive estima</context>
+</contexts>
+<marker>Juang, Katagiri, 1992</marker>
+<rawString>B.-H. Juang and S. Katagiri. 1992. Discriminative learning for minimum error classification. IEEE Trans. Signal Processing, 40:304354.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Klein</author>
+<author>C D Manning</author>
+</authors>
+<title>Conditional structure vs. conditional estimation in NLP models.</title>
+<date>2002</date>
+<booktitle>In Proc. of EMNLP.</booktitle>
+<contexts>
+<context position="6477" citStr="Klein and Manning, 2002" startWordPosition="1058" endWordPosition="1061"> Y i X yY p \x10 X = xi, Y = y |~ \x11 (1) where X is a random variable over sentences and Y a random variable over analyses (notation is often abbreviated, eliminating the random variables). An often-used alternative to EM is a class of socalled Viterbi approximations, which iteratively find the probabilistically-best y and then, on each iteration, solve a supervised problem (see Tab. 1). joint likelihood (JL) Y i p \x10 xi, y i |~ \x11 conditional likelihood (CL) Y i p \x10 y i |xi, ~ \x11 classification accuracy (Juang and Katagiri, 1992) X i (y i , y(xi)) expected classification accuracy (Klein and Manning, 2002) X i p \x10 y i |xi, ~ \x11 negated boosting loss (Collins, 2000) X i p \x10 y i |xi, ~ \x111 margin (Crammer and Singer, 2001) s.t. k~ k 1; i, y 6= y i , ~ (~ f(xi, y i ) ~ f(xi, y)) expected local accuracy (Altun et al., 2003) Y i Y j p \x10 `j(Y ) = `j(y i ) |xi, ~ \x11 Table 1: Various supervised training criteria. All functions are written so as to be maximized. None of these criteria are available for unsupervised estimation because they all depend on the correct label, y . 2.2 A new approach: contrastive estimation Our approach instead maximizes Y i p \x10 Xi = xi |Xi N(xi), ~ \x11 (2) </context>
+<context position="13147" citStr="Klein and Manning (2002)" startWordPosition="2314" endWordPosition="2317">eneral unknown and bounds difficult to prove. We would prefer to sum over finitely many paths in Bi. 3.1 Parameter estimation (supervised) For log-linear models, both CL and JL estimation (Tab. 1) are available. In terms of Eq. 5, both set Ai = {(xi, y i )}. The difference is in B: for JL, Bi = X Y, so summing over Bi is equivalent to computing the partition function Z(~ ). Because that sum is typically difficult, CL is preferred; Bi = {xi} Y for xi, which is often tractable. For sequence models like WFSAs it is computed using a dynamic programming algorithm (the forward algorithm for WFSAs). Klein and Manning (2002) argue for CL on grounds of accuracy, but see also Johnson (2001). See Tab. 2; other contrast sets Bi are also possible. When Bi contains only xi paired with the current best competitor (y) to y i , we have a technique that resembles maximum margin training (Crammer and Singer, 2001). Note that y will then change across training iterations, making Bi dynamic. 3.2 Parameter estimation (unsupervised) The difference between supervised and unsupervised learning is that in the latter case, Ai is forced to sum over label sequences y because they werent observed. In the unsupervised case, CE maximize</context>
+</contexts>
+<marker>Klein, Manning, 2002</marker>
+<rawString>D. Klein and C. D. Manning. 2002. Conditional structure vs. conditional estimation in NLP models. In Proc. of EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Lafferty</author>
+<author>A McCallum</author>
+<author>F Pereira</author>
+</authors>
+<title>Conditional random fields: Probabilistic models for segmenting and labeling sequence data.</title>
+<date>2001</date>
+<booktitle>In Proc. of ICML.</booktitle>
+<contexts>
+<context position="4353" citStr="Lafferty et al. (2001)" startWordPosition="671" endWordPosition="674">unsupervised learning (Smith and Eisner, 2005). CE hypothesizes that each positive example in training implies a domain-specific set of examples which are (for the most part) degraded (2). This class of implicit negative evidence provides the source of probability mass for the observed example. We discuss the application of CE to loglinear models in 3. 1 Not to be confused with contrastive divergence minimization (Hinton, 2003), a technique for training products of experts. 354 \x0cWe are particularly interested in log-linear models over sequences, like the conditional random fields (CRFs) of Lafferty et al. (2001) and weighted CFGs (Miyao and Tsujii, 2002). For a given sequence, implicit negative evidence can be represented as a lattice derived by finite-state operations (4). Effectiveness of the approach on POS tagging using unlabeled data is demonstrated (5). We discuss future work (6) and conclude (7). 2 Implicit Negative Evidence Natural language is a delicate thing. For any plausible sentence, there are many slight perturbations of it that will make it implausible. Consider, for example, the first sentence of this section. Suppose we choose one of its six words at random and remove it; on this exa</context>
+<context position="12149" citStr="Lafferty et al., 2001" startWordPosition="2139" endWordPosition="2142">e automaton (determining a POS sequence), and x is the string it emits. u(x, y |~ ) is defined by applying exp to the total weight of all transitions in y. This is an example of Eqs. 4 and 6 where fj(x, y) is the number of times the path y takes the jth transition. The partition function Z(~ ) of the WFSA is found by adding up the u-scores of all paths through the WFSA. For a k-state WFSA, this equates to solving a linear system of k equations in k variables (Tarjan, 1981). But if the WFSA contains cycles this infinite sum may diverge. Alternatives to exact com2 These are exemplified by CRFs (Lafferty et al., 2001), which can be viewed alternately as undirected dynamic graphical models with a chain topology, as log-linear models over entire sequences with local features, or as WFSAs. Because CRF implies CL estimation, we use the term WFSA. 356 \x0cputation, like random sampling (see, e.g., Abney, 1997), will not help to avoid this difficulty; in addition, convergence rates are in general unknown and bounds difficult to prove. We would prefer to sum over finitely many paths in Bi. 3.1 Parameter estimation (supervised) For log-linear models, both CL and JL estimation (Tab. 1) are available. In terms of Eq</context>
+</contexts>
+<marker>Lafferty, McCallum, Pereira, 2001</marker>
+<rawString>J. Lafferty, A. McCallum, and F. Pereira. 2001. Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In Proc. of ICML.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D C Liu</author>
+<author>J Nocedal</author>
+</authors>
+<title>On the limited memory method for large scale optimization.</title>
+<date>1989</date>
+<journal>Mathematical Programming B,</journal>
+<volume>45</volume>
+<issue>3</issue>
+<contexts>
+<context position="16214" citStr="Liu and Nocedal, 1989" startWordPosition="2861" endWordPosition="2865">a new acyclic WFSA, and sum the u-scores of all its paths (Eisner, 2002) using a simple dynamic programming algorithm akin to the forward algorithm. The sum over Ai may be computed similarly. CE with lattice neighborhoods is not confined to the WFSAs of this paper; when estimating weighted CFGs, the key algorithm is the inside algorithm for lattice parsing (Smith and Eisner, 2005). 3.3 Numerical optimization To maximize the neighborhood likelihood (Eq. 7), we apply a standard numerical optimization method (L-BFGS) that iteratively climbs the function using knowledge of its value and gradient (Liu and Nocedal, 1989). The partial derivative of LN with respect to the jth feature weight j is LN j = X i E~ [fj |xi] E~ [fj |N(xi)] (10) This looks similar to the gradient of log-linear likelihood functions on complete data, though the expectation on the left is in those cases replaced by an observed feature value fj(xi, y i ). In this paper, the 357 \x0cnatural language is a delicate thing a. DEL1WORD: natural language is a delicate thing language is a delicate thing is a delicate thing ?: ? ? b. TRANS1: natural language a delicate thing is delicate is is a natural a is a delicate thing language language delica</context>
+</contexts>
+<marker>Liu, Nocedal, 1989</marker>
+<rawString>D. C. Liu and J. Nocedal. 1989. On the limited memory method for large scale optimization. Mathematical Programming B, 45(3):50328.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A McCallum</author>
+<author>W Li</author>
+</authors>
+<title>Early results for namedentity extraction with conditional random fields.</title>
+<date>2003</date>
+<booktitle>In Proc. of CoNLL.</booktitle>
+<marker>McCallum, Li, 2003</marker>
+<rawString>A. McCallum and W. Li. 2003. Early results for namedentity extraction with conditional random fields. In Proc. of CoNLL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>B Merialdo</author>
+</authors>
+<title>Tagging English text with a probabilistic model.</title>
+<date>1994</date>
+<journal>Computational Linguistics,</journal>
+<volume>20</volume>
+<issue>2</issue>
+<contexts>
+<context position="1658" citStr="Merialdo, 1994" startWordPosition="243" endWordPosition="244">tionary and unlabeled textcontrastive estimation outperforms EM (with the same feature set), is more robust to degradations of the dictionary, and can largely recover by modeling additional features. 1 Introduction Finding linguistic structure in raw text is not easy. The classical forward-backward and inside-outside algorithms try to guide probabilistic models to discover structure in text, but they tend to get stuck in local maxima (Charniak, 1993). Even when they avoid local maxima (e.g., through clever initialization) they typically deviate from human ideas of what the right structure is (Merialdo, 1994). One strategy is to incorporate domain knowledge into the models structure. Instead of blind HMMs or PCFGs, one could use models whose features This work was supported by a Fannie and John Hertz Foundation fellowship to the first author and NSF ITR grant IIS0313193 to the second author. The views expressed are not necessarily endorsed by the sponsors. The authors also thank three anonymous ACL reviewers for helpful comments, colleagues at JHU CLSP (especially David Smith and Roy Tromble) and Miles Osborne for insightful feedback, and Eric Goldlust and Markus Dreyer for Dyna language support. </context>
+<context position="20977" citStr="Merialdo (1994)" startWordPosition="3733" endWordPosition="3734">hing parameter ( in the case of EM, 2 in the CE cases) varies. The model selected from each criterion using unlabeled development data is circled in the plot. Dataset size is varied in the table at right, which shows models selected using unlabeled development data (sel.) and using an oracle (oracle, the highest point on a curve). Across conditions, some neighborhood roughly splits the difference between supervised models and EM. 5 Experiments We compare CE (using neighborhoods from 4) with EM on POS tagging using unlabeled data. 5.1 Comparison with EM Our experiments are inspired by those in Merialdo (1994); we train a trigram tagger using only unlabeled data, assuming complete knowledge of the tagging dictionary.5 In our experiments, we varied the amount of data available (12K96K words of WSJ), the heaviness of smoothing, and the estimation criterion. In all cases, training stopped when the relative change in the criterion fell below 104 between steps (typically 100 steps). For this corpus and tag set, on average, a tagger must decide between 2.3 tags for a given token. The generative model trained by EM was identical to Merialdos: a second-order HMM. We smoothed using a flat Dirichlet prior wi</context>
+</contexts>
+<marker>Merialdo, 1994</marker>
+<rawString>B. Merialdo. 1994. Tagging English text with a probabilistic model. Computational Linguistics, 20(2):15572.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y Miyao</author>
+<author>J Tsujii</author>
+</authors>
+<title>Maximum entropy estimation for feature forests.</title>
+<date>2002</date>
+<booktitle>In Proc. of HLT.</booktitle>
+<contexts>
+<context position="4396" citStr="Miyao and Tsujii, 2002" startWordPosition="678" endWordPosition="681">005). CE hypothesizes that each positive example in training implies a domain-specific set of examples which are (for the most part) degraded (2). This class of implicit negative evidence provides the source of probability mass for the observed example. We discuss the application of CE to loglinear models in 3. 1 Not to be confused with contrastive divergence minimization (Hinton, 2003), a technique for training products of experts. 354 \x0cWe are particularly interested in log-linear models over sequences, like the conditional random fields (CRFs) of Lafferty et al. (2001) and weighted CFGs (Miyao and Tsujii, 2002). For a given sequence, implicit negative evidence can be represented as a lattice derived by finite-state operations (4). Effectiveness of the approach on POS tagging using unlabeled data is demonstrated (5). We discuss future work (6) and conclude (7). 2 Implicit Negative Evidence Natural language is a delicate thing. For any plausible sentence, there are many slight perturbations of it that will make it implausible. Consider, for example, the first sentence of this section. Suppose we choose one of its six words at random and remove it; on this example, odds are two to one that the resultin</context>
+</contexts>
+<marker>Miyao, Tsujii, 2002</marker>
+<rawString>Y. Miyao and J. Tsujii. 2002. Maximum entropy estimation for feature forests. In Proc. of HLT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Ratnaparkhi</author>
+<author>S Roukos</author>
+<author>R T Ward</author>
+</authors>
+<title>A maximum entropy model for parsing.</title>
+<date>1994</date>
+<booktitle>In Proc. of ICSLP.</booktitle>
+<contexts>
+<context position="2521" citStr="Ratnaparkhi et al., 1994" startWordPosition="381" endWordPosition="385">nd NSF ITR grant IIS0313193 to the second author. The views expressed are not necessarily endorsed by the sponsors. The authors also thank three anonymous ACL reviewers for helpful comments, colleagues at JHU CLSP (especially David Smith and Roy Tromble) and Miles Osborne for insightful feedback, and Eric Goldlust and Markus Dreyer for Dyna language support. are crafted to pay attention to a range of domainspecific linguistic cues. Log-linear models can be so crafted and have already achieved excellent performance when trained on annotated data, where they are known as maximum entropy models (Ratnaparkhi et al., 1994; Rosenfeld, 1994). Our goal is to learn log-linear models from unannotated data. Since the forward-backward and inside-outside algorithms are instances of Expectation-Maximization (EM) (Dempster et al., 1977), a natural approach is to construct EM algorithms that handle log-linear models. Riezler (1999) did so, then resorted to an approximation because the true objective function was hard to normalize. Stepping back from EM, we may generally envision parameter estimation for probabilistic modeling as pushing probability mass toward the training examples. We must consider not only where the le</context>
+</contexts>
+<marker>Ratnaparkhi, Roukos, Ward, 1994</marker>
+<rawString>A. Ratnaparkhi, S. Roukos, and R. T. Ward. 1994. A maximum entropy model for parsing. In Proc. of ICSLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Riezler</author>
+<author>D Prescher</author>
+<author>J Kuhn</author>
+<author>M Johnson</author>
+</authors>
+<title>Lexicalized stochastic modeling of constraint-based grammars using log-linear measures and EM training.</title>
+<date>2000</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="14176" citStr="Riezler et al., 2000" startWordPosition="2504" endWordPosition="2507">fference between supervised and unsupervised learning is that in the latter case, Ai is forced to sum over label sequences y because they werent observed. In the unsupervised case, CE maximizes LN \x10 ~ \x11 = log Y i X yY u \x10 xi, y |~ \x11 X (x,y)N(xi)Y u \x10 x, y |~ \x11 (7) In terms of Eq. 5, A = {xi}Y and B = N(xi)Y. EMs objective function (Eq. 1) is a special case where N(xi) = X, for all i, and the denominator becomes Z(~ ). An alternative is to restrict the neighborhood to the set of observed training examples rather than all possible examples (Riezler, 1999; Johnson et al., 1999; Riezler et al., 2000): Y i &amp;quot; u \x10 xi |~ \x11 , X j u \x10 xj |~ \x11 # (8) Viewed as a CE method, this approach (though effective when there are few hypotheses) seems misguided; the objective says to move mass to each example at the expense of all other training examples. Another variant is conditional EM. Let xi be a pair (xi,1, xi,2) and define the neighborhood to be N(xi) = {x = (x1, xi,2)}. This approach has been applied to conditional densities (Jebara and Pentland, 1998) and conditional training of acoustic models with hidden variables (Valtchev et al., 1997). Generally speaking, CE is equivalent to some k</context>
+</contexts>
+<marker>Riezler, Prescher, Kuhn, Johnson, 2000</marker>
+<rawString>S. Riezler, D. Prescher, J. Kuhn, and M. Johnson. 2000. Lexicalized stochastic modeling of constraint-based grammars using log-linear measures and EM training. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Riezler</author>
+</authors>
+<title>Probabilistic Constraint Logic Programming.</title>
+<date>1999</date>
+<tech>Ph.D. thesis,</tech>
+<institution>Universitat Tubingen.</institution>
+<contexts>
+<context position="2826" citStr="Riezler (1999)" startWordPosition="426" endWordPosition="427"> and Markus Dreyer for Dyna language support. are crafted to pay attention to a range of domainspecific linguistic cues. Log-linear models can be so crafted and have already achieved excellent performance when trained on annotated data, where they are known as maximum entropy models (Ratnaparkhi et al., 1994; Rosenfeld, 1994). Our goal is to learn log-linear models from unannotated data. Since the forward-backward and inside-outside algorithms are instances of Expectation-Maximization (EM) (Dempster et al., 1977), a natural approach is to construct EM algorithms that handle log-linear models. Riezler (1999) did so, then resorted to an approximation because the true objective function was hard to normalize. Stepping back from EM, we may generally envision parameter estimation for probabilistic modeling as pushing probability mass toward the training examples. We must consider not only where the learner pushes the mass, but also from where the mass is taken. In this paper, we describe an alternative to EM: contrastive estimation (CE), which (unlike EM) explicitly states the source of the probability mass that is to be given to an example.1 One reason is to make normalization efficient. Indeed, CE </context>
+<context position="14131" citStr="Riezler, 1999" startWordPosition="2498" endWordPosition="2499">eter estimation (unsupervised) The difference between supervised and unsupervised learning is that in the latter case, Ai is forced to sum over label sequences y because they werent observed. In the unsupervised case, CE maximizes LN \x10 ~ \x11 = log Y i X yY u \x10 xi, y |~ \x11 X (x,y)N(xi)Y u \x10 x, y |~ \x11 (7) In terms of Eq. 5, A = {xi}Y and B = N(xi)Y. EMs objective function (Eq. 1) is a special case where N(xi) = X, for all i, and the denominator becomes Z(~ ). An alternative is to restrict the neighborhood to the set of observed training examples rather than all possible examples (Riezler, 1999; Johnson et al., 1999; Riezler et al., 2000): Y i &amp;quot; u \x10 xi |~ \x11 , X j u \x10 xj |~ \x11 # (8) Viewed as a CE method, this approach (though effective when there are few hypotheses) seems misguided; the objective says to move mass to each example at the expense of all other training examples. Another variant is conditional EM. Let xi be a pair (xi,1, xi,2) and define the neighborhood to be N(xi) = {x = (x1, xi,2)}. This approach has been applied to conditional densities (Jebara and Pentland, 1998) and conditional training of acoustic models with hidden variables (Valtchev et al., 1997). G</context>
+</contexts>
+<marker>Riezler, 1999</marker>
+<rawString>S. Riezler. 1999. Probabilistic Constraint Logic Programming. Ph.D. thesis, Universitat Tubingen.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Rosenfeld</author>
+</authors>
+<title>Adaptive Statistical Language Modeling: A Maximum Entropy Approach.</title>
+<date>1994</date>
+<tech>Ph.D. thesis, CMU.</tech>
+<contexts>
+<context position="2539" citStr="Rosenfeld, 1994" startWordPosition="386" endWordPosition="387">3 to the second author. The views expressed are not necessarily endorsed by the sponsors. The authors also thank three anonymous ACL reviewers for helpful comments, colleagues at JHU CLSP (especially David Smith and Roy Tromble) and Miles Osborne for insightful feedback, and Eric Goldlust and Markus Dreyer for Dyna language support. are crafted to pay attention to a range of domainspecific linguistic cues. Log-linear models can be so crafted and have already achieved excellent performance when trained on annotated data, where they are known as maximum entropy models (Ratnaparkhi et al., 1994; Rosenfeld, 1994). Our goal is to learn log-linear models from unannotated data. Since the forward-backward and inside-outside algorithms are instances of Expectation-Maximization (EM) (Dempster et al., 1977), a natural approach is to construct EM algorithms that handle log-linear models. Riezler (1999) did so, then resorted to an approximation because the true objective function was hard to normalize. Stepping back from EM, we may generally envision parameter estimation for probabilistic modeling as pushing probability mass toward the training examples. We must consider not only where the learner pushes the m</context>
+</contexts>
+<marker>Rosenfeld, 1994</marker>
+<rawString>R. Rosenfeld. 1994. Adaptive Statistical Language Modeling: A Maximum Entropy Approach. Ph.D. thesis, CMU.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Sha</author>
+<author>F Pereira</author>
+</authors>
+<title>Shallow parsing with conditional random fields.</title>
+<date>2003</date>
+<booktitle>In Proc. of HLT-NAACL.</booktitle>
+<marker>Sha, Pereira, 2003</marker>
+<rawString>F. Sha and F. Pereira. 2003. Shallow parsing with conditional random fields. In Proc. of HLT-NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N A Smith</author>
+<author>J Eisner</author>
+</authors>
+<title>Annealing techniques for unsupervised statistical language learning.</title>
+<date>2004</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="17809" citStr="Smith and Eisner, 2004" startWordPosition="3165" endWordPosition="3168"> neighborhood lattice (via composition with the sentence, followed by determinization and minimization) is shown to its right. expectations in Eq. 10 are computed by the forwardbackward algorithm generalized to lattices. We emphasize that the function LN is not globally concave; our search will lead only to a local optimum.3 Therefore, as with all unsupervised statistical learning, the bias in the initialization of ~ will affect the quality of the estimate and the performance of the method. In future we might wish to apply techniques for avoiding local optima, such as deterministic annealing (Smith and Eisner, 2004). 4 Lattice Neighborhoods We next consider some non-classical neighborhood functions for sequences. When X = + for some symbol alphabet , certain kinds of neighborhoods have natural, compact representations. Given an input string x = hx1, x2, ..., xmi, we write xj i for the substring hxi, xi+1, ..., xji and xm 1 for the whole string. Consider first the neighborhood consisting of all sequences generated by deleting a single symbol from the m-length sequence xm 1 : DEL1WORD(xm 1 ) = n x`1 1 xm `+1 |1 ` m o {xm 1 } This set consists of m + 1 strings and can be compactly represented as a lattice (</context>
+<context position="22878" citStr="Smith and Eisner (2004)" startWordPosition="4040" endWordPosition="4043"> add- smoothing within every M step. rion, dataset) pair, we selected the smoothing trial that gave the highest estimation criterion score on a 5K-word development set (also unlabeled). Results. The plot in Fig. 2 shows the Viterbi accuracy of each criterion trained on the 96K-word dataset as smoothing was varied; the table shows, for each (criterion, dataset) pair the performance of the selected or 2 and the one chosen by an oracle. LENGTH, TRANS1, and DELORTRANS1 are consistently the best, far out-stripping EM. These gains dwarf the performance of EM on over 1.1M words (66.6% as reported by Smith and Eisner (2004)), even when the latter uses improved search (70.0%). DEL1WORD and DEL1SUBSEQ, on the other hand, are poor, even worse than EM on larger datasets. An important result is that neighborhoods do not succeed by virtue of approximating log-linear EM; if that were so, we would expect larger neighborhoods (like DEL1SUBSEQ) to out-perform smaller ones (like TRANS1)this is not so. DEL1SUBSEQ and DEL1WORD are poor because they do not give helpful classes of negative evidence: deleting a word or a short subsequence often does very little damage. Put another way, models that do a good job of explaining wh</context>
+</contexts>
+<marker>Smith, Eisner, 2004</marker>
+<rawString>N. A. Smith and J. Eisner. 2004. Annealing techniques for unsupervised statistical language learning. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N A Smith</author>
+<author>J Eisner</author>
+</authors>
+<title>Guiding unsupervised grammar induction using contrastive estimation.</title>
+<date>2005</date>
+<booktitle>In Proc. of IJCAI Workshop on Grammatical Inference Applications.</booktitle>
+<contexts>
+<context position="3777" citStr="Smith and Eisner, 2005" startWordPosition="580" endWordPosition="583">rom where the mass is taken. In this paper, we describe an alternative to EM: contrastive estimation (CE), which (unlike EM) explicitly states the source of the probability mass that is to be given to an example.1 One reason is to make normalization efficient. Indeed, CE generalizes EM and other practical techniques used to train log-linear models, including conditional estimation (for the supervised case) and Riezlers approximation (for the unsupervised case). The other reason to use CE is to improve accuracy. CE offers an additional way to inject domain knowledge into unsupervised learning (Smith and Eisner, 2005). CE hypothesizes that each positive example in training implies a domain-specific set of examples which are (for the most part) degraded (2). This class of implicit negative evidence provides the source of probability mass for the observed example. We discuss the application of CE to loglinear models in 3. 1 Not to be confused with contrastive divergence minimization (Hinton, 2003), a technique for training products of experts. 354 \x0cWe are particularly interested in log-linear models over sequences, like the conditional random fields (CRFs) of Lafferty et al. (2001) and weighted CFGs (Miya</context>
+<context position="8332" citStr="Smith and Eisner (2005)" startWordPosition="1402" endWordPosition="1405">t good models are those which discriminate an observed example from its neighborhood. Put another way, the learner assumes not only that xi is good, but that xi is locally optimal in example space (X), and that alternative, similar examples (from the neighborhood) are inferior. Rather than explain all of the data, the model must only explain (using hidden variables) why the 355 \x0cobserved sentence is better than its neighbors. Of course, the validity of this hypothesis will depend on the form of the neighborhood function. Consider, as a concrete example, learning natural language syntax. In Smith and Eisner (2005), we define a sentences neighborhood to be a set of slightly-altered sentences that use the same lexemes, as suggested at the start of this section. While their syntax is degraded, the inferred meaning of any of these altered sentences is typically close to the intended meaning, yet the speaker chose x and not one of the other x0 N(x). Why? Deletions are likely to violate subcategorization requirements, and transpositions are likely to violate word order requirementsboth of which have something to do with syntax. x was the most grammatical option that conveyed the speakers meaning, hence (we h</context>
+<context position="15975" citStr="Smith and Eisner, 2005" startWordPosition="2827" endWordPosition="2830">an be represented as acyclic lattices built directly from an observed sequence. The sum over Bi is then the total u-score in our model of all paths in the neighborhood lattice. To compute this, intersect the WFSA and the lattice, obtaining a new acyclic WFSA, and sum the u-scores of all its paths (Eisner, 2002) using a simple dynamic programming algorithm akin to the forward algorithm. The sum over Ai may be computed similarly. CE with lattice neighborhoods is not confined to the WFSAs of this paper; when estimating weighted CFGs, the key algorithm is the inside algorithm for lattice parsing (Smith and Eisner, 2005). 3.3 Numerical optimization To maximize the neighborhood likelihood (Eq. 7), we apply a standard numerical optimization method (L-BFGS) that iteratively climbs the function using knowledge of its value and gradient (Liu and Nocedal, 1989). The partial derivative of LN with respect to the jth feature weight j is LN j = X i E~ [fj |xi] E~ [fj |N(xi)] (10) This looks similar to the gradient of log-linear likelihood functions on complete data, though the expectation on the left is in those cases replaced by an observed feature value fj(xi, y i ). In this paper, the 357 \x0cnatural language is a d</context>
+<context position="32131" citStr="Smith and Eisner (2005)" startWordPosition="5622" endWordPosition="5625">e l l i n g Figure 3: Percent ambiguous words tagged correctly (with coarse tags) on the 24K dataset, as the dictionary is diluted and with spelling features. Each graph corresponds to a different level of dilution. Models selected using unlabeled development data are circled. These plots (unlike Tab. 3) are not comparable to each other because each is measured on a different set of ambiguous words. 361 \x0cleads to a need for more efficient tuning of the prior parameters on development data. The effectiveness of CE (and different neighborhoods) for dependency grammar induction is explored in Smith and Eisner (2005) with considerable success. We introduce there the notion of designing neighborhoods to guide learning for particular tasks. Instead of guiding an unsupervised learner to match linguists annotations, the choice of neighborhood might be made to direct the learner toward hidden structure that is helpful for error-correction tasks like spelling correction and punctuation restoration that may benefit from a grammatical model. Wang et al. (2002) discuss the latent maximum entropy principle. They advocate running EM many times and selecting the local maximum that maximizes entropy. One might do the </context>
+</contexts>
+<marker>Smith, Eisner, 2005</marker>
+<rawString>N. A. Smith and J. Eisner. 2005. Guiding unsupervised grammar induction using contrastive estimation. In Proc. of IJCAI Workshop on Grammatical Inference Applications.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R E Tarjan</author>
+</authors>
+<title>A unified approach to path problems.</title>
+<date>1981</date>
+<journal>Journal of the ACM,</journal>
+<volume>28</volume>
+<issue>3</issue>
+<contexts>
+<context position="12004" citStr="Tarjan, 1981" startWordPosition="2115" endWordPosition="2116"> to POS tags. The parameter vector ~ Rn specifies a weight for each of the n transitions in the automaton. y is a hidden path through the automaton (determining a POS sequence), and x is the string it emits. u(x, y |~ ) is defined by applying exp to the total weight of all transitions in y. This is an example of Eqs. 4 and 6 where fj(x, y) is the number of times the path y takes the jth transition. The partition function Z(~ ) of the WFSA is found by adding up the u-scores of all paths through the WFSA. For a k-state WFSA, this equates to solving a linear system of k equations in k variables (Tarjan, 1981). But if the WFSA contains cycles this infinite sum may diverge. Alternatives to exact com2 These are exemplified by CRFs (Lafferty et al., 2001), which can be viewed alternately as undirected dynamic graphical models with a chain topology, as log-linear models over entire sequences with local features, or as WFSAs. Because CRF implies CL estimation, we use the term WFSA. 356 \x0cputation, like random sampling (see, e.g., Abney, 1997), will not help to avoid this difficulty; in addition, convergence rates are in general unknown and bounds difficult to prove. We would prefer to sum over finitel</context>
+</contexts>
+<marker>Tarjan, 1981</marker>
+<rawString>R. E. Tarjan. 1981. A unified approach to path problems. Journal of the ACM, 28(3):57793.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>V Valtchev</author>
+<author>J J Odell</author>
+<author>P C Woodland</author>
+<author>S J Young</author>
+</authors>
+<title>MMIE training of large vocabulary speech recognition systems.</title>
+<date>1997</date>
+<journal>Speech Communication,</journal>
+<volume>22</volume>
+<issue>4</issue>
+<contexts>
+<context position="14728" citStr="Valtchev et al., 1997" startWordPosition="2607" endWordPosition="2610">e examples (Riezler, 1999; Johnson et al., 1999; Riezler et al., 2000): Y i &amp;quot; u \x10 xi |~ \x11 , X j u \x10 xj |~ \x11 # (8) Viewed as a CE method, this approach (though effective when there are few hypotheses) seems misguided; the objective says to move mass to each example at the expense of all other training examples. Another variant is conditional EM. Let xi be a pair (xi,1, xi,2) and define the neighborhood to be N(xi) = {x = (x1, xi,2)}. This approach has been applied to conditional densities (Jebara and Pentland, 1998) and conditional training of acoustic models with hidden variables (Valtchev et al., 1997). Generally speaking, CE is equivalent to some kind of EM when N() is an equivalence relation on examples, so that the neighborhoods partition X. Then if q is any fixed (untrained) distribution over neighborhoods, CE equates to running EM on the model defined by p0 \x10 x, y |~ \x11 def = q (N(x)) p \x10 x, y |N(x), ~ \x11 (9) CE may also be viewed as an importance sampling approximation to EM, where the sample space X is replaced by N(xi). We will demonstrate experimentally that CE is not just an approximation to EM; it makes sense from a modeling perspective. In 4, we will describe neighborh</context>
+</contexts>
+<marker>Valtchev, Odell, Woodland, Young, 1997</marker>
+<rawString>V. Valtchev, J. J. Odell, P. C. Woodland, and S. J. Young. 1997. MMIE training of large vocabulary speech recognition systems. Speech Communication, 22(4):30314.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Wang</author>
+<author>R Rosenfeld</author>
+<author>Y Zhao</author>
+<author>D Schuurmans</author>
+</authors>
+<title>The latent maximum entropy principle.</title>
+<date>2002</date>
+<booktitle>In Proc. of ISIT.</booktitle>
+<contexts>
+<context position="32575" citStr="Wang et al. (2002)" startWordPosition="5689" endWordPosition="5692">ing of the prior parameters on development data. The effectiveness of CE (and different neighborhoods) for dependency grammar induction is explored in Smith and Eisner (2005) with considerable success. We introduce there the notion of designing neighborhoods to guide learning for particular tasks. Instead of guiding an unsupervised learner to match linguists annotations, the choice of neighborhood might be made to direct the learner toward hidden structure that is helpful for error-correction tasks like spelling correction and punctuation restoration that may benefit from a grammatical model. Wang et al. (2002) discuss the latent maximum entropy principle. They advocate running EM many times and selecting the local maximum that maximizes entropy. One might do the same for the local maxima of any CE objective, though theoretical and experimental support for this idea remain for future work. 7 Conclusion We have presented contrastive estimation, a new probabilistic estimation criterion that forces a model to explain why the given training data were better than bad data implied by the positive examples. We have shown that for unsupervised sequence modeling, this technique is efficient and drastically o</context>
+</contexts>
+<marker>Wang, Rosenfeld, Zhao, Schuurmans, 2002</marker>
+<rawString>S. Wang, R. Rosenfeld, Y. Zhao, and D. Schuurmans. 2002. The latent maximum entropy principle. In Proc. of ISIT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Yarowsky</author>
+</authors>
+<title>Unsupervised word sense disambiguation rivaling supervised methods.</title>
+<date>1995</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="29919" citStr="Yarowsky, 1995" startWordPosition="5233" endWordPosition="5234">. LENGTH sees far less recovery. Hence even our improved feature sets cannot compensate for the choice of neighborhood. This highlights our argument that a neighborhood is not an approximation to log-linear EM; LENGTH tries very hard to approximate log-linear EM but requires a good dictionary to be on par with the other criteria. Good neighborhoods, rather, perform well in their own right. 6 Future Work Foremost for future work is the minimally supervised paradigm in which a small amount of labeled data is available (see, e.g., Clark et al. (2003)). Unlike well-known bootstrapping approaches (Yarowsky, 1995), EM and CE have the possible advantage of maintaining posteriors over hidden labels (or structure) throughout learning; bootstrapping either chooses, for each example, a single label, or remains completely agnostic. One can envision a mixed objective function that tries to fit the labeled examples while discriminating unlabeled examples from their neighborhoods.8 Regardless of how much (if any) data are labeled, the question of good smoothing techniques requires more attention. Here we used a single zero-mean, constant-variance Gaussian prior for all parameters. Better performance might be ac</context>
+</contexts>
+<marker>Yarowsky, 1995</marker>
+<rawString>D. Yarowsky. 1995. Unsupervised word sense disambiguation rivaling supervised methods. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>X Zhu</author>
+<author>Z Ghahramani</author>
+</authors>
+<title>Towards semi-supervised classification with Markov random fields.</title>
+<date>2002</date>
+<tech>Technical Report CMU-CALD-02-106,</tech>
+<institution>Carnegie Mellon University.</institution>
+<contexts>
+<context position="30619" citStr="Zhu and Ghahramani (2002)" startWordPosition="5333" endWordPosition="5336">en labels (or structure) throughout learning; bootstrapping either chooses, for each example, a single label, or remains completely agnostic. One can envision a mixed objective function that tries to fit the labeled examples while discriminating unlabeled examples from their neighborhoods.8 Regardless of how much (if any) data are labeled, the question of good smoothing techniques requires more attention. Here we used a single zero-mean, constant-variance Gaussian prior for all parameters. Better performance might be achieved by allowing different variances for different feature types. This 8 Zhu and Ghahramani (2002) explored the semi-supervised classification problem for spatially-distributed data, where some data are labeled, using a Boltzmann machine to model the dataset. For them, the Markov random field is over labeling configurations for all examples, not, as in our case, complex structured labels for a particular example. Hence their B (Eq. 5), though very large, was finite and could be sampled. All train &amp; development words are in the tagging dictionary: 40 45 50 55 60 65 70 75 80 85 Tagging dictionary taken from the first 500 sentences: 40 45 50 55 60 65 70 75 80 85 Tagging dictionary contains wo</context>
+</contexts>
+<marker>Zhu, Ghahramani, 2002</marker>
+<rawString>X. Zhu and Z. Ghahramani. 2002. Towards semi-supervised classification with Markov random fields. Technical Report CMU-CALD-02-106, Carnegie Mellon University.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

@@ -1,0 +1,1205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<title confidence="0.86596">
+b&apos;Deep Syntactic Processing by Combining Shallow Methods
+</title>
+<author confidence="0.958827">
+Peter Dienes and Amit Dubey
+</author>
+<affiliation confidence="0.9893695">
+Department of Computational Linguistics
+Saarland University
+</affiliation>
+<address confidence="0.968255">
+PO Box 15 11 50
+66041 Saarbrucken, Germany
+</address>
+<email confidence="0.995143">
+{dienes,adubey}@coli.uni-sb.de
+</email>
+<sectionHeader confidence="0.99074" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.994928818181818">
+We present a novel approach for find-
+ing discontinuities that outperforms pre-
+viously published results on this task.
+Rather than using a deeper grammar for-
+malism, our system combines a simple un-
+lexicalized PCFG parser with a shallow
+pre-processor. This pre-processor, which
+we call a trace tagger, does surprisingly
+well on detecting where discontinuities
+can occur without using phase structure
+information.
+</bodyText>
+<sectionHeader confidence="0.998043" genericHeader="keywords">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999707822222222">
+In this paper, we explore a novel approach for find-
+ing long-distance dependencies. In particular, we
+detect such dependencies, or discontinuities, in a
+two-step process: (i) a conceptually simple shal-
+low tagger looks for sites of discontinuties as a pre-
+processing step, before parsing; (ii) the parser then
+finds the dependent constituent (antecedent).
+Clearly, information about long-distance relation-
+ships is vital for semantic interpretation. However,
+such constructions prove to be difficult for stochas-
+tic parsers (Collins et al., 1999) and they either avoid
+tackling the problem (Charniak, 2000; Bod, 2003)
+or only deal with a subset of the problematic cases
+(Collins, 1997).
+Johnson (2002) proposes an algorithm that is
+able to find long-distance dependencies, as a post-
+processing step, after parsing. Although this algo-
+rithm fares well, it faces the problem that stochastic
+parsers not designed to capture non-local dependen-
+cies may get confused when parsing a sentence with
+discontinuities. However, the approach presented
+here is not susceptible to this shortcoming as it finds
+discontinuties before parsing.
+Overall, we present three primary contributions.
+First, we extend the mechanism of adding gap vari-
+ables for nodes dominating a site of discontinu-
+ity (Collins, 1997). This approach allows even a
+context-free parser to reliably recover antecedents,
+given prior information about where discontinuities
+occur. Second, we introduce a simple yet novel
+finite-state tagger that gives exactly this information
+to the parser. Finally, we show that the combina-
+tion of the finite-state mechanism, the parser, and
+our new method for antecedent recovery can com-
+petently analyze discontinuities.
+The overall organization of the paper is as fol-
+lows. First, Section 2 sketches the material we use
+for the experiments in the paper. In Section 3, we
+propose a modification to a simple PCFG parser that
+allows it to reliably find antecedents if it knows the
+sites of long-distance dependencies. Then, in Sec-
+tion 4, we develop a finite-state system that gives the
+parser exactly that information with fairly high accu-
+racy. We combine the models in Section 5 to recover
+antecedents. Section 6 discusses related work.
+</bodyText>
+<sectionHeader confidence="0.875369" genericHeader="introduction">
+2 Annotation of empty elements
+</sectionHeader>
+<bodyText confidence="0.960362571428571">
+Different linguistic theories offer various treatments
+of non-local headdependent relations (referred to
+by several other terms such as extraction, discon-
+tinuity, movement or long-distance dependencies).
+The underlying idea, however, is the same: extrac-
+tion sites are marked in the syntactic structure and
+this mark is connected (co-indexed) to the control-
+</bodyText>
+<construct confidence="0.849547636363636">
+\x0cType Freq. Example
+NPNP 987 Sam was seen *
+WHNP 438 the woman who you saw *T*
+PRONP 426 * to sleep is nice
+COMPSBAR 338 Sam said 0 Sasha snores
+UNIT 332 $ 25 *U*
+WHS 228 Sam had to go, Sasha said *T*
+WHADVP 120 Sam told us how he did it *T*
+CLAUSE 118 Sam had to go, Sasha said 0
+COMPWHNP 98 the woman 0 we saw *T*
+ALL 3310
+</construct>
+<tableCaption confidence="0.882046">
+Table 1: Most frequent types of EEs in Section 0.
+</tableCaption>
+<bodyText confidence="0.986627909090909">
+ling constituent.
+The experiments reported here rely on a train-
+ing corpus annotated with non-local dependencies
+as well as phrase-structure information. We used
+the Wall Street Journal (WSJ) part of the Penn Tree-
+bank (Marcus et al., 1993), where extraction is rep-
+resented by co-indexing an empty terminal element
+(henceforth EE) to its antecedent. Without commit-
+ting ourselves to any syntactic theory, we adopt this
+representation.
+Following the annotation guidelines (Bies et
+al., 1995), we distinguish seven basic types of
+EEs: controlled NP-traces (NP), PROs (PRO),
+traces of A -movement (mostly wh-movement:
+WH), empty complementizers (COMP), empty units
+(UNIT), and traces representing pseudo-attachments
+(shared constituents, discontinuous dependencies,
+etc.: PSEUDO) and ellipsis (ELLIPSIS). These la-
+bels, however, do not identify the EEs uniquely: for
+instance, the label WH may represent an extracted
+NP object as well as an adverb moved out of the
+verb phrase. In order to facilitate antecedent re-
+covery and to disambiguate the EEs, we also anno-
+tate them with their parent nodes. Furthermore, to
+ease straightforward comparison with previous work
+(Johnson, 2002), a new label CLAUSE is introduced
+for COMP-SBAR whenever it is followed by a moved
+clause WHS. Table 1 summarizes the most frequent
+types occurring in the development data, Section 0
+of the WSJ corpus, and gives an example for each,
+following Johnson (2002).
+For the parsing and antecedent recovery exper-
+iments, in the case of WH-traces (WH\x01\x02\x01\x02\x01 ) and
+</bodyText>
+<figure confidence="0.981178">
+SBAR
+NP
+who
+S\x03\x05\x04\x07\x06\t\x08\x0b
+\x02\x0c\x0e
+\x0b\x0f\x02\x10
+NP
+you
+VP\x03\x05\x04\x07\x06\t\x08\x0b
+\x02\x0c\x0e
+\x11\x0f\x02\x10
+V
+saw
+NP\x03\x05\x04\x07\x06\t\x08\x0b
+\x02\x0c\x0e
+\x11\x0f\x02\x10
+*WH-NP*
+</figure>
+<figureCaption confidence="0.999958">
+Figure 1: Threading gap+WH-NP.
+</figureCaption>
+<bodyText confidence="0.993553777777778">
+controlled NP-traces (NPNP), we follow the stan-
+dard technique of marking nodes dominating the
+empty element up to but not including the par-
+ent of the antecedent as defective (missing an ar-
+gument) with a gap feature (Gazdar et al., 1985;
+Collins, 1997).1 Furthermore, to make antecedent
+co-indexation possible with many types of EEs, we
+generalize Collins approach by enriching the anno-
+tation of non-terminals with the type of the EE in
+question (eg. WHNP) by using different gap+ fea-
+tures (gap+WH-NP; cf. Figure 1). The original non-
+terminals augmented with gap+ features serve as
+new non-terminal labels.
+In the experiments, Sections 221 were used to
+train the models, Section 0 served as a develop-
+ment set for testing and improving models, whereas
+we present the results on the standard test set, Sec-
+tion 23.
+</bodyText>
+<sectionHeader confidence="0.87915" genericHeader="method">
+3 Parsing with empty elements
+</sectionHeader>
+<bodyText confidence="0.988489571428572">
+The present section explores whether an unlexical-
+ized PCFG parser can handle non-local dependen-
+cies: first, is it able to detect EEs and, second, can
+it find their antecedents? The answer to the first
+question turns out to be negative: due to efficiency
+reasons and the inappropriateness of the model, de-
+tecting all types of EEs is not feasible within the
+parser. Antecedents, however, can be reliably recov-
+ered provided a parser has perfect knowledge about
+EEs occurring in the input. This shows that the main
+bottleneck is detecting the EEs and not finding their
+antecedents. In the following section, therefore, we
+explore how we can provide the parser with infor-
+mation about EE sites in the current sentence without
+</bodyText>
+<footnote confidence="0.737449666666667">
+1This technique fails for 82 sentences of the treebank where
+the antecedent does not c-command the corresponding EE.
+\x0crelying on phrase structure information.
+</footnote>
+<subsectionHeader confidence="0.997965">
+3.1 Method
+</subsectionHeader>
+<bodyText confidence="0.996886982142857">
+There are three modifications required to allow a
+parser to detect EEs and resolve antecedents. First,
+it should be able to insert empty nodes. Second, it
+must thread the gap+ variables to the parent node of
+the antecedent. Knowing this node is not enough,
+though. Since the Penn Treebank grammar is not
+binary-branching, the final task is to decide which
+child of this node is the actual antecedent.
+The first two modifications are not diffi-
+cult conceptually. A bottom-up parser can be
+easily modified to insert empty elements (c.f.
+Dienes and Dubey (2003)). Likewise, the changes
+required to include gap+ categories are not compli-
+cated: we simply add the gap+ features to the non-
+terminal category labels.
+The final and perhaps most important concern
+with developing a gap-threading parser is to ensure
+it is possible to choose the correct child as the an-
+tecedent of an EE. To achieve this task, we em-
+ploy the algorithm presented in Figure 2. At any
+node in the tree where the children, all together,
+have more gap+ features activated than the par-
+ent, the algorithm deduces that a gap+ must have
+an antecedent. It then picks a child as the an-
+tecedent and recursively removes the gap+ feature
+corresponding to its EE from the non-terminal la-
+bels. The algorithm has a shortcoming, though: it
+cannot reliably handle cases when the antecedent
+does not c-command its EE. This mostly happens
+with PSEUDOs (pseudo-attachments), where the al-
+gorithm gives up and (wrongly) assumes they have
+no antecedent.
+Given the perfect trees of the development set,
+the antecedent recovery algorithm finds the correct
+antecedent with 95% accuracy, rising to 98% if
+PSEUDOs are excluded. Most of the remaining mis-
+takes are caused either by annotation errors, or by
+binding NP-traces (NPNP) to adjunct NPs, as op-
+posed to subject NPs.
+The parsing experiments are carried out with an
+unlexicalized PCFG augmented with the antecedent
+recovery algorithm. We use an unlexicalized model
+to emphasize the point that even a simple model de-
+tects long distance dependencies successfully. The
+parser uses beam thresholding (Goodman, 1998) to
+for a tree T, iterate over nodes bottom-up
+for a node with rule P C0 \x01\x02\x01\x02\x01 Cn
+N \x03 multiset of EEs in P
+M \x03 multiset of EEs in C0 \x01\x02\x01\x02\x01 Cn
+foreach EE of type e in M \x04 N
+pick a j such that e allows Cj
+as an antecedent
+pick a k such that k
+\x05\x06 j and
+Ck dominates an EE of type e
+if no such j or k exist,
+</bodyText>
+<figure confidence="0.5079965">
+return no antecedent
+else
+bind the EE dominated by Ck to
+the antecedent Cj
+</figure>
+<figureCaption confidence="0.985331">
+Figure 2: The antecedent recovery algorithm.
+</figureCaption>
+<bodyText confidence="0.9993349">
+ensure efficient parsing. PCFG probabilities are cal-
+culated in the standard way (Charniak, 1993). In
+order to keep the number of independently tunable
+parameters low, no smoothing is used.
+The parser is tested under two different condi-
+tions. First, to assess the upper bound an EE-
+detecting unlexicalized PCFG can achieve, the input
+of the parser contains the empty elements as sepa-
+rate words (PERFECT). Second, we let the parser
+introduce the EEs itself (INSERT).
+</bodyText>
+<subsectionHeader confidence="0.997773">
+3.2 Evaluation
+</subsectionHeader>
+<bodyText confidence="0.999394333333333">
+We evaluate on all sentences in the test section of the
+treebank. As our interest lies in trace detection and
+antecedent recovery, we adopt the evaluation mea-
+sures introduced by Johnson (2002). An EE is cor-
+rectly detected if our model gives it the correct la-
+bel as well as the correct position (the words before
+and after it). When evaluating antecedent recovery,
+the EEs are regarded as four-tuples, consisting of the
+type of the EE, its location, the type of its antecedent
+and the location(s) (beginning and end) of the an-
+tecedent. An antecedent is correctly recovered if
+all four values match the gold standard. The preci-
+sion, recall, and the combined F-score is presented
+for each experiment. Missed parses are ignored for
+evaluation purposes.
+</bodyText>
+<subsectionHeader confidence="0.632726">
+3.3 Results
+</subsectionHeader>
+<bodyText confidence="0.945436">
+The main results for the two conditions are summa-
+rized in Table 2. In the INSERT case, the parser de-
+tects empty elements with precision 64.7%, recall
+40.3% and F-Score 49.7%. It recovers antecedents
+</bodyText>
+<figure confidence="0.738918777777778">
+\x0cCondition PERFECT INSERT
+Empty element
+detection (F-score)
+49 7%
+Antecedent recovery
+(F-score)
+91 4% 43 0%
+Parsing time (sec/sent) 2 5 21
+Missed parses 1 6% 44 3%
+</figure>
+<tableCaption confidence="0.982777">
+Table 2: EE detection, antecedent recovery, parsing
+</tableCaption>
+<bodyText confidence="0.980430625">
+times, and missed parses for the parser
+with overall precision 55.7%, recall 35.0% and F-
+score 43.0%. With a beam width of 1000, about
+half of the parses were missed, and successful parses
+take, on average, 21 seconds per sentence and enu-
+merate 1.7 million edges. Increasing the beam size
+to 40000 decreases the number of missed parses
+marginally, while parsing time increases to nearly
+two minutes per sentence, with 2.9 million edges
+enumerated.
+In the PERFECT case, when the sites of the empty
+elements are known before parsing, only about 1.6%
+of the parses are missed and average parsing time
+goes down to 2 5 seconds per sentence. More impor-
+tantly, the overall precision and recall of antecedent
+recovery is 91.4%.
+</bodyText>
+<subsectionHeader confidence="0.951081">
+3.4 Discussion
+</subsectionHeader>
+<bodyText confidence="0.99973565">
+The result of the experiment where the parser is to
+detect long-distance dependencies is negative. The
+parser misses too many parses, regardless of the
+beam size. This cannot be due to the lack of smooth-
+ing: the model with perfect information about the
+EE-sites does not run into the same problem. Hence,
+the edges necessary to construct the required parse
+are available but, in the INSERT case, the beam
+search loses them due to unwanted local edges hav-
+ing a higher probability. Doing an exhaustive search
+might help in principle, but it is infeasible in prac-
+tice. Clearly, the problem is with the parsing model:
+an unlexicalized PCFG parser is not able to detect
+where EEs can occur, hence necessary edges get low
+probability and are, thus, filtered out.
+The most interesting result, though, is the dif-
+ference in speed and in antecedent recovery accu-
+racy between the parser that inserts traces, and the
+parser which uses perfect information from the tree-
+bank about the sites of EEs. Thus, the question
+</bodyText>
+<equation confidence="0.786624">
+wi
+\x06 X; wi\x01 1
+\x06 X; wi
+\x02
+1
+\x06 X
+</equation>
+<figure confidence="0.834064">
+X is a prefix of wi,
+\x03
+X
+\x03\x05\x04
+4
+X is a suffix of wi,
+\x03
+X
+\x03\x06\x04
+</figure>
+<page confidence="0.6298">
+4
+</page>
+<table confidence="0.749275882352941">
+wi contains a number
+wi contains uppercase character
+wi contains hyphen
+li\x01 1
+\x06 X
+posi
+\x06 X; posi\x01 1
+\x06 X; posi
+\x02 1
+\x06 X
+posi\x01 1 posi
+\x06 XY
+posi\x01 2 posi\x01 1 posi
+\x06 XYZ
+posi posi
+\x02 1
+\x06 XY
+</table>
+<figure confidence="0.8039235">
+posi posi
+\x02
+1 posi
+\x02
+2
+\x06 XYZ
+</figure>
+<tableCaption confidence="0.980025">
+Table 3: Local features at position i \x07 1.
+</tableCaption>
+<bodyText confidence="0.981293875">
+naturally arises: could EEs be detected before pars-
+ing? The benefit would be two-fold: EEs might be
+found more reliably with a different module, and the
+parser would be fast and accurate in recovering an-
+tecedents. In the next section we show that it is in-
+deed possible to detect EEs without explicit knowl-
+edge of phrase structure, using a simple finite-state
+tagger.
+</bodyText>
+<sectionHeader confidence="0.854492" genericHeader="method">
+4 Detecting empty elements
+</sectionHeader>
+<bodyText confidence="0.999499625">
+This section shows that EEs can be detected fairly
+reliably before parsing, i.e. without using phrase
+structure information. Specifically, we develop a
+finite-state tagger which inserts EEs at the appro-
+priate sites. It is, however, unable to find the an-
+tecedents for the EEs; therefore, in the next section,
+we combine the tagger with the PCFG parser to re-
+cover the antecedents.
+</bodyText>
+<subsectionHeader confidence="0.998229">
+4.1 Method
+</subsectionHeader>
+<bodyText confidence="0.966560923076923">
+Detecting empty elements can be regarded as a sim-
+ple tagging task: we tag words according to the ex-
+istence and type of empty elements preceding them.
+For example, the word Sasha in the sentence
+Sam said COMPSBAR Sasha snores.
+will get the tag EE=COMPSBAR, whereas the word
+Sam is tagged with EE=* expressing the lack of an
+EE immediately preceding it. If a word is preceded
+by more than one EE, such as to in the following
+example, it is tagged with the concatenation of the
+two EEs, i.e., EE=COMPWHNP PRONP.
+It would have been too late COMPWHNP
+PRONP to think about on Friday.
+</bodyText>
+<figure confidence="0.988859473684211">
+\x0cTarget Matching regexp Explanation
+NPNP BE RB* VBN passive
+NPNP
+PRO-NP \x01
+RB* to RB* VB to-infinitive
+N [,:] RB* VBG gerund
+COMPSBAR (V
+\x03
+,) !that* (MD
+\x03
+V) lookahead for that
+WHNP !IN \x02
+\x03\x04 WP
+WDT
+COMPWHNP
+\x05\x06
+\x07 !WHNP* V lookback for pending WHNPs
+WHADVP WRB !WHADVP* V !WHADVP* [.,:] lookback for pending WHADVP before a verb
+UNIT $ CD* $ sign before numbers
+</figure>
+<tableCaption confidence="0.984582">
+Table 4: Non-local binary feature templates; the EE-site is indicated by
+</tableCaption>
+<bodyText confidence="0.998592818181818">
+Although this approach is closely related to POS-
+tagging, there are certain differences which make
+this task more difficult. Despite the smaller tagset,
+the data exhibits extreme sparseness: even though
+more than 50% of the sentences in the Penn Tree-
+bank contain some EEs, the actual number of EEs is
+very small. In Section 0 of the WSJ corpus, out of
+the 46451 tokens only 3056 are preceded by one or
+more EEs, that is, approximately 93.5% of the words
+are tagged with the EE=* tag.
+The other main difference is the apparently non-
+local nature of the problem, which motivates our
+choice of a Maximum Entropy (ME) model for the
+tagging task (Berger et al., 1996). ME allows the
+flexible combination of different sources of informa-
+tion, i.e., local and long-distance cues characterizing
+possible sites for EEs. In the ME framework, linguis-
+tic cues are represented by (binary-valued) features
+( fi), the relative importance (weight, i) of which is
+determined by an iterative training algorithm. The
+weighted linear combination of the features amount
+to the log-probability of the label (l) given the con-
+</bodyText>
+<equation confidence="0.874976818181818">
+text (c):
+p\x08 l \tc
+\x0c\x0b
+1
+Z\x08 c
+exp\x08 i
+i fi \x08 l
+c
+\x0e
+(1)
+where Z\x08 c
+</equation>
+<bodyText confidence="0.988765142857143">
+is a context-dependent normalizing fac-
+tor to ensure that p\x08 l \tc
+be a proper probability dis-
+tribution. We determine weights for the features
+with a modified version of the Generative Iterative
+Scaling algorithm (Curran and Clark, 2003).
+Templates for local features are similar to the ones
+employed by Ratnaparkhi (1996) for POS-tagging
+(Table 3), though as our input already includes POS-
+tags, we can make use of part-of-speech information
+as well. Long-distance features are simple hand-
+written regular expressions matching possible sites
+for EEs (Table 4). Features and labels occurring less
+than 10 times in the training corpus are ignored.
+Since our main aim is to show that finding empty
+elements can be done fairly accurately without us-
+ing a parser, the input to the tagger is a POS-tagged
+corpus, containing no syntactic information. The
+best label-sequence is approximated by a bigram
+Viterbi-search algorithm, augmented with variable
+width beam-search.
+</bodyText>
+<sectionHeader confidence="0.623781" genericHeader="method">
+4.2 Results
+</sectionHeader>
+<bodyText confidence="0.968834545454546">
+The results of the EE-detection experiment are sum-
+marized in Table 5. The overall unlabeled F-score is
+85 3%, whereas the labeled F-score is 79 1%, which
+amounts to 97 9% word-level tagging accuracy.
+For straightforward comparison with Johnsons
+results, we must conflate the categories PRONP and
+NPNP. If the trace detector does not need to differ-
+entiate between these two categories, a distinction
+that is indeed important for semantic analysis, the
+overall labeled F-score increases to 83 0%, which
+outperforms Johnsons approach by 4%.
+</bodyText>
+<subsectionHeader confidence="0.999289">
+4.3 Discussion
+</subsectionHeader>
+<bodyText confidence="0.993160818181818">
+The success of the trace detector is surprising, es-
+pecially if compared to Johnsons algorithm which
+uses the output of a parser. The tagger can reliably
+detect extraction sites without explicit knowledge of
+the phrase structure. This shows that, in English, ex-
+traction can only occur at well-defined sites, where
+local cues are generally strong.
+Indeed, the strength of the model lies in detecting
+such sites (empty units, UNIT; NP traces, NPNP)
+or where clear-cut long-distance cues exist (WHS,
+COMPSBAR). The accuracy of detecting uncon-
+</bodyText>
+<table confidence="0.988307">
+\x0cEE Prec. Rec. F-score
+Here Here Here Johnson
+LABELED 86.5% 72.9% 79.1%
+UNLABELED 93.3% 78.6% 85.3%
+NPNP 87.8% 79.6% 83.5%
+WHNP 92.5% 75.6% 83.2% 81.0%
+PRONP 68.7% 70.4% 69.5%
+COMPSBAR 93.8% 78.6% 85.5% 88.0%
+UNIT 99.1% 92.5% 95.7% 92.0%
+WHS 94.4% 91.3% 92.8% 87.0%
+WHADVP 81.6% 46.8% 59.5% 56.0%
+CLAUSE 80.4% 68.3% 73.8% 70.0%
+COMPWHNP 67.2% 38.3% 48.8% 47.0%
+</table>
+<tableCaption confidence="0.998359">
+Table 5: EE-detection results on Section 23 and com-
+</tableCaption>
+<bodyText confidence="0.990806142857143">
+parison with Johnson (2002) (where applicable).
+trolled PROs (PRONP) is rather low, since it is a dif-
+ficult task to tell them apart from NP traces: they are
+confused in 10 15% of the cases. Furthermore, the
+model is unable to capture for. . . to+INF construc-
+tions if the noun-phrase is long.
+The precision of detecting long-distance NP ex-
+traction (WHNP) is also high, but recall is lower:
+in general, the model finds extracted NPs with
+overt complementizers. Detection of null WH-
+complementizers (COMPWHNP), however, is fairly
+inaccurate (48 8% F-score), since finding it and the
+corresponding WHNP requires information about
+the transitivity of the verb. The performance of the
+model is also low (59 5%) in detecting movement
+sites for extracted WH-adverbs (WHADVP) despite
+the presence of unambiguous cues (where, how, etc.
+starting the subordinate clause). The difficulty of the
+task lies in finding the correct verb-phrase as well
+as the end of the verb-phrase the constituent is ex-
+tracted from without knowing phrase boundaries.
+One important limitation of the shallow approach
+described here is its inability to find the antecedents
+of the EEs, which clearly requires knowledge of
+phrase structure. In the next section, we show
+that the shallow trace detector and the unlexicalized
+PCFG parser can be coupled to efficiently and suc-
+cessfully tackle antecedent recovery.
+</bodyText>
+<table confidence="0.945391333333333">
+Condition NOINSERT INSERT
+Antecedent recovery
+(F-score)
+72 6% 69 3%
+Parsing time (sec/sent) 2 7 25
+Missed parses 2 4% 5 3%
+</table>
+<tableCaption confidence="0.8093965">
+Table 6: Antecedent recovery, parsing times, and
+missed parses for the combined model
+</tableCaption>
+<sectionHeader confidence="0.900474" genericHeader="method">
+5 Combining the models
+</sectionHeader>
+<bodyText confidence="0.999234125">
+In Section 3, we found that parsing with EEs is only
+feasible if the parser knows the location of EEs be-
+fore parsing. In Section 4, we presented a finite-state
+tagger which detects these sites before parsing takes
+place. In this section, we validate the two-step ap-
+proach, by applying the parser to the output of the
+trace tagger, and comparing the antecedent recovery
+accuracy to Johnson (2002).
+</bodyText>
+<subsectionHeader confidence="0.994319">
+5.1 Method
+</subsectionHeader>
+<bodyText confidence="0.999945434782609">
+Theoretically, the best way to combine the trace
+tagger and the parsing algorithm would be to build a
+unified probabilistic model. However, the nature of
+the models are quite different: the finite-state model
+is conditional, taking the words as given. The pars-
+ing model, on the other hand, is generative, treat-
+ing the words as an unlikely event. There is a rea-
+sonable basis for building the probability models in
+different ways. Most of the tags emitted by the EE
+tagger are just EE=*, which would defeat genera-
+tive models by making the hidden state uninfor-
+mative. Conditional parsing algorithms do exist, but
+they are difficult to train using large corpora (John-
+son, 2001). However, we show that it is quite ef-
+fective if the parser simply treats the output of the
+tagger as a certainty.
+Given this combination method, there still are two
+interesting variations: we may use only the EEs
+proposed by the tagger (henceforth the NOINSERT
+model), or we may allow the parser to insert even
+more EEs (henceforth the INSERT model). In both
+cases, EEs outputted by the tagger are treated as sep-
+arate words, as in the PERFECT model of Section 3.
+</bodyText>
+<sectionHeader confidence="0.663769" genericHeader="evaluation">
+5.2 Results
+</sectionHeader>
+<table confidence="0.914013285714286">
+The NOINSERT model did better at antecedent de-
+tection (see Table 6) than the INSERT model. The
+\x0cType Prec. Rec. F-score
+Here Here Here Johnson
+OVERALL 80.5% 66.0% 72.6% 68.0%
+NPNP 71.2% 62.8% 66.8% 60.0%
+WHNP 91.6% 71.9% 80.6% 80.0%
+PRONP 68.7% 70.4% 69.5% 50.0%
+COMPSBAR 93.8% 78.6% 85.5% 88.0%
+UNIT 99.1% 92.5% 95.7% 92.0%
+WHS 86.7% 83.9% 84.8% 87.0%
+WHADVP 67.1% 31.3% 42.7% 56.0%
+CLAUSE 80.4% 68.3% 73.8% 70.0%
+COMPWHNP 67.2% 38.8% 48.8% 47.0%
+</table>
+<tableCaption confidence="0.991847">
+Table 7: Antecedent recovery results for the
+</tableCaption>
+<bodyText confidence="0.990201714285714">
+combined NOINSERT model and comparison with
+Johnson (2002).
+NOINSERT model was also faster, taking on aver-
+age 2.7 seconds per sentence and enumerating about
+160,000 edges whereas the INSERT model took 25
+seconds on average and enumerated 2 million edges.
+The coverage of the NOINSERT model was higher
+than that of the INSERT model, missing 2.4% of all
+parses versus 5.3% for the INSERT model.
+Comparing our results to Johnson (2002), we find
+that the NOINSERT model outperforms that of John-
+son by 4.6% (see Table 7). The strength of this sys-
+tem lies in its ability to tell unbound PROs and bound
+NPNP traces apart.
+</bodyText>
+<subsectionHeader confidence="0.977633">
+5.3 Discussion
+</subsectionHeader>
+<bodyText confidence="0.999951714285714">
+Combining the finite-state tagger with the parser
+seems to be invaluable for EE detection and an-
+tecedent recovery. Paradoxically, taking the com-
+bination to the extreme by allowing both the parser
+and the tagger to insert EEs performed worse.
+While the INSERT model here did have wider
+coverage than the parser in Section 3, it seems the
+real benefit of using the combined approach is to
+let the simple model reduce the search space of
+the more complicated parsing model. This search
+space reduction works because the shallow finite-
+state method takes information about adjacent words
+into account, whereas the context-free parser does
+not, since a phrase boundary might separate them.
+</bodyText>
+<sectionHeader confidence="0.999542" genericHeader="related work">
+6 Related Work
+</sectionHeader>
+<bodyText confidence="0.9973773">
+Excluding Johnson (2002)s pattern-matching al-
+gorithm, most recent work on finding head
+dependencies with statistical parser has used statis-
+tical versions of deep grammar formalisms, such as
+CCG (Clark et al., 2002) or LFG (Riezler et al.,
+2002). While these systems should, in theory, be
+able to handle discontinuities accurately, there has
+not yet been a study on how these systems handle
+such phenomena overall.
+The tagger presented here is not the first one
+proposed to recover syntactic information deeper
+than part-of-speech tags. For example, supertag-
+ging (Joshi and Bangalore, 1994) also aims to do
+more meaningful syntactic pre-processing. Unlike
+supertagging, our approach only focuses on detect-
+ing EEs.
+The idea of threading EEs to their antecedents in
+a stochastic parser was proposed by Collins (1997),
+following the GPSG tradition (Gazdar et al., 1985).
+However, we extend it to capture all types of EEs.
+</bodyText>
+<sectionHeader confidence="0.998616" genericHeader="conclusions">
+7 Conclusions
+</sectionHeader>
+<bodyText confidence="0.999898774193548">
+This paper has three main contributions. First, we
+show that gap+ features, encoding necessary infor-
+mation for antecedent recovery, do not incur any
+substantial computational overhead.
+Second, the paper demonstrates that a shallow
+finite-state model can be successful in detecting sites
+for discontinuity, a task which is generally under-
+stood to require deep syntactic and lexical-semantic
+knowledge. The results show that, at least in En-
+glish, local clues for discontinuity are abundant.
+This opens up the possibility of employing shal-
+low finite-state methods in novel situations to exploit
+non-apparent local information.
+Our final contribution, but the one we wish to em-
+phasize the most, is that the combination of two or-
+thogonal shallow models can be successful at solv-
+ing tasks which are well beyond their individual
+power. The accent here is on orthogonality the two
+models take different sources of information into ac-
+count. The tagger makes good use of adjacency at
+the word level, but is unable to handle deeper re-
+cursive structures. A context-free grammar is better
+at finding vertical phrase structure, but cannot ex-
+ploit linear information when words are separated
+\x0cby phrase boundaries. As a consequence, the finite-
+state method helps the parser by efficiently and re-
+liably pruning the search-space of the more compli-
+cated PCFG model. The benefits are immediate: the
+parser is not only faster but more accurate in recov-
+ering antecedents. The real power of the finite-state
+model is that it uses information the parser cannot.
+</bodyText>
+<sectionHeader confidence="0.962692" genericHeader="acknowledgments">
+Acknowledgements
+</sectionHeader>
+<bodyText confidence="0.976459">
+The authors would like to thank Jason Baldridge,
+Matthew Crocker, Geert-Jan Kruijff, Miles Osborne
+and the anonymous reviewers for many helpful com-
+ments.
+</bodyText>
+<sectionHeader confidence="0.986132" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.998805512499999">
+Adam L. Berger, Stephen A. Della Pietra, and Vincent J.
+Della Pietra. 1996. A maximum entropy approach to
+natural language processing. Computational Linguis-
+tics, 22(1):3971.
+Ann Bies, Mark Ferguson, Karen Katz, and Robert Mac-
+Intyre, 1995. Bracketting Guidelines for Treebank II
+style Penn Treebank Project. Linguistic Data Consor-
+tium.
+Rens Bod. 2003. An efficient implementation of a new
+dop model. In Proceedings of the 11th Conference of
+the European Chapter of the Association for Compu-
+tational Linguistics, Budapest.
+Eugene Charniak. 1993. Statistical Language Learning.
+MIT Press, Cambridge, MA.
+Eugene Charniak. 2000. A maximum-entropy-inspired
+parser. In Proceedings of the 1st Conference of North
+American Chapter of the Association for Computa-
+tional Linguistics, Seattle, WA.
+Stephen Clark, Julia Hockenmaier, and Mark Steedman.
+2002. Building deep dependency structures with a
+wide-coverage CCG parser. In Proceedings of the 40th
+Annual Meeting of the Association for Computational
+Linguistics, Philadelphia.
+Michael Collins, Jan Hajic, Lance Ramshaw, and
+Christoph Tillmann. 1999. A statistical parser for
+Czech. In Proceedings of the 37th Annual Meeting
+of the Association for Computational Linguistics, Uni-
+versity of Maryland, College Park.
+Michael Collins. 1997. Three generative, lexicalised
+models for statistical parsing. In Proceedings of the
+35th Annual Meeting of the Association for Computa-
+tional Linguistics and the 8th Conference of the Eu-
+ropean Chapter of the Association for Computational
+Linguistics, Madrid.
+James R. Curran and Stephen Clark. 2003. Investigat-
+ing GIS and smoothing for maximum entropy taggers.
+In Proceedings of the 11th Annual Meeting of the Eu-
+ropean Chapter of the Association for Computational
+Linguistics, Budapest, Hungary.
+Peter Dienes and Amit Dubey. 2003. Antecedent recov-
+ery: Experiments with a trace tagger. In Proceedings
+of the Conference on Empirical Methods in Natural
+Language Processing, Sapporo, Japan.
+Gerald Gazdar, Ewan Klein, Geoffrey Pullum, and Ivan
+Sag. 1985. Generalized Phase Structure Grammar.
+Basil Blackwell, Oxford, England.
+Joshua Goodman. 1998. Parsing inside-out. Ph.D. the-
+sis, Harvard University.
+Mark Johnson. 2001. Joint and conditional estimation
+of tagging and parsing models. In Proceedings of the
+39th Annual Meeting of the Association for Computa-
+tional Linguistics and the 10th Conference of the Eu-
+ropean Chapter of the Association for Computational
+Linguistics, Toulouse.
+Mark Johnson. 2002. A simple pattern-matching al-
+gorithm for recovering empty nodes and their an-
+tecedents. In Proceedings of the 40th Annual Meet-
+ing of the Association for Computational Linguistics,
+Philadelphia.
+Aravind K. Joshi and Srinivas Bangalore. 1994. Com-
+plexity of descriptivessupertag disambiguation or al-
+most parsing. In Proceedings of the 1994 Inter-
+national Conference on Computational Linguistics
+(COLING-94), Kyoto, Japan.
+Mitchell P. Marcus, Beatrice Santorini, and Mary Ann
+Marcinkiewicz. 1993. Building a large annotated cor-
+pus of English: The Penn Treebank. Computational
+Linguistics, 19(2):313330.
+Adwait Ratnaparkhi. 1996. A Maximum Entropy Part-
+of-Speech tagger. In Proceedings of the Empirical
+Methods in Natural Language Processing Conference.
+University of Pennsylvania.
+Stefan Riezler, Tracy H. King, Ronald M. Kaplan,
+Richard Crouch, John T. Maxwell, and Mark John-
+son. 2002. Parsing the Wall Street Journal using a
+Lexical-Functional Grammar and discriminative esti-
+mation techniques. In Proceedings of the 40th Annual
+Meeting of the Association for Computational Linguis-
+tics, Philadelphia.
+\x0c&apos;
+</reference>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.858185">
+<title confidence="0.999615">b&apos;Deep Syntactic Processing by Combining Shallow Methods</title>
+<author confidence="0.998841">Peter Dienes</author>
+<author confidence="0.998841">Amit Dubey</author>
+<affiliation confidence="0.999976">Department of Computational Linguistics Saarland University</affiliation>
+<address confidence="0.9660725">PO Box 15 11 50 66041 Saarbrucken, Germany</address>
+<email confidence="0.999269">dienes@coli.uni-sb.de</email>
+<email confidence="0.999269">adubey@coli.uni-sb.de</email>
+<abstract confidence="0.99321625">We present a novel approach for finding discontinuities that outperforms previously published results on this task. Rather than using a deeper grammar formalism, our system combines a simple unlexicalized PCFG parser with a shallow pre-processor. This pre-processor, which we call a trace tagger, does surprisingly well on detecting where discontinuities can occur without using phase structure information.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Adam L Berger</author>
+<author>Stephen A Della Pietra</author>
+<author>Vincent J Della Pietra</author>
+</authors>
+<title>A maximum entropy approach to natural language processing.</title>
+<date>1996</date>
+<journal>Computational Linguistics,</journal>
+<volume>22</volume>
+<issue>1</issue>
+<contexts>
+<context position="16050" citStr="Berger et al., 1996" startWordPosition="2648" endWordPosition="2651">d to POStagging, there are certain differences which make this task more difficult. Despite the smaller tagset, the data exhibits extreme sparseness: even though more than 50% of the sentences in the Penn Treebank contain some EEs, the actual number of EEs is very small. In Section 0 of the WSJ corpus, out of the 46451 tokens only 3056 are preceded by one or more EEs, that is, approximately 93.5% of the words are tagged with the EE=* tag. The other main difference is the apparently nonlocal nature of the problem, which motivates our choice of a Maximum Entropy (ME) model for the tagging task (Berger et al., 1996). ME allows the flexible combination of different sources of information, i.e., local and long-distance cues characterizing possible sites for EEs. In the ME framework, linguistic cues are represented by (binary-valued) features ( fi), the relative importance (weight, i) of which is determined by an iterative training algorithm. The weighted linear combination of the features amount to the log-probability of the label (l) given the context (c): p\x08 l \tc \x0c\x0b 1 Z\x08 c exp\x08 i i fi \x08 l c \x0e (1) where Z\x08 c is a context-dependent normalizing factor to ensure that p\x08 l \tc be a</context>
+</contexts>
+<marker>Berger, Pietra, Pietra, 1996</marker>
+<rawString>Adam L. Berger, Stephen A. Della Pietra, and Vincent J. Della Pietra. 1996. A maximum entropy approach to natural language processing. Computational Linguistics, 22(1):3971.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ann Bies</author>
+<author>Mark Ferguson</author>
+<author>Karen Katz</author>
+<author>Robert MacIntyre</author>
+</authors>
+<title>Bracketting Guidelines for Treebank II style Penn Treebank Project. Linguistic Data Consortium.</title>
+<date>1995</date>
+<contexts>
+<context position="4118" citStr="Bies et al., 1995" startWordPosition="641" endWordPosition="644">AUSE 118 Sam had to go, Sasha said 0 COMPWHNP 98 the woman 0 we saw *T* ALL 3310 Table 1: Most frequent types of EEs in Section 0. ling constituent. The experiments reported here rely on a training corpus annotated with non-local dependencies as well as phrase-structure information. We used the Wall Street Journal (WSJ) part of the Penn Treebank (Marcus et al., 1993), where extraction is represented by co-indexing an empty terminal element (henceforth EE) to its antecedent. Without committing ourselves to any syntactic theory, we adopt this representation. Following the annotation guidelines (Bies et al., 1995), we distinguish seven basic types of EEs: controlled NP-traces (NP), PROs (PRO), traces of A -movement (mostly wh-movement: WH), empty complementizers (COMP), empty units (UNIT), and traces representing pseudo-attachments (shared constituents, discontinuous dependencies, etc.: PSEUDO) and ellipsis (ELLIPSIS). These labels, however, do not identify the EEs uniquely: for instance, the label WH may represent an extracted NP object as well as an adverb moved out of the verb phrase. In order to facilitate antecedent recovery and to disambiguate the EEs, we also annotate them with their parent node</context>
+</contexts>
+<marker>Bies, Ferguson, Katz, MacIntyre, 1995</marker>
+<rawString>Ann Bies, Mark Ferguson, Karen Katz, and Robert MacIntyre, 1995. Bracketting Guidelines for Treebank II style Penn Treebank Project. Linguistic Data Consortium.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Rens Bod</author>
+</authors>
+<title>An efficient implementation of a new dop model.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the 11th Conference of the European Chapter of the Association for Computational Linguistics,</booktitle>
+<location>Budapest.</location>
+<contexts>
+<context position="1263" citStr="Bod, 2003" startWordPosition="179" endWordPosition="180"> this paper, we explore a novel approach for finding long-distance dependencies. In particular, we detect such dependencies, or discontinuities, in a two-step process: (i) a conceptually simple shallow tagger looks for sites of discontinuties as a preprocessing step, before parsing; (ii) the parser then finds the dependent constituent (antecedent). Clearly, information about long-distance relationships is vital for semantic interpretation. However, such constructions prove to be difficult for stochastic parsers (Collins et al., 1999) and they either avoid tackling the problem (Charniak, 2000; Bod, 2003) or only deal with a subset of the problematic cases (Collins, 1997). Johnson (2002) proposes an algorithm that is able to find long-distance dependencies, as a postprocessing step, after parsing. Although this algorithm fares well, it faces the problem that stochastic parsers not designed to capture non-local dependencies may get confused when parsing a sentence with discontinuities. However, the approach presented here is not susceptible to this shortcoming as it finds discontinuties before parsing. Overall, we present three primary contributions. First, we extend the mechanism of adding gap</context>
+</contexts>
+<marker>Bod, 2003</marker>
+<rawString>Rens Bod. 2003. An efficient implementation of a new dop model. In Proceedings of the 11th Conference of the European Chapter of the Association for Computational Linguistics, Budapest.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eugene Charniak</author>
+</authors>
+<title>Statistical Language Learning.</title>
+<date>1993</date>
+<publisher>MIT Press,</publisher>
+<location>Cambridge, MA.</location>
+<contexts>
+<context position="9826" citStr="Charniak, 1993" startWordPosition="1568" endWordPosition="1569"> The parser uses beam thresholding (Goodman, 1998) to for a tree T, iterate over nodes bottom-up for a node with rule P C0 \x01\x02\x01\x02\x01 Cn N \x03 multiset of EEs in P M \x03 multiset of EEs in C0 \x01\x02\x01\x02\x01 Cn foreach EE of type e in M \x04 N pick a j such that e allows Cj as an antecedent pick a k such that k \x05\x06 j and Ck dominates an EE of type e if no such j or k exist, return no antecedent else bind the EE dominated by Ck to the antecedent Cj Figure 2: The antecedent recovery algorithm. ensure efficient parsing. PCFG probabilities are calculated in the standard way (Charniak, 1993). In order to keep the number of independently tunable parameters low, no smoothing is used. The parser is tested under two different conditions. First, to assess the upper bound an EEdetecting unlexicalized PCFG can achieve, the input of the parser contains the empty elements as separate words (PERFECT). Second, we let the parser introduce the EEs itself (INSERT). 3.2 Evaluation We evaluate on all sentences in the test section of the treebank. As our interest lies in trace detection and antecedent recovery, we adopt the evaluation measures introduced by Johnson (2002). An EE is correctly dete</context>
+</contexts>
+<marker>Charniak, 1993</marker>
+<rawString>Eugene Charniak. 1993. Statistical Language Learning. MIT Press, Cambridge, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eugene Charniak</author>
+</authors>
+<title>A maximum-entropy-inspired parser.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the 1st Conference of North American Chapter of the Association for Computational Linguistics,</booktitle>
+<location>Seattle, WA.</location>
+<contexts>
+<context position="1251" citStr="Charniak, 2000" startWordPosition="177" endWordPosition="178"> Introduction In this paper, we explore a novel approach for finding long-distance dependencies. In particular, we detect such dependencies, or discontinuities, in a two-step process: (i) a conceptually simple shallow tagger looks for sites of discontinuties as a preprocessing step, before parsing; (ii) the parser then finds the dependent constituent (antecedent). Clearly, information about long-distance relationships is vital for semantic interpretation. However, such constructions prove to be difficult for stochastic parsers (Collins et al., 1999) and they either avoid tackling the problem (Charniak, 2000; Bod, 2003) or only deal with a subset of the problematic cases (Collins, 1997). Johnson (2002) proposes an algorithm that is able to find long-distance dependencies, as a postprocessing step, after parsing. Although this algorithm fares well, it faces the problem that stochastic parsers not designed to capture non-local dependencies may get confused when parsing a sentence with discontinuities. However, the approach presented here is not susceptible to this shortcoming as it finds discontinuties before parsing. Overall, we present three primary contributions. First, we extend the mechanism o</context>
+</contexts>
+<marker>Charniak, 2000</marker>
+<rawString>Eugene Charniak. 2000. A maximum-entropy-inspired parser. In Proceedings of the 1st Conference of North American Chapter of the Association for Computational Linguistics, Seattle, WA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Stephen Clark</author>
+<author>Julia Hockenmaier</author>
+<author>Mark Steedman</author>
+</authors>
+<title>Building deep dependency structures with a wide-coverage CCG parser.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<location>Philadelphia.</location>
+<contexts>
+<context position="24262" citStr="Clark et al., 2002" startWordPosition="3992" endWordPosition="3995">than the parser in Section 3, it seems the real benefit of using the combined approach is to let the simple model reduce the search space of the more complicated parsing model. This search space reduction works because the shallow finitestate method takes information about adjacent words into account, whereas the context-free parser does not, since a phrase boundary might separate them. 6 Related Work Excluding Johnson (2002)s pattern-matching algorithm, most recent work on finding head dependencies with statistical parser has used statistical versions of deep grammar formalisms, such as CCG (Clark et al., 2002) or LFG (Riezler et al., 2002). While these systems should, in theory, be able to handle discontinuities accurately, there has not yet been a study on how these systems handle such phenomena overall. The tagger presented here is not the first one proposed to recover syntactic information deeper than part-of-speech tags. For example, supertagging (Joshi and Bangalore, 1994) also aims to do more meaningful syntactic pre-processing. Unlike supertagging, our approach only focuses on detecting EEs. The idea of threading EEs to their antecedents in a stochastic parser was proposed by Collins (1997),</context>
+</contexts>
+<marker>Clark, Hockenmaier, Steedman, 2002</marker>
+<rawString>Stephen Clark, Julia Hockenmaier, and Mark Steedman. 2002. Building deep dependency structures with a wide-coverage CCG parser. In Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics, Philadelphia.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+<author>Jan Hajic</author>
+<author>Lance Ramshaw</author>
+<author>Christoph Tillmann</author>
+</authors>
+<title>A statistical parser for Czech.</title>
+<date>1999</date>
+<booktitle>In Proceedings of the 37th Annual Meeting of the Association</booktitle>
+<institution>for Computational Linguistics, University of Maryland, College Park.</institution>
+<contexts>
+<context position="1192" citStr="Collins et al., 1999" startWordPosition="166" endWordPosition="169">ontinuities can occur without using phase structure information. 1 Introduction In this paper, we explore a novel approach for finding long-distance dependencies. In particular, we detect such dependencies, or discontinuities, in a two-step process: (i) a conceptually simple shallow tagger looks for sites of discontinuties as a preprocessing step, before parsing; (ii) the parser then finds the dependent constituent (antecedent). Clearly, information about long-distance relationships is vital for semantic interpretation. However, such constructions prove to be difficult for stochastic parsers (Collins et al., 1999) and they either avoid tackling the problem (Charniak, 2000; Bod, 2003) or only deal with a subset of the problematic cases (Collins, 1997). Johnson (2002) proposes an algorithm that is able to find long-distance dependencies, as a postprocessing step, after parsing. Although this algorithm fares well, it faces the problem that stochastic parsers not designed to capture non-local dependencies may get confused when parsing a sentence with discontinuities. However, the approach presented here is not susceptible to this shortcoming as it finds discontinuties before parsing. Overall, we present th</context>
+</contexts>
+<marker>Collins, Hajic, Ramshaw, Tillmann, 1999</marker>
+<rawString>Michael Collins, Jan Hajic, Lance Ramshaw, and Christoph Tillmann. 1999. A statistical parser for Czech. In Proceedings of the 37th Annual Meeting of the Association for Computational Linguistics, University of Maryland, College Park.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+</authors>
+<title>Three generative, lexicalised models for statistical parsing.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the 35th Annual Meeting of the Association for Computational Linguistics and the 8th Conference of the European Chapter of the Association for Computational Linguistics,</booktitle>
+<location>Madrid.</location>
+<contexts>
+<context position="1331" citStr="Collins, 1997" startWordPosition="191" endWordPosition="192">ce dependencies. In particular, we detect such dependencies, or discontinuities, in a two-step process: (i) a conceptually simple shallow tagger looks for sites of discontinuties as a preprocessing step, before parsing; (ii) the parser then finds the dependent constituent (antecedent). Clearly, information about long-distance relationships is vital for semantic interpretation. However, such constructions prove to be difficult for stochastic parsers (Collins et al., 1999) and they either avoid tackling the problem (Charniak, 2000; Bod, 2003) or only deal with a subset of the problematic cases (Collins, 1997). Johnson (2002) proposes an algorithm that is able to find long-distance dependencies, as a postprocessing step, after parsing. Although this algorithm fares well, it faces the problem that stochastic parsers not designed to capture non-local dependencies may get confused when parsing a sentence with discontinuities. However, the approach presented here is not susceptible to this shortcoming as it finds discontinuties before parsing. Overall, we present three primary contributions. First, we extend the mechanism of adding gap variables for nodes dominating a site of discontinuity (Collins, 19</context>
+<context position="5674" citStr="Collins, 1997" startWordPosition="868" endWordPosition="869">). For the parsing and antecedent recovery experiments, in the case of WH-traces (WH\x01\x02\x01\x02\x01 ) and SBAR NP who S\x03\x05\x04\x07\x06\t\x08\x0b \x02\x0c\x0e \x0b\x0f\x02\x10 NP you VP\x03\x05\x04\x07\x06\t\x08\x0b \x02\x0c\x0e \x11\x0f\x02\x10 V saw NP\x03\x05\x04\x07\x06\t\x08\x0b \x02\x0c\x0e \x11\x0f\x02\x10 *WH-NP* Figure 1: Threading gap+WH-NP. controlled NP-traces (NPNP), we follow the standard technique of marking nodes dominating the empty element up to but not including the parent of the antecedent as defective (missing an argument) with a gap feature (Gazdar et al., 1985; Collins, 1997).1 Furthermore, to make antecedent co-indexation possible with many types of EEs, we generalize Collins approach by enriching the annotation of non-terminals with the type of the EE in question (eg. WHNP) by using different gap+ features (gap+WH-NP; cf. Figure 1). The original nonterminals augmented with gap+ features serve as new non-terminal labels. In the experiments, Sections 221 were used to train the models, Section 0 served as a development set for testing and improving models, whereas we present the results on the standard test set, Section 23. 3 Parsing with empty elements The present</context>
+<context position="24861" citStr="Collins (1997)" startWordPosition="4088" endWordPosition="4089">k et al., 2002) or LFG (Riezler et al., 2002). While these systems should, in theory, be able to handle discontinuities accurately, there has not yet been a study on how these systems handle such phenomena overall. The tagger presented here is not the first one proposed to recover syntactic information deeper than part-of-speech tags. For example, supertagging (Joshi and Bangalore, 1994) also aims to do more meaningful syntactic pre-processing. Unlike supertagging, our approach only focuses on detecting EEs. The idea of threading EEs to their antecedents in a stochastic parser was proposed by Collins (1997), following the GPSG tradition (Gazdar et al., 1985). However, we extend it to capture all types of EEs. 7 Conclusions This paper has three main contributions. First, we show that gap+ features, encoding necessary information for antecedent recovery, do not incur any substantial computational overhead. Second, the paper demonstrates that a shallow finite-state model can be successful in detecting sites for discontinuity, a task which is generally understood to require deep syntactic and lexical-semantic knowledge. The results show that, at least in English, local clues for discontinuity are ab</context>
+</contexts>
+<marker>Collins, 1997</marker>
+<rawString>Michael Collins. 1997. Three generative, lexicalised models for statistical parsing. In Proceedings of the 35th Annual Meeting of the Association for Computational Linguistics and the 8th Conference of the European Chapter of the Association for Computational Linguistics, Madrid.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>James R Curran</author>
+<author>Stephen Clark</author>
+</authors>
+<title>Investigating GIS and smoothing for maximum entropy taggers.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the 11th Annual Meeting of the European Chapter of the Association for Computational Linguistics,</booktitle>
+<location>Budapest, Hungary.</location>
+<contexts>
+<context position="16816" citStr="Curran and Clark, 2003" startWordPosition="2774" endWordPosition="2777">EEs. In the ME framework, linguistic cues are represented by (binary-valued) features ( fi), the relative importance (weight, i) of which is determined by an iterative training algorithm. The weighted linear combination of the features amount to the log-probability of the label (l) given the context (c): p\x08 l \tc \x0c\x0b 1 Z\x08 c exp\x08 i i fi \x08 l c \x0e (1) where Z\x08 c is a context-dependent normalizing factor to ensure that p\x08 l \tc be a proper probability distribution. We determine weights for the features with a modified version of the Generative Iterative Scaling algorithm (Curran and Clark, 2003). Templates for local features are similar to the ones employed by Ratnaparkhi (1996) for POS-tagging (Table 3), though as our input already includes POStags, we can make use of part-of-speech information as well. Long-distance features are simple handwritten regular expressions matching possible sites for EEs (Table 4). Features and labels occurring less than 10 times in the training corpus are ignored. Since our main aim is to show that finding empty elements can be done fairly accurately without using a parser, the input to the tagger is a POS-tagged corpus, containing no syntactic informat</context>
+</contexts>
+<marker>Curran, Clark, 2003</marker>
+<rawString>James R. Curran and Stephen Clark. 2003. Investigating GIS and smoothing for maximum entropy taggers. In Proceedings of the 11th Annual Meeting of the European Chapter of the Association for Computational Linguistics, Budapest, Hungary.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Peter Dienes</author>
+<author>Amit Dubey</author>
+</authors>
+<title>Antecedent recovery: Experiments with a trace tagger.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the Conference on Empirical Methods in Natural Language Processing,</booktitle>
+<location>Sapporo, Japan.</location>
+<contexts>
+<context position="7713" citStr="Dienes and Dubey (2003)" startWordPosition="1201" endWordPosition="1204">nding EE. \x0crelying on phrase structure information. 3.1 Method There are three modifications required to allow a parser to detect EEs and resolve antecedents. First, it should be able to insert empty nodes. Second, it must thread the gap+ variables to the parent node of the antecedent. Knowing this node is not enough, though. Since the Penn Treebank grammar is not binary-branching, the final task is to decide which child of this node is the actual antecedent. The first two modifications are not difficult conceptually. A bottom-up parser can be easily modified to insert empty elements (c.f. Dienes and Dubey (2003)). Likewise, the changes required to include gap+ categories are not complicated: we simply add the gap+ features to the nonterminal category labels. The final and perhaps most important concern with developing a gap-threading parser is to ensure it is possible to choose the correct child as the antecedent of an EE. To achieve this task, we employ the algorithm presented in Figure 2. At any node in the tree where the children, all together, have more gap+ features activated than the parent, the algorithm deduces that a gap+ must have an antecedent. It then picks a child as the antecedent and r</context>
+</contexts>
+<marker>Dienes, Dubey, 2003</marker>
+<rawString>Peter Dienes and Amit Dubey. 2003. Antecedent recovery: Experiments with a trace tagger. In Proceedings of the Conference on Empirical Methods in Natural Language Processing, Sapporo, Japan.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Gerald Gazdar</author>
+<author>Ewan Klein</author>
+<author>Geoffrey Pullum</author>
+<author>Ivan Sag</author>
+</authors>
+<title>Generalized Phase Structure Grammar. Basil Blackwell,</title>
+<date>1985</date>
+<location>Oxford, England.</location>
+<contexts>
+<context position="5658" citStr="Gazdar et al., 1985" startWordPosition="864" endWordPosition="867">llowing Johnson (2002). For the parsing and antecedent recovery experiments, in the case of WH-traces (WH\x01\x02\x01\x02\x01 ) and SBAR NP who S\x03\x05\x04\x07\x06\t\x08\x0b \x02\x0c\x0e \x0b\x0f\x02\x10 NP you VP\x03\x05\x04\x07\x06\t\x08\x0b \x02\x0c\x0e \x11\x0f\x02\x10 V saw NP\x03\x05\x04\x07\x06\t\x08\x0b \x02\x0c\x0e \x11\x0f\x02\x10 *WH-NP* Figure 1: Threading gap+WH-NP. controlled NP-traces (NPNP), we follow the standard technique of marking nodes dominating the empty element up to but not including the parent of the antecedent as defective (missing an argument) with a gap feature (Gazdar et al., 1985; Collins, 1997).1 Furthermore, to make antecedent co-indexation possible with many types of EEs, we generalize Collins approach by enriching the annotation of non-terminals with the type of the EE in question (eg. WHNP) by using different gap+ features (gap+WH-NP; cf. Figure 1). The original nonterminals augmented with gap+ features serve as new non-terminal labels. In the experiments, Sections 221 were used to train the models, Section 0 served as a development set for testing and improving models, whereas we present the results on the standard test set, Section 23. 3 Parsing with empty elem</context>
+<context position="24913" citStr="Gazdar et al., 1985" startWordPosition="4094" endWordPosition="4097"> While these systems should, in theory, be able to handle discontinuities accurately, there has not yet been a study on how these systems handle such phenomena overall. The tagger presented here is not the first one proposed to recover syntactic information deeper than part-of-speech tags. For example, supertagging (Joshi and Bangalore, 1994) also aims to do more meaningful syntactic pre-processing. Unlike supertagging, our approach only focuses on detecting EEs. The idea of threading EEs to their antecedents in a stochastic parser was proposed by Collins (1997), following the GPSG tradition (Gazdar et al., 1985). However, we extend it to capture all types of EEs. 7 Conclusions This paper has three main contributions. First, we show that gap+ features, encoding necessary information for antecedent recovery, do not incur any substantial computational overhead. Second, the paper demonstrates that a shallow finite-state model can be successful in detecting sites for discontinuity, a task which is generally understood to require deep syntactic and lexical-semantic knowledge. The results show that, at least in English, local clues for discontinuity are abundant. This opens up the possibility of employing s</context>
+</contexts>
+<marker>Gazdar, Klein, Pullum, Sag, 1985</marker>
+<rawString>Gerald Gazdar, Ewan Klein, Geoffrey Pullum, and Ivan Sag. 1985. Generalized Phase Structure Grammar. Basil Blackwell, Oxford, England.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Joshua Goodman</author>
+</authors>
+<title>Parsing inside-out.</title>
+<date>1998</date>
+<tech>Ph.D. thesis,</tech>
+<institution>Harvard University.</institution>
+<contexts>
+<context position="9261" citStr="Goodman, 1998" startWordPosition="1457" endWordPosition="1458">edent. Given the perfect trees of the development set, the antecedent recovery algorithm finds the correct antecedent with 95% accuracy, rising to 98% if PSEUDOs are excluded. Most of the remaining mistakes are caused either by annotation errors, or by binding NP-traces (NPNP) to adjunct NPs, as opposed to subject NPs. The parsing experiments are carried out with an unlexicalized PCFG augmented with the antecedent recovery algorithm. We use an unlexicalized model to emphasize the point that even a simple model detects long distance dependencies successfully. The parser uses beam thresholding (Goodman, 1998) to for a tree T, iterate over nodes bottom-up for a node with rule P C0 \x01\x02\x01\x02\x01 Cn N \x03 multiset of EEs in P M \x03 multiset of EEs in C0 \x01\x02\x01\x02\x01 Cn foreach EE of type e in M \x04 N pick a j such that e allows Cj as an antecedent pick a k such that k \x05\x06 j and Ck dominates an EE of type e if no such j or k exist, return no antecedent else bind the EE dominated by Ck to the antecedent Cj Figure 2: The antecedent recovery algorithm. ensure efficient parsing. PCFG probabilities are calculated in the standard way (Charniak, 1993). In order to keep the number of in</context>
+</contexts>
+<marker>Goodman, 1998</marker>
+<rawString>Joshua Goodman. 1998. Parsing inside-out. Ph.D. thesis, Harvard University.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mark Johnson</author>
+</authors>
+<title>Joint and conditional estimation of tagging and parsing models.</title>
+<date>2001</date>
+<booktitle>In Proceedings of the 39th Annual Meeting of the Association for Computational Linguistics and the 10th Conference of the European Chapter of the Association for Computational Linguistics,</booktitle>
+<location>Toulouse.</location>
+<contexts>
+<context position="21747" citStr="Johnson, 2001" startWordPosition="3572" endWordPosition="3574"> the parsing algorithm would be to build a unified probabilistic model. However, the nature of the models are quite different: the finite-state model is conditional, taking the words as given. The parsing model, on the other hand, is generative, treating the words as an unlikely event. There is a reasonable basis for building the probability models in different ways. Most of the tags emitted by the EE tagger are just EE=*, which would defeat generative models by making the hidden state uninformative. Conditional parsing algorithms do exist, but they are difficult to train using large corpora (Johnson, 2001). However, we show that it is quite effective if the parser simply treats the output of the tagger as a certainty. Given this combination method, there still are two interesting variations: we may use only the EEs proposed by the tagger (henceforth the NOINSERT model), or we may allow the parser to insert even more EEs (henceforth the INSERT model). In both cases, EEs outputted by the tagger are treated as separate words, as in the PERFECT model of Section 3. 5.2 Results The NOINSERT model did better at antecedent detection (see Table 6) than the INSERT model. The \x0cType Prec. Rec. F-score H</context>
+</contexts>
+<marker>Johnson, 2001</marker>
+<rawString>Mark Johnson. 2001. Joint and conditional estimation of tagging and parsing models. In Proceedings of the 39th Annual Meeting of the Association for Computational Linguistics and the 10th Conference of the European Chapter of the Association for Computational Linguistics, Toulouse.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mark Johnson</author>
+</authors>
+<title>A simple pattern-matching algorithm for recovering empty nodes and their antecedents.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<location>Philadelphia.</location>
+<contexts>
+<context position="1347" citStr="Johnson (2002)" startWordPosition="193" endWordPosition="194"> In particular, we detect such dependencies, or discontinuities, in a two-step process: (i) a conceptually simple shallow tagger looks for sites of discontinuties as a preprocessing step, before parsing; (ii) the parser then finds the dependent constituent (antecedent). Clearly, information about long-distance relationships is vital for semantic interpretation. However, such constructions prove to be difficult for stochastic parsers (Collins et al., 1999) and they either avoid tackling the problem (Charniak, 2000; Bod, 2003) or only deal with a subset of the problematic cases (Collins, 1997). Johnson (2002) proposes an algorithm that is able to find long-distance dependencies, as a postprocessing step, after parsing. Although this algorithm fares well, it faces the problem that stochastic parsers not designed to capture non-local dependencies may get confused when parsing a sentence with discontinuities. However, the approach presented here is not susceptible to this shortcoming as it finds discontinuties before parsing. Overall, we present three primary contributions. First, we extend the mechanism of adding gap variables for nodes dominating a site of discontinuity (Collins, 1997). This approa</context>
+<context position="4803" citStr="Johnson, 2002" startWordPosition="744" endWordPosition="745">ROs (PRO), traces of A -movement (mostly wh-movement: WH), empty complementizers (COMP), empty units (UNIT), and traces representing pseudo-attachments (shared constituents, discontinuous dependencies, etc.: PSEUDO) and ellipsis (ELLIPSIS). These labels, however, do not identify the EEs uniquely: for instance, the label WH may represent an extracted NP object as well as an adverb moved out of the verb phrase. In order to facilitate antecedent recovery and to disambiguate the EEs, we also annotate them with their parent nodes. Furthermore, to ease straightforward comparison with previous work (Johnson, 2002), a new label CLAUSE is introduced for COMP-SBAR whenever it is followed by a moved clause WHS. Table 1 summarizes the most frequent types occurring in the development data, Section 0 of the WSJ corpus, and gives an example for each, following Johnson (2002). For the parsing and antecedent recovery experiments, in the case of WH-traces (WH\x01\x02\x01\x02\x01 ) and SBAR NP who S\x03\x05\x04\x07\x06\t\x08\x0b \x02\x0c\x0e \x0b\x0f\x02\x10 NP you VP\x03\x05\x04\x07\x06\t\x08\x0b \x02\x0c\x0e \x11\x0f\x02\x10 V saw NP\x03\x05\x04\x07\x06\t\x08\x0b \x02\x0c\x0e \x11\x0f\x02\x10 *WH-NP* Figure 1: T</context>
+<context position="10401" citStr="Johnson (2002)" startWordPosition="1663" endWordPosition="1664">ed in the standard way (Charniak, 1993). In order to keep the number of independently tunable parameters low, no smoothing is used. The parser is tested under two different conditions. First, to assess the upper bound an EEdetecting unlexicalized PCFG can achieve, the input of the parser contains the empty elements as separate words (PERFECT). Second, we let the parser introduce the EEs itself (INSERT). 3.2 Evaluation We evaluate on all sentences in the test section of the treebank. As our interest lies in trace detection and antecedent recovery, we adopt the evaluation measures introduced by Johnson (2002). An EE is correctly detected if our model gives it the correct label as well as the correct position (the words before and after it). When evaluating antecedent recovery, the EEs are regarded as four-tuples, consisting of the type of the EE, its location, the type of its antecedent and the location(s) (beginning and end) of the antecedent. An antecedent is correctly recovered if all four values match the gold standard. The precision, recall, and the combined F-score is presented for each experiment. Missed parses are ignored for evaluation purposes. 3.3 Results The main results for the two co</context>
+<context position="19087" citStr="Johnson (2002)" startWordPosition="3134" endWordPosition="3135"> of the model lies in detecting such sites (empty units, UNIT; NP traces, NPNP) or where clear-cut long-distance cues exist (WHS, COMPSBAR). The accuracy of detecting uncon\x0cEE Prec. Rec. F-score Here Here Here Johnson LABELED 86.5% 72.9% 79.1% UNLABELED 93.3% 78.6% 85.3% NPNP 87.8% 79.6% 83.5% WHNP 92.5% 75.6% 83.2% 81.0% PRONP 68.7% 70.4% 69.5% COMPSBAR 93.8% 78.6% 85.5% 88.0% UNIT 99.1% 92.5% 95.7% 92.0% WHS 94.4% 91.3% 92.8% 87.0% WHADVP 81.6% 46.8% 59.5% 56.0% CLAUSE 80.4% 68.3% 73.8% 70.0% COMPWHNP 67.2% 38.3% 48.8% 47.0% Table 5: EE-detection results on Section 23 and comparison with Johnson (2002) (where applicable). trolled PROs (PRONP) is rather low, since it is a difficult task to tell them apart from NP traces: they are confused in 10 15% of the cases. Furthermore, the model is unable to capture for. . . to+INF constructions if the noun-phrase is long. The precision of detecting long-distance NP extraction (WHNP) is also high, but recall is lower: in general, the model finds extracted NPs with overt complementizers. Detection of null WHcomplementizers (COMPWHNP), however, is fairly inaccurate (48 8% F-score), since finding it and the corresponding WHNP requires information about th</context>
+<context position="21061" citStr="Johnson (2002)" startWordPosition="3457" endWordPosition="3458">NSERT INSERT Antecedent recovery (F-score) 72 6% 69 3% Parsing time (sec/sent) 2 7 25 Missed parses 2 4% 5 3% Table 6: Antecedent recovery, parsing times, and missed parses for the combined model 5 Combining the models In Section 3, we found that parsing with EEs is only feasible if the parser knows the location of EEs before parsing. In Section 4, we presented a finite-state tagger which detects these sites before parsing takes place. In this section, we validate the two-step approach, by applying the parser to the output of the trace tagger, and comparing the antecedent recovery accuracy to Johnson (2002). 5.1 Method Theoretically, the best way to combine the trace tagger and the parsing algorithm would be to build a unified probabilistic model. However, the nature of the models are quite different: the finite-state model is conditional, taking the words as given. The parsing model, on the other hand, is generative, treating the words as an unlikely event. There is a reasonable basis for building the probability models in different ways. Most of the tags emitted by the EE tagger are just EE=*, which would defeat generative models by making the hidden state uninformative. Conditional parsing al</context>
+<context position="22777" citStr="Johnson (2002)" startWordPosition="3748" endWordPosition="3749">te words, as in the PERFECT model of Section 3. 5.2 Results The NOINSERT model did better at antecedent detection (see Table 6) than the INSERT model. The \x0cType Prec. Rec. F-score Here Here Here Johnson OVERALL 80.5% 66.0% 72.6% 68.0% NPNP 71.2% 62.8% 66.8% 60.0% WHNP 91.6% 71.9% 80.6% 80.0% PRONP 68.7% 70.4% 69.5% 50.0% COMPSBAR 93.8% 78.6% 85.5% 88.0% UNIT 99.1% 92.5% 95.7% 92.0% WHS 86.7% 83.9% 84.8% 87.0% WHADVP 67.1% 31.3% 42.7% 56.0% CLAUSE 80.4% 68.3% 73.8% 70.0% COMPWHNP 67.2% 38.8% 48.8% 47.0% Table 7: Antecedent recovery results for the combined NOINSERT model and comparison with Johnson (2002). NOINSERT model was also faster, taking on average 2.7 seconds per sentence and enumerating about 160,000 edges whereas the INSERT model took 25 seconds on average and enumerated 2 million edges. The coverage of the NOINSERT model was higher than that of the INSERT model, missing 2.4% of all parses versus 5.3% for the INSERT model. Comparing our results to Johnson (2002), we find that the NOINSERT model outperforms that of Johnson by 4.6% (see Table 7). The strength of this system lies in its ability to tell unbound PROs and bound NPNP traces apart. 5.3 Discussion Combining the finite-state t</context>
+<context position="24072" citStr="Johnson (2002)" startWordPosition="3965" endWordPosition="3966">very. Paradoxically, taking the combination to the extreme by allowing both the parser and the tagger to insert EEs performed worse. While the INSERT model here did have wider coverage than the parser in Section 3, it seems the real benefit of using the combined approach is to let the simple model reduce the search space of the more complicated parsing model. This search space reduction works because the shallow finitestate method takes information about adjacent words into account, whereas the context-free parser does not, since a phrase boundary might separate them. 6 Related Work Excluding Johnson (2002)s pattern-matching algorithm, most recent work on finding head dependencies with statistical parser has used statistical versions of deep grammar formalisms, such as CCG (Clark et al., 2002) or LFG (Riezler et al., 2002). While these systems should, in theory, be able to handle discontinuities accurately, there has not yet been a study on how these systems handle such phenomena overall. The tagger presented here is not the first one proposed to recover syntactic information deeper than part-of-speech tags. For example, supertagging (Joshi and Bangalore, 1994) also aims to do more meaningful sy</context>
+</contexts>
+<marker>Johnson, 2002</marker>
+<rawString>Mark Johnson. 2002. A simple pattern-matching algorithm for recovering empty nodes and their antecedents. In Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics, Philadelphia.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Aravind K Joshi</author>
+<author>Srinivas Bangalore</author>
+</authors>
+<title>Complexity of descriptivessupertag disambiguation or almost parsing.</title>
+<date>1994</date>
+<booktitle>In Proceedings of the 1994 International Conference on Computational Linguistics (COLING-94),</booktitle>
+<location>Kyoto, Japan.</location>
+<contexts>
+<context position="24637" citStr="Joshi and Bangalore, 1994" startWordPosition="4051" endWordPosition="4054"> might separate them. 6 Related Work Excluding Johnson (2002)s pattern-matching algorithm, most recent work on finding head dependencies with statistical parser has used statistical versions of deep grammar formalisms, such as CCG (Clark et al., 2002) or LFG (Riezler et al., 2002). While these systems should, in theory, be able to handle discontinuities accurately, there has not yet been a study on how these systems handle such phenomena overall. The tagger presented here is not the first one proposed to recover syntactic information deeper than part-of-speech tags. For example, supertagging (Joshi and Bangalore, 1994) also aims to do more meaningful syntactic pre-processing. Unlike supertagging, our approach only focuses on detecting EEs. The idea of threading EEs to their antecedents in a stochastic parser was proposed by Collins (1997), following the GPSG tradition (Gazdar et al., 1985). However, we extend it to capture all types of EEs. 7 Conclusions This paper has three main contributions. First, we show that gap+ features, encoding necessary information for antecedent recovery, do not incur any substantial computational overhead. Second, the paper demonstrates that a shallow finite-state model can be </context>
+</contexts>
+<marker>Joshi, Bangalore, 1994</marker>
+<rawString>Aravind K. Joshi and Srinivas Bangalore. 1994. Complexity of descriptivessupertag disambiguation or almost parsing. In Proceedings of the 1994 International Conference on Computational Linguistics (COLING-94), Kyoto, Japan.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mitchell P Marcus</author>
+<author>Beatrice Santorini</author>
+<author>Mary Ann Marcinkiewicz</author>
+</authors>
+<title>Building a large annotated corpus of English: The Penn Treebank. Computational Linguistics,</title>
+<date>1993</date>
+<contexts>
+<context position="3869" citStr="Marcus et al., 1993" startWordPosition="605" endWordPosition="608">trol\x0cType Freq. Example NPNP 987 Sam was seen * WHNP 438 the woman who you saw *T* PRONP 426 * to sleep is nice COMPSBAR 338 Sam said 0 Sasha snores UNIT 332 $ 25 *U* WHS 228 Sam had to go, Sasha said *T* WHADVP 120 Sam told us how he did it *T* CLAUSE 118 Sam had to go, Sasha said 0 COMPWHNP 98 the woman 0 we saw *T* ALL 3310 Table 1: Most frequent types of EEs in Section 0. ling constituent. The experiments reported here rely on a training corpus annotated with non-local dependencies as well as phrase-structure information. We used the Wall Street Journal (WSJ) part of the Penn Treebank (Marcus et al., 1993), where extraction is represented by co-indexing an empty terminal element (henceforth EE) to its antecedent. Without committing ourselves to any syntactic theory, we adopt this representation. Following the annotation guidelines (Bies et al., 1995), we distinguish seven basic types of EEs: controlled NP-traces (NP), PROs (PRO), traces of A -movement (mostly wh-movement: WH), empty complementizers (COMP), empty units (UNIT), and traces representing pseudo-attachments (shared constituents, discontinuous dependencies, etc.: PSEUDO) and ellipsis (ELLIPSIS). These labels, however, do not identify </context>
+</contexts>
+<marker>Marcus, Santorini, Marcinkiewicz, 1993</marker>
+<rawString>Mitchell P. Marcus, Beatrice Santorini, and Mary Ann Marcinkiewicz. 1993. Building a large annotated corpus of English: The Penn Treebank. Computational Linguistics, 19(2):313330.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Adwait Ratnaparkhi</author>
+</authors>
+<title>A Maximum Entropy Partof-Speech tagger.</title>
+<date>1996</date>
+<booktitle>In Proceedings of the Empirical Methods in Natural Language Processing</booktitle>
+<institution>Conference. University of Pennsylvania.</institution>
+<contexts>
+<context position="16901" citStr="Ratnaparkhi (1996)" startWordPosition="2789" endWordPosition="2790">), the relative importance (weight, i) of which is determined by an iterative training algorithm. The weighted linear combination of the features amount to the log-probability of the label (l) given the context (c): p\x08 l \tc \x0c\x0b 1 Z\x08 c exp\x08 i i fi \x08 l c \x0e (1) where Z\x08 c is a context-dependent normalizing factor to ensure that p\x08 l \tc be a proper probability distribution. We determine weights for the features with a modified version of the Generative Iterative Scaling algorithm (Curran and Clark, 2003). Templates for local features are similar to the ones employed by Ratnaparkhi (1996) for POS-tagging (Table 3), though as our input already includes POStags, we can make use of part-of-speech information as well. Long-distance features are simple handwritten regular expressions matching possible sites for EEs (Table 4). Features and labels occurring less than 10 times in the training corpus are ignored. Since our main aim is to show that finding empty elements can be done fairly accurately without using a parser, the input to the tagger is a POS-tagged corpus, containing no syntactic information. The best label-sequence is approximated by a bigram Viterbi-search algorithm, au</context>
+</contexts>
+<marker>Ratnaparkhi, 1996</marker>
+<rawString>Adwait Ratnaparkhi. 1996. A Maximum Entropy Partof-Speech tagger. In Proceedings of the Empirical Methods in Natural Language Processing Conference. University of Pennsylvania.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Stefan Riezler</author>
+<author>Tracy H King</author>
+<author>Ronald M Kaplan</author>
+<author>Richard Crouch</author>
+<author>John T Maxwell</author>
+<author>Mark Johnson</author>
+</authors>
+<title>Parsing the Wall Street Journal using a Lexical-Functional Grammar and discriminative estimation techniques.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics,</booktitle>
+<location>Philadelphia. \x0c&apos;</location>
+<contexts>
+<context position="24292" citStr="Riezler et al., 2002" startWordPosition="3998" endWordPosition="4001">, it seems the real benefit of using the combined approach is to let the simple model reduce the search space of the more complicated parsing model. This search space reduction works because the shallow finitestate method takes information about adjacent words into account, whereas the context-free parser does not, since a phrase boundary might separate them. 6 Related Work Excluding Johnson (2002)s pattern-matching algorithm, most recent work on finding head dependencies with statistical parser has used statistical versions of deep grammar formalisms, such as CCG (Clark et al., 2002) or LFG (Riezler et al., 2002). While these systems should, in theory, be able to handle discontinuities accurately, there has not yet been a study on how these systems handle such phenomena overall. The tagger presented here is not the first one proposed to recover syntactic information deeper than part-of-speech tags. For example, supertagging (Joshi and Bangalore, 1994) also aims to do more meaningful syntactic pre-processing. Unlike supertagging, our approach only focuses on detecting EEs. The idea of threading EEs to their antecedents in a stochastic parser was proposed by Collins (1997), following the GPSG tradition </context>
+</contexts>
+<marker>Riezler, King, Kaplan, Crouch, Maxwell, Johnson, 2002</marker>
+<rawString>Stefan Riezler, Tracy H. King, Ronald M. Kaplan, Richard Crouch, John T. Maxwell, and Mark Johnson. 2002. Parsing the Wall Street Journal using a Lexical-Functional Grammar and discriminative estimation techniques. In Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics, Philadelphia. \x0c&apos;</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

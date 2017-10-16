@@ -1,0 +1,1208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<title confidence="0.8517225">
+b&amp;apos;Efficient Parsing for Bilexical Context-Free Grammars
+and Head Automaton Grammars*
+</title>
+<author confidence="0.99434">
+Jason Eisner
+</author>
+<affiliation confidence="0.992183">
+Dept. of Computer ~ Information Science
+University of Pennsylvania
+</affiliation>
+<address confidence="0.618707">
+200 South 33rd Street,
+Philadelphia, PA 19104 USA
+jeisner@linc, cis.upenn, edu
+</address>
+<figure confidence="0.64753625">
+Giorgio Satta
+Dip. di Elettronica e Informatica
+Universit di Padova
+via Gradenigo 6/A,
+</figure>
+<address confidence="0.565901">
+35131 Padova, Italy
+</address>
+<keyword confidence="0.654467">
+satta@dei, unipd, it
+</keyword>
+<sectionHeader confidence="0.985112" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999707333333333">
+Several recent stochastic parsers use bilexical
+grammars, where each word type idiosyncrat-
+ically prefers particular complements with par-
+ticular head words. We present O(n4) parsing
+algorithms for two bilexical formalisms, improv-
+ing the prior upper bounds of O(n5). For a com-
+mon special case that was known to allow O(n3)
+parsing (Eisner, 1997), we present an O(n 3) al-
+gorithm with an improved grammar constant.
+</bodyText>
+<sectionHeader confidence="0.998254" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.969581775862069">
+Lexicalized grammar formalisms are of both
+theoretical and practical interest to the com-
+putational linguistics community. Such for-
+malisms specify syntactic facts about each word
+of the language--in particular, the type of
+arguments that the word can or must take.
+Early mechanisms of this sort included catego-
+rial grammar (Bar-Hillel, 1953) and subcatego-
+rization frames (Chomsky, 1965). Other lexi-
+calized formalisms include (Schabes et al., 1988;
+Mel\&amp;apos;~uk, 1988; Pollard and Sag, 1994).
+Besides the possible arguments of a word, a
+natural-language grammar does well to specify
+possible head words for those arguments. &quot;Con-
+vene&quot; requires an NP object, but some NPs are
+more semantically or lexically appropriate here
+than others, and the appropriateness depends
+largely on the NP\&amp;apos;s head (e.g., &quot;meeting&quot;). We
+use the general term bilexical for a grammar
+that records such facts. A bilexical grammar
+makes many stipulations about the compatibil-
+ity of particular pairs of words in particular
+roles. The acceptability of &quot;Nora convened the
+&quot; The authors weresupported respectivelyunder ARPA
+Grant N6600194-C-6043 &quot;HumanLanguageTechnology&quot;
+and Ministero dell\&amp;apos;Universitke della Ricerca Scientifica
+e Tecnologicaproject &quot;Methodologiesand Toolsof High
+PerformanceSystemsfor MultimediaApplications.&quot;
+party&quot; then depends on the grammar writer\&amp;apos;s
+assessment of whether parties can be convened.
+Several recent real-world parsers have im-
+proved state-of-the-art parsing accuracy by re-
+lying on probabilistic or weighted versions of
+bilexical grammars (Alshawi, 1996; Eisner,
+1996; Charniak, 1997; Collins, 1997). The ra-
+tionale is that soft selectional restrictions play
+a crucial role in disambiguation, i
+The chart parsing algorithms used by most of
+the above authors run in time O(nS), because
+bilexical grammars are enormous (the part of
+the grammar relevant to a length-n input has
+size O(n2) in practice). Heavy probabilistic
+pruning is therefore needed to get acceptable
+runtimes. But in this paper we show that the
+complexity is not so bad after all:
+For bilexicalized context-free grammars,
+O(n4) is possible.
+The O(n4) result also holds for head au-
+tomaton grammars.
+For a very common special case of these
+grammars where an O(n 3) algorithm was
+previously known (Eisner, 1997), the gram-
+mar constant can be reduced without
+harming the O(n3) property.
+Our algorithmic technique throughout is to pro-
+pose new kinds of subderivations that are not
+constituents. We use dynamic programming to
+assemble such subderivations into a full parse.
+</bodyText>
+<footnote confidence="0.71760975">
+2 Notation for context-free
+grammars
+The reader is assumed to be familiar with
+context-free grammars. Our notation fol-
+1Other relevant parsers simultaneouslyconsidertwo
+or morewordsthat are not necessarilyin a dependency
+relationship (Laffertyet al., 1992; Magerman, 1995;
+Collins and Brooks, 1995; Chelba and Jelinek, 1998).
+</footnote>
+<page confidence="0.997778">
+457
+</page>
+<bodyText confidence="0.977781071428572">
+\x0clows (Harrison, 1978; Hopcroft and Ullman,
+1979). A context-free grammar (CFG) is a tuple
+G = (VN,VT, P, S), where VN and VT are finite,
+disjoint sets of nonterminal and terminal sym-
+bols, respectively, and S E VN is the start sym-
+bol. Set P is a finite set of productions having
+the form A --+ a, where A E VN,a E (VNUVT)*.
+If every production in P has the form A -+ BC
+or A --+ a, for A,B,C E VN,a E VT, then the
+grammar is said to be in Chomsky Normal Form
+(CNF). 2 Every language that can be generated
+by a CFG can also be generated by a CFG in
+CNF.
+In this paper we adopt the following conven-
+tions: a, b, c, d denote symbols in VT, w, x, y de-
+note strings in V~, and a, ~,... denote strings
+in (VN t_JVT)*. The input to the parser will be a
+CFG G together with a string of terminal sym-
+bols to be parsed, w = did2.., dn. Also h,i,j,k
+denote positive integers, which are assumed to
+be ~ n when we are treating them as indices
+into w. We write wi,j for the input substring
+di\&amp;apos;.&quot; dj (and put wi,j = e for i &gt; j).
+A &quot;derives&quot; relation, written =~, is associated
+with a CFG as usual. We also use the reflexive
+and transitive closure of o, written ~*, and
+define L(G) accordingly. We write a fl 5 =~*
+a75 for a derivation in which only fl is rewritten.
+</bodyText>
+<sectionHeader confidence="0.781348" genericHeader="method">
+3 Bilexical context-free grammars
+</sectionHeader>
+<bodyText confidence="0.962846285714286">
+We introduce next a grammar formalism that
+captures lexical dependencies among pairs of
+words in VT. This formalism closely resem-
+bles stochastic grammatical formalisms that are
+used in several existing natural language pro-
+cessing systems (see 1). We will specify a non-
+stochastic version, noting that probabilities or
+other weights may be attached to the rewrite
+rules exactly as in stochastic CFG (Gonzales
+and Thomason, 1978; Wetherell, 1980). (See
+4 for brief discussion.)
+Suppose G = (VN,VT, P,T[$]) is a CFG in
+CNF. 3 We say that G is bilexical iff there exists
+a set of &quot;delexicalized nonterminals&quot; VD such
+that VN = {A[a] : A E VD,a E VT} and every
+production in P has one of the following forms:
+2Production S --~ e is also allowed in a CNF grammar
+if S never appears on the right side of any production.
+However, S --+ e is not allowed in our bilexical CFGs.
+,awe have a more general definition that drops the
+restriction to CNF, but do not give it here.
+</bodyText>
+<equation confidence="0.998766">
+A[a] ~ B[b] C[a] (1)
+A[a] --+ C[a] B[b] (2)
+A[a] ~ a (3)
+</equation>
+<bodyText confidence="0.99498225">
+Thus every nonterminal is lexicalized at some
+terminal a. A constituent of nonterminal type
+A[a] is said to have terminal symbol a as its lex-
+ical head, &quot;inherited&quot; from the constituent\&amp;apos;s
+head child in the parse tree (e.g., C[a]).
+Notice that the start symbol is necessarily a
+lexicalized nonterminal, T[$]. Hence $ appears
+in every string of L(G); it is usually convenient
+to define G so that the language of interest is
+actually L\&amp;apos;(G) = {x: x$ E L(G)}.
+Such a grammar can encode lexically specific
+preferences. For example, P might contain the
+</bodyText>
+<equation confidence="0.8610375">
+productions
+VP [solve] --+ V[solve] NP[puzzles]
+NP[puzzles] --+ DEW[two] N[puzzles]
+V[solve] ~ solve
+N[puzzles] --4 puzzles
+DEW[two] --+ two
+</equation>
+<bodyText confidence="0.9938705">
+in order to allow the derivation VP[solve] ~*
+solve two puzzles, but meanwhile omit the sim-
+</bodyText>
+<equation confidence="0.913943">
+ilar productions
+VP[eat] -+ V[eat] NP[puzzles]
+VP[solve] --~ V[solve] NP[goat]
+VP[sleep] -+ V[sleep] NP[goat]
+NP[goat] -+ DET[two] N[goat]
+</equation>
+<bodyText confidence="0.995238421052632">
+since puzzles are not edible, a goat is not solv-
+able, &quot;sleep&quot; is intransitive, and &quot;goat&quot; cannot
+take plural determiners. (A stochastic version
+of the grammar could implement &quot;soft prefer-
+ences&quot; by allowing the rules in the second group
+but assigning them various low probabilities.)
+The cost of this expressiveness is a very large
+grammar. Standard context-free parsing algo-
+rithms are inefficient in such a case. The CKY
+algorithm (Younger, 1967; Aho and Ullman,
+1972) is time O(n3. IPI), where in the worst case
+IPI = [VNI3 (one ignores unary productions).
+For a bilexical grammar, the worst case is IPI =
+IVD13.IVT12, which is large for a large vocabulary
+VT. We may improve the analysis somewhat by
+observing that when parsing dl ... dn, the CKY
+algorithm only considers nonterminals of the
+form A[di]; by restricting to the relevant pro-
+ductions we obtain O(n 3. IVDI3. min(n, IVTI)2).
+</bodyText>
+<page confidence="0.995653">
+458
+</page>
+<bodyText confidence="0.967225888888889">
+\x0cWe observe that in practical applications we
+always have n &amp;lt;&amp;lt; IVTI. Let us then restrict
+our analysis to the (infinite) set of input in-
+stances of the parsing problem that satisfy re-
+lation n &amp;lt; IVTI. With this assumption, the
+asymptotic time complexity of the CKY algo-
+rithm becomes O(n5. IVDt3). In other words,
+it is a factor of n 2 slower than a comparable
+non-lexicalized CFG.
+</bodyText>
+<sectionHeader confidence="0.968639" genericHeader="method">
+4 Bilexical CFG in time O(n 4)
+</sectionHeader>
+<bodyText confidence="0.975228125">
+In this section we give a recognition algorithm
+for bilexical CNF context-free grammars, which
+runs in time O(n4. max(p, IVDI2)) = O(n4.
+IVDI3). Here p is the maximum number of pro-
+ductions sharing the same pair of terminal sym-
+bols (e.g., the pair (b, a) in production (1)). The
+new algorithm is asymptotically more efficient
+than the CKY algorithm, when restricted to in-
+put instances satisfying the relation n &amp;lt; IVTI.
+Where CKY recognizes only constituent sub-
+strings of the input, the new algorithm can rec-
+ognize three types of subderivations, shown and
+described in Figure l(a). A declarative specifi-
+cation of the algorithm is given in Figure l(b).
+The derivability conditions of (a) are guaran-
+teed by (b), by induction, and the correctness of
+the acceptance condition (see caption) follows.
+This declarative specification, like CKY, may
+be implemented by bottom-up dynamic pro-
+gramming. We sketch one such method. For
+each possible item, as shown in (a), we maintain
+a bit (indexed by the parameters of the item)
+that records whether the item has been derived
+yet. All these bits are initially zero. The algo-
+rithm makes a single pass through the possible
+items, setting the bit for each if it can be derived
+using any rule in (b) from items whose bits are
+already set. At the end of this pass it is straight-
+forward to test whether to accept w (see cap-
+tion). The pass considers the items in increas-
+ing order of width, where the width of an item
+in (a) is defined as max{h,i,j} -min{h,i,j}.
+Among items of the same width, those of type
+A should be considered last.
+The algorithm requires space proportional to
+the number of possible items, which is at most
+na]VDI2. Each of the five rule templates can
+instantiate its free variables in at most n4p or
+(for COMPLETE rules) n41VDI2 different ways,
+each of which is tested once and in constant
+time; so the runtime is O(n4max(p, IVDI2)).
+By comparison, the CKY algorithm uses only
+the first type of item, and relies on rules whose
+B C
+inputs are pairs .~.~ . z~::~ . Such rules
+can be instantiated in O(n5) different ways for a
+fixed grammar, yielding O(n 5) time complexity.
+The new algorithm saves a factor of n by com-
+bining those two constituents in two steps, one
+of which is insensitive to k and abstracts over its
+possible values, the other of which is insensitive
+to h~and abstracts over its possible values.
+It is straightforward to turn the new O(n 4)
+recognition algorithm into a parser for stochas-
+tic bilexical CFGs (or other weighted bilexical
+CFGs). In a stochastic CFG, each nonterminal
+A[a] is accompanied by a probability distribu-
+tion over productions of the form A[a] --+~. A
+T
+is just a derivation (proof tree) of lZ~n
+,.o
+parse
+and its probability--like that of any derivation
+we find--is defined as the product of the prob-
+abilities of all productions used to condition in-
+ference rules in the proof tree. The highest-
+probability derivation for any item can be re-
+constructed recursively at the end of the parse,
+provided that each item maintains not only a
+bit indicating whether it can be derived, but
+also the probability and instantiated root rule
+of its highest-probability derivation tree.
+</bodyText>
+<sectionHeader confidence="0.646036" genericHeader="method">
+5 A more efficient variant
+</sectionHeader>
+<bodyText confidence="0.999018157894737">
+We now give a variant of the algorithm of 4; the
+variant has the same asymptotic complexity but
+will often be faster in practice.
+Notice that the ATTACH-LEFT rule of Fig-
+ure l(b) tries to combine the nonterminal label
+B[dh,] of a previously derived constituent with
+every possible nonterminal label of the form
+C[dh]. The improved version, shown in Figure 2,
+restricts C[dh]to be the label of a previously de-
+rived adjacent constituent. This improves speed
+if there are not many such constituents and we
+can enumerate them in O(1) time apiece (using
+a sparse parse table to store the derived items).
+It is necessary to use an agenda data struc-
+ture (Kay, 1986) when implementing the declar-
+ative algorithm of Figure 2. Deriving narrower
+items before wider ones as before will not work
+here because the rule HALVE derives narrow
+items from wide ones.
+</bodyText>
+<page confidence="0.976765">
+459
+</page>
+<figure confidence="0.9714774375">
+\x0c(a)
+A
+i4 ,
+A
+A
+h z j
+(i g h &amp;lt;j, A E VD)
+(i &amp;lt; j &amp;lt;h,A, C E VD)
+(h &amp;lt; i &amp;lt; j, A, C E VD)
+is derived iff A[dh] ~* wi,j
+is derived iff A[dh] ~ B[dh,]C[dh] ~* wi,jC[dh] for some B, h\&amp;apos;
+is derived iff A[dh] ~ C[dh]B[dh,] ~* C[dh]wi,j for some B, h\&amp;apos;
+(b) STAaT: ~ A[dh] ~ dh
+h@h
+ATTACH-LEFT: B
+A
+./Q&quot;. c
+~ 3 h
+ATTACH-RIGHT: B
+.4
+h ~ 3
+A[dh] -~ B[dh,]C[dh]
+A[dh] -~ C[dh]B[dh,]
+COMPLETE-RIGHT:
+COMPLETE-LEFT:
+A C
+3 h j
+A
+iz k
+C A
+A
+iz@k
+</figure>
+<figureCaption confidence="0.6227202">
+Figure 1: An O(n 4) recognition algorithm for CNF bilexical CFG. (a) Types of items in the
+parse table (chart). The first is syntactic sugar for the tuple [A, A, i, h,j], and so on. The stated
+conditions assume that dl,...dn are all distinct. (b) Inference rules. The algorithm derives the
+item below -- if the items above -- have already been derived and any condition to the right
+of is met. It accepts input w just if item I/k, T, 1, h, n] is derived for some h such that dh -= $.
+</figureCaption>
+<figure confidence="0.812196608695652">
+(a)
+A
+A
+i//]h (i &amp;lt;_h, A e VD)
+A
+h~ (h &amp;lt; j, A E VD)
+,~. ~C (i _&amp;lt;j &amp;lt; h, A,C E VD)
+3 h
+A
+A
+C ~ . (h &amp;lt; i &amp;lt; j, A,C E VD)
+h ~ 3
+(i &amp;lt; h _&amp;lt;j, A E VD) is derived iff A[dh] ~* wi,j
+is derived iff A[dh] ~* wi,j for some j _&gt;h
+is derived iff A[dh] ~* w~,j for some i _&amp;lt;h
+is derived iff A[dh] ~ B[dh,]C[dh] ~* wi,jC[dh] ~* wi,k for
+some B, h~,k
+is derived iff A[dh] ~ C[dh]B[dh,] ~* C[dh]wi,j ~* Wk,j for
+some B, h~,k
+(b) As in Figure l(b) above, but add HALVEand change ATTACH-LEFT and ATTACH-RIGHT as shown.
+HALVE: ATTACH-LEFT: ATTACH-RIGHT:
+A B C C B
+A A A A[dh] ---4B[dh,]V[dh] d d[dh] ---+C[dh]B[dh,]
+</figure>
+<figureCaption confidence="0.925454">
+Figure 2: A more efficient variant of the O(n 4) algorithm in Figure 1, in the same format.
+</figureCaption>
+<page confidence="0.958856">
+460
+</page>
+<table confidence="0.504778">
+\x0c6 Multiple word senses
+</table>
+<bodyText confidence="0.980823227272727">
+Rather than parsing an input string directly, it
+is often desirable to parse another string related
+by a (possibly stochastic) transduction. Let T
+be a finite-state transducer that maps a mor-
+pheme sequence w E V~ to its orthographic re-
+alization, a grapheme sequence v~. T may re-
+alize arbitrary morphological processes, includ-
+ing affixation, local clitic movement, deletion
+of phonological nulls, forbidden or dispreferred
+k-grams, typographical errors, and mapping of
+multiple senses onto the same grapheme. Given
+grammar G and an input @, we ask whether
+E T(L(G)). We have extended all the algo-
+rithms in this paper to this case: the items sim-
+ply keep track of the transducer state as well.
+Due to space constraints, we sketch only the
+special case of multiple senses. Suppose that
+the input is ~ =dl ... dn, and each di has up to
+g possible senses. Each item now needs to track
+its head\&amp;apos;s sense along with its head\&amp;apos;s position in
+@. Wherever an item formerly recorded a head
+position h (similarly h~), it must now record a
+pair (h, dh) , where dh E VT is a specific sense of
+d-h. No rule in Figures 1-2 (or Figure 3 below)
+will mention more than two such pairs. So the
+time complexity increases by a factor of O(g2).
+7 Head automaton grammars in
+time O(n 4)
+In this section we show that a length-n string
+generated by a head automaton grammar (A1-
+shawi, 1996) can be parsed in time O(n4). We
+do this by providing a translation from head
+automaton grammars to bilexical CFGs. 4 This
+result improves on the head-automaton parsing
+algorithm given by Alshawi, which is analogous
+to the CKY algorithm on bilexical CFGs and is
+likewise O(n 5) in practice (see 3).
+A head automaton grammar (HAG) is a
+function H : a ~ Ha that defines a head au-
+tomaton (HA) for each element of its (finite)
+domain. Let VT =- domain(H) and D = {~, +--
+-}. A special symbol $ E VT plays the role of
+start symbol. For each a E VT, Ha is a tuple
+(Qa, VT, (~a,In, Fa), where
+</bodyText>
+<footnote confidence="0.640181142857143">
+Qa is a finite set of states;
+4Translation in the other direction is possible if the
+HAG formalism is extended to allow multiple senses per
+word (see 6). This makes the formalisms equivalent.
+In, Fa C Qa are sets of initial and final
+states, respectively;
+5a is a transition function mapping Qa x
+</footnote>
+<bodyText confidence="0.977227105263158">
+VT D to 2Qa, the power set of Qa.
+A single head automaton is an acceptor for a
+language of string pairs (z~,Zr) E V~ x V~. In-
+formally, if b is the leftmost symbol of Zr and
+q~E 5a(q, b, -~), then Ha can move from state q
+to state q~, matching symbol b and removing it
+from the left end of Zr. Symmetrically, if b is the
+rightmost symbol of zl and ql E 5a(q, b, ~---) then
+from q Ha can move to q~, matching symbol b
+and removing it from the right end of zl.5
+More formally, we associate with the head au-
+tomaton Ha a &quot;derives&quot; relation F-a, defined as
+a binary relation on Qa V~ x V~. For ev-
+ery q E Q, x,y E V~, b E VT, d E D, and
+q\&amp;apos; E ~a(q, b, d), we specify that
+(q, xb, y) ~-a (q\&amp;apos;,x,Y) if d =+-;
+(q, x, by) ~-a (q\&amp;apos;, x, y) if d =--+.
+The reflexive and transitive closure of F-a is writ-
+ten ~-~. The language generated by Ha is the set
+</bodyText>
+<equation confidence="0.990045">
+L(Ha) = {&amp;lt;zl,Zr) I (q, zl,Zr) I-; (r,e,e),
+</equation>
+<bodyText confidence="0.97746708">
+qEIa, rEFa}.
+We may now define the language generated
+by the entire grammar H. To generate, we ex-
+pand the start word $ E VT into xSy for some
+(x, y) E L(H$), and then recursively expand the
+words in strings x and y. More formally, given
+H, we simultaneously define La for all a E VT
+to be minimal such that if (x,y) E L(Ha),
+xr E Lx, yl ELy, then x~ay~ E La, where
+Lal...ak stands for the concatenation language
+Lal &quot;\&amp;apos;&quot; La k. Then H generates language L$.
+We next present a simple construction that
+transforms a HAG H into a bilexical CFG G
+generating the same language. The construc-
+tion also preserves derivation ambiguity. This
+means that for each string w, there is a linear-
+time 1-to-1 mapping between (appropriately de-
+~Alshawi (1996) describes HAs as accepting (or equiv-
+alently, generating) zl and z~ from the outside in. To
+make Figure 3 easier to follow, we have defined HAs as
+accepting symbols in the opposite order, from the in-
+side out. This amounts to the same thing if transitions
+are reversed, Is is exchanged with Fa, and any transi-
+tion probabilities are replaced by those of the reversed
+Markov chain.
+</bodyText>
+<page confidence="0.997802">
+461
+</page>
+<bodyText confidence="0.898290125">
+\x0cfined) canonical derivations of w by H and
+canonical derivations of w by G.
+We adopt the notation above for H and the
+components of its head automata. Let VD be
+an arbitrary set of size t = max{[Qa[ : a VT},
+and for each a, define an arbitrary injection fa :
+Qa --+ YD. We define G -- (VN, VT, P,T[$]),
+where
+</bodyText>
+<figure confidence="0.822726285714286">
+(i) VN = {A[a] : A VD, a VT}, in the usual
+manner for bilexical CFG;
+(ii) P is the set of all productions having one
+of the following forms, where a, b VT:
+A[a] --+ B[b] C[a] where
+A = fa(r), B = fb(q\&amp;apos;), C = f~(q) for
+some qr Ib, q Qa, r 5a(q, b, +-)
+A[a] -~ C[a] Bib] where
+A = fa(r), B = fb(q\&amp;apos;), C = fa(q) for
+some q\&amp;apos; Ib, q Qa, r 5a(q, b,--+)
+]
+A[a --+ a where
+A = fa(q) for some q Fa
+(iii) T = f$(q), where we assume WLOG that
+</figure>
+<bodyText confidence="0.989028375">
+I$ is a singleton set {q}.
+We omit the formal proof that G and H
+admit isomorphic derivations and hence gen-
+erate the same languages, observing only that
+if (x,y) = (bib2... bj, bj+l.., bk) E L(Ha)--
+a condition used in defining La above--then
+g[a] 3&quot; BI[bl]&quot;&quot; Bj[bj]aBj+l[bj+l]... Bk[bk],
+for any A, B1,... Bk that map to initial states
+in Ha, Hbl,... Hb~ respectively.
+In general, G has p = O(IVDI3) = O(t3). The
+construction therefore implies that we can parse
+a length-n sentence under H in time O(n4t3). If
+the HAs in H happen to be deterministic, then
+in each binary production given by (ii) above,
+symbol A is fully determined by a, b, and C. In
+this case p = O(t2), so the parser will operate
+in time O(n4t2).
+We note that this construction can be
+straightforwardly extended to convert stochas-
+tic HAGs as in (Alshawi, 1996) into stochastic
+CFGs. Probabilities that Ha assigns to state q\&amp;apos;s
+various transition and halt actions are copied
+onto the corresponding productions A[a] --~ c~
+of G, where A = fa(q).
+</bodyText>
+<sectionHeader confidence="0.470624" genericHeader="method">
+8 Split head automaton grammars
+</sectionHeader>
+<bodyText confidence="0.997338196078432">
+in time O(n 3)
+For many bilexical CFGs or HAGs of practical
+significance, just as for the bilexical version of
+link grammars (Lafferty et al., 1992), it is possi-
+ble to parse length-n inputs even faster, in time
+O(n 3) (Eisner, 1997). In this section we de-
+scribe and discuss this special case, and give a
+new O(n 3) algorithm that has a smaller gram-
+mar constant than previously reported.
+A head automaton Ha is called split if it has
+no states that can be entered on a +-- transi-
+tion and exited on a ~ transition. Such an au-
+tomaton can accept (x, y) only by reading all of
+y--immediately after which it is said to be in
+a flip state--and then reading all of x. For-
+mally, a flip state is one that allows entry on a
+--+ transition and that either allows exit on a e--
+transition or is a final state.
+We are concerned here with head automa-
+ton grammars H such that every Ha is split.
+These correspond to bilexical CFGs in which
+any derivation A[a] 3&quot; xay has the form
+A[a] 3&quot; xB[a] =~* xay. That is, a word\&amp;apos;s left
+dependents are more oblique than its right de-
+pendents and c-command them.
+Such grammars are broadly applicable. Even
+if Ha is not split, there usually exists a split head
+automaton H~ recognizing the same language.
+H a\&amp;apos; exists iff {x#y : {x,y) e L(Ha)} is regular
+(where # VT). In particular, H~a must exist
+unless Ha has a cycle that includes both +-- and
+--+ transitions. Such cycles would be necessary
+for Ha itself to accept a formal language such
+as {(bn, cn) : n &gt; 0}, where word a takes 2n de-
+pendents, but we know of no natural-language
+motivation for ever using them in a HAG.
+One more definition will help us bound the
+complexity. A split head automaton Ha is said
+to be g-split if its set of flip states, denoted
+Qa C_Qa, has size &amp;lt; g. The languages that can
+be recognized by g-split HAs are those that can
+g
+be written as [Ji=l Li x Ri, where the Li and
+Ri are regular languages over VT. Eisner (1997)
+actually defined (g-split) bilexical grammars in
+terms of the latter property. 6
+6That paper associated a product language Li x Ri, or
+equivalently a 1-split HA, with each ofg senses of a word
+(see 6). One could do the same without penalty in our
+present approach: confining to l-split automata would
+remove the g2 complexity factor, and then allowing g
+</bodyText>
+<page confidence="0.998053">
+462
+</page>
+<bodyText confidence="0.996677970588235">
+\x0cWe now present our result: Figure 3 specifies
+an O(n3g2t2) recognition algorithm for a head
+automaton grammar H in which every Ha is
+g-split. For deterministic automata, the run-
+time is O(n3g2t)--a considerable improvement
+on the O(n3g3t2) result of (Eisner, 1997), which
+also assumes deterministic automata. As in 4,
+a simple bottom-up implementation will suffice.
+s
+For a practical speedup, add . [&quot;\&amp;apos;. as an an-
+h j
+tecedent to the MID rule (and fill in the parse
+table from right to left).
+Like our previous algorithms, this one takes
+two steps (ATTACH, COMPLETE) to attach a
+child constituent to a parent constituent. But
+instead of full constituents--strings xd~y E
+Ld~--it uses only half-constituents like xdi and
+diy. Where CKY combines z~
+i h jj+ln
+we save two degrees of freedom i, k (so improv-
+ing O(n 5) to O(n3)) and combine, ,~:~...~J;
+n 2J~1 n
+The other halves of these constituents can be at-
+tached later, because to find an accepting path
+for (zl, Zr) in a split head automaton, one can
+separately find the half-path before the flip state
+(which accepts zr) and the half-path after the
+flip state (which accepts zt). These two half-
+paths can subsequently be joined into an ac-
+cepting path if they have the same flip state s,
+i.e., one path starts where the other ends. An-
+notating our left half-constituents with s makes
+this check possible.
+</bodyText>
+<sectionHeader confidence="0.902837" genericHeader="conclusions">
+9 Final remarks
+</sectionHeader>
+<bodyText confidence="0.997573896551724">
+We have formally described, and given faster
+parsing algorithms for, three practical gram-
+matical rewriting systems that capture depen-
+dencies between pairs of words. All three sys-
+tems admit naive O(n 5) algorithms. We give
+the first O(n 4) results for the natural formalism
+of bilexical context-free grammar, and for AI-
+shawi\&amp;apos;s (1996) head automaton grammars. For
+the usual case, split head automaton grammars
+or equivalent bilexical CFGs, we replace the
+O(n3) algorithm of (Eisner, 1997) by one with a
+smaller grammar constant. Note that, e.g., all
+senses would restore the g2 factor. Indeed, this approach
+gives added flexibility: a word\&amp;apos;s sense, unlike its choice
+of flip state, is visible to the HA that readsit.
+three models in (Collins, 1997) are susceptible
+to the O(n 3) method (cf. Collins\&amp;apos;s O(nh)).
+Our dynamic programming techniques for
+cheaply attaching head information to deriva-
+tions can also be exploited in parsing formalisms
+other than rewriting systems. The authors have
+developed an O(nT)-time parsing algorithm for
+bilexicalized tree adjoining grammars (Schabes,
+1992), improving the naive O(n s) method.
+The results mentioned in 6 are related to the
+closure property of CFGs under generalized se-
+quential machine mapping (Hopcroft and Ull-
+man, 1979). This property also holds for our
+class of bilexical CFGs.
+</bodyText>
+<sectionHeader confidence="0.981397" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.953839842105263">
+A. V. Aho and J. D. Ullman. 1972. The Theory
+of Parsing, Translation and Compiling, volume 1.
+Prentice-Hall, Englewood Cliffs, NJ.
+H. Alshawi. 1996. Head automata and bilingual
+tiling: Translation with minimal representations.
+In Proc. of ACL, pages 167-176, Santa Cruz, CA.
+Y. Bar-Hillel. 1953. A quasi-arithmetical notation
+for syntactic description. Language, 29:47-58.
+E. Charniak. 1997. Statistical parsing with a
+context-free grammar and word statistics. In
+Proc. o] the l~th AAAI, Menlo Park.
+C. Chelba and F. Jelinek. 1998. Exploiting syntac-
+tic structure for language modeling. In Proc. of
+COLING-ACL.
+N. Chomsky. 1965. Aspects of the Theory o] Syntax.
+MIT Press, Cambridge, MA.
+M. Collins and J. Brooks. 1995. Prepositional
+phrase attachment through a backed-off model.
+In Proe. of the Third Workshop on Very Large
+Corpora, Cambridge, MA.
+M. Collins. 1997. Three generative, lexicalised mod-
+els for statistical parsing. In Proc. of the 35th
+ACL and 8th European ACL, Madrid, July.
+J. Eisner. 1996. An empirical comparison of proba-
+bility models for dependency grammar. Technical
+Report IRCS-96-11, IRCS, Univ. of Pennsylvania.
+J. Eisner. 1997. Bilexical grammars and a cubic-
+time probabilistic parser. In Proceedings of the
+~th Int. Workshop on Parsing Technologies,MIT,
+Cambridge, MA, September.
+R. C. Gonzales and M. G. Thomason. 1978. Syntac-
+tic Pattern Recognition. Addison-Wesley, Read-
+ing, MA.
+M. A. Harrison. 1978. Introduction to Formal Lan-
+guage Theory. Addison-Wesley, Reading, MA.
+J. E. Hopcroft and J. D. Ullman. 1979. Introduc-
+tion to Automata Theory, Languages and Com-
+putation. Addison-Wesley, Reading, MA.
+</reference>
+<page confidence="0.999168">
+463
+</page>
+<figure confidence="0.993681714285714">
+\x0c(a)
+q
+q
+i4
+q
+h
+q
+</figure>
+<page confidence="0.458578">
+s:6
+</page>
+<bodyText confidence="0.925713375">
+h h
+(h &amp;lt; j, q E Qdh)
+(i &amp;lt;_h, q E Qdh U {F}, s E (~dh)
+(h &amp;lt; h\&amp;apos;, q E Qdh, s\&amp;apos; E Qdh,)
+(h\&amp;apos; &amp;lt; h, q Qdh, s Qd~, s\&amp;apos; Q.dh)
+is derived iff dh : I z ~ q where Whq_l,j E L~
+is derived iff dh : q ( x s where W~,h-1 E Lx
+is derived iff dh : I xdh~ q and dh, : F ( Y SI where
+</bodyText>
+<figure confidence="0.997391878787879">
+WhTl,h\&amp;apos;-i ~ Lzy
+is derivediffdh, : I =~ s~ and dh : q ~h,Y s where
+WhTl,h\&amp;apos;--I E ixy
+(b)
+START: - - q E Ida MID: --
+q s
+h \&amp;apos;h hAh
+8 E Odh FINISH:
+ATTACH-RIGHT: q F
+h[~ _ l i~h\&amp;apos;,
+r E 5d~(q, dh,, ---&gt;)
+r
+ATTACH-LEFT: s ~ q
+\&amp;apos; s\&amp;apos; E Qdh,, r E 5dh(q, dh,, t--)
+r
+s:6
+h h
+F s
+(e) Accept input w just if lz~\&amp;apos;nandn n
+\&amp;apos;~&quot;
+COMPLETE-RIGHT: q
+COMPLETE-LEFT:
+S I
+h hl~i
+q
+F q
+i h h h
+q
+i4
+are derived for some h, s such that dh ----$.
+q
+F
+-- q E Fdh
+</figure>
+<figureCaption confidence="0.999214">
+Figure 3: An O(n 3) recognition algorithm for split head automaton grammars. The format is as
+</figureCaption>
+<bodyText confidence="0.8424286">
+in Figure 1, except that (c) gives the acceptance condition. The following notation indicates that
+a head automaton can consume a string x from its left or right input: a : q x) qr means that
+(q, e, x) ~-a (q\&amp;apos;, e, c), and a : I x ~ q, means this is true for some q E Ia. Similarly, a : q\&amp;apos; ~x q means
+that (q, x, e) t-* (q~, c, c), and a : F (x q means this is true for some q~ E Fa. The special symbol
+F also appears as a literal in some items, and effectively means &quot;an unspecified final state.&quot;
+</bodyText>
+<reference confidence="0.985169785714286">
+M. Kay. 1986. Algorithm schemata and data struc-
+tures in syntactic processing. In K. Sparck Jones
+B. J. Grosz and B. L. Webber, editors, Natu-
+ral Language Processing, pages 35-70. Kaufmann,
+Los Altos, CA.
+J. Lafferty, D. Sleator, and D. Temperley. 1992.
+Grammatical trigrams: A probabilistic model of
+link grammar. In Proc. of the AAAI Conf. on
+Probabilistic Approaches to Nat. Lang., October.
+D. Magerman. 1995. Statistical decision-tree mod-
+els for parsing. In Proceedings of the 33rd A CL.
+I. Mel\&amp;apos;~uk. 1988. Dependency Syntax: Theory and
+Practice. State University of New York Press.
+C. Pollard and I. Sag. 1994. Head-Driven Phrase
+Structure Grammar. University of Chicago Press.
+Y. Schabes, A. Abeill@, and A. Joshi. 1988. Parsing
+strategies with \&amp;apos;lexicalized\&amp;apos; grammars: Applica-
+tion to Tree Adjoining Grammars. In Proceedings
+of COLING-88, Budapest, August.
+Yves Schabes. 1992. Stochastic lexicalized tree-
+adjoining grammars. In Proc. of the l~th COL-
+ING, pages 426-432, Nantes, France, August.
+C. S. Wetherell. 1980. Probabilistic languages: A
+review and some open questions. Computing Sur-
+veys, 12(4):361-379.
+D. H. Younger. 1967. Recognition and parsing of
+context-free languages in time n 3. Information
+and Control, 10(2):189-208, February.
+</reference>
+<page confidence="0.998977">
+464
+</page>
+<figure confidence="0.244415">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.328793">
+<title confidence="0.9252775">b&amp;apos;Efficient Parsing for Bilexical Context-Free Grammars and Head Automaton Grammars*</title>
+<author confidence="0.99998">Jason Eisner</author>
+<affiliation confidence="0.9996055">Dept. of Computer ~ Information Science University of Pennsylvania</affiliation>
+<address confidence="0.9990655">200 South 33rd Street, Philadelphia, PA 19104 USA</address>
+<email confidence="0.998115">jeisner@linc,cis.upenn,edu</email>
+<author confidence="0.998136">Giorgio Satta</author>
+<affiliation confidence="0.9977165">Dip. di Elettronica e Informatica Universit di Padova</affiliation>
+<address confidence="0.7476535">via Gradenigo 6/A, 35131 Padova, Italy</address>
+<email confidence="0.996931">satta@dei,unipd,it</email>
+<abstract confidence="0.9591179">Several recent stochastic parsers use bilexical grammars, where each word type idiosyncratically prefers particular complements with particular head words. We present O(n4) parsing algorithms for two bilexical formalisms, improving the prior upper bounds of O(n5). For a common special case that was known to allow O(n3) parsing (Eisner, 1997), we present an O(n 3) algorithm with an improved grammar constant.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>A V Aho</author>
+<author>J D Ullman</author>
+</authors>
+<title>The Theory of Parsing,</title>
+<date>1972</date>
+<journal>Translation and Compiling,</journal>
+<volume>1</volume>
+<publisher>Prentice-Hall,</publisher>
+<location>Englewood Cliffs, NJ.</location>
+<contexts>
+<context position="7359" citStr="Aho and Ullman, 1972" startWordPosition="1200" endWordPosition="1203">e omit the similar productions VP[eat] -+ V[eat] NP[puzzles] VP[solve] --~ V[solve] NP[goat] VP[sleep] -+ V[sleep] NP[goat] NP[goat] -+ DET[two] N[goat] since puzzles are not edible, a goat is not solvable, &quot;sleep&quot; is intransitive, and &quot;goat&quot; cannot take plural determiners. (A stochastic version of the grammar could implement &quot;soft preferences&quot; by allowing the rules in the second group but assigning them various low probabilities.) The cost of this expressiveness is a very large grammar. Standard context-free parsing algorithms are inefficient in such a case. The CKY algorithm (Younger, 1967; Aho and Ullman, 1972) is time O(n3. IPI), where in the worst case IPI = [VNI3 (one ignores unary productions). For a bilexical grammar, the worst case is IPI = IVD13.IVT12, which is large for a large vocabulary VT. We may improve the analysis somewhat by observing that when parsing dl ... dn, the CKY algorithm only considers nonterminals of the form A[di]; by restricting to the relevant productions we obtain O(n 3. IVDI3. min(n, IVTI)2). 458 \x0cWe observe that in practical applications we always have n &amp;lt;&amp;lt; IVTI. Let us then restrict our analysis to the (infinite) set of input instances of the parsing problem that </context>
+</contexts>
+<marker>Aho, Ullman, 1972</marker>
+<rawString>A. V. Aho and J. D. Ullman. 1972. The Theory of Parsing, Translation and Compiling, volume 1. Prentice-Hall, Englewood Cliffs, NJ.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H Alshawi</author>
+</authors>
+<title>Head automata and bilingual tiling: Translation with minimal representations.</title>
+<date>1996</date>
+<booktitle>In Proc. of ACL,</booktitle>
+<pages>167--176</pages>
+<location>Santa Cruz, CA.</location>
+<contexts>
+<context position="2359" citStr="Alshawi, 1996" startWordPosition="334" endWordPosition="335">ibility of particular pairs of words in particular roles. The acceptability of &quot;Nora convened the &quot; The authors weresupported respectivelyunder ARPA Grant N6600194-C-6043 &quot;HumanLanguageTechnology&quot; and Ministero dell\&amp;apos;Universitke della Ricerca Scientifica e Tecnologicaproject &quot;Methodologiesand Toolsof High PerformanceSystemsfor MultimediaApplications.&quot; party&quot; then depends on the grammar writer\&amp;apos;s assessment of whether parties can be convened. Several recent real-world parsers have improved state-of-the-art parsing accuracy by relying on probabilistic or weighted versions of bilexical grammars (Alshawi, 1996; Eisner, 1996; Charniak, 1997; Collins, 1997). The rationale is that soft selectional restrictions play a crucial role in disambiguation, i The chart parsing algorithms used by most of the above authors run in time O(nS), because bilexical grammars are enormous (the part of the grammar relevant to a length-n input has size O(n2) in practice). Heavy probabilistic pruning is therefore needed to get acceptable runtimes. But in this paper we show that the complexity is not so bad after all: For bilexicalized context-free grammars, O(n4) is possible. The O(n4) result also holds for head automaton </context>
+<context position="17726" citStr="Alshawi (1996)" startWordPosition="3143" endWordPosition="3145">into xSy for some (x, y) E L(H$), and then recursively expand the words in strings x and y. More formally, given H, we simultaneously define La for all a E VT to be minimal such that if (x,y) E L(Ha), xr E Lx, yl ELy, then x~ay~ E La, where Lal...ak stands for the concatenation language Lal &quot;\&amp;apos;&quot; La k. Then H generates language L$. We next present a simple construction that transforms a HAG H into a bilexical CFG G generating the same language. The construction also preserves derivation ambiguity. This means that for each string w, there is a lineartime 1-to-1 mapping between (appropriately de~Alshawi (1996) describes HAs as accepting (or equivalently, generating) zl and z~ from the outside in. To make Figure 3 easier to follow, we have defined HAs as accepting symbols in the opposite order, from the inside out. This amounts to the same thing if transitions are reversed, Is is exchanged with Fa, and any transition probabilities are replaced by those of the reversed Markov chain. 461 \x0cfined) canonical derivations of w by H and canonical derivations of w by G. We adopt the notation above for H and the components of its head automata. Let VD be an arbitrary set of size t = max{[Qa[ : a VT}, and f</context>
+<context position="19685" citStr="Alshawi, 1996" startWordPosition="3526" endWordPosition="3527">in defining La above--then g[a] 3&quot; BI[bl]&quot;&quot; Bj[bj]aBj+l[bj+l]... Bk[bk], for any A, B1,... Bk that map to initial states in Ha, Hbl,... Hb~ respectively. In general, G has p = O(IVDI3) = O(t3). The construction therefore implies that we can parse a length-n sentence under H in time O(n4t3). If the HAs in H happen to be deterministic, then in each binary production given by (ii) above, symbol A is fully determined by a, b, and C. In this case p = O(t2), so the parser will operate in time O(n4t2). We note that this construction can be straightforwardly extended to convert stochastic HAGs as in (Alshawi, 1996) into stochastic CFGs. Probabilities that Ha assigns to state q\&amp;apos;s various transition and halt actions are copied onto the corresponding productions A[a] --~ c~ of G, where A = fa(q). 8 Split head automaton grammars in time O(n 3) For many bilexical CFGs or HAGs of practical significance, just as for the bilexical version of link grammars (Lafferty et al., 1992), it is possible to parse length-n inputs even faster, in time O(n 3) (Eisner, 1997). In this section we describe and discuss this special case, and give a new O(n 3) algorithm that has a smaller grammar constant than previously reporte</context>
+</contexts>
+<marker>Alshawi, 1996</marker>
+<rawString>H. Alshawi. 1996. Head automata and bilingual tiling: Translation with minimal representations. In Proc. of ACL, pages 167-176, Santa Cruz, CA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y Bar-Hillel</author>
+</authors>
+<title>A quasi-arithmetical notation for syntactic description.</title>
+<date>1953</date>
+<journal>Language,</journal>
+<pages>29--47</pages>
+<contexts>
+<context position="1147" citStr="Bar-Hillel, 1953" startWordPosition="168" endWordPosition="169">words. We present O(n4) parsing algorithms for two bilexical formalisms, improving the prior upper bounds of O(n5). For a common special case that was known to allow O(n3) parsing (Eisner, 1997), we present an O(n 3) algorithm with an improved grammar constant. 1 Introduction Lexicalized grammar formalisms are of both theoretical and practical interest to the computational linguistics community. Such formalisms specify syntactic facts about each word of the language--in particular, the type of arguments that the word can or must take. Early mechanisms of this sort included categorial grammar (Bar-Hillel, 1953) and subcategorization frames (Chomsky, 1965). Other lexicalized formalisms include (Schabes et al., 1988; Mel\&amp;apos;~uk, 1988; Pollard and Sag, 1994). Besides the possible arguments of a word, a natural-language grammar does well to specify possible head words for those arguments. &quot;Convene&quot; requires an NP object, but some NPs are more semantically or lexically appropriate here than others, and the appropriateness depends largely on the NP\&amp;apos;s head (e.g., &quot;meeting&quot;). We use the general term bilexical for a grammar that records such facts. A bilexical grammar makes many stipulations about the compati</context>
+</contexts>
+<marker>Bar-Hillel, 1953</marker>
+<rawString>Y. Bar-Hillel. 1953. A quasi-arithmetical notation for syntactic description. Language, 29:47-58.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Charniak</author>
+</authors>
+<title>Statistical parsing with a context-free grammar and word statistics.</title>
+<date>1997</date>
+<booktitle>In Proc. o] the l~th AAAI, Menlo Park.</booktitle>
+<contexts>
+<context position="2389" citStr="Charniak, 1997" startWordPosition="338" endWordPosition="339">f words in particular roles. The acceptability of &quot;Nora convened the &quot; The authors weresupported respectivelyunder ARPA Grant N6600194-C-6043 &quot;HumanLanguageTechnology&quot; and Ministero dell\&amp;apos;Universitke della Ricerca Scientifica e Tecnologicaproject &quot;Methodologiesand Toolsof High PerformanceSystemsfor MultimediaApplications.&quot; party&quot; then depends on the grammar writer\&amp;apos;s assessment of whether parties can be convened. Several recent real-world parsers have improved state-of-the-art parsing accuracy by relying on probabilistic or weighted versions of bilexical grammars (Alshawi, 1996; Eisner, 1996; Charniak, 1997; Collins, 1997). The rationale is that soft selectional restrictions play a crucial role in disambiguation, i The chart parsing algorithms used by most of the above authors run in time O(nS), because bilexical grammars are enormous (the part of the grammar relevant to a length-n input has size O(n2) in practice). Heavy probabilistic pruning is therefore needed to get acceptable runtimes. But in this paper we show that the complexity is not so bad after all: For bilexicalized context-free grammars, O(n4) is possible. The O(n4) result also holds for head automaton grammars. For a very common sp</context>
+</contexts>
+<marker>Charniak, 1997</marker>
+<rawString>E. Charniak. 1997. Statistical parsing with a context-free grammar and word statistics. In Proc. o] the l~th AAAI, Menlo Park.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C Chelba</author>
+<author>F Jelinek</author>
+</authors>
+<title>Exploiting syntactic structure for language modeling.</title>
+<date>1998</date>
+<booktitle>In Proc. of COLING-ACL.</booktitle>
+<contexts>
+<context position="3660" citStr="Chelba and Jelinek, 1998" startWordPosition="532" endWordPosition="535">lgorithm was previously known (Eisner, 1997), the grammar constant can be reduced without harming the O(n3) property. Our algorithmic technique throughout is to propose new kinds of subderivations that are not constituents. We use dynamic programming to assemble such subderivations into a full parse. 2 Notation for context-free grammars The reader is assumed to be familiar with context-free grammars. Our notation fol1Other relevant parsers simultaneouslyconsidertwo or morewordsthat are not necessarilyin a dependency relationship (Laffertyet al., 1992; Magerman, 1995; Collins and Brooks, 1995; Chelba and Jelinek, 1998). 457 \x0clows (Harrison, 1978; Hopcroft and Ullman, 1979). A context-free grammar (CFG) is a tuple G = (VN,VT, P, S), where VN and VT are finite, disjoint sets of nonterminal and terminal symbols, respectively, and S E VN is the start symbol. Set P is a finite set of productions having the form A --+ a, where A E VN,a E (VNUVT)*. If every production in P has the form A -+ BC or A --+ a, for A,B,C E VN,a E VT, then the grammar is said to be in Chomsky Normal Form (CNF). 2 Every language that can be generated by a CFG can also be generated by a CFG in CNF. In this paper we adopt the following c</context>
+</contexts>
+<marker>Chelba, Jelinek, 1998</marker>
+<rawString>C. Chelba and F. Jelinek. 1998. Exploiting syntactic structure for language modeling. In Proc. of COLING-ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N Chomsky</author>
+</authors>
+<title>Aspects of the Theory o] Syntax.</title>
+<date>1965</date>
+<publisher>MIT Press,</publisher>
+<location>Cambridge, MA.</location>
+<contexts>
+<context position="1192" citStr="Chomsky, 1965" startWordPosition="174" endWordPosition="175">wo bilexical formalisms, improving the prior upper bounds of O(n5). For a common special case that was known to allow O(n3) parsing (Eisner, 1997), we present an O(n 3) algorithm with an improved grammar constant. 1 Introduction Lexicalized grammar formalisms are of both theoretical and practical interest to the computational linguistics community. Such formalisms specify syntactic facts about each word of the language--in particular, the type of arguments that the word can or must take. Early mechanisms of this sort included categorial grammar (Bar-Hillel, 1953) and subcategorization frames (Chomsky, 1965). Other lexicalized formalisms include (Schabes et al., 1988; Mel\&amp;apos;~uk, 1988; Pollard and Sag, 1994). Besides the possible arguments of a word, a natural-language grammar does well to specify possible head words for those arguments. &quot;Convene&quot; requires an NP object, but some NPs are more semantically or lexically appropriate here than others, and the appropriateness depends largely on the NP\&amp;apos;s head (e.g., &quot;meeting&quot;). We use the general term bilexical for a grammar that records such facts. A bilexical grammar makes many stipulations about the compatibility of particular pairs of words in partic</context>
+</contexts>
+<marker>Chomsky, 1965</marker>
+<rawString>N. Chomsky. 1965. Aspects of the Theory o] Syntax. MIT Press, Cambridge, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+<author>J Brooks</author>
+</authors>
+<title>Prepositional phrase attachment through a backed-off model.</title>
+<date>1995</date>
+<booktitle>In Proe. of the Third Workshop on Very Large Corpora,</booktitle>
+<location>Cambridge, MA.</location>
+<contexts>
+<context position="3633" citStr="Collins and Brooks, 1995" startWordPosition="528" endWordPosition="531">grammars where an O(n 3) algorithm was previously known (Eisner, 1997), the grammar constant can be reduced without harming the O(n3) property. Our algorithmic technique throughout is to propose new kinds of subderivations that are not constituents. We use dynamic programming to assemble such subderivations into a full parse. 2 Notation for context-free grammars The reader is assumed to be familiar with context-free grammars. Our notation fol1Other relevant parsers simultaneouslyconsidertwo or morewordsthat are not necessarilyin a dependency relationship (Laffertyet al., 1992; Magerman, 1995; Collins and Brooks, 1995; Chelba and Jelinek, 1998). 457 \x0clows (Harrison, 1978; Hopcroft and Ullman, 1979). A context-free grammar (CFG) is a tuple G = (VN,VT, P, S), where VN and VT are finite, disjoint sets of nonterminal and terminal symbols, respectively, and S E VN is the start symbol. Set P is a finite set of productions having the form A --+ a, where A E VN,a E (VNUVT)*. If every production in P has the form A -+ BC or A --+ a, for A,B,C E VN,a E VT, then the grammar is said to be in Chomsky Normal Form (CNF). 2 Every language that can be generated by a CFG can also be generated by a CFG in CNF. In this pap</context>
+</contexts>
+<marker>Collins, Brooks, 1995</marker>
+<rawString>M. Collins and J. Brooks. 1995. Prepositional phrase attachment through a backed-off model. In Proe. of the Third Workshop on Very Large Corpora, Cambridge, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+</authors>
+<title>Three generative, lexicalised models for statistical parsing.</title>
+<date>1997</date>
+<booktitle>In Proc. of the 35th ACL and 8th European ACL,</booktitle>
+<location>Madrid,</location>
+<contexts>
+<context position="2405" citStr="Collins, 1997" startWordPosition="340" endWordPosition="341">cular roles. The acceptability of &quot;Nora convened the &quot; The authors weresupported respectivelyunder ARPA Grant N6600194-C-6043 &quot;HumanLanguageTechnology&quot; and Ministero dell\&amp;apos;Universitke della Ricerca Scientifica e Tecnologicaproject &quot;Methodologiesand Toolsof High PerformanceSystemsfor MultimediaApplications.&quot; party&quot; then depends on the grammar writer\&amp;apos;s assessment of whether parties can be convened. Several recent real-world parsers have improved state-of-the-art parsing accuracy by relying on probabilistic or weighted versions of bilexical grammars (Alshawi, 1996; Eisner, 1996; Charniak, 1997; Collins, 1997). The rationale is that soft selectional restrictions play a crucial role in disambiguation, i The chart parsing algorithms used by most of the above authors run in time O(nS), because bilexical grammars are enormous (the part of the grammar relevant to a length-n input has size O(n2) in practice). Heavy probabilistic pruning is therefore needed to get acceptable runtimes. But in this paper we show that the complexity is not so bad after all: For bilexicalized context-free grammars, O(n4) is possible. The O(n4) result also holds for head automaton grammars. For a very common special case of th</context>
+</contexts>
+<marker>Collins, 1997</marker>
+<rawString>M. Collins. 1997. Three generative, lexicalised models for statistical parsing. In Proc. of the 35th ACL and 8th European ACL, Madrid, July.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Eisner</author>
+</authors>
+<title>An empirical comparison of probability models for dependency grammar.</title>
+<date>1996</date>
+<tech>Technical Report IRCS-96-11,</tech>
+<institution>IRCS, Univ. of Pennsylvania.</institution>
+<contexts>
+<context position="2373" citStr="Eisner, 1996" startWordPosition="336" endWordPosition="337">icular pairs of words in particular roles. The acceptability of &quot;Nora convened the &quot; The authors weresupported respectivelyunder ARPA Grant N6600194-C-6043 &quot;HumanLanguageTechnology&quot; and Ministero dell\&amp;apos;Universitke della Ricerca Scientifica e Tecnologicaproject &quot;Methodologiesand Toolsof High PerformanceSystemsfor MultimediaApplications.&quot; party&quot; then depends on the grammar writer\&amp;apos;s assessment of whether parties can be convened. Several recent real-world parsers have improved state-of-the-art parsing accuracy by relying on probabilistic or weighted versions of bilexical grammars (Alshawi, 1996; Eisner, 1996; Charniak, 1997; Collins, 1997). The rationale is that soft selectional restrictions play a crucial role in disambiguation, i The chart parsing algorithms used by most of the above authors run in time O(nS), because bilexical grammars are enormous (the part of the grammar relevant to a length-n input has size O(n2) in practice). Heavy probabilistic pruning is therefore needed to get acceptable runtimes. But in this paper we show that the complexity is not so bad after all: For bilexicalized context-free grammars, O(n4) is possible. The O(n4) result also holds for head automaton grammars. For </context>
+</contexts>
+<marker>Eisner, 1996</marker>
+<rawString>J. Eisner. 1996. An empirical comparison of probability models for dependency grammar. Technical Report IRCS-96-11, IRCS, Univ. of Pennsylvania.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Eisner</author>
+</authors>
+<title>Bilexical grammars and a cubictime probabilistic parser.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the ~th Int. Workshop on Parsing Technologies,MIT,</booktitle>
+<location>Cambridge, MA,</location>
+<contexts>
+<context position="724" citStr="Eisner, 1997" startWordPosition="103" endWordPosition="104">uter ~ Information Science University of Pennsylvania 200 South 33rd Street, Philadelphia, PA 19104 USA jeisner@linc, cis.upenn, edu Giorgio Satta Dip. di Elettronica e Informatica Universit di Padova via Gradenigo 6/A, 35131 Padova, Italy satta@dei, unipd, it Abstract Several recent stochastic parsers use bilexical grammars, where each word type idiosyncratically prefers particular complements with particular head words. We present O(n4) parsing algorithms for two bilexical formalisms, improving the prior upper bounds of O(n5). For a common special case that was known to allow O(n3) parsing (Eisner, 1997), we present an O(n 3) algorithm with an improved grammar constant. 1 Introduction Lexicalized grammar formalisms are of both theoretical and practical interest to the computational linguistics community. Such formalisms specify syntactic facts about each word of the language--in particular, the type of arguments that the word can or must take. Early mechanisms of this sort included categorial grammar (Bar-Hillel, 1953) and subcategorization frames (Chomsky, 1965). Other lexicalized formalisms include (Schabes et al., 1988; Mel\&amp;apos;~uk, 1988; Pollard and Sag, 1994). Besides the possible arguments</context>
+<context position="3079" citStr="Eisner, 1997" startWordPosition="451" endWordPosition="452">crucial role in disambiguation, i The chart parsing algorithms used by most of the above authors run in time O(nS), because bilexical grammars are enormous (the part of the grammar relevant to a length-n input has size O(n2) in practice). Heavy probabilistic pruning is therefore needed to get acceptable runtimes. But in this paper we show that the complexity is not so bad after all: For bilexicalized context-free grammars, O(n4) is possible. The O(n4) result also holds for head automaton grammars. For a very common special case of these grammars where an O(n 3) algorithm was previously known (Eisner, 1997), the grammar constant can be reduced without harming the O(n3) property. Our algorithmic technique throughout is to propose new kinds of subderivations that are not constituents. We use dynamic programming to assemble such subderivations into a full parse. 2 Notation for context-free grammars The reader is assumed to be familiar with context-free grammars. Our notation fol1Other relevant parsers simultaneouslyconsidertwo or morewordsthat are not necessarilyin a dependency relationship (Laffertyet al., 1992; Magerman, 1995; Collins and Brooks, 1995; Chelba and Jelinek, 1998). 457 \x0clows (Har</context>
+<context position="20133" citStr="Eisner, 1997" startWordPosition="3603" endWordPosition="3604"> O(t2), so the parser will operate in time O(n4t2). We note that this construction can be straightforwardly extended to convert stochastic HAGs as in (Alshawi, 1996) into stochastic CFGs. Probabilities that Ha assigns to state q\&amp;apos;s various transition and halt actions are copied onto the corresponding productions A[a] --~ c~ of G, where A = fa(q). 8 Split head automaton grammars in time O(n 3) For many bilexical CFGs or HAGs of practical significance, just as for the bilexical version of link grammars (Lafferty et al., 1992), it is possible to parse length-n inputs even faster, in time O(n 3) (Eisner, 1997). In this section we describe and discuss this special case, and give a new O(n 3) algorithm that has a smaller grammar constant than previously reported. A head automaton Ha is called split if it has no states that can be entered on a +-- transition and exited on a ~ transition. Such an automaton can accept (x, y) only by reading all of y--immediately after which it is said to be in a flip state--and then reading all of x. Formally, a flip state is one that allows entry on a --+ transition and that either allows exit on a e-- transition or is a final state. We are concerned here with head aut</context>
+<context position="21824" citStr="Eisner (1997)" startWordPosition="3930" endWordPosition="3931">st exist unless Ha has a cycle that includes both +-- and --+ transitions. Such cycles would be necessary for Ha itself to accept a formal language such as {(bn, cn) : n &gt; 0}, where word a takes 2n dependents, but we know of no natural-language motivation for ever using them in a HAG. One more definition will help us bound the complexity. A split head automaton Ha is said to be g-split if its set of flip states, denoted Qa C_Qa, has size &amp;lt; g. The languages that can be recognized by g-split HAs are those that can g be written as [Ji=l Li x Ri, where the Li and Ri are regular languages over VT. Eisner (1997) actually defined (g-split) bilexical grammars in terms of the latter property. 6 6That paper associated a product language Li x Ri, or equivalently a 1-split HA, with each ofg senses of a word (see 6). One could do the same without penalty in our present approach: confining to l-split automata would remove the g2 complexity factor, and then allowing g 462 \x0cWe now present our result: Figure 3 specifies an O(n3g2t2) recognition algorithm for a head automaton grammar H in which every Ha is g-split. For deterministic automata, the runtime is O(n3g2t)--a considerable improvement on the O(n3g3t2</context>
+<context position="24041" citStr="Eisner, 1997" startWordPosition="4304" endWordPosition="4305">one path starts where the other ends. Annotating our left half-constituents with s makes this check possible. 9 Final remarks We have formally described, and given faster parsing algorithms for, three practical grammatical rewriting systems that capture dependencies between pairs of words. All three systems admit naive O(n 5) algorithms. We give the first O(n 4) results for the natural formalism of bilexical context-free grammar, and for AIshawi\&amp;apos;s (1996) head automaton grammars. For the usual case, split head automaton grammars or equivalent bilexical CFGs, we replace the O(n3) algorithm of (Eisner, 1997) by one with a smaller grammar constant. Note that, e.g., all senses would restore the g2 factor. Indeed, this approach gives added flexibility: a word\&amp;apos;s sense, unlike its choice of flip state, is visible to the HA that readsit. three models in (Collins, 1997) are susceptible to the O(n 3) method (cf. Collins\&amp;apos;s O(nh)). Our dynamic programming techniques for cheaply attaching head information to derivations can also be exploited in parsing formalisms other than rewriting systems. The authors have developed an O(nT)-time parsing algorithm for bilexicalized tree adjoining grammars (Schabes, 199</context>
+</contexts>
+<marker>Eisner, 1997</marker>
+<rawString>J. Eisner. 1997. Bilexical grammars and a cubictime probabilistic parser. In Proceedings of the ~th Int. Workshop on Parsing Technologies,MIT, Cambridge, MA, September.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R C Gonzales</author>
+<author>M G Thomason</author>
+</authors>
+<title>Syntactic Pattern Recognition.</title>
+<date>1978</date>
+<publisher>Addison-Wesley,</publisher>
+<location>Reading, MA.</location>
+<contexts>
+<context position="5378" citStr="Gonzales and Thomason, 1978" startWordPosition="859" endWordPosition="862">We also use the reflexive and transitive closure of o, written ~*, and define L(G) accordingly. We write a fl 5 =~* a75 for a derivation in which only fl is rewritten. 3 Bilexical context-free grammars We introduce next a grammar formalism that captures lexical dependencies among pairs of words in VT. This formalism closely resembles stochastic grammatical formalisms that are used in several existing natural language processing systems (see 1). We will specify a nonstochastic version, noting that probabilities or other weights may be attached to the rewrite rules exactly as in stochastic CFG (Gonzales and Thomason, 1978; Wetherell, 1980). (See 4 for brief discussion.) Suppose G = (VN,VT, P,T[$]) is a CFG in CNF. 3 We say that G is bilexical iff there exists a set of &quot;delexicalized nonterminals&quot; VD such that VN = {A[a] : A E VD,a E VT} and every production in P has one of the following forms: 2Production S --~ e is also allowed in a CNF grammar if S never appears on the right side of any production. However, S --+ e is not allowed in our bilexical CFGs. ,awe have a more general definition that drops the restriction to CNF, but do not give it here. A[a] ~ B[b] C[a] (1) A[a] --+ C[a] B[b] (2) A[a] ~ a (3) Thus </context>
+</contexts>
+<marker>Gonzales, Thomason, 1978</marker>
+<rawString>R. C. Gonzales and M. G. Thomason. 1978. Syntactic Pattern Recognition. Addison-Wesley, Reading, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M A Harrison</author>
+</authors>
+<title>Introduction to Formal Language Theory.</title>
+<date>1978</date>
+<publisher>Addison-Wesley,</publisher>
+<location>Reading, MA.</location>
+<contexts>
+<context position="3690" citStr="Harrison, 1978" startWordPosition="538" endWordPosition="539">97), the grammar constant can be reduced without harming the O(n3) property. Our algorithmic technique throughout is to propose new kinds of subderivations that are not constituents. We use dynamic programming to assemble such subderivations into a full parse. 2 Notation for context-free grammars The reader is assumed to be familiar with context-free grammars. Our notation fol1Other relevant parsers simultaneouslyconsidertwo or morewordsthat are not necessarilyin a dependency relationship (Laffertyet al., 1992; Magerman, 1995; Collins and Brooks, 1995; Chelba and Jelinek, 1998). 457 \x0clows (Harrison, 1978; Hopcroft and Ullman, 1979). A context-free grammar (CFG) is a tuple G = (VN,VT, P, S), where VN and VT are finite, disjoint sets of nonterminal and terminal symbols, respectively, and S E VN is the start symbol. Set P is a finite set of productions having the form A --+ a, where A E VN,a E (VNUVT)*. If every production in P has the form A -+ BC or A --+ a, for A,B,C E VN,a E VT, then the grammar is said to be in Chomsky Normal Form (CNF). 2 Every language that can be generated by a CFG can also be generated by a CFG in CNF. In this paper we adopt the following conventions: a, b, c, d denote </context>
+</contexts>
+<marker>Harrison, 1978</marker>
+<rawString>M. A. Harrison. 1978. Introduction to Formal Language Theory. Addison-Wesley, Reading, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J E Hopcroft</author>
+<author>J D Ullman</author>
+</authors>
+<title>Introduction to Automata Theory, Languages and Computation.</title>
+<date>1979</date>
+<publisher>Addison-Wesley,</publisher>
+<location>Reading, MA.</location>
+<contexts>
+<context position="3718" citStr="Hopcroft and Ullman, 1979" startWordPosition="540" endWordPosition="543"> constant can be reduced without harming the O(n3) property. Our algorithmic technique throughout is to propose new kinds of subderivations that are not constituents. We use dynamic programming to assemble such subderivations into a full parse. 2 Notation for context-free grammars The reader is assumed to be familiar with context-free grammars. Our notation fol1Other relevant parsers simultaneouslyconsidertwo or morewordsthat are not necessarilyin a dependency relationship (Laffertyet al., 1992; Magerman, 1995; Collins and Brooks, 1995; Chelba and Jelinek, 1998). 457 \x0clows (Harrison, 1978; Hopcroft and Ullman, 1979). A context-free grammar (CFG) is a tuple G = (VN,VT, P, S), where VN and VT are finite, disjoint sets of nonterminal and terminal symbols, respectively, and S E VN is the start symbol. Set P is a finite set of productions having the form A --+ a, where A E VN,a E (VNUVT)*. If every production in P has the form A -+ BC or A --+ a, for A,B,C E VN,a E VT, then the grammar is said to be in Chomsky Normal Form (CNF). 2 Every language that can be generated by a CFG can also be generated by a CFG in CNF. In this paper we adopt the following conventions: a, b, c, d denote symbols in VT, w, x, y denot</context>
+</contexts>
+<marker>Hopcroft, Ullman, 1979</marker>
+<rawString>J. E. Hopcroft and J. D. Ullman. 1979. Introduction to Automata Theory, Languages and Computation. Addison-Wesley, Reading, MA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Kay</author>
+</authors>
+<title>Algorithm schemata and data structures in syntactic processing. In</title>
+<date>1986</date>
+<booktitle>Natural Language Processing,</booktitle>
+<pages>35--70</pages>
+<editor>K. Sparck Jones B. J. Grosz and B. L. Webber, editors,</editor>
+<publisher>Kaufmann,</publisher>
+<location>Los Altos, CA.</location>
+<contexts>
+<context position="12039" citStr="Kay, 1986" startWordPosition="2017" endWordPosition="2018">e variant has the same asymptotic complexity but will often be faster in practice. Notice that the ATTACH-LEFT rule of Figure l(b) tries to combine the nonterminal label B[dh,] of a previously derived constituent with every possible nonterminal label of the form C[dh]. The improved version, shown in Figure 2, restricts C[dh]to be the label of a previously derived adjacent constituent. This improves speed if there are not many such constituents and we can enumerate them in O(1) time apiece (using a sparse parse table to store the derived items). It is necessary to use an agenda data structure (Kay, 1986) when implementing the declarative algorithm of Figure 2. Deriving narrower items before wider ones as before will not work here because the rule HALVE derives narrow items from wide ones. 459 \x0c(a) A i4 , A A h z j (i g h &amp;lt;j, A E VD) (i &amp;lt; j &amp;lt;h,A, C E VD) (h &amp;lt; i &amp;lt; j, A, C E VD) is derived iff A[dh] ~* wi,j is derived iff A[dh] ~ B[dh,]C[dh] ~* wi,jC[dh] for some B, h\&amp;apos; is derived iff A[dh] ~ C[dh]B[dh,] ~* C[dh]wi,j for some B, h\&amp;apos; (b) STAaT: ~ A[dh] ~ dh h@h ATTACH-LEFT: B A ./Q&quot;. c ~ 3 h ATTACH-RIGHT: B .4 h ~ 3 A[dh] -~ B[dh,]C[dh] A[dh] -~ C[dh]B[dh,] COMPLETE-RIGHT: COMPLETE-LEFT: A C 3</context>
+</contexts>
+<marker>Kay, 1986</marker>
+<rawString>M. Kay. 1986. Algorithm schemata and data structures in syntactic processing. In K. Sparck Jones B. J. Grosz and B. L. Webber, editors, Natural Language Processing, pages 35-70. Kaufmann, Los Altos, CA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Lafferty</author>
+<author>D Sleator</author>
+<author>D Temperley</author>
+</authors>
+<title>Grammatical trigrams: A probabilistic model of link grammar.</title>
+<date>1992</date>
+<booktitle>In Proc. of the AAAI Conf. on Probabilistic Approaches to Nat.</booktitle>
+<location>Lang.,</location>
+<contexts>
+<context position="20049" citStr="Lafferty et al., 1992" startWordPosition="3585" endWordPosition="3588">production given by (ii) above, symbol A is fully determined by a, b, and C. In this case p = O(t2), so the parser will operate in time O(n4t2). We note that this construction can be straightforwardly extended to convert stochastic HAGs as in (Alshawi, 1996) into stochastic CFGs. Probabilities that Ha assigns to state q\&amp;apos;s various transition and halt actions are copied onto the corresponding productions A[a] --~ c~ of G, where A = fa(q). 8 Split head automaton grammars in time O(n 3) For many bilexical CFGs or HAGs of practical significance, just as for the bilexical version of link grammars (Lafferty et al., 1992), it is possible to parse length-n inputs even faster, in time O(n 3) (Eisner, 1997). In this section we describe and discuss this special case, and give a new O(n 3) algorithm that has a smaller grammar constant than previously reported. A head automaton Ha is called split if it has no states that can be entered on a +-- transition and exited on a ~ transition. Such an automaton can accept (x, y) only by reading all of y--immediately after which it is said to be in a flip state--and then reading all of x. Formally, a flip state is one that allows entry on a --+ transition and that either allo</context>
+</contexts>
+<marker>Lafferty, Sleator, Temperley, 1992</marker>
+<rawString>J. Lafferty, D. Sleator, and D. Temperley. 1992. Grammatical trigrams: A probabilistic model of link grammar. In Proc. of the AAAI Conf. on Probabilistic Approaches to Nat. Lang., October.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Magerman</author>
+</authors>
+<title>Statistical decision-tree models for parsing.</title>
+<date>1995</date>
+<booktitle>In Proceedings of the 33rd A CL.</booktitle>
+<contexts>
+<context position="3607" citStr="Magerman, 1995" startWordPosition="526" endWordPosition="527">l case of these grammars where an O(n 3) algorithm was previously known (Eisner, 1997), the grammar constant can be reduced without harming the O(n3) property. Our algorithmic technique throughout is to propose new kinds of subderivations that are not constituents. We use dynamic programming to assemble such subderivations into a full parse. 2 Notation for context-free grammars The reader is assumed to be familiar with context-free grammars. Our notation fol1Other relevant parsers simultaneouslyconsidertwo or morewordsthat are not necessarilyin a dependency relationship (Laffertyet al., 1992; Magerman, 1995; Collins and Brooks, 1995; Chelba and Jelinek, 1998). 457 \x0clows (Harrison, 1978; Hopcroft and Ullman, 1979). A context-free grammar (CFG) is a tuple G = (VN,VT, P, S), where VN and VT are finite, disjoint sets of nonterminal and terminal symbols, respectively, and S E VN is the start symbol. Set P is a finite set of productions having the form A --+ a, where A E VN,a E (VNUVT)*. If every production in P has the form A -+ BC or A --+ a, for A,B,C E VN,a E VT, then the grammar is said to be in Chomsky Normal Form (CNF). 2 Every language that can be generated by a CFG can also be generated by</context>
+</contexts>
+<marker>Magerman, 1995</marker>
+<rawString>D. Magerman. 1995. Statistical decision-tree models for parsing. In Proceedings of the 33rd A CL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>I Mel\&amp;apos;uk</author>
+</authors>
+<title>Dependency Syntax: Theory and Practice.</title>
+<date>1988</date>
+<publisher>State University of New York Press.</publisher>
+<marker>Mel\&amp;apos;uk, 1988</marker>
+<rawString>I. Mel\&amp;apos;~uk. 1988. Dependency Syntax: Theory and Practice. State University of New York Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C Pollard</author>
+<author>I Sag</author>
+</authors>
+<title>Head-Driven Phrase Structure Grammar.</title>
+<date>1994</date>
+<publisher>University of Chicago Press.</publisher>
+<contexts>
+<context position="1292" citStr="Pollard and Sag, 1994" startWordPosition="187" endWordPosition="190">e that was known to allow O(n3) parsing (Eisner, 1997), we present an O(n 3) algorithm with an improved grammar constant. 1 Introduction Lexicalized grammar formalisms are of both theoretical and practical interest to the computational linguistics community. Such formalisms specify syntactic facts about each word of the language--in particular, the type of arguments that the word can or must take. Early mechanisms of this sort included categorial grammar (Bar-Hillel, 1953) and subcategorization frames (Chomsky, 1965). Other lexicalized formalisms include (Schabes et al., 1988; Mel\&amp;apos;~uk, 1988; Pollard and Sag, 1994). Besides the possible arguments of a word, a natural-language grammar does well to specify possible head words for those arguments. &quot;Convene&quot; requires an NP object, but some NPs are more semantically or lexically appropriate here than others, and the appropriateness depends largely on the NP\&amp;apos;s head (e.g., &quot;meeting&quot;). We use the general term bilexical for a grammar that records such facts. A bilexical grammar makes many stipulations about the compatibility of particular pairs of words in particular roles. The acceptability of &quot;Nora convened the &quot; The authors weresupported respectivelyunder AR</context>
+</contexts>
+<marker>Pollard, Sag, 1994</marker>
+<rawString>C. Pollard and I. Sag. 1994. Head-Driven Phrase Structure Grammar. University of Chicago Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y Schabes</author>
+<author>A Abeill</author>
+<author>A Joshi</author>
+</authors>
+<title>Parsing strategies with \&amp;apos;lexicalized\&amp;apos; grammars: Application to Tree Adjoining Grammars.</title>
+<date>1988</date>
+<booktitle>In Proceedings of COLING-88,</booktitle>
+<location>Budapest,</location>
+<contexts>
+<context position="1252" citStr="Schabes et al., 1988" startWordPosition="181" endWordPosition="184">nds of O(n5). For a common special case that was known to allow O(n3) parsing (Eisner, 1997), we present an O(n 3) algorithm with an improved grammar constant. 1 Introduction Lexicalized grammar formalisms are of both theoretical and practical interest to the computational linguistics community. Such formalisms specify syntactic facts about each word of the language--in particular, the type of arguments that the word can or must take. Early mechanisms of this sort included categorial grammar (Bar-Hillel, 1953) and subcategorization frames (Chomsky, 1965). Other lexicalized formalisms include (Schabes et al., 1988; Mel\&amp;apos;~uk, 1988; Pollard and Sag, 1994). Besides the possible arguments of a word, a natural-language grammar does well to specify possible head words for those arguments. &quot;Convene&quot; requires an NP object, but some NPs are more semantically or lexically appropriate here than others, and the appropriateness depends largely on the NP\&amp;apos;s head (e.g., &quot;meeting&quot;). We use the general term bilexical for a grammar that records such facts. A bilexical grammar makes many stipulations about the compatibility of particular pairs of words in particular roles. The acceptability of &quot;Nora convened the &quot; The au</context>
+</contexts>
+<marker>Schabes, Abeill, Joshi, 1988</marker>
+<rawString>Y. Schabes, A. Abeill@, and A. Joshi. 1988. Parsing strategies with \&amp;apos;lexicalized\&amp;apos; grammars: Application to Tree Adjoining Grammars. In Proceedings of COLING-88, Budapest, August.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yves Schabes</author>
+</authors>
+<title>Stochastic lexicalized treeadjoining grammars.</title>
+<date>1992</date>
+<booktitle>In Proc. of the l~th COLING,</booktitle>
+<pages>426--432</pages>
+<location>Nantes, France,</location>
+<marker>Schabes, 1992</marker>
+<rawString>Yves Schabes. 1992. Stochastic lexicalized treeadjoining grammars. In Proc. of the l~th COLING, pages 426-432, Nantes, France, August.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C S Wetherell</author>
+</authors>
+<title>Probabilistic languages: A review and some open questions. Computing Surveys,</title>
+<date>1980</date>
+<pages>12--4</pages>
+<contexts>
+<context position="5396" citStr="Wetherell, 1980" startWordPosition="863" endWordPosition="864"> transitive closure of o, written ~*, and define L(G) accordingly. We write a fl 5 =~* a75 for a derivation in which only fl is rewritten. 3 Bilexical context-free grammars We introduce next a grammar formalism that captures lexical dependencies among pairs of words in VT. This formalism closely resembles stochastic grammatical formalisms that are used in several existing natural language processing systems (see 1). We will specify a nonstochastic version, noting that probabilities or other weights may be attached to the rewrite rules exactly as in stochastic CFG (Gonzales and Thomason, 1978; Wetherell, 1980). (See 4 for brief discussion.) Suppose G = (VN,VT, P,T[$]) is a CFG in CNF. 3 We say that G is bilexical iff there exists a set of &quot;delexicalized nonterminals&quot; VD such that VN = {A[a] : A E VD,a E VT} and every production in P has one of the following forms: 2Production S --~ e is also allowed in a CNF grammar if S never appears on the right side of any production. However, S --+ e is not allowed in our bilexical CFGs. ,awe have a more general definition that drops the restriction to CNF, but do not give it here. A[a] ~ B[b] C[a] (1) A[a] --+ C[a] B[b] (2) A[a] ~ a (3) Thus every nonterminal </context>
+</contexts>
+<marker>Wetherell, 1980</marker>
+<rawString>C. S. Wetherell. 1980. Probabilistic languages: A review and some open questions. Computing Surveys, 12(4):361-379.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D H Younger</author>
+</authors>
+<title>Recognition and parsing of context-free languages in time n 3. Information and Control,</title>
+<date>1967</date>
+<pages>10--2</pages>
+<contexts>
+<context position="7336" citStr="Younger, 1967" startWordPosition="1198" endWordPosition="1199">s, but meanwhile omit the similar productions VP[eat] -+ V[eat] NP[puzzles] VP[solve] --~ V[solve] NP[goat] VP[sleep] -+ V[sleep] NP[goat] NP[goat] -+ DET[two] N[goat] since puzzles are not edible, a goat is not solvable, &quot;sleep&quot; is intransitive, and &quot;goat&quot; cannot take plural determiners. (A stochastic version of the grammar could implement &quot;soft preferences&quot; by allowing the rules in the second group but assigning them various low probabilities.) The cost of this expressiveness is a very large grammar. Standard context-free parsing algorithms are inefficient in such a case. The CKY algorithm (Younger, 1967; Aho and Ullman, 1972) is time O(n3. IPI), where in the worst case IPI = [VNI3 (one ignores unary productions). For a bilexical grammar, the worst case is IPI = IVD13.IVT12, which is large for a large vocabulary VT. We may improve the analysis somewhat by observing that when parsing dl ... dn, the CKY algorithm only considers nonterminals of the form A[di]; by restricting to the relevant productions we obtain O(n 3. IVDI3. min(n, IVTI)2). 458 \x0cWe observe that in practical applications we always have n &amp;lt;&amp;lt; IVTI. Let us then restrict our analysis to the (infinite) set of input instances of th</context>
+</contexts>
+<marker>Younger, 1967</marker>
+<rawString>D. H. Younger. 1967. Recognition and parsing of context-free languages in time n 3. Information and Control, 10(2):189-208, February.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

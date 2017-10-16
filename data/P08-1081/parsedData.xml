@@ -1,0 +1,1463 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.2508455">
+b&apos;Proceedings of ACL-08: HLT, pages 710718,
+Columbus, Ohio, USA, June 2008. c
+</bodyText>
+<sectionHeader confidence="0.336342" genericHeader="abstract">
+2008 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.7383015">
+Using Conditional Random Fields to Extract Contexts and Answers of
+Questions from Online Forums
+</title>
+<author confidence="0.647247">
+Shilin Ding
+</author>
+<affiliation confidence="0.359647">
+Gao Cong
+</affiliation>
+<author confidence="0.806269">
+Chin-Yew Lin Xiaoyan Zhu
+</author>
+<affiliation confidence="0.862003666666667">
+Department of Computer Science and Technology, Tsinghua University, Beijing, China
+Department of Computer Science, Aalborg University, Denmark
+Microsoft Research Asia, Beijing, China
+</affiliation>
+<email confidence="0.640495">
+dingsl@gmail.com gaocong@cs.aau.dk
+cyl@microsoft.com zxy-dcs@tsinghua.edu.cn
+</email>
+<sectionHeader confidence="0.977862" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.9990815">
+Online forum discussions often contain vast
+amounts of questions that are the focuses of
+discussions. Extracting contexts and answers
+together with the questions will yield not only
+a coherent forum summary but also a valu-
+able QA knowledge base. In this paper, we
+propose a general framework based on Con-
+ditional Random Fields (CRFs) to detect the
+contexts and answers of questions from forum
+threads. We improve the basic framework by
+Skip-chain CRFs and 2D CRFs to better ac-
+commodate the features of forums for better
+performance. Experimental results show that
+our techniques are very promising.
+</bodyText>
+<sectionHeader confidence="0.998286" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.860272263157895">
+Forums are web virtual spaces where people can ask
+questions, answer questions and participate in dis-
+cussions. The availability of vast amounts of thread
+discussions in forums has promoted increasing in-
+terests in knowledge acquisition and summarization
+for forum threads. Forum thread usually consists
+of an initiating post and a number of reply posts.
+The initiating post usually contains several ques-
+tions and the reply posts usually contain answers to
+the questions and perhaps new questions. Forum
+participants are not physically co-present, and thus
+reply may not happen immediately after questions
+are posted. The asynchronous nature and multi-
+participants make multiple questions and answers
+This work was done when Shilin Ding was a visiting stu-
+dent at the Microsoft Research Asia
+This work was done when Gao Cong worked as a re-
+searcher at the Microsoft Research Asia.
+&lt;context id=1&amp;gt;S1: Hi I am looking for a pet friendly
+hotel in Hong Kong because all of my family is go-
+ing there for vacation. S2: my family has 2 sons
+and a dog.&lt;/context&amp;gt; &lt;question id=1&amp;gt;S3: Is there
+any recommended hotel near Sheung Wan or Tsing
+Sha Tsui?&lt;/question&amp;gt; &lt;context id=2,3&amp;gt;S4: We also
+plan to go shopping in Causeway Bay.&lt;/context&amp;gt;
+&lt;question id=2&amp;gt;S5: Whats the traffic situa-
+tion around those commercial areas?&lt;/question&amp;gt;
+&lt;question id=3&amp;gt;S6: Is it necessary to take a
+taxi?&lt;/question&amp;gt;. S7: Any information would be ap-
+preciated.
+&lt;answer qid=1&amp;gt;S8: The Comfort Lodge near
+Kowloon Park allows pet as I know, and usually fits
+well within normal budget. S9: It is also conve-
+niently located, nearby the Kowloon railway station
+and subway.&lt;/answer&amp;gt;
+&lt;answer qid=2,3&amp;gt; S10: Its very crowd in those ar-
+eas, so I recommend MTR in Causeway Bay because
+it is cheap to take you around &lt;/answer&amp;gt;
+</bodyText>
+<figureCaption confidence="0.970035">
+Figure 1: An example thread with question-context-
+</figureCaption>
+<bodyText confidence="0.9758343125">
+answer annotated
+interweaved together, which makes it more difficult
+to summarize.
+In this paper, we address the problem of detecting
+the contexts and answers from forum threads for the
+questions identified in the same threads. Figure 1
+gives an example of a forum thread with questions,
+contexts and answers annotated. It contains three
+question sentences, S3, S5 and S6. Sentences S1
+and S2 are contexts of question 1 (S3). Sentence S4
+is the context of questions 2 and 3, but not 1. Sen-
+tence S8 is the answer to question 3. (S4-S5-S10) is
+one example of question-context-answer triple that
+we want to detect in the thread. As shown in the ex-
+ample, a forum question usually requires contextual
+information to provide background or constraints.
+</bodyText>
+<page confidence="0.975421">
+710
+</page>
+<bodyText confidence="0.99824015625">
+\x0cMoreover, it sometimes needs contextual informa-
+tion to provide explicit link to its answers. For
+example, S8 is an answer of question 1, but they
+cannot be linked with any common word. Instead,
+S8 shares word pet with S1, which is a context of
+question 1, and thus S8 could be linked with ques-
+tion 1 through S1. We call contextual information
+the context of a question in this paper.
+A summary of forum threads in the form of
+question-context-answer can not only highlight the
+main content, but also provide a user-friendly orga-
+nization of threads, which will make the access to
+forum information easier.
+Another motivation of detecting contexts and an-
+swers of the questions in forum threads is that it
+could be used to enrich the knowledge base of
+community-based question and answering (CQA)
+services such as Live QnA and Yahoo! Answers,
+where context is comparable with the question de-
+scription while question corresponds to the question
+title. For example, there were about 700,000 ques-
+tions in the Yahoo! Answers travel category as of
+January 2008. We extracted about 3,000,000 travel
+related questions from six online travel forums. One
+would expect that a CQA service with large QA data
+will attract more users to the service. To enrich the
+knowledge base, not only the answers, but also the
+contexts are critical; otherwise the answer to a ques-
+tion such as How much is the taxi would be useless
+without context in the database.
+However, it is challenging to detecting contexts
+and answers for questions in forum threads. We as-
+sume the questions have been identified in a forum
+thread using the approach in (Cong et al., 2008).
+Although identifying questions in a forum thread is
+also nontrivial, it is beyond the focus of this paper.
+First, detecting contexts of a question is important
+and non-trivial. We found that 74% of questions in
+our corpus, which contain 1,064 questions from 579
+forum threads about travel, need contexts. However,
+relative position information is far from adequate to
+solve the problem. For example, in our corpus 63%
+of sentences preceding questions are contexts and
+they only represent 34% of all correct contexts. To
+effectively detect contexts, the dependency between
+sentences is important. For example in Figure 1,
+both S1 and S2 are contexts of question 1. S1 could
+be labeled as context based on word similarity, but it
+is not easy to link S2 with the question directly. S1
+and S2 are linked by the common word family, and
+thus S2 can be linked with question 1 through S1.
+The challenge here is how to model and utilize the
+dependency for context detection.
+Second, it is difficult to link answers with ques-
+tions. In forums, multiple questions and answers
+can be discussed in parallel and are interweaved to-
+gether while the reply relationship between posts is
+usually unavailable. To detect answers, we need to
+handle two kinds of dependencies. One is the depen-
+dency relationship between contexts and answers,
+which should be leveraged especially when ques-
+tions alone do not provide sufficient information to
+find answers; the other is the dependency between
+answer candidates (similar to sentence dependency
+described above). The challenge is how to model
+and utilize these two kinds of dependencies.
+In this paper we propose a novel approach for de-
+tecting contexts and answers of the questions in fo-
+rum threads. To our knowledge this is the first work
+on this.We make the following contributions:
+First, we employ Linear Conditional Random
+Fields (CRFs) to identify contexts and answers,
+which can capture the relationships between con-
+tiguous sentences.
+Second, we also found that context is very im-
+portant for answer detection. To capture the depen-
+dency between contexts and answers, we introduce
+Skip-chain CRF model for answer detection. We
+also extend the basic model to 2D CRFs to model
+dependency between contiguous questions in a fo-
+rum thread for context and answer identification.
+Finally, we conducted experiments on forum data.
+Experimental results show that 1) Linear CRFs out-
+perform SVM and decision tree in both context
+and answer detection; 2) Skip-chain CRFs outper-
+form Linear CRFs for answer finding, which demon-
+strates that context improves answer finding; 3)
+2D CRF model improves the performance of Linear
+CRFs and the combination of 2D CRFs and Skip-
+chain CRFs achieves better performance for context
+detection.
+The rest of this paper is organized as follows:
+The next section discusses related work. Section 3
+presents the proposed techniques. We evaluate our
+techniques in Section 4. Section 5 concludes this
+paper and discusses future work.
+</bodyText>
+<page confidence="0.998362">
+711
+</page>
+<sectionHeader confidence="0.978869" genericHeader="related work">
+\x0c2 Related Work
+</sectionHeader>
+<bodyText confidence="0.999399527272727">
+There is some research on summarizing discussion
+threads and emails. Zhou and Hovy (2005) seg-
+mented internet relay chat, clustered segments into
+subtopics, and identified responding segments of
+the first segment in each sub-topic by assuming
+the first segment to be focus. In (Nenkova and
+Bagga, 2003; Wan and McKeown, 2004; Rambow
+et al., 2004), email summaries were organized by
+extracting overview sentences as discussion issues.
+Carenini et al (2007) leveraged both quotation re-
+lation and clue words for email summarization. In
+contrast, given a forum thread, we extract questions,
+their contexts, and their answers as summaries.
+Shrestha and McKeown (2004)s work on email
+summarization is closer to our work. They used
+RIPPER as a classifier to detect interrogative ques-
+tions and their answers and used the resulting ques-
+tion and answer pairs as summaries. However, it did
+not consider contexts of questions and dependency
+between answer sentences.
+We also note the existing work on extracting
+knowledge from discussion threads. Huang et
+al.(2007) used SVM to extract input-reply pairs from
+forums for chatbot knowledge. Feng et al. (2006a)
+used cosine similarity to match students query with
+reply posts for discussion-bot. Feng et al. (2006b)
+identified the most important message in online
+classroom discussion board. Our problem is quite
+different from the above work.
+Detecting context for question in forums is related
+to the context detection problem raised in the QA
+roadmap paper commissioned by ARDA (Burger et
+al., 2006). To our knowledge, none of the previous
+work addresses the problem of context detection.
+The method of finding follow-up questions (Yang
+et al., 2006) from TREC context track could be
+adapted for context detection. However, the follow-
+up relationship is limited between questions while
+context is not. In our other work (Cong et al., 2008),
+we proposed a supervised approach for question de-
+tection and an unsupervised approach for answer de-
+tection without considering context detection.
+Extensive research has been done in question-
+answering, e.g. (Berger et al., 2000; Jeon et al.,
+2005; Cui et al., 2005; Harabagiu and Hickl, 2006;
+Dang et al., 2007). They mainly focus on con-
+structing answer for certain types of question from a
+large document collection, and usually apply sophis-
+ticated linguistic analysis to both questions and the
+documents in the collection. Soricut and Brill (2006)
+used statistical translation model to find the appro-
+priate answers from their QA pair collections from
+FAQ pages for the posted question. In our scenario,
+we not only need to find answers for various types
+of questions in forum threads but also their contexts.
+</bodyText>
+<sectionHeader confidence="0.956749" genericHeader="method">
+3 Context and Answer Detection
+</sectionHeader>
+<bodyText confidence="0.989833117647059">
+A question is a linguistic expression used by a ques-
+tioner to request information in the form of an an-
+swer. The sentence containing request focus is
+called question. Context are the sentences contain-
+ing constraints or background information to the
+question, while answer are that provide solutions. In
+this paper, we use sentences as the detection segment
+though it is applicable to other kinds of segments.
+Given a thread and a set of m detected questions
+{Qi}m
+i=1, our task is to find the contexts and an-
+swers for each question. We first discuss using Lin-
+ear CRFs for context and answer detection, and then
+extend the basic framework to Skip-chain CRFs and
+2D CRFs to better model our problem. Finally, we
+will briefly introduce CRF models and the features
+that we used for CRF model.
+</bodyText>
+<subsectionHeader confidence="0.999709">
+3.1 Using Linear CRFs
+</subsectionHeader>
+<bodyText confidence="0.998621444444444">
+For ease of presentation, we focus on detecting con-
+texts using Linear CRFs. The model could be easily
+extended to answer detection.
+Context detection. As discussed in Introduction
+that context detection cannot be trivially solved by
+position information (See Section 4.2 for details),
+and dependency between sentences is important for
+context detection. Recall that in Figure 1, S2 could
+be labeled as context of Q1 if we consider the de-
+pendency between S2 and S1, and that between S1
+and Q1, while it is difficult to establish connection
+between S2 and Q1 without S1. Table 1 shows that
+the correlation between the labels of contiguous sen-
+tences is significant. In other words, when a sen-
+tence Yts previous Yt1 is not a context (Yt1 6= C)
+then it is very likely that Yt (i.e. Yt 6= C) is also not a
+context. It is clear that the candidate contexts are not
+independent and there are strong dependency rela-
+</bodyText>
+<page confidence="0.977884">
+712
+</page>
+<bodyText confidence="0.528549">
+\x0cContiguous sentences yt = C yt 6= C
+</bodyText>
+<equation confidence="0.89326225">
+yt1 = C 901 1,081
+yt1 6= C 1,081 47,190
+Table 1: Contingency table(2
+= 9,386,p-value&lt;0.001)
+</equation>
+<bodyText confidence="0.997601480769231">
+tionships between contiguous sentences in a thread.
+Therefore, a desirable model should be able to cap-
+ture the dependency.
+The context detection can be modeled as a clas-
+sification problem. Traditional classification tools,
+e.g. SVM, can be employed, where each pair of
+question and candidate context will be treated as an
+instance. However, they cannot capture the depen-
+dency relationship between sentences.
+To this end, we proposed a general framework to
+detect contexts and answers based on Conditional
+Random Fields (Lafferty et al., 2001) (CRFs) which
+are able to model the sequential dependencies be-
+tween contiguous nodes. A CRF is an undirected
+graphical model G of the conditional distribution
+P(Y|X). Y are the random variables over the la-
+bels of the nodes that are globally conditioned on X,
+which are the random variables of the observations.
+(See Section 3.4 for more about CRFs)
+Linear CRF model has been successfully applied
+in NLP and text mining tasks (McCallum and Li,
+2003; Sha and Pereira, 2003). However, our prob-
+lem cannot be modeled with Linear CRFs in the
+same way as other NLP tasks, where one node has a
+unique label. In our problem, each node (sentence)
+might have multiple labels since one sentence could
+be the context of multiple questions in a thread.
+Thus, it is difficult to find a solution to tag context
+sentences for all questions in a thread in single pass.
+Here we assume that questions in a given thread
+are independent and are found, and then we can
+label a thread with m questions one-by-one in m-
+passes. In each pass, one question Qi is selected
+as focus and each other sentence in the thread will
+be labeled as context C of Qi or not using Linear
+CRF model. The graphical representations of Lin-
+ear CRFs is shown in Figure2(a). The linear-chain
+edges can capture the dependency between two con-
+tiguous nodes. The observation sequence x = &lt;x1,
+x2,...,xt&amp;gt;, where t is the number of sentences in a
+thread, represents predictors (to be described in Sec-
+tion 3.5), and the tag sequence y=&lt;y1,...,yt&amp;gt;, where
+yi {C, P}, determines whether a sentence is plain
+text P or context C of question Qi.
+Answer detection. Answers usually appear in the
+posts after the post containing the question. There
+are also strong dependencies between contiguous
+answer segments. Thus, position and similarity in-
+formation alone are not adequate here. To cope
+with the dependency between contiguous answer
+segments, Linear CRFs model are employed as in
+context detection.
+</bodyText>
+<subsectionHeader confidence="0.97941">
+3.2 Leveraging Context for Answer Detection
+Using Skip-chain CRFs
+</subsectionHeader>
+<bodyText confidence="0.999146742857143">
+We observed in our corpus 74% questions lack con-
+straints or background information which are very
+useful to link question and answers as discussed in
+Introduction. Therefore, contexts should be lever-
+aged to detect answers. The Linear CRF model can
+capture the dependency between contiguous sen-
+tences. However, it cannot capture the long distance
+dependency between contexts and answers.
+One straightforward method of leveraging context
+is to detect contexts and answers in two phases, i.e.
+to first identify contexts, and then label answers us-
+ing both the context and question information (e.g.
+the similarity between context and answer can be
+used as features in CRFs). The two-phase proce-
+dure, however, still cannot capture the non-local de-
+pendency between contexts and answers in a thread.
+To model the long distance dependency between
+contexts and answers, we will use Skip-chain CRF
+model to detect context and answer together. Skip-
+chain CRF model is applied for entity extraction
+and meeting summarization (Sutton and McCallum,
+2006; Galley, 2006). The graphical representation
+of a Skip-chain CRF given in Figure2(b) consists
+of two types of edges: linear-chain (yt1 to yt) and
+skip-chain edges (yi to yj).
+Ideally, the skip-chain edges will establish the
+connection between candidate pairs with high prob-
+ability of being context and answer of a question.
+To introduce skip-chain edges between any pairs of
+non-contiguous sentences will be computationally
+expensive, and also introduce noise. To make the
+cardinality and number of cliques in the graph man-
+ageable and also eliminate noisy edges, we would
+like to generate edges only for sentence pairs with
+high possibility of being context and answer. This is
+</bodyText>
+<page confidence="0.99313">
+713
+</page>
+<table confidence="0.7986158">
+\x0c(a) Linear CRFs (b) Skip-chain CRFs (c) 2D CRFs
+Figure 2: CRF Models
+Skip-Chain yv = A yv 6= A
+yu = C 4,105 5,314
+yu 6= C 3,744 9,740
+</table>
+<tableCaption confidence="0.707021">
+Table 2: Contingence table(2
+</tableCaption>
+<bodyText confidence="0.770800555555556">
+=615.8,p-value &lt; 0.001)
+achieved as follows. Given a question Qi in post Pj
+of a thread with n posts, its contexts usually occur
+within post Pj or before Pj while answers appear in
+the posts after Pj. We will establish an edge between
+each candidate answer v and one condidate context
+in {Pk}j
+k=1 such that they have the highest possibil-
+ity of being a context-answer pair of question Qi:
+</bodyText>
+<equation confidence="0.8795955">
+u = argmax
+u{Pk}j
+k=1
+sim(xu, Qi).sim(xv, {xu, Qi})
+</equation>
+<bodyText confidence="0.999483416666667">
+here, we use the product of sim(xu, Qi) and
+sim(xv, {xu, Qi} to estimate the possibility of be-
+ing a context-answer pair for (u, v) , where sim(, )
+is the semantic similarity calculated on WordNet as
+described in Section 3.5. Table 2 shows that yu and
+yv in the skip chain generated by our heuristics in-
+fluence each other significantly.
+Skip-chain CRFs improve the performance of
+answer detection due to the introduced skip-chain
+edges that represent the joint probability conditioned
+on the question, which is exploited by skip-chain
+feature function: f(yu, yv, Qi, x).
+</bodyText>
+<subsectionHeader confidence="0.995602">
+3.3 Using 2D CRF Model
+</subsectionHeader>
+<bodyText confidence="0.998688324324324">
+Both Linear CRFs and Skip-chain CRFs label the
+contexts and answers for each question in separate
+passes by assuming that questions in a thread are in-
+dependent. Actually the assumption does not hold
+in many cases. Let us look at an example. As in Fig-
+ure 1, sentence S10 is an answer for both question
+Q2 and Q3. S10 could be recognized as the answer
+of Q2 due to the shared word areas and Causeway
+bay (in Q2s context, S4), but there is no direct re-
+lation between Q3 and S10. To label S10, we need
+consider the dependency relation between Q2 and
+Q3. In other words, the question-answer relation be-
+tween Q3 and S10 can be captured by a joint mod-
+eling of the dependency among S10, Q2 and Q3.
+The labels of the same sentence for two contigu-
+ous questions in a thread would be conditioned on
+the dependency relationship between the questions.
+Such a dependency cannot be captured by both Lin-
+ear CRFs and Skip-chain CRFs.
+To capture the dependency between the contigu-
+ous questions, we employ 2D CRFs to help context
+and answer detection. 2D CRF model is used in
+(Zhu et al., 2005) to model the neighborhood de-
+pendency in blocks within a web page. As shown
+in Figure2(c), 2D CRF models the labeling task for
+all questions in a thread. For each thread, there are
+m rows in the grid, where the ith row corresponds
+to one pass of Linear CRF model (or Skip-chain
+model) which labels contexts and answers for ques-
+tion Qi. The vertical edges in the figure represent
+the joint probability conditioned on the contiguous
+questions, which will be exploited by 2D feature
+function: f(yi,j, yi+1,j, Qi, Qi+1, x). Thus, the in-
+formation generated in single CRF chain could be
+propagated over the whole grid. In this way, context
+and answer detection for all questions in the thread
+could be modeled together.
+</bodyText>
+<subsectionHeader confidence="0.99737">
+3.4 Conditional Random Fields (CRFs)
+</subsectionHeader>
+<bodyText confidence="0.994646">
+The Linear, Skip-Chain and 2D CRFs can be gen-
+eralized as pairwise CRFs, which have two kinds of
+cliques in graph G: 1) node yt and 2) edge (yu, yv).
+The joint probability is defined as:
+</bodyText>
+<equation confidence="0.987489272727273">
+p(y|x)=
+1
+Z(x)
+exp
+nX
+k,t
+kfk(yt, x)+
+X
+k,t
+kgk(yu, yv, x)
+o
+</equation>
+<page confidence="0.976924">
+714
+</page>
+<bodyText confidence="0.969301">
+\x0cwhere Z(x) is the normalization factor, fk is the
+feature on nodes, gk is on edges between u and v,
+and k and k are parameters.
+Linear CRFs are based on the first order Markov
+assumption that the contiguous nodes are dependent.
+The pairwise edges in Skip-chain CRFs represent
+the long distance dependency between the skipped
+nodes, while the ones in 2D CRFs represent the de-
+pendency between the neighboring nodes.
+Inference and Parameter Estimation. For Linear
+CRFs, dynamic programming is used to compute the
+maximum a posteriori (MAP) of y given x. How-
+ever, for more complicated graphs with cycles, ex-
+act inference needs the junction tree representation
+of the original graph and the algorithm is exponen-
+tial to the treewidth. For fast inference, loopy Belief
+Propagation (Pearl, 1988) is implemented.
+Given the training Data D = {x(i), y(i)}n
+i=1, the
+parameter estimation is to determine the parame-
+ters based on maximizing the log-likelihood L =
+Pn
+i=1 log p(y(i)|x(i)). In Linear CRF model, dy-
+namic programming and L-BFGS (limited memory
+Broyden-Fletcher-Goldfarb-Shanno) can be used to
+optimize objective function L, while for compli-
+cated CRFs, Loopy BP are used instead to calculate
+the marginal probability.
+3.5 Features used in CRF models
+The main features used in Linear CRF models for
+context detection are listed in Table 3.
+The similarity feature is to capture the word sim-
+ilarity and semantic similarity between candidate
+contexts and answers. The word similarity is based
+on cosine similarity of TF/IDF weighted vectors.
+The semantic similarity between words is computed
+based on Wu and Palmers measure (Wu and Palmer,
+1994) using WordNet (Fellbaum, 1998).1 The simi-
+larity between contiguous sentences will be used to
+capture the dependency for CRFs. In addition, to
+bridge the lexical gaps between question and con-
+text, we learned top-3 context terms for each ques-
+tion term from 300,000 question-description pairs
+obtained from Yahoo! Answers using mutual infor-
+mation (Berger et al., 2000) ( question description
+in Yahoo! Answers is comparable to contexts in fo-
+</bodyText>
+<page confidence="0.840927">
+1
+</page>
+<bodyText confidence="0.98781711627907">
+The semantic similarity between sentences is calculated as
+in (Yang et al., 2006).
+Similarity features:
+Cosine similarity with the question
+Similarity with the question using WordNet
+Cosine similarity between contiguous sentences
+Similarity between contiguous sentences using WordNet
+Cosine similarity with the expanded question using the lexical
+matching words
+Structural features:
+The relative position to current question
+Is its author the same with that of the question?
+Is it in the same paragraph with its previous sentence?
+Discourse and lexical features:
+The number of Pronouns in the question
+The presence of fillers, fluency devices (e.g. uh, ok)
+The presence of acknowledgment tokens
+The number of non-stopwords
+Whether the question has a noun or not?
+Whether the question has a verb or not?
+Table 3: Features for Linear CRFs. Unless otherwise
+mentioned, we refer to features of the sentence whose la-
+bel to be predicted
+rums), and then use them to expand question and
+compute cosine similarity.
+The structural features of forums provide strong
+clues for contexts. For example, contexts of a ques-
+tion usually occur in the post containing the question
+or preceding posts.
+We extracted the discourse features from a ques-
+tion, such as the number of pronouns in the question.
+A more useful feature would be to find the entity in
+surrounding sentences referred by a pronoun. We
+tried GATE (Cunningham et al., 2002) for anaphora
+resolution of the pronouns in questions, but the per-
+formance became worse with the feature, which is
+probably due to the difficulty of anaphora resolution
+in forum discourse. We also observed that questions
+often need context if the question do not contain a
+noun or a verb.
+In addition, we use similarity features between
+skip-chain sentences for Skip-chain CRFs and simi-
+larity features between questions for 2D CRFs.
+</bodyText>
+<sectionHeader confidence="0.997712" genericHeader="evaluation">
+4 Experiments
+</sectionHeader>
+<subsectionHeader confidence="0.968703">
+4.1 Experimental setup
+</subsectionHeader>
+<bodyText confidence="0.982371">
+Corpus. We obtained about 1 million threads
+from TripAdvisor forum; we randomly selected 591
+threads and removed 22 threads which has more than
+40 sentences and 6 questions; the remaining 579 fo-
+</bodyText>
+<footnote confidence="0.47084075">
+rum threads form our corpus 2. Each thread in our
+2
+TripAdvisor (http://www.tripadvisor.com/ForumHome) is
+one of the most popular travel forums; the list of 579 urls is
+</footnote>
+<page confidence="0.994948">
+715
+</page>
+<table confidence="0.999355444444444">
+\x0cModel Prec(%) Rec(%) F1(%)
+Context Detection
+SVM 75.27 68.80 71.32
+C4.5 70.16 64.30 67.21
+L-CRF 75.75 72.84 74.45
+Answer Detection
+SVM 73.31 47.35 57.52
+C4.5 65.36 46.55 54.37
+L-CRF 63.92 58.74 61.22
+</table>
+<tableCaption confidence="0.973139">
+Table 4: Context and Answer Detection
+corpus contains at least two posts and on average
+</tableCaption>
+<bodyText confidence="0.9944480625">
+each thread consists of 3.87 posts. Two annotators
+were asked to tag questions, their contexts, and an-
+swers in each thread. The kappa statistic for identi-
+fying question is 0.96, for linking context and ques-
+tion given a question is 0.75, and for linking answer
+and question given a question is 0.69. We conducted
+experiments on both the union and intersection of
+the two annotated data. The experimental results on
+both data are qualitatively comparable. We only re-
+port results on union data due to space limitation.
+The union data contains 1,064 questions, 1,458 con-
+texts and 3,534 answers.
+Metrics. We calculated precision, recall,
+and F1-score for all tasks. All the experimental
+results are obtained through the average of 5 trials
+of 5-fold cross validation.
+</bodyText>
+<subsectionHeader confidence="0.970333">
+4.2 Experimental results
+</subsectionHeader>
+<bodyText confidence="0.992033117647059">
+Linear CRFs for Context and Answer Detection.
+This experiment is to evaluate Linear CRF model
+(Section 3.1) for context and answer detection by
+comparing with SVM and C4.5(Quinlan, 1993). For
+SVM, we use SVMlight(Joachims, 1999). We tried
+linear, polynomial and RBF kernels and report the
+results on polynomial kernel using default param-
+eters since it performs the best in the experiment.
+SVM and C4.5 use the same set of features as Lin-
+ear CRFs. As shown in Table 4, Linear CRF model
+outperforms SVM and C4.5 for both context and an-
+swer detection. The main reason for the improve-
+ment is that CRF models can capture the sequen-
+tial dependency between segments in forums as dis-
+cussed in Section 3.1.
+given in http://homepages.inf.ed.ac.uk/gcong/acl08/; Removing
+the 22 long threads can greatly reduce the training and test time.
+</bodyText>
+<table confidence="0.998576">
+position Prec(%) Rec(%) F1(%)
+Context Detection
+Previous One 63.69 34.29 44.58
+Previous All 43.48 76.41 55.42
+Anwer Detection
+Following One 66.48 19.98 30.72
+Following All 31.99 100 48.48
+</table>
+<tableCaption confidence="0.899794">
+Table 5: Using position information for detection
+</tableCaption>
+<table confidence="0.9985452">
+Context Prec(%) Rec(%) F1(%)
+No context 63.92 58.74 61.22
+Prev. sentence 61.41 62.50 61.84
+Real context 63.54 66.40 64.94
+L-CRF+context 65.51 63.13 64.06
+</table>
+<tableCaption confidence="0.996987">
+Table 6: Contextual Information for Answer Detection.
+</tableCaption>
+<bodyText confidence="0.9947602">
+Prev. sentence uses one previous sentence of the current
+question as context. RealContext uses the context anno-
+tated by experts. L-CRF+context uses the context found
+by Linear CRFs
+We next report a baseline of context detection
+using previous sentences in the same post with its
+question since contexts often occur in the question
+post or preceding posts. Similarly, we report a base-
+line of answer detecting using following segments of
+a question as answers. The results given in Table 5
+show that location information is far from adequate
+to detect contexts and answers.
+The usefulness of contexts. This experiment is to
+evaluate the usefulness of contexts in answer de-
+tection, by adding the similarity between the con-
+text (obtained with different methods) and candi-
+date answer as an extra feature for CRFs. Table 6
+shows the impact of context on answer detection
+using Linear CRFs. Linear CRFs with contextual
+information perform better than those without con-
+text. L-CRF+context is close to that using real con-
+text, while it is better than CRFs using the previous
+sentence as context. The results clearly shows that
+contextual information greatly improves the perfor-
+mance of answer detection.
+Improved Models. This experiment is to evaluate
+the effectiveness of Skip-Chain CRFs (Section 3.2)
+and 2D CRFs (Section 3.3) for our tasks. The results
+are given in Table 7 and Table 8.
+In context detection, Skip-Chain CRFs have simi-
+</bodyText>
+<page confidence="0.996249">
+716
+</page>
+<table confidence="0.999177">
+\x0cModel Prec(%) Rec(%) F1(%)
+L-CRF+Context 75.75 72.84 74.45
+Skip-chain 74.18 74.90 74.42
+2D 75.92 76.54 76.41
+2D+Skip-chain 76.27 78.25 77.34
+</table>
+<tableCaption confidence="0.998521">
+Table 7: Skip-chain and 2D CRFs for context detection
+</tableCaption>
+<bodyText confidence="0.998551941176471">
+lar results as Linear CRFs, i.e. the inter-dependency
+captured by the skip chains generated using the
+heuristics in Section 3.2 does not improve the con-
+text detection. The performance of Linear CRFs is
+improved in 2D CRFs (by 2%) and 2D+Skip-chain
+CRFs (by 3%) since they capture the dependency be-
+tween contiguous questions.
+In answer detection, as expected, Skip-chain
+CRFs outperform L-CRF+context since Skip-chain
+CRFs can model the inter-dependency between con-
+texts and answers while in L-CRF+context the con-
+text can only be reflected by the features on the ob-
+servations. We also observed that 2D CRFs improve
+the performance of L-CRF+context due to the de-
+pendency between contiguous questions. In contrast
+with our expectation, the 2D+Skip-chain CRFs does
+not improve Skip-chain CRFs in terms of answer de-
+tection. The possible reason could be that the struc-
+ture of the graph is very complicated and too many
+parameters need to be learned on our training data.
+Evaluating Features. We also evaluated the con-
+tributions of each category of features in Table 3
+to context detection. We found that similarity fea-
+tures are the most important and structural feature
+the next. We also observed the same trend for an-
+swer detection. We omit the details here due to space
+limitation.
+As a summary, 1) our CRF model outperforms
+SVM and C4.5 for both context and answer detec-
+tions; 2) context is very useful in answer detection;
+3) the Skip-chain CRF method is effective in lever-
+aging context for answer detection; and 4) 2D CRF
+model improves the performance of Linear CRFs for
+both context and answer detection.
+</bodyText>
+<sectionHeader confidence="0.958047" genericHeader="conclusions">
+5 Discussions and Conclusions
+</sectionHeader>
+<bodyText confidence="0.99923275">
+We presented a new approach to detecting contexts
+and answers for questions in forums with good per-
+formance. We next discuss our experience not cov-
+ered by the experiments, and future work.
+</bodyText>
+<table confidence="0.9991268">
+Model Prec(%) Rec(%) F1(%)
+L-CRF+context 65.51 63.13 64.06
+Skip-chain 67.59 71.06 69.40
+2D 65.77 68.17 67.34
+2D+Skip-chain 66.90 70.56 68.89
+</table>
+<tableCaption confidence="0.998991">
+Table 8: Skip-chain and 2D CRFs for answer detection
+</tableCaption>
+<bodyText confidence="0.998079971428572">
+Since contexts of questions are largely unexplored
+in previous work, we analyze the contexts in our
+corpus and classify them into three categories: 1)
+context contains the main content of question while
+question contains no constraint, e.g. i will visit NY at
+Oct, looking for a cheap hotel but convenient. Any good
+suggestion? ; 2) contexts explain or clarify part of
+the question, such as a definite noun phrase, e.g. We
+are going on the Taste of Paris. Does anyone know if it is
+advisable to take a suitcase with us on the tour., where
+the first sentence is to describe the tour; and 3) con-
+texts provide constraint or background for question
+that is syntactically complete, e.g. We are inter-
+ested in visiting the Great Wall(and flying from London).
+Can anyone recommend a tour operator. In our corpus,
+about 26% questions do not need context, 12% ques-
+tions need Type 1 context, 32% need Type 2 context
+and 30% Type 3. We found that our techniques often
+do not perform well on Type 3 questions.
+We observed that factoid questions, one of fo-
+cuses in the TREC QA community, take less than
+10% question in our corpus. It would be interesting
+to revisit QA techniques to process forum data.
+Other future work includes: 1) to summarize mul-
+tiple threads using the triples extracted from indi-
+vidual threads. This could be done by clustering
+question-context-answer triples; 2) to use the tradi-
+tional text summarization techniques to summarize
+the multiple answer segments; 3) to integrate the
+Question Answering techniques as features of our
+framework to further improve answer finding; 4) to
+reformulate questions using its context to generate
+more user-friendly questions for CQA services; and
+5) to evaluate our techniques on more online forums
+in various domains.
+</bodyText>
+<sectionHeader confidence="0.966968" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.981154666666667">
+We thank the anonymous reviewers for their detailed
+comments, and Ming Zhou and Young-In Song for
+their valuable suggestions in preparing the paper.
+</bodyText>
+<page confidence="0.994058">
+717
+</page>
+<reference confidence="0.99864085">
+\x0cReferences
+A. Berger, R. Caruana, D. Cohn, D. Freitag, and V. Mit-
+tal. 2000. Bridging the lexical chasm: statistical ap-
+proaches to answer-finding. In Proceedings of SIGIR.
+J. Burger, C. Cardie, V. Chaudhri, R. Gaizauskas,
+S. Harabagiu, D. Israel, C. Jacquemin, C. Lin,
+S. Maiorano, G. Miller, D. Moldovan, B. Ogden,
+J. Prager, E. Riloff, A. Singhal, R. Shrihari, T. Strza-
+lkowski16, E. Voorhees, and R. Weishedel. 2006. Is-
+sues, tasks and program structures to roadmap research
+in question and answering (qna). ARAD: Advanced
+Research and Development Activity (US).
+G. Carenini, R. Ng, and X. Zhou. 2007. Summarizing
+email conversations with clue words. In Proceedings
+of WWW.
+G. Cong, L. Wang, C.Y. Lin, Y.I. Song, and Y. Sun. 2008.
+Finding question-answer pairs from online forums. In
+Proceedings of SIGIR.
+H. Cui, R. Sun, K. Li, M. Kan, and T. Chua. 2005. Ques-
+tion answering passage retrieval using dependency re-
+lations. In Proceedings of SIGIR.
+H. Cunningham, D. Maynard, K. Bontcheva, and
+V. Tablan. 2002. Gate: A framework and graphical
+development environment for robust nlp tools and ap-
+plications. In Proceedings of ACL.
+H. Dang, J. Lin, and D. Kelly. 2007. Overview of the
+trec 2007 question answering track. In Proceedings of
+TREC.
+C. Fellbaum, editor. 1998. WordNet: An Electronic Lex-
+ical Database (Language, Speech, and Communica-
+tion). The MIT Press, May.
+D. Feng, E. Shaw, J. Kim, and E. Hovy. 2006a. An intel-
+ligent discussion-bot for answering student queries in
+threaded discussions. In Proceedings of IUI.
+D. Feng, E. Shaw, J. Kim, and E. Hovy. 2006b. Learning
+to detect conversation focus of threaded discussions.
+In Proceedings of HLT-NAACL.
+M. Galley. 2006. A skip-chain conditional random field
+for ranking meeting utterances by importance. In Pro-
+ceedings of EMNLP.
+S. Harabagiu and A. Hickl. 2006. Methods for using tex-
+tual entailment in open-domain question answering.
+In Proceedings of ACL.
+J. Huang, M. Zhou, and D. Yang. 2007. Extracting chat-
+bot knowledge from online discussion forums. In Pro-
+ceedings of IJCAI.
+J. Jeon, W. Croft, and J. Lee. 2005. Finding similar
+questions in large question and answer archives. In
+Proceedings of CIKM.
+T. Joachims. 1999. Making large-scale support vector
+machine learning practical. MIT Press, Cambridge,
+MA, USA.
+J. Lafferty, A. McCallum, and F. Pereira. 2001. Con-
+ditional random fields: Probabilistic models for seg-
+menting and labeling sequence data. In Proceedings
+of ICML.
+A. McCallum and W. Li. 2003. Early results for named
+entity recognition with conditional random fields, fea-
+ture induction and web-enhanced lexicons. In Pro-
+ceedings of CoNLL-2003.
+A. Nenkova and A. Bagga. 2003. Facilitating email
+thread access by extractive summary generation. In
+Proceedings of RANLP.
+J. Pearl. 1988. Probabilistic reasoning in intelligent sys-
+tems: networks of plausible inference. Morgan Kauf-
+mann Publishers Inc., San Francisco, CA, USA.
+J. Quinlan. 1993. C4.5: programs for machine learn-
+ing. Morgan Kaufmann Publishers Inc., San Fran-
+cisco, CA, USA.
+O. Rambow, L. Shrestha, J. Chen, and C. Lauridsen.
+2004. Summarizing email threads. In Proceedings of
+HLT-NAACL.
+F. Sha and F. Pereira. 2003. Shallow parsing with condi-
+tional random fields. In HLT-NAACL.
+L. Shrestha and K. McKeown. 2004. Detection of
+question-answer pairs in email conversations. In Pro-
+ceedings of COLING.
+R. Soricut and E. Brill. 2006. Automatic question an-
+swering using the web: Beyond the Factoid. Informa-
+tion Retrieval, 9(2):191206.
+C. Sutton and A. McCallum. 2006. An introduction to
+conditional random fields for relational learning. In
+Lise Getoor and Ben Taskar, editors, Introduction to
+Statistical Relational Learning. MIT Press. To appear.
+S. Wan and K. McKeown. 2004. Generating overview
+summaries of ongoing email thread discussions. In
+Proceedings of COLING.
+Z. Wu and M. S. Palmer. 1994. Verb semantics and lexi-
+cal selection. In Proceedings of ACL.
+F. Yang, J. Feng, and G. Fabbrizio. 2006. A data
+driven approach to relevancy recognition for contex-
+tual question answering. In Proceedings of the Inter-
+active Question Answering Workshop at HLT-NAACL
+2006.
+L. Zhou and E. Hovy. 2005. Digesting virtual geek
+culture: The summarization of technical internet relay
+chats. In Proceedings of ACL.
+J. Zhu, Z. Nie, J. Wen, B. Zhang, and W. Ma. 2005. 2d
+conditional random fields for web information extrac-
+tion. In Proceedings of ICML.
+</reference>
+<page confidence="0.975753">
+718
+</page>
+<figure confidence="0.250709">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.135319">
+<note confidence="0.986406333333333">b&apos;Proceedings of ACL-08: HLT, pages 710718, Columbus, Ohio, USA, June 2008. c 2008 Association for Computational Linguistics</note>
+<title confidence="0.82219">Using Conditional Random Fields to Extract Contexts and Answers of Questions from Online Forums Shilin Ding</title>
+<author confidence="0.962355">Gao Cong Chin-Yew Lin Xiaoyan Zhu</author>
+<affiliation confidence="0.971293666666667">Department of Computer Science and Technology, Tsinghua University, Beijing, China Department of Computer Science, Aalborg University, Denmark Microsoft Research Asia, Beijing, China</affiliation>
+<email confidence="0.531293">dingsl@gmail.comgaocong@cs.aau.dkcyl@microsoft.comzxy-dcs@tsinghua.edu.cn</email>
+<abstract confidence="0.999784066666667">Online forum discussions often contain vast amounts of questions that are the focuses of discussions. Extracting contexts and answers together with the questions will yield not only a coherent forum summary but also a valuable QA knowledge base. In this paper, we propose a general framework based on Conditional Random Fields (CRFs) to detect the contexts and answers of questions from forum threads. We improve the basic framework by Skip-chain CRFs and 2D CRFs to better accommodate the features of forums for better performance. Experimental results show that our techniques are very promising.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>\x0cReferences A Berger</author>
+<author>R Caruana</author>
+<author>D Cohn</author>
+<author>D Freitag</author>
+<author>V Mittal</author>
+</authors>
+<title>Bridging the lexical chasm: statistical approaches to answer-finding.</title>
+<date>2000</date>
+<booktitle>In Proceedings of SIGIR.</booktitle>
+<contexts>
+<context position="10450" citStr="Berger et al., 2000" startWordPosition="1669" endWordPosition="1672">map paper commissioned by ARDA (Burger et al., 2006). To our knowledge, none of the previous work addresses the problem of context detection. The method of finding follow-up questions (Yang et al., 2006) from TREC context track could be adapted for context detection. However, the followup relationship is limited between questions while context is not. In our other work (Cong et al., 2008), we proposed a supervised approach for question detection and an unsupervised approach for answer detection without considering context detection. Extensive research has been done in questionanswering, e.g. (Berger et al., 2000; Jeon et al., 2005; Cui et al., 2005; Harabagiu and Hickl, 2006; Dang et al., 2007). They mainly focus on constructing answer for certain types of question from a large document collection, and usually apply sophisticated linguistic analysis to both questions and the documents in the collection. Soricut and Brill (2006) used statistical translation model to find the appropriate answers from their QA pair collections from FAQ pages for the posted question. In our scenario, we not only need to find answers for various types of questions in forum threads but also their contexts. 3 Context and An</context>
+<context position="22470" citStr="Berger et al., 2000" startWordPosition="3702" endWordPosition="3705">milarity and semantic similarity between candidate contexts and answers. The word similarity is based on cosine similarity of TF/IDF weighted vectors. The semantic similarity between words is computed based on Wu and Palmers measure (Wu and Palmer, 1994) using WordNet (Fellbaum, 1998).1 The similarity between contiguous sentences will be used to capture the dependency for CRFs. In addition, to bridge the lexical gaps between question and context, we learned top-3 context terms for each question term from 300,000 question-description pairs obtained from Yahoo! Answers using mutual information (Berger et al., 2000) ( question description in Yahoo! Answers is comparable to contexts in fo1 The semantic similarity between sentences is calculated as in (Yang et al., 2006). Similarity features: Cosine similarity with the question Similarity with the question using WordNet Cosine similarity between contiguous sentences Similarity between contiguous sentences using WordNet Cosine similarity with the expanded question using the lexical matching words Structural features: The relative position to current question Is its author the same with that of the question? Is it in the same paragraph with its previous sent</context>
+</contexts>
+<marker>Berger, Caruana, Cohn, Freitag, Mittal, 2000</marker>
+<rawString>\x0cReferences A. Berger, R. Caruana, D. Cohn, D. Freitag, and V. Mittal. 2000. Bridging the lexical chasm: statistical approaches to answer-finding. In Proceedings of SIGIR.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Burger</author>
+<author>C Cardie</author>
+<author>V Chaudhri</author>
+<author>R Gaizauskas</author>
+<author>S Harabagiu</author>
+<author>D Israel</author>
+<author>C Jacquemin</author>
+<author>C Lin</author>
+<author>S Maiorano</author>
+<author>G Miller</author>
+<author>D Moldovan</author>
+<author>B Ogden</author>
+<author>J Prager</author>
+<author>E Riloff</author>
+<author>A Singhal</author>
+<author>R Shrihari</author>
+<author>T Strzalkowski16</author>
+<author>E Voorhees</author>
+<author>R Weishedel</author>
+</authors>
+<title>Issues, tasks and program structures to roadmap research in question and answering (qna). ARAD: Advanced Research and Development Activity (US).</title>
+<date>2006</date>
+<marker>Burger, Cardie, Chaudhri, Gaizauskas, Harabagiu, Israel, Jacquemin, Lin, Maiorano, Miller, Moldovan, Ogden, Prager, Riloff, Singhal, Shrihari, Strzalkowski16, Voorhees, Weishedel, 2006</marker>
+<rawString>J. Burger, C. Cardie, V. Chaudhri, R. Gaizauskas, S. Harabagiu, D. Israel, C. Jacquemin, C. Lin, S. Maiorano, G. Miller, D. Moldovan, B. Ogden, J. Prager, E. Riloff, A. Singhal, R. Shrihari, T. Strzalkowski16, E. Voorhees, and R. Weishedel. 2006. Issues, tasks and program structures to roadmap research in question and answering (qna). ARAD: Advanced Research and Development Activity (US).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>G Carenini</author>
+<author>R Ng</author>
+<author>X Zhou</author>
+</authors>
+<title>Summarizing email conversations with clue words.</title>
+<date>2007</date>
+<booktitle>In Proceedings of WWW.</booktitle>
+<contexts>
+<context position="8801" citStr="Carenini et al (2007)" startWordPosition="1411" endWordPosition="1414"> Section 3 presents the proposed techniques. We evaluate our techniques in Section 4. Section 5 concludes this paper and discusses future work. 711 \x0c2 Related Work There is some research on summarizing discussion threads and emails. Zhou and Hovy (2005) segmented internet relay chat, clustered segments into subtopics, and identified responding segments of the first segment in each sub-topic by assuming the first segment to be focus. In (Nenkova and Bagga, 2003; Wan and McKeown, 2004; Rambow et al., 2004), email summaries were organized by extracting overview sentences as discussion issues. Carenini et al (2007) leveraged both quotation relation and clue words for email summarization. In contrast, given a forum thread, we extract questions, their contexts, and their answers as summaries. Shrestha and McKeown (2004)s work on email summarization is closer to our work. They used RIPPER as a classifier to detect interrogative questions and their answers and used the resulting question and answer pairs as summaries. However, it did not consider contexts of questions and dependency between answer sentences. We also note the existing work on extracting knowledge from discussion threads. Huang et al.(2007) u</context>
+</contexts>
+<marker>Carenini, Ng, Zhou, 2007</marker>
+<rawString>G. Carenini, R. Ng, and X. Zhou. 2007. Summarizing email conversations with clue words. In Proceedings of WWW.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>G Cong</author>
+<author>L Wang</author>
+<author>C Y Lin</author>
+<author>Y I Song</author>
+<author>Y Sun</author>
+</authors>
+<title>Finding question-answer pairs from online forums.</title>
+<date>2008</date>
+<booktitle>In Proceedings of SIGIR.</booktitle>
+<contexts>
+<context position="5349" citStr="Cong et al., 2008" startWordPosition="855" endWordPosition="858">rs travel category as of January 2008. We extracted about 3,000,000 travel related questions from six online travel forums. One would expect that a CQA service with large QA data will attract more users to the service. To enrich the knowledge base, not only the answers, but also the contexts are critical; otherwise the answer to a question such as How much is the taxi would be useless without context in the database. However, it is challenging to detecting contexts and answers for questions in forum threads. We assume the questions have been identified in a forum thread using the approach in (Cong et al., 2008). Although identifying questions in a forum thread is also nontrivial, it is beyond the focus of this paper. First, detecting contexts of a question is important and non-trivial. We found that 74% of questions in our corpus, which contain 1,064 questions from 579 forum threads about travel, need contexts. However, relative position information is far from adequate to solve the problem. For example, in our corpus 63% of sentences preceding questions are contexts and they only represent 34% of all correct contexts. To effectively detect contexts, the dependency between sentences is important. Fo</context>
+<context position="10222" citStr="Cong et al., 2008" startWordPosition="1635" endWordPosition="1638">ied the most important message in online classroom discussion board. Our problem is quite different from the above work. Detecting context for question in forums is related to the context detection problem raised in the QA roadmap paper commissioned by ARDA (Burger et al., 2006). To our knowledge, none of the previous work addresses the problem of context detection. The method of finding follow-up questions (Yang et al., 2006) from TREC context track could be adapted for context detection. However, the followup relationship is limited between questions while context is not. In our other work (Cong et al., 2008), we proposed a supervised approach for question detection and an unsupervised approach for answer detection without considering context detection. Extensive research has been done in questionanswering, e.g. (Berger et al., 2000; Jeon et al., 2005; Cui et al., 2005; Harabagiu and Hickl, 2006; Dang et al., 2007). They mainly focus on constructing answer for certain types of question from a large document collection, and usually apply sophisticated linguistic analysis to both questions and the documents in the collection. Soricut and Brill (2006) used statistical translation model to find the ap</context>
+</contexts>
+<marker>Cong, Wang, Lin, Song, Sun, 2008</marker>
+<rawString>G. Cong, L. Wang, C.Y. Lin, Y.I. Song, and Y. Sun. 2008. Finding question-answer pairs from online forums. In Proceedings of SIGIR.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H Cui</author>
+<author>R Sun</author>
+<author>K Li</author>
+<author>M Kan</author>
+<author>T Chua</author>
+</authors>
+<title>Question answering passage retrieval using dependency relations.</title>
+<date>2005</date>
+<booktitle>In Proceedings of SIGIR.</booktitle>
+<contexts>
+<context position="10487" citStr="Cui et al., 2005" startWordPosition="1677" endWordPosition="1680">t al., 2006). To our knowledge, none of the previous work addresses the problem of context detection. The method of finding follow-up questions (Yang et al., 2006) from TREC context track could be adapted for context detection. However, the followup relationship is limited between questions while context is not. In our other work (Cong et al., 2008), we proposed a supervised approach for question detection and an unsupervised approach for answer detection without considering context detection. Extensive research has been done in questionanswering, e.g. (Berger et al., 2000; Jeon et al., 2005; Cui et al., 2005; Harabagiu and Hickl, 2006; Dang et al., 2007). They mainly focus on constructing answer for certain types of question from a large document collection, and usually apply sophisticated linguistic analysis to both questions and the documents in the collection. Soricut and Brill (2006) used statistical translation model to find the appropriate answers from their QA pair collections from FAQ pages for the posted question. In our scenario, we not only need to find answers for various types of questions in forum threads but also their contexts. 3 Context and Answer Detection A question is a lingui</context>
+</contexts>
+<marker>Cui, Sun, Li, Kan, Chua, 2005</marker>
+<rawString>H. Cui, R. Sun, K. Li, M. Kan, and T. Chua. 2005. Question answering passage retrieval using dependency relations. In Proceedings of SIGIR.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H Cunningham</author>
+<author>D Maynard</author>
+<author>K Bontcheva</author>
+<author>V Tablan</author>
+</authors>
+<title>Gate: A framework and graphical development environment for robust nlp tools and applications.</title>
+<date>2002</date>
+<booktitle>In Proceedings of ACL.</booktitle>
+<contexts>
+<context position="23964" citStr="Cunningham et al., 2002" startWordPosition="3940" endWordPosition="3943">or not? Table 3: Features for Linear CRFs. Unless otherwise mentioned, we refer to features of the sentence whose label to be predicted rums), and then use them to expand question and compute cosine similarity. The structural features of forums provide strong clues for contexts. For example, contexts of a question usually occur in the post containing the question or preceding posts. We extracted the discourse features from a question, such as the number of pronouns in the question. A more useful feature would be to find the entity in surrounding sentences referred by a pronoun. We tried GATE (Cunningham et al., 2002) for anaphora resolution of the pronouns in questions, but the performance became worse with the feature, which is probably due to the difficulty of anaphora resolution in forum discourse. We also observed that questions often need context if the question do not contain a noun or a verb. In addition, we use similarity features between skip-chain sentences for Skip-chain CRFs and similarity features between questions for 2D CRFs. 4 Experiments 4.1 Experimental setup Corpus. We obtained about 1 million threads from TripAdvisor forum; we randomly selected 591 threads and removed 22 threads which </context>
+</contexts>
+<marker>Cunningham, Maynard, Bontcheva, Tablan, 2002</marker>
+<rawString>H. Cunningham, D. Maynard, K. Bontcheva, and V. Tablan. 2002. Gate: A framework and graphical development environment for robust nlp tools and applications. In Proceedings of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H Dang</author>
+<author>J Lin</author>
+<author>D Kelly</author>
+</authors>
+<title>Overview of the trec</title>
+<date>2007</date>
+<booktitle>In Proceedings of TREC.</booktitle>
+<contexts>
+<context position="10534" citStr="Dang et al., 2007" startWordPosition="1685" endWordPosition="1688">revious work addresses the problem of context detection. The method of finding follow-up questions (Yang et al., 2006) from TREC context track could be adapted for context detection. However, the followup relationship is limited between questions while context is not. In our other work (Cong et al., 2008), we proposed a supervised approach for question detection and an unsupervised approach for answer detection without considering context detection. Extensive research has been done in questionanswering, e.g. (Berger et al., 2000; Jeon et al., 2005; Cui et al., 2005; Harabagiu and Hickl, 2006; Dang et al., 2007). They mainly focus on constructing answer for certain types of question from a large document collection, and usually apply sophisticated linguistic analysis to both questions and the documents in the collection. Soricut and Brill (2006) used statistical translation model to find the appropriate answers from their QA pair collections from FAQ pages for the posted question. In our scenario, we not only need to find answers for various types of questions in forum threads but also their contexts. 3 Context and Answer Detection A question is a linguistic expression used by a questioner to request</context>
+</contexts>
+<marker>Dang, Lin, Kelly, 2007</marker>
+<rawString>H. Dang, J. Lin, and D. Kelly. 2007. Overview of the trec 2007 question answering track. In Proceedings of TREC.</rawString>
+</citation>
+<citation valid="true">
+<title>WordNet: An Electronic Lexical Database (Language, Speech, and Communication).</title>
+<date>1998</date>
+<editor>C. Fellbaum, editor.</editor>
+<publisher>The MIT Press,</publisher>
+<marker>1998</marker>
+<rawString>C. Fellbaum, editor. 1998. WordNet: An Electronic Lexical Database (Language, Speech, and Communication). The MIT Press, May.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Feng</author>
+<author>E Shaw</author>
+<author>J Kim</author>
+<author>E Hovy</author>
+</authors>
+<title>An intelligent discussion-bot for answering student queries in threaded discussions.</title>
+<date>2006</date>
+<booktitle>In Proceedings of IUI.</booktitle>
+<contexts>
+<context position="9490" citStr="Feng et al. (2006" startWordPosition="1519" endWordPosition="1522">n. In contrast, given a forum thread, we extract questions, their contexts, and their answers as summaries. Shrestha and McKeown (2004)s work on email summarization is closer to our work. They used RIPPER as a classifier to detect interrogative questions and their answers and used the resulting question and answer pairs as summaries. However, it did not consider contexts of questions and dependency between answer sentences. We also note the existing work on extracting knowledge from discussion threads. Huang et al.(2007) used SVM to extract input-reply pairs from forums for chatbot knowledge. Feng et al. (2006a) used cosine similarity to match students query with reply posts for discussion-bot. Feng et al. (2006b) identified the most important message in online classroom discussion board. Our problem is quite different from the above work. Detecting context for question in forums is related to the context detection problem raised in the QA roadmap paper commissioned by ARDA (Burger et al., 2006). To our knowledge, none of the previous work addresses the problem of context detection. The method of finding follow-up questions (Yang et al., 2006) from TREC context track could be adapted for context de</context>
+</contexts>
+<marker>Feng, Shaw, Kim, Hovy, 2006</marker>
+<rawString>D. Feng, E. Shaw, J. Kim, and E. Hovy. 2006a. An intelligent discussion-bot for answering student queries in threaded discussions. In Proceedings of IUI.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Feng</author>
+<author>E Shaw</author>
+<author>J Kim</author>
+<author>E Hovy</author>
+</authors>
+<title>Learning to detect conversation focus of threaded discussions.</title>
+<date>2006</date>
+<booktitle>In Proceedings of HLT-NAACL.</booktitle>
+<contexts>
+<context position="9490" citStr="Feng et al. (2006" startWordPosition="1519" endWordPosition="1522">n. In contrast, given a forum thread, we extract questions, their contexts, and their answers as summaries. Shrestha and McKeown (2004)s work on email summarization is closer to our work. They used RIPPER as a classifier to detect interrogative questions and their answers and used the resulting question and answer pairs as summaries. However, it did not consider contexts of questions and dependency between answer sentences. We also note the existing work on extracting knowledge from discussion threads. Huang et al.(2007) used SVM to extract input-reply pairs from forums for chatbot knowledge. Feng et al. (2006a) used cosine similarity to match students query with reply posts for discussion-bot. Feng et al. (2006b) identified the most important message in online classroom discussion board. Our problem is quite different from the above work. Detecting context for question in forums is related to the context detection problem raised in the QA roadmap paper commissioned by ARDA (Burger et al., 2006). To our knowledge, none of the previous work addresses the problem of context detection. The method of finding follow-up questions (Yang et al., 2006) from TREC context track could be adapted for context de</context>
+</contexts>
+<marker>Feng, Shaw, Kim, Hovy, 2006</marker>
+<rawString>D. Feng, E. Shaw, J. Kim, and E. Hovy. 2006b. Learning to detect conversation focus of threaded discussions. In Proceedings of HLT-NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Galley</author>
+</authors>
+<title>A skip-chain conditional random field for ranking meeting utterances by importance.</title>
+<date>2006</date>
+<booktitle>In Proceedings of EMNLP.</booktitle>
+<contexts>
+<context position="16516" citStr="Galley, 2006" startWordPosition="2686" endWordPosition="2687">o detect contexts and answers in two phases, i.e. to first identify contexts, and then label answers using both the context and question information (e.g. the similarity between context and answer can be used as features in CRFs). The two-phase procedure, however, still cannot capture the non-local dependency between contexts and answers in a thread. To model the long distance dependency between contexts and answers, we will use Skip-chain CRF model to detect context and answer together. Skipchain CRF model is applied for entity extraction and meeting summarization (Sutton and McCallum, 2006; Galley, 2006). The graphical representation of a Skip-chain CRF given in Figure2(b) consists of two types of edges: linear-chain (yt1 to yt) and skip-chain edges (yi to yj). Ideally, the skip-chain edges will establish the connection between candidate pairs with high probability of being context and answer of a question. To introduce skip-chain edges between any pairs of non-contiguous sentences will be computationally expensive, and also introduce noise. To make the cardinality and number of cliques in the graph manageable and also eliminate noisy edges, we would like to generate edges only for sentence p</context>
+</contexts>
+<marker>Galley, 2006</marker>
+<rawString>M. Galley. 2006. A skip-chain conditional random field for ranking meeting utterances by importance. In Proceedings of EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Harabagiu</author>
+<author>A Hickl</author>
+</authors>
+<title>Methods for using textual entailment in open-domain question answering.</title>
+<date>2006</date>
+<booktitle>In Proceedings of ACL.</booktitle>
+<contexts>
+<context position="10514" citStr="Harabagiu and Hickl, 2006" startWordPosition="1681" endWordPosition="1684">ur knowledge, none of the previous work addresses the problem of context detection. The method of finding follow-up questions (Yang et al., 2006) from TREC context track could be adapted for context detection. However, the followup relationship is limited between questions while context is not. In our other work (Cong et al., 2008), we proposed a supervised approach for question detection and an unsupervised approach for answer detection without considering context detection. Extensive research has been done in questionanswering, e.g. (Berger et al., 2000; Jeon et al., 2005; Cui et al., 2005; Harabagiu and Hickl, 2006; Dang et al., 2007). They mainly focus on constructing answer for certain types of question from a large document collection, and usually apply sophisticated linguistic analysis to both questions and the documents in the collection. Soricut and Brill (2006) used statistical translation model to find the appropriate answers from their QA pair collections from FAQ pages for the posted question. In our scenario, we not only need to find answers for various types of questions in forum threads but also their contexts. 3 Context and Answer Detection A question is a linguistic expression used by a q</context>
+</contexts>
+<marker>Harabagiu, Hickl, 2006</marker>
+<rawString>S. Harabagiu and A. Hickl. 2006. Methods for using textual entailment in open-domain question answering. In Proceedings of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Huang</author>
+<author>M Zhou</author>
+<author>D Yang</author>
+</authors>
+<title>Extracting chatbot knowledge from online discussion forums.</title>
+<date>2007</date>
+<booktitle>In Proceedings of IJCAI.</booktitle>
+<marker>Huang, Zhou, Yang, 2007</marker>
+<rawString>J. Huang, M. Zhou, and D. Yang. 2007. Extracting chatbot knowledge from online discussion forums. In Proceedings of IJCAI.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Jeon</author>
+<author>W Croft</author>
+<author>J Lee</author>
+</authors>
+<title>Finding similar questions in large question and answer archives.</title>
+<date>2005</date>
+<booktitle>In Proceedings of CIKM.</booktitle>
+<contexts>
+<context position="10469" citStr="Jeon et al., 2005" startWordPosition="1673" endWordPosition="1676">d by ARDA (Burger et al., 2006). To our knowledge, none of the previous work addresses the problem of context detection. The method of finding follow-up questions (Yang et al., 2006) from TREC context track could be adapted for context detection. However, the followup relationship is limited between questions while context is not. In our other work (Cong et al., 2008), we proposed a supervised approach for question detection and an unsupervised approach for answer detection without considering context detection. Extensive research has been done in questionanswering, e.g. (Berger et al., 2000; Jeon et al., 2005; Cui et al., 2005; Harabagiu and Hickl, 2006; Dang et al., 2007). They mainly focus on constructing answer for certain types of question from a large document collection, and usually apply sophisticated linguistic analysis to both questions and the documents in the collection. Soricut and Brill (2006) used statistical translation model to find the appropriate answers from their QA pair collections from FAQ pages for the posted question. In our scenario, we not only need to find answers for various types of questions in forum threads but also their contexts. 3 Context and Answer Detection A qu</context>
+</contexts>
+<marker>Jeon, Croft, Lee, 2005</marker>
+<rawString>J. Jeon, W. Croft, and J. Lee. 2005. Finding similar questions in large question and answer archives. In Proceedings of CIKM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Joachims</author>
+</authors>
+<title>Making large-scale support vector machine learning practical.</title>
+<date>1999</date>
+<publisher>MIT Press,</publisher>
+<location>Cambridge, MA, USA.</location>
+<contexts>
+<context position="26109" citStr="Joachims, 1999" startWordPosition="4287" endWordPosition="4288">l results on both data are qualitatively comparable. We only report results on union data due to space limitation. The union data contains 1,064 questions, 1,458 contexts and 3,534 answers. Metrics. We calculated precision, recall, and F1-score for all tasks. All the experimental results are obtained through the average of 5 trials of 5-fold cross validation. 4.2 Experimental results Linear CRFs for Context and Answer Detection. This experiment is to evaluate Linear CRF model (Section 3.1) for context and answer detection by comparing with SVM and C4.5(Quinlan, 1993). For SVM, we use SVMlight(Joachims, 1999). We tried linear, polynomial and RBF kernels and report the results on polynomial kernel using default parameters since it performs the best in the experiment. SVM and C4.5 use the same set of features as Linear CRFs. As shown in Table 4, Linear CRF model outperforms SVM and C4.5 for both context and answer detection. The main reason for the improvement is that CRF models can capture the sequential dependency between segments in forums as discussed in Section 3.1. given in http://homepages.inf.ed.ac.uk/gcong/acl08/; Removing the 22 long threads can greatly reduce the training and test time. p</context>
+</contexts>
+<marker>Joachims, 1999</marker>
+<rawString>T. Joachims. 1999. Making large-scale support vector machine learning practical. MIT Press, Cambridge, MA, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Lafferty</author>
+<author>A McCallum</author>
+<author>F Pereira</author>
+</authors>
+<title>Conditional random fields: Probabilistic models for segmenting and labeling sequence data.</title>
+<date>2001</date>
+<booktitle>In Proceedings of ICML.</booktitle>
+<contexts>
+<context position="13458" citStr="Lafferty et al., 2001" startWordPosition="2179" endWordPosition="2182">1,081 yt1 6= C 1,081 47,190 Table 1: Contingency table(2 = 9,386,p-value&lt;0.001) tionships between contiguous sentences in a thread. Therefore, a desirable model should be able to capture the dependency. The context detection can be modeled as a classification problem. Traditional classification tools, e.g. SVM, can be employed, where each pair of question and candidate context will be treated as an instance. However, they cannot capture the dependency relationship between sentences. To this end, we proposed a general framework to detect contexts and answers based on Conditional Random Fields (Lafferty et al., 2001) (CRFs) which are able to model the sequential dependencies between contiguous nodes. A CRF is an undirected graphical model G of the conditional distribution P(Y|X). Y are the random variables over the labels of the nodes that are globally conditioned on X, which are the random variables of the observations. (See Section 3.4 for more about CRFs) Linear CRF model has been successfully applied in NLP and text mining tasks (McCallum and Li, 2003; Sha and Pereira, 2003). However, our problem cannot be modeled with Linear CRFs in the same way as other NLP tasks, where one node has a unique label. </context>
+</contexts>
+<marker>Lafferty, McCallum, Pereira, 2001</marker>
+<rawString>J. Lafferty, A. McCallum, and F. Pereira. 2001. Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In Proceedings of ICML.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A McCallum</author>
+<author>W Li</author>
+</authors>
+<title>Early results for named entity recognition with conditional random fields, feature induction and web-enhanced lexicons.</title>
+<date>2003</date>
+<booktitle>In Proceedings of CoNLL-2003.</booktitle>
+<contexts>
+<context position="13905" citStr="McCallum and Li, 2003" startWordPosition="2255" endWordPosition="2258">endency relationship between sentences. To this end, we proposed a general framework to detect contexts and answers based on Conditional Random Fields (Lafferty et al., 2001) (CRFs) which are able to model the sequential dependencies between contiguous nodes. A CRF is an undirected graphical model G of the conditional distribution P(Y|X). Y are the random variables over the labels of the nodes that are globally conditioned on X, which are the random variables of the observations. (See Section 3.4 for more about CRFs) Linear CRF model has been successfully applied in NLP and text mining tasks (McCallum and Li, 2003; Sha and Pereira, 2003). However, our problem cannot be modeled with Linear CRFs in the same way as other NLP tasks, where one node has a unique label. In our problem, each node (sentence) might have multiple labels since one sentence could be the context of multiple questions in a thread. Thus, it is difficult to find a solution to tag context sentences for all questions in a thread in single pass. Here we assume that questions in a given thread are independent and are found, and then we can label a thread with m questions one-by-one in mpasses. In each pass, one question Qi is selected as f</context>
+</contexts>
+<marker>McCallum, Li, 2003</marker>
+<rawString>A. McCallum and W. Li. 2003. Early results for named entity recognition with conditional random fields, feature induction and web-enhanced lexicons. In Proceedings of CoNLL-2003.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Nenkova</author>
+<author>A Bagga</author>
+</authors>
+<title>Facilitating email thread access by extractive summary generation.</title>
+<date>2003</date>
+<booktitle>In Proceedings of RANLP.</booktitle>
+<contexts>
+<context position="8647" citStr="Nenkova and Bagga, 2003" startWordPosition="1388" endWordPosition="1391">d Skipchain CRFs achieves better performance for context detection. The rest of this paper is organized as follows: The next section discusses related work. Section 3 presents the proposed techniques. We evaluate our techniques in Section 4. Section 5 concludes this paper and discusses future work. 711 \x0c2 Related Work There is some research on summarizing discussion threads and emails. Zhou and Hovy (2005) segmented internet relay chat, clustered segments into subtopics, and identified responding segments of the first segment in each sub-topic by assuming the first segment to be focus. In (Nenkova and Bagga, 2003; Wan and McKeown, 2004; Rambow et al., 2004), email summaries were organized by extracting overview sentences as discussion issues. Carenini et al (2007) leveraged both quotation relation and clue words for email summarization. In contrast, given a forum thread, we extract questions, their contexts, and their answers as summaries. Shrestha and McKeown (2004)s work on email summarization is closer to our work. They used RIPPER as a classifier to detect interrogative questions and their answers and used the resulting question and answer pairs as summaries. However, it did not consider contexts </context>
+</contexts>
+<marker>Nenkova, Bagga, 2003</marker>
+<rawString>A. Nenkova and A. Bagga. 2003. Facilitating email thread access by extractive summary generation. In Proceedings of RANLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Pearl</author>
+</authors>
+<title>Probabilistic reasoning in intelligent systems: networks of plausible inference.</title>
+<date>1988</date>
+<publisher>Morgan Kaufmann Publishers Inc.,</publisher>
+<location>San Francisco, CA, USA.</location>
+<contexts>
+<context position="21252" citStr="Pearl, 1988" startWordPosition="3512" endWordPosition="3513"> assumption that the contiguous nodes are dependent. The pairwise edges in Skip-chain CRFs represent the long distance dependency between the skipped nodes, while the ones in 2D CRFs represent the dependency between the neighboring nodes. Inference and Parameter Estimation. For Linear CRFs, dynamic programming is used to compute the maximum a posteriori (MAP) of y given x. However, for more complicated graphs with cycles, exact inference needs the junction tree representation of the original graph and the algorithm is exponential to the treewidth. For fast inference, loopy Belief Propagation (Pearl, 1988) is implemented. Given the training Data D = {x(i), y(i)}n i=1, the parameter estimation is to determine the parameters based on maximizing the log-likelihood L = Pn i=1 log p(y(i)|x(i)). In Linear CRF model, dynamic programming and L-BFGS (limited memory Broyden-Fletcher-Goldfarb-Shanno) can be used to optimize objective function L, while for complicated CRFs, Loopy BP are used instead to calculate the marginal probability. 3.5 Features used in CRF models The main features used in Linear CRF models for context detection are listed in Table 3. The similarity feature is to capture the word simi</context>
+</contexts>
+<marker>Pearl, 1988</marker>
+<rawString>J. Pearl. 1988. Probabilistic reasoning in intelligent systems: networks of plausible inference. Morgan Kaufmann Publishers Inc., San Francisco, CA, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Quinlan</author>
+</authors>
+<title>C4.5: programs for machine learning.</title>
+<date>1993</date>
+<publisher>Morgan Kaufmann Publishers Inc.,</publisher>
+<location>San Francisco, CA, USA.</location>
+<contexts>
+<context position="26067" citStr="Quinlan, 1993" startWordPosition="4281" endWordPosition="4282">f the two annotated data. The experimental results on both data are qualitatively comparable. We only report results on union data due to space limitation. The union data contains 1,064 questions, 1,458 contexts and 3,534 answers. Metrics. We calculated precision, recall, and F1-score for all tasks. All the experimental results are obtained through the average of 5 trials of 5-fold cross validation. 4.2 Experimental results Linear CRFs for Context and Answer Detection. This experiment is to evaluate Linear CRF model (Section 3.1) for context and answer detection by comparing with SVM and C4.5(Quinlan, 1993). For SVM, we use SVMlight(Joachims, 1999). We tried linear, polynomial and RBF kernels and report the results on polynomial kernel using default parameters since it performs the best in the experiment. SVM and C4.5 use the same set of features as Linear CRFs. As shown in Table 4, Linear CRF model outperforms SVM and C4.5 for both context and answer detection. The main reason for the improvement is that CRF models can capture the sequential dependency between segments in forums as discussed in Section 3.1. given in http://homepages.inf.ed.ac.uk/gcong/acl08/; Removing the 22 long threads can gr</context>
+</contexts>
+<marker>Quinlan, 1993</marker>
+<rawString>J. Quinlan. 1993. C4.5: programs for machine learning. Morgan Kaufmann Publishers Inc., San Francisco, CA, USA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>O Rambow</author>
+<author>L Shrestha</author>
+<author>J Chen</author>
+<author>C Lauridsen</author>
+</authors>
+<title>Summarizing email threads.</title>
+<date>2004</date>
+<booktitle>In Proceedings of HLT-NAACL.</booktitle>
+<contexts>
+<context position="8692" citStr="Rambow et al., 2004" startWordPosition="1396" endWordPosition="1399"> context detection. The rest of this paper is organized as follows: The next section discusses related work. Section 3 presents the proposed techniques. We evaluate our techniques in Section 4. Section 5 concludes this paper and discusses future work. 711 \x0c2 Related Work There is some research on summarizing discussion threads and emails. Zhou and Hovy (2005) segmented internet relay chat, clustered segments into subtopics, and identified responding segments of the first segment in each sub-topic by assuming the first segment to be focus. In (Nenkova and Bagga, 2003; Wan and McKeown, 2004; Rambow et al., 2004), email summaries were organized by extracting overview sentences as discussion issues. Carenini et al (2007) leveraged both quotation relation and clue words for email summarization. In contrast, given a forum thread, we extract questions, their contexts, and their answers as summaries. Shrestha and McKeown (2004)s work on email summarization is closer to our work. They used RIPPER as a classifier to detect interrogative questions and their answers and used the resulting question and answer pairs as summaries. However, it did not consider contexts of questions and dependency between answer se</context>
+</contexts>
+<marker>Rambow, Shrestha, Chen, Lauridsen, 2004</marker>
+<rawString>O. Rambow, L. Shrestha, J. Chen, and C. Lauridsen. 2004. Summarizing email threads. In Proceedings of HLT-NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Sha</author>
+<author>F Pereira</author>
+</authors>
+<title>Shallow parsing with conditional random fields.</title>
+<date>2003</date>
+<booktitle>In HLT-NAACL.</booktitle>
+<contexts>
+<context position="13929" citStr="Sha and Pereira, 2003" startWordPosition="2259" endWordPosition="2262">tween sentences. To this end, we proposed a general framework to detect contexts and answers based on Conditional Random Fields (Lafferty et al., 2001) (CRFs) which are able to model the sequential dependencies between contiguous nodes. A CRF is an undirected graphical model G of the conditional distribution P(Y|X). Y are the random variables over the labels of the nodes that are globally conditioned on X, which are the random variables of the observations. (See Section 3.4 for more about CRFs) Linear CRF model has been successfully applied in NLP and text mining tasks (McCallum and Li, 2003; Sha and Pereira, 2003). However, our problem cannot be modeled with Linear CRFs in the same way as other NLP tasks, where one node has a unique label. In our problem, each node (sentence) might have multiple labels since one sentence could be the context of multiple questions in a thread. Thus, it is difficult to find a solution to tag context sentences for all questions in a thread in single pass. Here we assume that questions in a given thread are independent and are found, and then we can label a thread with m questions one-by-one in mpasses. In each pass, one question Qi is selected as focus and each other sent</context>
+</contexts>
+<marker>Sha, Pereira, 2003</marker>
+<rawString>F. Sha and F. Pereira. 2003. Shallow parsing with conditional random fields. In HLT-NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Shrestha</author>
+<author>K McKeown</author>
+</authors>
+<title>Detection of question-answer pairs in email conversations.</title>
+<date>2004</date>
+<booktitle>In Proceedings of COLING.</booktitle>
+<contexts>
+<context position="9008" citStr="Shrestha and McKeown (2004)" startWordPosition="1442" endWordPosition="1445">ing discussion threads and emails. Zhou and Hovy (2005) segmented internet relay chat, clustered segments into subtopics, and identified responding segments of the first segment in each sub-topic by assuming the first segment to be focus. In (Nenkova and Bagga, 2003; Wan and McKeown, 2004; Rambow et al., 2004), email summaries were organized by extracting overview sentences as discussion issues. Carenini et al (2007) leveraged both quotation relation and clue words for email summarization. In contrast, given a forum thread, we extract questions, their contexts, and their answers as summaries. Shrestha and McKeown (2004)s work on email summarization is closer to our work. They used RIPPER as a classifier to detect interrogative questions and their answers and used the resulting question and answer pairs as summaries. However, it did not consider contexts of questions and dependency between answer sentences. We also note the existing work on extracting knowledge from discussion threads. Huang et al.(2007) used SVM to extract input-reply pairs from forums for chatbot knowledge. Feng et al. (2006a) used cosine similarity to match students query with reply posts for discussion-bot. Feng et al. (2006b) identified </context>
+</contexts>
+<marker>Shrestha, McKeown, 2004</marker>
+<rawString>L. Shrestha and K. McKeown. 2004. Detection of question-answer pairs in email conversations. In Proceedings of COLING.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Soricut</author>
+<author>E Brill</author>
+</authors>
+<title>Automatic question answering using the web: Beyond the Factoid. Information Retrieval,</title>
+<date>2006</date>
+<contexts>
+<context position="10772" citStr="Soricut and Brill (2006)" startWordPosition="1722" endWordPosition="1725">ween questions while context is not. In our other work (Cong et al., 2008), we proposed a supervised approach for question detection and an unsupervised approach for answer detection without considering context detection. Extensive research has been done in questionanswering, e.g. (Berger et al., 2000; Jeon et al., 2005; Cui et al., 2005; Harabagiu and Hickl, 2006; Dang et al., 2007). They mainly focus on constructing answer for certain types of question from a large document collection, and usually apply sophisticated linguistic analysis to both questions and the documents in the collection. Soricut and Brill (2006) used statistical translation model to find the appropriate answers from their QA pair collections from FAQ pages for the posted question. In our scenario, we not only need to find answers for various types of questions in forum threads but also their contexts. 3 Context and Answer Detection A question is a linguistic expression used by a questioner to request information in the form of an answer. The sentence containing request focus is called question. Context are the sentences containing constraints or background information to the question, while answer are that provide solutions. In this </context>
+</contexts>
+<marker>Soricut, Brill, 2006</marker>
+<rawString>R. Soricut and E. Brill. 2006. Automatic question answering using the web: Beyond the Factoid. Information Retrieval, 9(2):191206.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C Sutton</author>
+<author>A McCallum</author>
+</authors>
+<title>An introduction to conditional random fields for relational learning.</title>
+<date>2006</date>
+<booktitle>In Lise Getoor and Ben Taskar, editors, Introduction to Statistical Relational Learning.</booktitle>
+<publisher>MIT Press.</publisher>
+<note>To appear.</note>
+<contexts>
+<context position="16501" citStr="Sutton and McCallum, 2006" startWordPosition="2682" endWordPosition="2685"> of leveraging context is to detect contexts and answers in two phases, i.e. to first identify contexts, and then label answers using both the context and question information (e.g. the similarity between context and answer can be used as features in CRFs). The two-phase procedure, however, still cannot capture the non-local dependency between contexts and answers in a thread. To model the long distance dependency between contexts and answers, we will use Skip-chain CRF model to detect context and answer together. Skipchain CRF model is applied for entity extraction and meeting summarization (Sutton and McCallum, 2006; Galley, 2006). The graphical representation of a Skip-chain CRF given in Figure2(b) consists of two types of edges: linear-chain (yt1 to yt) and skip-chain edges (yi to yj). Ideally, the skip-chain edges will establish the connection between candidate pairs with high probability of being context and answer of a question. To introduce skip-chain edges between any pairs of non-contiguous sentences will be computationally expensive, and also introduce noise. To make the cardinality and number of cliques in the graph manageable and also eliminate noisy edges, we would like to generate edges only</context>
+</contexts>
+<marker>Sutton, McCallum, 2006</marker>
+<rawString>C. Sutton and A. McCallum. 2006. An introduction to conditional random fields for relational learning. In Lise Getoor and Ben Taskar, editors, Introduction to Statistical Relational Learning. MIT Press. To appear.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Wan</author>
+<author>K McKeown</author>
+</authors>
+<title>Generating overview summaries of ongoing email thread discussions.</title>
+<date>2004</date>
+<booktitle>In Proceedings of COLING.</booktitle>
+<contexts>
+<context position="8670" citStr="Wan and McKeown, 2004" startWordPosition="1392" endWordPosition="1395"> better performance for context detection. The rest of this paper is organized as follows: The next section discusses related work. Section 3 presents the proposed techniques. We evaluate our techniques in Section 4. Section 5 concludes this paper and discusses future work. 711 \x0c2 Related Work There is some research on summarizing discussion threads and emails. Zhou and Hovy (2005) segmented internet relay chat, clustered segments into subtopics, and identified responding segments of the first segment in each sub-topic by assuming the first segment to be focus. In (Nenkova and Bagga, 2003; Wan and McKeown, 2004; Rambow et al., 2004), email summaries were organized by extracting overview sentences as discussion issues. Carenini et al (2007) leveraged both quotation relation and clue words for email summarization. In contrast, given a forum thread, we extract questions, their contexts, and their answers as summaries. Shrestha and McKeown (2004)s work on email summarization is closer to our work. They used RIPPER as a classifier to detect interrogative questions and their answers and used the resulting question and answer pairs as summaries. However, it did not consider contexts of questions and depend</context>
+</contexts>
+<marker>Wan, McKeown, 2004</marker>
+<rawString>S. Wan and K. McKeown. 2004. Generating overview summaries of ongoing email thread discussions. In Proceedings of COLING.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Z Wu</author>
+<author>M S Palmer</author>
+</authors>
+<title>Verb semantics and lexical selection.</title>
+<date>1994</date>
+<booktitle>In Proceedings of ACL.</booktitle>
+<contexts>
+<context position="22104" citStr="Wu and Palmer, 1994" startWordPosition="3645" endWordPosition="3648"> L-BFGS (limited memory Broyden-Fletcher-Goldfarb-Shanno) can be used to optimize objective function L, while for complicated CRFs, Loopy BP are used instead to calculate the marginal probability. 3.5 Features used in CRF models The main features used in Linear CRF models for context detection are listed in Table 3. The similarity feature is to capture the word similarity and semantic similarity between candidate contexts and answers. The word similarity is based on cosine similarity of TF/IDF weighted vectors. The semantic similarity between words is computed based on Wu and Palmers measure (Wu and Palmer, 1994) using WordNet (Fellbaum, 1998).1 The similarity between contiguous sentences will be used to capture the dependency for CRFs. In addition, to bridge the lexical gaps between question and context, we learned top-3 context terms for each question term from 300,000 question-description pairs obtained from Yahoo! Answers using mutual information (Berger et al., 2000) ( question description in Yahoo! Answers is comparable to contexts in fo1 The semantic similarity between sentences is calculated as in (Yang et al., 2006). Similarity features: Cosine similarity with the question Similarity with the</context>
+</contexts>
+<marker>Wu, Palmer, 1994</marker>
+<rawString>Z. Wu and M. S. Palmer. 1994. Verb semantics and lexical selection. In Proceedings of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Yang</author>
+<author>J Feng</author>
+<author>G Fabbrizio</author>
+</authors>
+<title>A data driven approach to relevancy recognition for contextual question answering.</title>
+<date>2006</date>
+<booktitle>In Proceedings of the Interactive Question Answering Workshop at HLT-NAACL</booktitle>
+<contexts>
+<context position="10034" citStr="Yang et al., 2006" startWordPosition="1604" endWordPosition="1607">act input-reply pairs from forums for chatbot knowledge. Feng et al. (2006a) used cosine similarity to match students query with reply posts for discussion-bot. Feng et al. (2006b) identified the most important message in online classroom discussion board. Our problem is quite different from the above work. Detecting context for question in forums is related to the context detection problem raised in the QA roadmap paper commissioned by ARDA (Burger et al., 2006). To our knowledge, none of the previous work addresses the problem of context detection. The method of finding follow-up questions (Yang et al., 2006) from TREC context track could be adapted for context detection. However, the followup relationship is limited between questions while context is not. In our other work (Cong et al., 2008), we proposed a supervised approach for question detection and an unsupervised approach for answer detection without considering context detection. Extensive research has been done in questionanswering, e.g. (Berger et al., 2000; Jeon et al., 2005; Cui et al., 2005; Harabagiu and Hickl, 2006; Dang et al., 2007). They mainly focus on constructing answer for certain types of question from a large document colle</context>
+<context position="22626" citStr="Yang et al., 2006" startWordPosition="3728" endWordPosition="3731">antic similarity between words is computed based on Wu and Palmers measure (Wu and Palmer, 1994) using WordNet (Fellbaum, 1998).1 The similarity between contiguous sentences will be used to capture the dependency for CRFs. In addition, to bridge the lexical gaps between question and context, we learned top-3 context terms for each question term from 300,000 question-description pairs obtained from Yahoo! Answers using mutual information (Berger et al., 2000) ( question description in Yahoo! Answers is comparable to contexts in fo1 The semantic similarity between sentences is calculated as in (Yang et al., 2006). Similarity features: Cosine similarity with the question Similarity with the question using WordNet Cosine similarity between contiguous sentences Similarity between contiguous sentences using WordNet Cosine similarity with the expanded question using the lexical matching words Structural features: The relative position to current question Is its author the same with that of the question? Is it in the same paragraph with its previous sentence? Discourse and lexical features: The number of Pronouns in the question The presence of fillers, fluency devices (e.g. uh, ok) The presence of acknowle</context>
+</contexts>
+<marker>Yang, Feng, Fabbrizio, 2006</marker>
+<rawString>F. Yang, J. Feng, and G. Fabbrizio. 2006. A data driven approach to relevancy recognition for contextual question answering. In Proceedings of the Interactive Question Answering Workshop at HLT-NAACL 2006.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Zhou</author>
+<author>E Hovy</author>
+</authors>
+<title>Digesting virtual geek culture: The summarization of technical internet relay chats.</title>
+<date>2005</date>
+<booktitle>In Proceedings of ACL.</booktitle>
+<contexts>
+<context position="8436" citStr="Zhou and Hovy (2005)" startWordPosition="1355" endWordPosition="1358">2) Skip-chain CRFs outperform Linear CRFs for answer finding, which demonstrates that context improves answer finding; 3) 2D CRF model improves the performance of Linear CRFs and the combination of 2D CRFs and Skipchain CRFs achieves better performance for context detection. The rest of this paper is organized as follows: The next section discusses related work. Section 3 presents the proposed techniques. We evaluate our techniques in Section 4. Section 5 concludes this paper and discusses future work. 711 \x0c2 Related Work There is some research on summarizing discussion threads and emails. Zhou and Hovy (2005) segmented internet relay chat, clustered segments into subtopics, and identified responding segments of the first segment in each sub-topic by assuming the first segment to be focus. In (Nenkova and Bagga, 2003; Wan and McKeown, 2004; Rambow et al., 2004), email summaries were organized by extracting overview sentences as discussion issues. Carenini et al (2007) leveraged both quotation relation and clue words for email summarization. In contrast, given a forum thread, we extract questions, their contexts, and their answers as summaries. Shrestha and McKeown (2004)s work on email summarizatio</context>
+</contexts>
+<marker>Zhou, Hovy, 2005</marker>
+<rawString>L. Zhou and E. Hovy. 2005. Digesting virtual geek culture: The summarization of technical internet relay chats. In Proceedings of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Zhu</author>
+<author>Z Nie</author>
+<author>J Wen</author>
+<author>B Zhang</author>
+<author>W Ma</author>
+</authors>
+<title>2d conditional random fields for web information extraction.</title>
+<date>2005</date>
+<booktitle>In Proceedings of ICML.</booktitle>
+<contexts>
+<context position="19459" citStr="Zhu et al., 2005" startWordPosition="3201" endWordPosition="3204">etween Q3 and S10. To label S10, we need consider the dependency relation between Q2 and Q3. In other words, the question-answer relation between Q3 and S10 can be captured by a joint modeling of the dependency among S10, Q2 and Q3. The labels of the same sentence for two contiguous questions in a thread would be conditioned on the dependency relationship between the questions. Such a dependency cannot be captured by both Linear CRFs and Skip-chain CRFs. To capture the dependency between the contiguous questions, we employ 2D CRFs to help context and answer detection. 2D CRF model is used in (Zhu et al., 2005) to model the neighborhood dependency in blocks within a web page. As shown in Figure2(c), 2D CRF models the labeling task for all questions in a thread. For each thread, there are m rows in the grid, where the ith row corresponds to one pass of Linear CRF model (or Skip-chain model) which labels contexts and answers for question Qi. The vertical edges in the figure represent the joint probability conditioned on the contiguous questions, which will be exploited by 2D feature function: f(yi,j, yi+1,j, Qi, Qi+1, x). Thus, the information generated in single CRF chain could be propagated over the</context>
+</contexts>
+<marker>Zhu, Nie, Wen, Zhang, Ma, 2005</marker>
+<rawString>J. Zhu, Z. Nie, J. Wen, B. Zhang, and W. Ma. 2005. 2d conditional random fields for web information extraction. In Proceedings of ICML.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

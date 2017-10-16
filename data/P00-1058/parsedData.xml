@@ -1,0 +1,1249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000032">
+<bodyText confidence="0.566547">
+b&amp;apos;Statistical parsing with an automatically-extracted
+tree adjoining grammar
+</bodyText>
+<author confidence="0.966321">
+David Chiang
+</author>
+<affiliation confidence="0.9823225">
+Department of Computer and Information Science
+University of Pennsylvania
+</affiliation>
+<address confidence="0.498083">
+200 S 33rd St
+Philadelphia PA 19104
+</address>
+<email confidence="0.975496">
+dchiang@linc.cis.upenn.edu
+</email>
+<sectionHeader confidence="0.988678" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999228">
+We discuss the advantages of lexical-
+ized tree-adjoining grammar as an al-
+ternative to lexicalized PCFG for sta-
+tistical parsing, describingthe induction
+of a probabilistic LTAG model from the
+Penn Treebank and evaluating its pars-
+ing performance. We \x0cnd that this in-
+duction method is an improvement over
+the EM-based method of (Hwa, 1998),
+and that the induced model yields re-
+sults comparable to lexicalized PCFG.
+</bodyText>
+<sectionHeader confidence="0.998046" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999141123076923">
+Why use tree-adjoining grammar for statisti-
+cal parsing?Given that statistical natural lan-
+guage processing is concerned with the proba-
+ble rather than the possible, it is not because
+TAG can describe constructions like arbitrar-
+ily large Dutch verb clusters. Rather, what
+makes TAG useful for statistical parsing are
+the structural descriptions it assigns to bread-
+and-butter sentences.
+The approach of Chelba and Jelinek (1998)
+to language modeling is illustrative: even
+though the probability estimate of w appear-
+ing as the kth word can be conditioned on the
+entire history w1;:::;wk,1, the quantity of
+available training data limits the usable con-
+text to about two words|but which two? A
+trigram model chooses wk,1 and wk,2 and
+works quite well; a model which chose wk,7
+and wk,11 would probably work less well. But
+(Chelba and Jelinek, 1998) chooses the lexical
+heads of the two previous constituents as de-
+termined by a shift-reduce parser, and works
+better than a trigram model. Thus the (vir-
+tual) grammar serves to structure the history
+so that the two most useful words can be cho-
+sen, even though the structure of the problem
+itself is entirely linear.
+Similarly, nothing about the parsing prob-
+lem requires that we construct any struc-
+ture other than phrase structure. But be-
+ginning with (Magerman, 1995) statistical
+parsers have used bilexical dependencies with
+great success. Since these dependencies are
+not encoded in plain phrase-structure trees,
+the standard approach has been to let the lex-
+ical heads percolate up the tree, so that when
+one lexical head is immediately dominated by
+another, it is understood to be dependent on
+it. E\x0bectively, a dependency structure is made
+parasitic on the phrase structure so that they
+can be generated together by a context-free
+model.
+However, this solution is not ideal. Aside
+from cases where context-free derivations are
+incapable of encoding both constituency and
+dependency (which are somewhat isolated
+and not of great interest for statistical pars-
+ing) there are common cases where percola-
+tion of single heads is not su\x0ecient to encode
+dependencies correctly|for example, relative
+clause attachment or raising/auxiliary verbs
+(see Section 3). More complicated grammar
+transformations are necessary.
+A more suitable approach is to employ
+a grammar formalism which produces struc-
+tural descriptions that can encode both con-
+stituency and dependency. Lexicalized TAG
+is such a formalism, because it assigns to
+each sentence not only a parse tree, which
+is built out of elementary trees and is inter-
+preted as encoding constituency, but a deriva-
+tion tree, which records how the various el-
+ementary trees were combined together and
+is commonly intepreted as encoding depen-
+dency. The ability of probabilistic LTAG to
+</bodyText>
+<figure confidence="0.990618868421053">
+\x0cNP
+NNP
+John
+S
+NP# VP
+VB
+leave
+VP
+MD
+should
+VP\x03
+NP
+NN
+tomorrow
+(\x0b1)
+(\x0b2)
+(\x0c) (
+)
+)
+\x0b2
+\x0b1
+1
+\x0c
+2
+2,1
+S
+NP
+NNP
+John
+VP
+MD
+should
+VP
+VB
+leave
+NP
+NN
+tomorrow
+</figure>
+<figureCaption confidence="0.999926">
+Figure 1: Grammar and derivation for \\John should leave tomorrow.&amp;quot;
+</figureCaption>
+<bodyText confidence="0.996038481481481">
+model bilexical dependencies was noted early
+on by (Resnik, 1992).
+It turns out that there are other pieces of
+contextual information that need to be ex-
+plicitly accounted for in a CFG by gram-
+mar transformations but come for free in a
+TAG. We discuss a few such cases in Sec-
+tion 3. In Sections 4 and 5 we describe
+an experiment to test the parsing accuracy
+of a probabilistic TAG extracted automati-
+cally from the Penn Treebank. We \x0cnd that
+the automatically-extracted grammar gives
+an improvement over the EM-based induction
+method of (Hwa, 1998), and that the parser
+performs comparably to lexicalized PCFG
+parsers, though certainly with room for im-
+provement.
+We emphasize that TAG is attractive not
+because it can do things that CFG cannot,
+but because it does everything that CFG can,
+only more cleanly. (This is where the anal-
+ogy with (Chelba and Jelinek, 1998) breaks
+down.) Thus certain possibilities which were
+not apparent in a PCFG framework or pro-
+hibitively complicated might become simple
+to implement in a PTAG framework; we con-
+clude by o\x0bering two such possibilities.
+</bodyText>
+<sectionHeader confidence="0.991062" genericHeader="method">
+2 The formalism
+</sectionHeader>
+<bodyText confidence="0.989880323529412">
+The formalism we use is a variant of lexical-
+ized tree-insertion grammar (LTIG), which is
+in turn a restriction of LTAG (Schabes and
+Waters, 1995). In this variant there are three
+kinds of elementary tree: initial, (predicative)
+auxiliary, and modi\x0cer, and three composi-
+tion operations: substitution, adjunction, and
+sister-adjunction.
+Auxiliary trees and adjunction are re-
+stricted as in TIG: essentially, no wrapping
+adjunction or anything equivalent to wrap-
+ping adjunction is allowed. Sister-adjunction
+is not an operation found in standard de\x0cni-
+tions of TAG, but is borrowed from D-Tree
+Grammar (Rambow et al., 1995). In sister-
+adjunction the root of a modi\x0cer tree is added
+as a new daughter to any other node. (Note
+that as it stands sister-adjunction is com-
+pletely unconstrained; it will be constrained
+by the probability model.) We introduce this
+operation simply so we can derive the
+at
+structures found in the Penn Treebank. Fol-
+lowing (Schabes and Shieber, 1994), multiple
+modi\x0cer trees can be sister-adjoined at a sin-
+gle site, but only one auxiliary tree may be
+adjoined at a single node.
+Figure 1 shows an example grammar and
+the derivation of the sentence \\John should
+leave tomorrow.&amp;quot; The derivation tree encodes
+this process, with each arc corresponding to a
+composition operation. Arcs corresponding to
+substitution and adjunction are labeled with
+the Gorn address1 of the substitution or ad-
+</bodyText>
+<page confidence="0.937803">
+1
+</page>
+<bodyText confidence="0.998943210526316">
+A Gorn address is a list of integers: the root of a
+tree has address \x0f, and the jth child of the node with
+\x0cjunction site. An arc corresponding to the
+sister-adjunction of a tree between the ith and
+i + 1th children of \x11 (allowing for two imagi-
+nary children beyond the leftmost and right-
+most children) is labeled \x11;i.
+This grammar, as well as the grammar used
+by the parser, is lexicalized in the sense that
+every elementary tree has exactly one termi-
+nal node, its lexical anchor.
+Since sister-adjunction can be simulated
+by ordinary adjunction, this variant is, like
+TIG (and CFG), weakly context-free and
+O(n3)-time parsable. Rather than coin a new
+acronym for this particular variant, we will
+simply refer to it as \\TAG&amp;quot; and trust that no
+confusion will arise.
+The parameters of a probabilistic TAG
+</bodyText>
+<equation confidence="0.9927228">
+(Resnik, 1992; Schabes, 1992) are:
+X
+\x0b
+Pi(\x0b) = 1
+X
+\x0b
+Ps(\x0b j \x11) = 1
+X
+\x0c
+Pa(\x0c j \x11) + Pa(NONE j \x11) = 1
+</equation>
+<bodyText confidence="0.997491916666667">
+where \x0b ranges over initial trees, \x0c over aux-
+iliary trees,
+over modi\x0cer trees, and \x11 over
+nodes. Pi(\x0b) is the probability of beginning
+a derivation with \x0b; Ps(\x0b j \x11) is the prob-
+ability of substituting \x0b at \x11; Pa(\x0c j \x11) is
+the probability of adjoining \x0c at \x11; \x0cnally,
+Pa(NONE j \x11) is the probability of nothing
+adjoining at \x11. (Carroll and Weir, 1997) sug-
+gest other parameterizations worth exploring
+as well.
+Our variant adds another set of parameters:
+</bodyText>
+<equation confidence="0.997496333333333">
+X
+Psa(
+j \x11;i;f) + Psa(STOP j \x11;i;f) = 1
+</equation>
+<bodyText confidence="0.995269764705882">
+This is the probability of sister-adjoining
+between the ith and i + 1th children of \x11 (as
+before, allowing for two imaginary children
+beyond the leftmost and rightmost children).
+Since multiple modi\x0cer trees can adjoin at the
+same location, Psa(
+) is also conditioned on a
+ag f which indicates whether
+is the \x0crst
+modi\x0cer tree (i.e., the one closest to the head)
+to adjoin at that location.
+The probability of a derivation can then be
+expressed as a product of the probabilities of
+address i has address i \x01 j.
+the individual operations of the derivation.
+Thus the probability of the example deriva-
+tion of Figure 1 would be
+</bodyText>
+<equation confidence="0.999274333333333">
+Pi(\x0b2) \x01 Pa(NONE j \x0b2(\x0f)) \x01
+Ps(\x0b1 j \x0b2(1)) \x01 Pa(\x0c j \x0b2(2)) \x01
+Psa(
+j \x0b2(2);1;true ) \x01
+Psa(STOP j \x0b2(2);1;false ) \x01
+Psa(STOP j \x0b2(\x0f);0;true) \x01 :::
+</equation>
+<bodyText confidence="0.9979535">
+where \x0b(i) is the node of \x0b with address i.
+We want to obtain a maximum-likelihood
+estimate of these parameters, but cannot es-
+timate them directly from the Treebank, be-
+cause the sample space of PTAG is the space
+of TAG derivations, not the derived trees that
+are found in the Treebank. One approach,
+taken in (Hwa, 1998), is to choose some gram-
+mar general enough to parse the whole corpus
+and obtain a maximum-likelihoodestimate by
+EM. Another approach, taken in (Magerman,
+1995) and others for lexicalized PCFGs and
+(Neumann, 1998; Xia, 1999; Chen and Vijay-
+Shanker, 2000) for LTAGs, is to use heuristics
+to reconstruct the derivations, and directly es-
+timate the PTAG parameters from the recon-
+structed derivations. We take this approach
+as well. (One could imagine combining the
+two approaches, using heuristics to extract a
+grammar but EM to estimate its parameters.)
+</bodyText>
+<sectionHeader confidence="0.930412" genericHeader="method">
+3 Some properties of probabilistic
+TAG
+</sectionHeader>
+<bodyText confidence="0.998557166666667">
+In a lexicalized TAG, because each compo-
+sition brings together two lexical items, ev-
+ery composition probability involves a bilex-
+ical dependency. Given a CFG and head-
+percolation scheme, an equivalent TAG can
+be constructed whose derivations mirror the
+dependency analysis implicit in the head-
+percolation scheme.
+Furthermore, there are some dependency
+analyses encodable by TAGs that are not en-
+codable by a simple head-percolation scheme.
+For example, for the sentence \\John should
+have left,&amp;quot; Magerman\&amp;apos;s rules make should and
+have the heads of their respective VPs, so that
+there is no dependency between left and its
+subject John (see Figure 2a). Since nearly a
+quarter of nonempty subjects appear in such
+a con\x0cguration, this is not a small problem.
+</bodyText>
+<figure confidence="0.997590333333334">
+\x0cleft
+have
+should
+John
+left
+have
+should
+John
+(a) (b)
+</figure>
+<figureCaption confidence="0.997546">
+Figure 2: Bilexical dependencies for \\John
+</figureCaption>
+<bodyText confidence="0.94860625">
+should have left.&amp;quot;
+(We could make VP the head of VP instead,
+but this would generate auxiliaries indepen-
+dently of each other, so that, for example,
+</bodyText>
+<equation confidence="0.655242">
+P(John leave) &amp;gt; 0.)
+</equation>
+<bodyText confidence="0.981118138888889">
+TAG can produce the desired dependencies
+(b) easily, using the grammar of Figure 1. A
+more complex lexicalization scheme for CFG
+could as well (one which kept track of two
+heads at a time, for example), but the TAG
+account is simpler and cleaner.
+Bilexical dependencies are not the only
+nonlocal dependencies that can be used to
+improve parsing accuracy. For example, the
+attachment of an S depends on the presence
+or absence of the embedded subject (Collins,
+1999); Treebank-style two-level NPs are mis-
+modeled by PCFG (Collins, 1999; Johnson,
+1998); the generation of a node depends on
+the label of its grandparent (Charniak, 2000;
+Johnson, 1998). In order to capture such
+dependencies in a PCFG-based model, they
+must be localized either by transforming the
+data or modifying the parser. Such changes
+are not always obvious a priori and often
+must be devised anew for each language or
+each corpus.
+But none of these cases really requires
+special treatment in a PTAG model, be-
+cause each composition probability involves
+not onlya bilexicaldependencybuta \\biarbo-
+real&amp;quot; (tree-tree) dependency. That is, PTAG
+generates an entire elementary tree at once,
+conditioned on the entire elementary tree be-
+ing modi\x0ced. Thus dependencies that have to
+be stipulated in a PCFG by tree transforma-
+tions or parser modi\x0ccations are captured for
+free in a PTAG model. Of course, the price
+that the PTAG model pays is sparser data;
+the backo\x0b model must therefore be chosen
+carefully.
+</bodyText>
+<sectionHeader confidence="0.714084" genericHeader="method">
+4 Inducing a stochastic grammar
+from the Treebank
+</sectionHeader>
+<subsectionHeader confidence="0.969545">
+4.1 Reconstructing derivations
+</subsectionHeader>
+<bodyText confidence="0.9146469">
+We want to extract from the Penn Tree-
+bank an LTAG whose derivations mirror
+the dependency analysis implicit in the
+head-percolation rules of (Magerman, 1995;
+Collins, 1997). For each node \x11, these rules
+classify exactly one child of \x11 as a head and
+the rest as either arguments or adjuncts. Us-
+ing this classi\x0ccation we can construct a TAG
+derivation (includingelementary trees) from a
+derived tree as follows:
+</bodyText>
+<listItem confidence="0.9998455">
+1. If \x11 is an adjunct, excise the subtree
+rooted at \x11 to form a modi\x0cer tree.
+2. If \x11 is an argument, excise the subtree
+rooted at \x11 to form an initialtree, leaving
+behind a substitution node.
+3. If \x11 has a right corner \x12 which is an ar-
+</listItem>
+<bodyText confidence="0.943202">
+gument with the same label as \x11 (and all
+intervening nodes are heads), excise the
+segment from \x11 down to \x12 to form an
+auxiliary tree.
+Rules (1) and (2) produce the desired re-
+sult; rule (3) changes the analysis somewhat
+by making subtrees with recursive arguments
+into predicative auxiliary trees. It produces,
+among other things, the analysis of auxiliary
+verbs described in the previous section. It is
+applied in a greedy fashion, with potential \x11s
+considered top-down and potential \x12s bottom-
+up. The complicated restrictions on \x12 are sim-
+ply to ensure that a well-formed TIG deriva-
+tion is produced.
+</bodyText>
+<subsectionHeader confidence="0.998304">
+4.2 Parameter estimation and
+</subsectionHeader>
+<bodyText confidence="0.9243977">
+smoothing
+Now that we have augmented the training
+data to include TAG derivations, we could
+try to directly estimate the parameters of the
+model from Section 2. But since the number of
+(tree, site) pairs is very high, the data would
+be too sparse. We therefore generate an ele-
+mentary tree in two steps: \x0crst the tree tem-
+plate (that is, the elementary tree minus its
+\x0cmodi\x0cer trees auxiliary trees
+</bodyText>
+<figure confidence="0.99829225">
+PP
+IN
+\x05
+NP#
+JJ
+\x05
+,
+\x05
+ADVP
+RB
+\x05
+VP
+TO
+\x05
+VP\x03
+VP
+MD
+\x05
+VP\x03
+NP
+NNS
+\x05
+NP
+NP
+NNS
+\x05
+S
+NP# VP
+VBD
+\x05
+NP#
+S
+NP# VP
+VBD
+\x05
+S
+VP
+VB
+\x05
+NP#
+</figure>
+<figureCaption confidence="0.850963">
+initial trees
+Figure 3: A few of the more frequently-occurring tree templates. \x05 marks where the lexical
+</figureCaption>
+<bodyText confidence="0.761117666666667">
+anchor is inserted.
+anchor), then the anchor. The probabilities
+are decomposed as follows:
+</bodyText>
+<equation confidence="0.999652315789473">
+Pi(\x0b) = Pi1
+(\x1c\x0b)Pi2
+(w\x0b j \x1c\x0b)
+Ps(\x0b j \x11) = Ps1
+(\x1c\x0b j \x11)\x01
+Ps2
+(w\x0b j \x1c\x0b;t\x11;w\x11)
+Pa(\x0c j \x11) = Pa1
+(\x1c\x0c j \x11)\x01
+Pa2
+(w\x0c j \x1c\x0c;t\x11;w\x11)
+Psa(
+j \x11;i;f) = Psa1
+(\x1c
+j \x11;i;f)\x01
+Psa2
+(w
+j \x1c
+;t\x11;w\x11;f)
+</equation>
+<bodyText confidence="0.9822885">
+where \x1c\x0b is the tree template of \x0b, t\x0b is the
+part-of-speech tag of the anchor, and w\x0b is
+the anchor itself.
+The generation of the tree template has two
+backo\x0b levels: at the \x0crst level, the anchor
+of \x11 is ignored, and at the second level, the
+POS tag of the anchor as well as the
+ag f
+are ignored. The generation of the anchor has
+three backo\x0b levels: the \x0crst two are as before,
+and the third just conditions the anchor on its
+POS tag. The backed-o\x0b models are combined
+by linear interpolation, with the weights cho-
+sen as in (Bikel et al., 1997).
+</bodyText>
+<sectionHeader confidence="0.957098" genericHeader="method">
+5 The experiment
+</sectionHeader>
+<subsectionHeader confidence="0.840031">
+5.1 Extracting the grammar
+</subsectionHeader>
+<bodyText confidence="0.9967758">
+We ran the algorithm given in Section 4.1 on
+sections 02{21 of the Penn Treebank. The ex-
+tracted grammar is large (about 73,000 trees,
+with words seen fewer than four times re-
+placed with the symbol *UNKNOWN*), but if we
+</bodyText>
+<figure confidence="0.991326333333333">
+1
+10
+100
+1000
+10000
+100000
+1 10 100 1000 10000
+Frequency
+Rank
+</figure>
+<figureCaption confidence="0.999924">
+Figure 4: Frequency of tree templates versus
+</figureCaption>
+<equation confidence="0.543508">
+rank (log-log)
+</equation>
+<bodyText confidence="0.995491">
+consider elementary tree templates, the gram-
+mar is quite manageable: 3626 tree templates,
+of which 2039 occur more than once (see Fig-
+ure 4).
+The 616 most frequent tree-template types
+account for 99% of tree-template tokens in the
+training data. Removing all but these trees
+from the grammar increased the error rate by
+about 5% (testing on a subset of section 00).
+A few of the most frequent tree-templates are
+shown in Figure 3.
+So the extracted grammar is fairly com-
+pact, but how complete is it? If we plot the
+growth of the grammar during training (Fig-
+ure 5), it\&amp;apos;s not clear the grammar will ever
+converge, even though the very idea of a
+</bodyText>
+<figure confidence="0.977146">
+\x0c1
+10
+100
+1000
+10000
+1 10 100 1000 10000 100000 1e+06
+Types
+Tokens
+</figure>
+<figureCaption confidence="0.78537325">
+Figure 5: Growth of grammar during training
+(log-log)
+grammar requires it. Three possible explana-
+tions are:
+</figureCaption>
+<footnote confidence="0.96458525">
+\x0f New constructions continue to appear.
+\x0f Old constructions continue to be (erro-
+neously) annotated in new ways.
+\x0f Old constructions continue to be com-
+</footnote>
+<bodyText confidence="0.998850882352941">
+bined in new ways, and the extraction
+heuristics fail to factor this variation out.
+In a random sample of 100 once-seen ele-
+mentary tree templates, we found (by casual
+inspection) that 34 resulted from annotation
+errors, 50 from de\x0cciencies in the heuristics,
+and four apparently from performance errors.
+Only twelve appeared to be genuine.
+Therefore the continued growth of the
+grammar is not as rapid as Figure 5 might
+indicate. Moreover, our extraction heuristics
+evidently have room to improve. The major-
+ity of trees resulting from de\x0cciencies in the
+heuristics involved complicated coordination
+structures, which is not surprising, since co-
+ordination has always been problematic for
+TAG.
+To see what the impact of this failure to
+converge is, we ran the grammar extractor on
+some held-out data (section 00). Out of 45082
+tree tokens, 107 tree templates, or 0.2%, had
+not been seen in training. This amounts to
+about one unseen tree template every 20 sen-
+tences. When we consider lexicalized trees,
+this \x0cgure of course rises: out of the same
+45082 tree tokens, 1828 lexicalized trees, or
+4%, had not been seen in training.
+So the coverage of the grammar is quite
+good. Note that even incases where the parser
+encounters a sentence for which the (fallible)
+extraction heuristics would have produced an
+unseen tree template, it is possible that the
+parser will use other trees to produce the cor-
+rect bracketing.
+</bodyText>
+<subsectionHeader confidence="0.999792">
+5.2 Parsing with the grammar
+</subsectionHeader>
+<bodyText confidence="0.998304372093023">
+We used a CKY-style parser similarto the one
+describedin (Schabes and Waters, 1996), with
+a modi\x0ccation to ensure completeness (be-
+cause foot nodes are treated as empty, which
+CKY prohibits) and another to reduce useless
+substitutions. We also extended the parser
+to simulate sister-adjunction as regular ad-
+junction and compute the
+ag f which dis-
+tinguishes the \x0crst modi\x0cer from subsequent
+modi\x0cers.
+We use a beam search, computing the score
+of an item [\x11;i;j] by multiplying it by the
+prior probability P(\x11) (Goodman, 1997); any
+item with score less than 10,5 times that of
+the best item in a cell is pruned.
+Following (Collins, 1997), words occur-
+ring fewer than four times in training were
+replaced with the symbol *UNKNOWN* and
+tagged with the output of the part-of-speech
+tagger described in (Ratnaparkhi, 1996). Tree
+templates occurring only once in training
+were ignored entirely.
+We \x0crst compared the parser with (Hwa,
+1998): we trained the model on sentences of
+length 40 or less in sections 02{09 of the Penn
+Treebank, down to parts of speech only, and
+then tested on sentences of length 40 or less in
+section 23, parsing from part-of-speech tag se-
+quences to fully bracketed parses. The metric
+used was the percentage of guessed brackets
+which did not cross any correct brackets. Our
+parser scored 84.4% compared with 82.4% for
+(Hwa, 1998), an error reduction of 11%.
+Next we compared our parser against lex-
+icalized PCFG parsers, training on sections
+02{21 and testing on section 23. The results
+are shown in Figure 6.
+These results place our parser roughly in
+the middle of the lexicalized PCFG parsers.
+While the results are not state-of-the-art,
+they do demonstrate the viability of TAG
+as a framework for statistical parsing. With
+</bodyText>
+<table confidence="0.995267857142857">
+\x0c\x14 40 words \x14 100 words
+LR LP CB 0 CB \x14 2 CB LR LP CB 0 CB \x14 2 CB
+(Magerman, 1995) 84.6 84.9 1.26 56.6 81.4 84.0 84.3 1.46 54.0 78.8
+(Collins, 1996) 85.8 86.3 1.14 59.9 83.6 85.3 85.7 1.32 57.2 80.8
+present model 86.9 86.6 1.09 63.2 84.3 86.2 85.8 1.29 60.4 81.8
+(Collins, 1997) 88.1 88.6 0.91 66.5 86.9 87.5 88.1 1.07 63.9 84.6
+(Charniak, 2000) 90.1 90.1 0.74 70.1 89.6 89.6 89.5 0.88 67.6 87.7
+</table>
+<figureCaption confidence="0.998427">
+Figure 6: Parsing results. LR = labeled recall, LP = labeled precision; CB = average crossing
+</figureCaption>
+<bodyText confidence="0.9418295">
+brackets, 0 CB = no crossing brackets, \x14 2 CB = two or fewer crossing brackets. All \x0cgures
+except CB are percentages.
+improvements in smoothing and cleaner han-
+dling of punctuation and coordination, per-
+haps these results can be brought more up-
+to-date.
+</bodyText>
+<sectionHeader confidence="0.770026" genericHeader="conclusions">
+6 Conclusion: related and future
+</sectionHeader>
+<bodyText confidence="0.997867828125">
+work
+(Neumann, 1998) describes an experiment
+similar to ours, although the grammar he ex-
+tracts only arrives at a complete parse for 10%
+of unseen sentences. (Xia, 1999) describes a
+grammar extraction process similar to ours,
+and describes some techniques for automati-
+cally \x0cltering out invalid elementary trees.
+Our work has a great deal in common
+with independent work by Chen and Vijay-
+Shanker (2000). They present a more detailed
+discussion of various grammar extraction pro-
+cesses and the performance of supertagging
+models (B. Srinivas, 1997) based on the ex-
+tracted grammars. They do not report parsing
+results, though their intention is to evaluate
+how the various grammars a\x0bect parsing ac-
+curacy and how k-best supertagging a\x0bfects
+parsing speed.
+Srinivas\&amp;apos;s work on supertags (B. Srinivas,
+1997) also uses TAG for statistical parsing,
+but with a rather di\x0berent strategy: tree tem-
+plates are thought of as extended parts-of-
+speech, and these are assigned to words based
+on local (e.g., n-gram) context.
+As for future work, there are still possibili-
+ties made available by TAG which remain to
+be explored. One, also suggested by (Chen
+and Vijay-Shanker, 2000), is to group elemen-
+tary trees into families and relate the trees of
+a family by transformations. For example, one
+would imagine that the distribution of active
+verbs and their subjects would be similar to
+the distribution of passive verbs and their no-
+tional subjects, yet they are treated as inde-
+pendent in the current model. If the two con-
+\x0cgurations could be related, then the sparse-
+ness of verb-argument dependencies would be
+reduced.
+Another possibility is the use of multiply-
+anchored trees. Nothing about PTAG requires
+that elementary trees have only a single an-
+chor (or any anchor at all), so multiply-
+anchored trees could be used to make, for
+example, the attachment of a PP dependent
+not only on the preposition (as in the cur-
+rent model) but the lexical head of the prepo-
+sitional object as well, or the attachment of
+a relative clause dependent on the embed-
+ded verb as well as the relative pronoun. The
+smoothing method described above would
+have to be modi\x0ced to account for multiple
+anchors.
+In summary, we have argued that TAG pro-
+vides a cleaner way of looking at statisti-
+cal parsing than lexicalized PCFG does, and
+demonstrated that in practice it performs in
+the same range. Moreover, the greater
+ex-
+ibility of TAG suggests some potential im-
+provements which would be cumbersome to
+implement using a lexicalized CFG. Further
+research will show whether these advantages
+turn out to be signi\x0ccant in practice.
+</bodyText>
+<sectionHeader confidence="0.94404" genericHeader="acknowledgments">
+Acknowledgements
+</sectionHeader>
+<bodyText confidence="0.898792">
+This research is supported in part by ARO
+grant DAAG55971-0228 and NSF grant SBR-
+89-20230-15. Thanks to Mike Collins,Aravind
+Joshi, and the anonymous reviewers for their
+valuable help. S. D. G.
+\x0cReferences
+B. Srinivas. 1997. Complexity of lexical descrip-
+tions: relevance to partial parsing. Ph.D. thesis,
+</bodyText>
+<reference confidence="0.994812316326531">
+Univ. of Pennsylvania.
+Daniel M. Bikel, Scott Miller, Richard Schwartz,
+and Ralph Weischedel. 1997. Nymble: a high-
+performance learning name-\x0cnder. In Proceed-
+ings of the Fifth Conference on Applied Natural
+Language Processing (ANLP 1997), pages 194{
+201.
+John Carroll and David Weir. 1997. Encoding
+frequency information in lexicalized grammars.
+In Proceedings of the Fifth International Work-
+shop on Parsing Technologies (IWPT \&amp;apos;97),
+pages 8{17.
+Eugene Charniak. 2000. A maximum-entropy-
+inspired parser. In Proceedings of the First
+Meeting of the North American Chapter of
+the Association for Computational Linguistics
+(ANLP-NAACL2000), pages 132{139.
+Ciprian Chelba and Frederick Jelinek. 1998. Ex-
+ploiting syntactic structure for language model-
+ing. In Proceedings of COLING-ACL \&amp;apos;98, pages
+225{231.
+John Chen and K. Vijay-Shanker. 2000. Au-
+tomated extraction of TAGs from the Penn
+Treebank. In Proceedings of the Sixth In-
+ternational Workshop on Parsing Technologies
+(IWPT 2000), pages 65{76.
+Michael Collins. 1996. A new statistical parser
+based on bigram lexical dependencies. In Pro-
+ceedings of the 34th Annual Meeting of the As-
+socation for Computational Linguistics, pages
+184{191.
+Michael Collins. 1997. Three generative lexi-
+calised models for statistical parsing. In Pro-
+ceedings of the 35th Annual Meeting of the As-
+socation for Computational Linguistics, pages
+16{23.
+Michael Collins. 1999. Head-driven statistical
+models for natural language parsing. Ph.D. the-
+sis, Univ. of Pennsylvania.
+Joshua Goodman. 1997. Global thresholding
+and multiple-pass parsing. In Proceedings of
+the Second Conference on Empirical Methods
+in Natural Language Processing (EMNLP-2),
+pages 11{25.
+Rebecca Hwa. 1998. An empirical evaluation
+of probabilistic lexicalized tree insertion gram-
+mars. In Proceedings of COLING-ACL \&amp;apos;98,
+pages 557{563.
+Mark Johnson. 1998. PCFG models of linguistic
+tree representations. Computational Linguis-
+tics, 24:613{632.
+David M. Magerman. 1995. Statistical decision-
+tree models for parsing. In Proceedings of
+the 33rd Annual Meeting of the Assocation for
+Computational Linguistics, pages 276{283.
+G\x7f
+unter Neumann. 1998. Automatic extraction
+of stochastic lexicalized tree grammars from
+treebanks. In Proceedings of the 4th Inter-
+national Workshop on TAG and Related For-
+malisms (TAG+4), pages 120{123.
+Owen Rambow, K. Vijay-Shanker, and David
+Weir. 1995. D-tree grammars. In Proceedings
+of the 33rd Annual Meeting of the Assocation
+for Computational Linguistics, pages 151{158.
+Adwait Ratnaparkhi. 1996. A maximum-entropy
+model for part-of-speech tagging. In Proceed-
+ings of the Conference on Empirical Methods
+in Natural Language Processing, pages 1{10.
+Philip Resnik. 1992. Probabilistic tree-adjoining
+grammar as a framework for statistical natu-
+ral language processing. In Proceedings of the
+Fourteenth International Conference on Com-
+putational Linguistics (COLING-92), pages
+418{424.
+Yves Schabes and Stuart M. Shieber. 1994. An
+alternative conception of tree-adjoining deriva-
+tion. Computational Linguistics, 20(1):91{124.
+Yves Schabes and Richard C. Waters. 1995. Tree
+insertion grammar: a cubic-time parsable for-
+malism that lexicalizes context-free grammar
+without changing the trees produced. Compu-
+tational Linguistics, 21:479{513.
+Yves Schabes and Richard Waters. 1996. Stochas-
+tic lexicalized tree-insertion grammar. In
+H. Bunt and M. Tomita, editors, Recent Ad-
+vances in Parsing Technology, pages 281{294.
+Kluwer Academic Press, London.
+Yves Schabes. 1992. Stochastic lexicalized tree-
+adjoining grammars. In Proceedings of the
+Fourteenth International Conference on Com-
+putational Linguistics (COLING-92), pages
+426{432.
+Fei Xia. 1999. Extracting tree adjoining gram-
+mars from bracketed corpora. In Proceedings
+of the 5th Natural Language Processing Paci\x0cc
+Rim Symposium (NLPRS-99), pages 398{403.
+\x0c&amp;apos;
+</reference>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.725800">
+<title confidence="0.8702265">b&amp;apos;Statistical parsing with an automatically-extracted tree adjoining grammar</title>
+<author confidence="0.999977">David Chiang</author>
+<affiliation confidence="0.9996335">Department of Computer and Information Science University of Pennsylvania</affiliation>
+<address confidence="0.991776">200 S 33rd St Philadelphia PA 19104</address>
+<email confidence="0.999617">dchiang@linc.cis.upenn.edu</email>
+<abstract confidence="0.995538833333333">We discuss the advantages of lexicalized tree-adjoining grammar as an alternative to lexicalized PCFG for statistical parsing, describingthe induction of a probabilistic LTAG model from the Penn Treebank and evaluating its parsing performance. We \x0cnd that this induction method is an improvement over the EM-based method of (Hwa, 1998), and that the induced model yields results comparable to lexicalized PCFG.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Daniel M Bikel</author>
+<author>Scott Miller</author>
+<author>Richard Schwartz</author>
+<author>Ralph Weischedel</author>
+</authors>
+<title>Nymble: a highperformance learning name-\x0cnder.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the Fifth Conference on Applied Natural Language Processing (ANLP</booktitle>
+<pages>194--201</pages>
+<contexts>
+<context position="14972" citStr="Bikel et al., 1997" startWordPosition="2475" endWordPosition="2478">;f)\x01 Psa2 (w j \x1c ;t\x11;w\x11;f) where \x1c\x0b is the tree template of \x0b, t\x0b is the part-of-speech tag of the anchor, and w\x0b is the anchor itself. The generation of the tree template has two backo\x0b levels: at the \x0crst level, the anchor of \x11 is ignored, and at the second level, the POS tag of the anchor as well as the ag f are ignored. The generation of the anchor has three backo\x0b levels: the \x0crst two are as before, and the third just conditions the anchor on its POS tag. The backed-o\x0b models are combined by linear interpolation, with the weights chosen as in (Bikel et al., 1997). 5 The experiment 5.1 Extracting the grammar We ran the algorithm given in Section 4.1 on sections 02{21 of the Penn Treebank. The extracted grammar is large (about 73,000 trees, with words seen fewer than four times replaced with the symbol *UNKNOWN*), but if we 1 10 100 1000 10000 100000 1 10 100 1000 10000 Frequency Rank Figure 4: Frequency of tree templates versus rank (log-log) consider elementary tree templates, the grammar is quite manageable: 3626 tree templates, of which 2039 occur more than once (see Figure 4). The 616 most frequent tree-template types account for 99% of tree-templa</context>
+</contexts>
+<marker>Bikel, Miller, Schwartz, Weischedel, 1997</marker>
+<rawString>Daniel M. Bikel, Scott Miller, Richard Schwartz, and Ralph Weischedel. 1997. Nymble: a highperformance learning name-\x0cnder. In Proceedings of the Fifth Conference on Applied Natural Language Processing (ANLP 1997), pages 194{ 201.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>John Carroll</author>
+<author>David Weir</author>
+</authors>
+<title>Encoding frequency information in lexicalized grammars.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the Fifth International Workshop on Parsing Technologies (IWPT \&amp;apos;97),</booktitle>
+<pages>8--17</pages>
+<contexts>
+<context position="7539" citStr="Carroll and Weir, 1997" startWordPosition="1228" endWordPosition="1231"> to it as \\TAG&amp;quot; and trust that no confusion will arise. The parameters of a probabilistic TAG (Resnik, 1992; Schabes, 1992) are: X \x0b Pi(\x0b) = 1 X \x0b Ps(\x0b j \x11) = 1 X \x0c Pa(\x0c j \x11) + Pa(NONE j \x11) = 1 where \x0b ranges over initial trees, \x0c over auxiliary trees, over modi\x0cer trees, and \x11 over nodes. Pi(\x0b) is the probability of beginning a derivation with \x0b; Ps(\x0b j \x11) is the probability of substituting \x0b at \x11; Pa(\x0c j \x11) is the probability of adjoining \x0c at \x11; \x0cnally, Pa(NONE j \x11) is the probability of nothing adjoining at \x11. (Carroll and Weir, 1997) suggest other parameterizations worth exploring as well. Our variant adds another set of parameters: X Psa( j \x11;i;f) + Psa(STOP j \x11;i;f) = 1 This is the probability of sister-adjoining between the ith and i + 1th children of \x11 (as before, allowing for two imaginary children beyond the leftmost and rightmost children). Since multiple modi\x0cer trees can adjoin at the same location, Psa( ) is also conditioned on a ag f which indicates whether is the \x0crst modi\x0cer tree (i.e., the one closest to the head) to adjoin at that location. The probability of a derivation can then be expre</context>
+</contexts>
+<marker>Carroll, Weir, 1997</marker>
+<rawString>John Carroll and David Weir. 1997. Encoding frequency information in lexicalized grammars. In Proceedings of the Fifth International Workshop on Parsing Technologies (IWPT \&amp;apos;97), pages 8{17.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Eugene Charniak</author>
+</authors>
+<title>A maximum-entropyinspired parser.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the First Meeting of the North American Chapter of the Association for Computational Linguistics (ANLP-NAACL2000),</booktitle>
+<pages>132--139</pages>
+<contexts>
+<context position="11094" citStr="Charniak, 2000" startWordPosition="1816" endWordPosition="1817">he desired dependencies (b) easily, using the grammar of Figure 1. A more complex lexicalization scheme for CFG could as well (one which kept track of two heads at a time, for example), but the TAG account is simpler and cleaner. Bilexical dependencies are not the only nonlocal dependencies that can be used to improve parsing accuracy. For example, the attachment of an S depends on the presence or absence of the embedded subject (Collins, 1999); Treebank-style two-level NPs are mismodeled by PCFG (Collins, 1999; Johnson, 1998); the generation of a node depends on the label of its grandparent (Charniak, 2000; Johnson, 1998). In order to capture such dependencies in a PCFG-based model, they must be localized either by transforming the data or modifying the parser. Such changes are not always obvious a priori and often must be devised anew for each language or each corpus. But none of these cases really requires special treatment in a PTAG model, because each composition probability involves not onlya bilexicaldependencybuta \\biarboreal&amp;quot; (tree-tree) dependency. That is, PTAG generates an entire elementary tree at once, conditioned on the entire elementary tree being modi\x0ced. Thus dependencies t</context>
+<context position="19913" citStr="Charniak, 2000" startWordPosition="3315" endWordPosition="3316">23. The results are shown in Figure 6. These results place our parser roughly in the middle of the lexicalized PCFG parsers. While the results are not state-of-the-art, they do demonstrate the viability of TAG as a framework for statistical parsing. With \x0c\x14 40 words \x14 100 words LR LP CB 0 CB \x14 2 CB LR LP CB 0 CB \x14 2 CB (Magerman, 1995) 84.6 84.9 1.26 56.6 81.4 84.0 84.3 1.46 54.0 78.8 (Collins, 1996) 85.8 86.3 1.14 59.9 83.6 85.3 85.7 1.32 57.2 80.8 present model 86.9 86.6 1.09 63.2 84.3 86.2 85.8 1.29 60.4 81.8 (Collins, 1997) 88.1 88.6 0.91 66.5 86.9 87.5 88.1 1.07 63.9 84.6 (Charniak, 2000) 90.1 90.1 0.74 70.1 89.6 89.6 89.5 0.88 67.6 87.7 Figure 6: Parsing results. LR = labeled recall, LP = labeled precision; CB = average crossing brackets, 0 CB = no crossing brackets, \x14 2 CB = two or fewer crossing brackets. All \x0cgures except CB are percentages. improvements in smoothing and cleaner handling of punctuation and coordination, perhaps these results can be brought more upto-date. 6 Conclusion: related and future work (Neumann, 1998) describes an experiment similar to ours, although the grammar he extracts only arrives at a complete parse for 10% of unseen sentences. (Xia, 19</context>
+</contexts>
+<marker>Charniak, 2000</marker>
+<rawString>Eugene Charniak. 2000. A maximum-entropyinspired parser. In Proceedings of the First Meeting of the North American Chapter of the Association for Computational Linguistics (ANLP-NAACL2000), pages 132{139.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ciprian Chelba</author>
+<author>Frederick Jelinek</author>
+</authors>
+<title>Exploiting syntactic structure for language modeling.</title>
+<date>1998</date>
+<booktitle>In Proceedings of COLING-ACL \&amp;apos;98,</booktitle>
+<pages>225--231</pages>
+<contexts>
+<context position="1089" citStr="Chelba and Jelinek (1998)" startWordPosition="156" endWordPosition="159">ng performance. We \x0cnd that this induction method is an improvement over the EM-based method of (Hwa, 1998), and that the induced model yields results comparable to lexicalized PCFG. 1 Introduction Why use tree-adjoining grammar for statistical parsing?Given that statistical natural language processing is concerned with the probable rather than the possible, it is not because TAG can describe constructions like arbitrarily large Dutch verb clusters. Rather, what makes TAG useful for statistical parsing are the structural descriptions it assigns to breadand-butter sentences. The approach of Chelba and Jelinek (1998) to language modeling is illustrative: even though the probability estimate of w appearing as the kth word can be conditioned on the entire history w1;:::;wk,1, the quantity of available training data limits the usable context to about two words|but which two? A trigram model chooses wk,1 and wk,2 and works quite well; a model which chose wk,7 and wk,11 would probably work less well. But (Chelba and Jelinek, 1998) chooses the lexical heads of the two previous constituents as determined by a shift-reduce parser, and works better than a trigram model. Thus the (virtual) grammar serves to structu</context>
+<context position="4542" citStr="Chelba and Jelinek, 1998" startWordPosition="730" endWordPosition="733">discuss a few such cases in Section 3. In Sections 4 and 5 we describe an experiment to test the parsing accuracy of a probabilistic TAG extracted automatically from the Penn Treebank. We \x0cnd that the automatically-extracted grammar gives an improvement over the EM-based induction method of (Hwa, 1998), and that the parser performs comparably to lexicalized PCFG parsers, though certainly with room for improvement. We emphasize that TAG is attractive not because it can do things that CFG cannot, but because it does everything that CFG can, only more cleanly. (This is where the analogy with (Chelba and Jelinek, 1998) breaks down.) Thus certain possibilities which were not apparent in a PCFG framework or prohibitively complicated might become simple to implement in a PTAG framework; we conclude by o\x0bering two such possibilities. 2 The formalism The formalism we use is a variant of lexicalized tree-insertion grammar (LTIG), which is in turn a restriction of LTAG (Schabes and Waters, 1995). In this variant there are three kinds of elementary tree: initial, (predicative) auxiliary, and modi\x0cer, and three composition operations: substitution, adjunction, and sister-adjunction. Auxiliary trees and adjunct</context>
+</contexts>
+<marker>Chelba, Jelinek, 1998</marker>
+<rawString>Ciprian Chelba and Frederick Jelinek. 1998. Exploiting syntactic structure for language modeling. In Proceedings of COLING-ACL \&amp;apos;98, pages 225{231.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>John Chen</author>
+<author>K Vijay-Shanker</author>
+</authors>
+<title>Automated extraction of TAGs from the Penn Treebank.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the Sixth International Workshop on Parsing Technologies (IWPT</booktitle>
+<pages>65--76</pages>
+<contexts>
+<context position="21521" citStr="Chen and Vijay-Shanker, 2000" startWordPosition="3573" endWordPosition="3576">997) based on the extracted grammars. They do not report parsing results, though their intention is to evaluate how the various grammars a\x0bect parsing accuracy and how k-best supertagging a\x0bfects parsing speed. Srinivas\&amp;apos;s work on supertags (B. Srinivas, 1997) also uses TAG for statistical parsing, but with a rather di\x0berent strategy: tree templates are thought of as extended parts-ofspeech, and these are assigned to words based on local (e.g., n-gram) context. As for future work, there are still possibilities made available by TAG which remain to be explored. One, also suggested by (Chen and Vijay-Shanker, 2000), is to group elementary trees into families and relate the trees of a family by transformations. For example, one would imagine that the distribution of active verbs and their subjects would be similar to the distribution of passive verbs and their notional subjects, yet they are treated as independent in the current model. If the two con\x0cgurations could be related, then the sparseness of verb-argument dependencies would be reduced. Another possibility is the use of multiplyanchored trees. Nothing about PTAG requires that elementary trees have only a single anchor (or any anchor at all), s</context>
+</contexts>
+<marker>Chen, Vijay-Shanker, 2000</marker>
+<rawString>John Chen and K. Vijay-Shanker. 2000. Automated extraction of TAGs from the Penn Treebank. In Proceedings of the Sixth International Workshop on Parsing Technologies (IWPT 2000), pages 65{76.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+</authors>
+<title>A new statistical parser based on bigram lexical dependencies.</title>
+<date>1996</date>
+<booktitle>In Proceedings of the 34th Annual Meeting of the Assocation for Computational Linguistics,</booktitle>
+<pages>184--191</pages>
+<contexts>
+<context position="19716" citStr="Collins, 1996" startWordPosition="3279" endWordPosition="3280">parser scored 84.4% compared with 82.4% for (Hwa, 1998), an error reduction of 11%. Next we compared our parser against lexicalized PCFG parsers, training on sections 02{21 and testing on section 23. The results are shown in Figure 6. These results place our parser roughly in the middle of the lexicalized PCFG parsers. While the results are not state-of-the-art, they do demonstrate the viability of TAG as a framework for statistical parsing. With \x0c\x14 40 words \x14 100 words LR LP CB 0 CB \x14 2 CB LR LP CB 0 CB \x14 2 CB (Magerman, 1995) 84.6 84.9 1.26 56.6 81.4 84.0 84.3 1.46 54.0 78.8 (Collins, 1996) 85.8 86.3 1.14 59.9 83.6 85.3 85.7 1.32 57.2 80.8 present model 86.9 86.6 1.09 63.2 84.3 86.2 85.8 1.29 60.4 81.8 (Collins, 1997) 88.1 88.6 0.91 66.5 86.9 87.5 88.1 1.07 63.9 84.6 (Charniak, 2000) 90.1 90.1 0.74 70.1 89.6 89.6 89.5 0.88 67.6 87.7 Figure 6: Parsing results. LR = labeled recall, LP = labeled precision; CB = average crossing brackets, 0 CB = no crossing brackets, \x14 2 CB = two or fewer crossing brackets. All \x0cgures except CB are percentages. improvements in smoothing and cleaner handling of punctuation and coordination, perhaps these results can be brought more upto-date. 6</context>
+</contexts>
+<marker>Collins, 1996</marker>
+<rawString>Michael Collins. 1996. A new statistical parser based on bigram lexical dependencies. In Proceedings of the 34th Annual Meeting of the Assocation for Computational Linguistics, pages 184{191.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+</authors>
+<title>Three generative lexicalised models for statistical parsing.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the 35th Annual Meeting of the Assocation for Computational Linguistics,</booktitle>
+<pages>16--23</pages>
+<contexts>
+<context position="12191" citStr="Collins, 1997" startWordPosition="1989" endWordPosition="1990">es an entire elementary tree at once, conditioned on the entire elementary tree being modi\x0ced. Thus dependencies that have to be stipulated in a PCFG by tree transformations or parser modi\x0ccations are captured for free in a PTAG model. Of course, the price that the PTAG model pays is sparser data; the backo\x0b model must therefore be chosen carefully. 4 Inducing a stochastic grammar from the Treebank 4.1 Reconstructing derivations We want to extract from the Penn Treebank an LTAG whose derivations mirror the dependency analysis implicit in the head-percolation rules of (Magerman, 1995; Collins, 1997). For each node \x11, these rules classify exactly one child of \x11 as a head and the rest as either arguments or adjuncts. Using this classi\x0ccation we can construct a TAG derivation (includingelementary trees) from a derived tree as follows: 1. If \x11 is an adjunct, excise the subtree rooted at \x11 to form a modi\x0cer tree. 2. If \x11 is an argument, excise the subtree rooted at \x11 to form an initialtree, leaving behind a substitution node. 3. If \x11 has a right corner \x12 which is an argument with the same label as \x11 (and all intervening nodes are heads), excise the segment fro</context>
+<context position="18441" citStr="Collins, 1997" startWordPosition="3059" endWordPosition="3060">he one describedin (Schabes and Waters, 1996), with a modi\x0ccation to ensure completeness (because foot nodes are treated as empty, which CKY prohibits) and another to reduce useless substitutions. We also extended the parser to simulate sister-adjunction as regular adjunction and compute the ag f which distinguishes the \x0crst modi\x0cer from subsequent modi\x0cers. We use a beam search, computing the score of an item [\x11;i;j] by multiplying it by the prior probability P(\x11) (Goodman, 1997); any item with score less than 10,5 times that of the best item in a cell is pruned. Following (Collins, 1997), words occurring fewer than four times in training were replaced with the symbol *UNKNOWN* and tagged with the output of the part-of-speech tagger described in (Ratnaparkhi, 1996). Tree templates occurring only once in training were ignored entirely. We \x0crst compared the parser with (Hwa, 1998): we trained the model on sentences of length 40 or less in sections 02{09 of the Penn Treebank, down to parts of speech only, and then tested on sentences of length 40 or less in section 23, parsing from part-of-speech tag sequences to fully bracketed parses. The metric used was the percentage of gu</context>
+<context position="19846" citStr="Collins, 1997" startWordPosition="3303" endWordPosition="3304">d PCFG parsers, training on sections 02{21 and testing on section 23. The results are shown in Figure 6. These results place our parser roughly in the middle of the lexicalized PCFG parsers. While the results are not state-of-the-art, they do demonstrate the viability of TAG as a framework for statistical parsing. With \x0c\x14 40 words \x14 100 words LR LP CB 0 CB \x14 2 CB LR LP CB 0 CB \x14 2 CB (Magerman, 1995) 84.6 84.9 1.26 56.6 81.4 84.0 84.3 1.46 54.0 78.8 (Collins, 1996) 85.8 86.3 1.14 59.9 83.6 85.3 85.7 1.32 57.2 80.8 present model 86.9 86.6 1.09 63.2 84.3 86.2 85.8 1.29 60.4 81.8 (Collins, 1997) 88.1 88.6 0.91 66.5 86.9 87.5 88.1 1.07 63.9 84.6 (Charniak, 2000) 90.1 90.1 0.74 70.1 89.6 89.6 89.5 0.88 67.6 87.7 Figure 6: Parsing results. LR = labeled recall, LP = labeled precision; CB = average crossing brackets, 0 CB = no crossing brackets, \x14 2 CB = two or fewer crossing brackets. All \x0cgures except CB are percentages. improvements in smoothing and cleaner handling of punctuation and coordination, perhaps these results can be brought more upto-date. 6 Conclusion: related and future work (Neumann, 1998) describes an experiment similar to ours, although the grammar he extracts onl</context>
+</contexts>
+<marker>Collins, 1997</marker>
+<rawString>Michael Collins. 1997. Three generative lexicalised models for statistical parsing. In Proceedings of the 35th Annual Meeting of the Assocation for Computational Linguistics, pages 16{23.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Collins</author>
+</authors>
+<title>Head-driven statistical models for natural language parsing.</title>
+<date>1999</date>
+<tech>Ph.D. thesis,</tech>
+<institution>Univ. of Pennsylvania.</institution>
+<contexts>
+<context position="10928" citStr="Collins, 1999" startWordPosition="1790" endWordPosition="1791">(We could make VP the head of VP instead, but this would generate auxiliaries independently of each other, so that, for example, P(John leave) &amp;gt; 0.) TAG can produce the desired dependencies (b) easily, using the grammar of Figure 1. A more complex lexicalization scheme for CFG could as well (one which kept track of two heads at a time, for example), but the TAG account is simpler and cleaner. Bilexical dependencies are not the only nonlocal dependencies that can be used to improve parsing accuracy. For example, the attachment of an S depends on the presence or absence of the embedded subject (Collins, 1999); Treebank-style two-level NPs are mismodeled by PCFG (Collins, 1999; Johnson, 1998); the generation of a node depends on the label of its grandparent (Charniak, 2000; Johnson, 1998). In order to capture such dependencies in a PCFG-based model, they must be localized either by transforming the data or modifying the parser. Such changes are not always obvious a priori and often must be devised anew for each language or each corpus. But none of these cases really requires special treatment in a PTAG model, because each composition probability involves not onlya bilexicaldependencybuta \\biarbore</context>
+</contexts>
+<marker>Collins, 1999</marker>
+<rawString>Michael Collins. 1999. Head-driven statistical models for natural language parsing. Ph.D. thesis, Univ. of Pennsylvania.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Joshua Goodman</author>
+</authors>
+<title>Global thresholding and multiple-pass parsing.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the Second Conference on Empirical Methods in Natural Language Processing (EMNLP-2),</booktitle>
+<pages>11--25</pages>
+<contexts>
+<context position="18330" citStr="Goodman, 1997" startWordPosition="3038" endWordPosition="3039">er trees to produce the correct bracketing. 5.2 Parsing with the grammar We used a CKY-style parser similarto the one describedin (Schabes and Waters, 1996), with a modi\x0ccation to ensure completeness (because foot nodes are treated as empty, which CKY prohibits) and another to reduce useless substitutions. We also extended the parser to simulate sister-adjunction as regular adjunction and compute the ag f which distinguishes the \x0crst modi\x0cer from subsequent modi\x0cers. We use a beam search, computing the score of an item [\x11;i;j] by multiplying it by the prior probability P(\x11) (Goodman, 1997); any item with score less than 10,5 times that of the best item in a cell is pruned. Following (Collins, 1997), words occurring fewer than four times in training were replaced with the symbol *UNKNOWN* and tagged with the output of the part-of-speech tagger described in (Ratnaparkhi, 1996). Tree templates occurring only once in training were ignored entirely. We \x0crst compared the parser with (Hwa, 1998): we trained the model on sentences of length 40 or less in sections 02{09 of the Penn Treebank, down to parts of speech only, and then tested on sentences of length 40 or less in section 23</context>
+</contexts>
+<marker>Goodman, 1997</marker>
+<rawString>Joshua Goodman. 1997. Global thresholding and multiple-pass parsing. In Proceedings of the Second Conference on Empirical Methods in Natural Language Processing (EMNLP-2), pages 11{25.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Rebecca Hwa</author>
+</authors>
+<title>An empirical evaluation of probabilistic lexicalized tree insertion grammars.</title>
+<date>1998</date>
+<booktitle>In Proceedings of COLING-ACL \&amp;apos;98,</booktitle>
+<pages>557--563</pages>
+<contexts>
+<context position="4223" citStr="Hwa, 1998" startWordPosition="678" endWordPosition="679"> 1: Grammar and derivation for \\John should leave tomorrow.&amp;quot; model bilexical dependencies was noted early on by (Resnik, 1992). It turns out that there are other pieces of contextual information that need to be explicitly accounted for in a CFG by grammar transformations but come for free in a TAG. We discuss a few such cases in Section 3. In Sections 4 and 5 we describe an experiment to test the parsing accuracy of a probabilistic TAG extracted automatically from the Penn Treebank. We \x0cnd that the automatically-extracted grammar gives an improvement over the EM-based induction method of (Hwa, 1998), and that the parser performs comparably to lexicalized PCFG parsers, though certainly with room for improvement. We emphasize that TAG is attractive not because it can do things that CFG cannot, but because it does everything that CFG can, only more cleanly. (This is where the analogy with (Chelba and Jelinek, 1998) breaks down.) Thus certain possibilities which were not apparent in a PCFG framework or prohibitively complicated might become simple to implement in a PTAG framework; we conclude by o\x0bering two such possibilities. 2 The formalism The formalism we use is a variant of lexicaliz</context>
+<context position="8851" citStr="Hwa, 1998" startWordPosition="1452" endWordPosition="1453"> the derivation. Thus the probability of the example derivation of Figure 1 would be Pi(\x0b2) \x01 Pa(NONE j \x0b2(\x0f)) \x01 Ps(\x0b1 j \x0b2(1)) \x01 Pa(\x0c j \x0b2(2)) \x01 Psa( j \x0b2(2);1;true ) \x01 Psa(STOP j \x0b2(2);1;false ) \x01 Psa(STOP j \x0b2(\x0f);0;true) \x01 ::: where \x0b(i) is the node of \x0b with address i. We want to obtain a maximum-likelihood estimate of these parameters, but cannot estimate them directly from the Treebank, because the sample space of PTAG is the space of TAG derivations, not the derived trees that are found in the Treebank. One approach, taken in (Hwa, 1998), is to choose some grammar general enough to parse the whole corpus and obtain a maximum-likelihoodestimate by EM. Another approach, taken in (Magerman, 1995) and others for lexicalized PCFGs and (Neumann, 1998; Xia, 1999; Chen and VijayShanker, 2000) for LTAGs, is to use heuristics to reconstruct the derivations, and directly estimate the PTAG parameters from the reconstructed derivations. We take this approach as well. (One could imagine combining the two approaches, using heuristics to extract a grammar but EM to estimate its parameters.) 3 Some properties of probabilistic TAG In a lexical</context>
+<context position="18740" citStr="Hwa, 1998" startWordPosition="3105" endWordPosition="3106">ich distinguishes the \x0crst modi\x0cer from subsequent modi\x0cers. We use a beam search, computing the score of an item [\x11;i;j] by multiplying it by the prior probability P(\x11) (Goodman, 1997); any item with score less than 10,5 times that of the best item in a cell is pruned. Following (Collins, 1997), words occurring fewer than four times in training were replaced with the symbol *UNKNOWN* and tagged with the output of the part-of-speech tagger described in (Ratnaparkhi, 1996). Tree templates occurring only once in training were ignored entirely. We \x0crst compared the parser with (Hwa, 1998): we trained the model on sentences of length 40 or less in sections 02{09 of the Penn Treebank, down to parts of speech only, and then tested on sentences of length 40 or less in section 23, parsing from part-of-speech tag sequences to fully bracketed parses. The metric used was the percentage of guessed brackets which did not cross any correct brackets. Our parser scored 84.4% compared with 82.4% for (Hwa, 1998), an error reduction of 11%. Next we compared our parser against lexicalized PCFG parsers, training on sections 02{21 and testing on section 23. The results are shown in Figure 6. The</context>
+</contexts>
+<marker>Hwa, 1998</marker>
+<rawString>Rebecca Hwa. 1998. An empirical evaluation of probabilistic lexicalized tree insertion grammars. In Proceedings of COLING-ACL \&amp;apos;98, pages 557{563.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mark Johnson</author>
+</authors>
+<title>PCFG models of linguistic tree representations.</title>
+<date>1998</date>
+<journal>Computational Linguistics,</journal>
+<pages>24--613</pages>
+<contexts>
+<context position="11012" citStr="Johnson, 1998" startWordPosition="1802" endWordPosition="1803">ndently of each other, so that, for example, P(John leave) &amp;gt; 0.) TAG can produce the desired dependencies (b) easily, using the grammar of Figure 1. A more complex lexicalization scheme for CFG could as well (one which kept track of two heads at a time, for example), but the TAG account is simpler and cleaner. Bilexical dependencies are not the only nonlocal dependencies that can be used to improve parsing accuracy. For example, the attachment of an S depends on the presence or absence of the embedded subject (Collins, 1999); Treebank-style two-level NPs are mismodeled by PCFG (Collins, 1999; Johnson, 1998); the generation of a node depends on the label of its grandparent (Charniak, 2000; Johnson, 1998). In order to capture such dependencies in a PCFG-based model, they must be localized either by transforming the data or modifying the parser. Such changes are not always obvious a priori and often must be devised anew for each language or each corpus. But none of these cases really requires special treatment in a PTAG model, because each composition probability involves not onlya bilexicaldependencybuta \\biarboreal&amp;quot; (tree-tree) dependency. That is, PTAG generates an entire elementary tree at onc</context>
+</contexts>
+<marker>Johnson, 1998</marker>
+<rawString>Mark Johnson. 1998. PCFG models of linguistic tree representations. Computational Linguistics, 24:613{632.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David M Magerman</author>
+</authors>
+<title>Statistical decisiontree models for parsing.</title>
+<date>1995</date>
+<booktitle>In Proceedings of the 33rd Annual Meeting of the Assocation for Computational Linguistics,</booktitle>
+<pages>276--283</pages>
+<contexts>
+<context position="1971" citStr="Magerman, 1995" startWordPosition="308" endWordPosition="309">ram model chooses wk,1 and wk,2 and works quite well; a model which chose wk,7 and wk,11 would probably work less well. But (Chelba and Jelinek, 1998) chooses the lexical heads of the two previous constituents as determined by a shift-reduce parser, and works better than a trigram model. Thus the (virtual) grammar serves to structure the history so that the two most useful words can be chosen, even though the structure of the problem itself is entirely linear. Similarly, nothing about the parsing problem requires that we construct any structure other than phrase structure. But beginning with (Magerman, 1995) statistical parsers have used bilexical dependencies with great success. Since these dependencies are not encoded in plain phrase-structure trees, the standard approach has been to let the lexical heads percolate up the tree, so that when one lexical head is immediately dominated by another, it is understood to be dependent on it. E\x0bectively, a dependency structure is made parasitic on the phrase structure so that they can be generated together by a context-free model. However, this solution is not ideal. Aside from cases where context-free derivations are incapable of encoding both consti</context>
+<context position="9010" citStr="Magerman, 1995" startWordPosition="1477" endWordPosition="1478">Pa(\x0c j \x0b2(2)) \x01 Psa( j \x0b2(2);1;true ) \x01 Psa(STOP j \x0b2(2);1;false ) \x01 Psa(STOP j \x0b2(\x0f);0;true) \x01 ::: where \x0b(i) is the node of \x0b with address i. We want to obtain a maximum-likelihood estimate of these parameters, but cannot estimate them directly from the Treebank, because the sample space of PTAG is the space of TAG derivations, not the derived trees that are found in the Treebank. One approach, taken in (Hwa, 1998), is to choose some grammar general enough to parse the whole corpus and obtain a maximum-likelihoodestimate by EM. Another approach, taken in (Magerman, 1995) and others for lexicalized PCFGs and (Neumann, 1998; Xia, 1999; Chen and VijayShanker, 2000) for LTAGs, is to use heuristics to reconstruct the derivations, and directly estimate the PTAG parameters from the reconstructed derivations. We take this approach as well. (One could imagine combining the two approaches, using heuristics to extract a grammar but EM to estimate its parameters.) 3 Some properties of probabilistic TAG In a lexicalized TAG, because each composition brings together two lexical items, every composition probability involves a bilexical dependency. Given a CFG and headpercol</context>
+<context position="12175" citStr="Magerman, 1995" startWordPosition="1987" endWordPosition="1988">is, PTAG generates an entire elementary tree at once, conditioned on the entire elementary tree being modi\x0ced. Thus dependencies that have to be stipulated in a PCFG by tree transformations or parser modi\x0ccations are captured for free in a PTAG model. Of course, the price that the PTAG model pays is sparser data; the backo\x0b model must therefore be chosen carefully. 4 Inducing a stochastic grammar from the Treebank 4.1 Reconstructing derivations We want to extract from the Penn Treebank an LTAG whose derivations mirror the dependency analysis implicit in the head-percolation rules of (Magerman, 1995; Collins, 1997). For each node \x11, these rules classify exactly one child of \x11 as a head and the rest as either arguments or adjuncts. Using this classi\x0ccation we can construct a TAG derivation (includingelementary trees) from a derived tree as follows: 1. If \x11 is an adjunct, excise the subtree rooted at \x11 to form a modi\x0cer tree. 2. If \x11 is an argument, excise the subtree rooted at \x11 to form an initialtree, leaving behind a substitution node. 3. If \x11 has a right corner \x12 which is an argument with the same label as \x11 (and all intervening nodes are heads), excise</context>
+<context position="19650" citStr="Magerman, 1995" startWordPosition="3267" endWordPosition="3268"> of guessed brackets which did not cross any correct brackets. Our parser scored 84.4% compared with 82.4% for (Hwa, 1998), an error reduction of 11%. Next we compared our parser against lexicalized PCFG parsers, training on sections 02{21 and testing on section 23. The results are shown in Figure 6. These results place our parser roughly in the middle of the lexicalized PCFG parsers. While the results are not state-of-the-art, they do demonstrate the viability of TAG as a framework for statistical parsing. With \x0c\x14 40 words \x14 100 words LR LP CB 0 CB \x14 2 CB LR LP CB 0 CB \x14 2 CB (Magerman, 1995) 84.6 84.9 1.26 56.6 81.4 84.0 84.3 1.46 54.0 78.8 (Collins, 1996) 85.8 86.3 1.14 59.9 83.6 85.3 85.7 1.32 57.2 80.8 present model 86.9 86.6 1.09 63.2 84.3 86.2 85.8 1.29 60.4 81.8 (Collins, 1997) 88.1 88.6 0.91 66.5 86.9 87.5 88.1 1.07 63.9 84.6 (Charniak, 2000) 90.1 90.1 0.74 70.1 89.6 89.6 89.5 0.88 67.6 87.7 Figure 6: Parsing results. LR = labeled recall, LP = labeled precision; CB = average crossing brackets, 0 CB = no crossing brackets, \x14 2 CB = two or fewer crossing brackets. All \x0cgures except CB are percentages. improvements in smoothing and cleaner handling of punctuation and co</context>
+</contexts>
+<marker>Magerman, 1995</marker>
+<rawString>David M. Magerman. 1995. Statistical decisiontree models for parsing. In Proceedings of the 33rd Annual Meeting of the Assocation for Computational Linguistics, pages 276{283.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>G\x7f unter Neumann</author>
+</authors>
+<title>Automatic extraction of stochastic lexicalized tree grammars from treebanks.</title>
+<date>1998</date>
+<booktitle>In Proceedings of the 4th International Workshop on TAG and Related Formalisms (TAG+4),</booktitle>
+<pages>120--123</pages>
+<contexts>
+<context position="9062" citStr="Neumann, 1998" startWordPosition="1485" endWordPosition="1486"> Psa(STOP j \x0b2(2);1;false ) \x01 Psa(STOP j \x0b2(\x0f);0;true) \x01 ::: where \x0b(i) is the node of \x0b with address i. We want to obtain a maximum-likelihood estimate of these parameters, but cannot estimate them directly from the Treebank, because the sample space of PTAG is the space of TAG derivations, not the derived trees that are found in the Treebank. One approach, taken in (Hwa, 1998), is to choose some grammar general enough to parse the whole corpus and obtain a maximum-likelihoodestimate by EM. Another approach, taken in (Magerman, 1995) and others for lexicalized PCFGs and (Neumann, 1998; Xia, 1999; Chen and VijayShanker, 2000) for LTAGs, is to use heuristics to reconstruct the derivations, and directly estimate the PTAG parameters from the reconstructed derivations. We take this approach as well. (One could imagine combining the two approaches, using heuristics to extract a grammar but EM to estimate its parameters.) 3 Some properties of probabilistic TAG In a lexicalized TAG, because each composition brings together two lexical items, every composition probability involves a bilexical dependency. Given a CFG and headpercolation scheme, an equivalent TAG can be constructed w</context>
+<context position="20368" citStr="Neumann, 1998" startWordPosition="3392" endWordPosition="3393">32 57.2 80.8 present model 86.9 86.6 1.09 63.2 84.3 86.2 85.8 1.29 60.4 81.8 (Collins, 1997) 88.1 88.6 0.91 66.5 86.9 87.5 88.1 1.07 63.9 84.6 (Charniak, 2000) 90.1 90.1 0.74 70.1 89.6 89.6 89.5 0.88 67.6 87.7 Figure 6: Parsing results. LR = labeled recall, LP = labeled precision; CB = average crossing brackets, 0 CB = no crossing brackets, \x14 2 CB = two or fewer crossing brackets. All \x0cgures except CB are percentages. improvements in smoothing and cleaner handling of punctuation and coordination, perhaps these results can be brought more upto-date. 6 Conclusion: related and future work (Neumann, 1998) describes an experiment similar to ours, although the grammar he extracts only arrives at a complete parse for 10% of unseen sentences. (Xia, 1999) describes a grammar extraction process similar to ours, and describes some techniques for automatically \x0cltering out invalid elementary trees. Our work has a great deal in common with independent work by Chen and VijayShanker (2000). They present a more detailed discussion of various grammar extraction processes and the performance of supertagging models (B. Srinivas, 1997) based on the extracted grammars. They do not report parsing results, th</context>
+</contexts>
+<marker>Neumann, 1998</marker>
+<rawString>G\x7f unter Neumann. 1998. Automatic extraction of stochastic lexicalized tree grammars from treebanks. In Proceedings of the 4th International Workshop on TAG and Related Formalisms (TAG+4), pages 120{123.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Owen Rambow</author>
+<author>K Vijay-Shanker</author>
+<author>David Weir</author>
+</authors>
+<title>D-tree grammars.</title>
+<date>1995</date>
+<booktitle>In Proceedings of the 33rd Annual Meeting of the Assocation for Computational Linguistics,</booktitle>
+<pages>151--158</pages>
+<contexts>
+<context position="5401" citStr="Rambow et al., 1995" startWordPosition="861" endWordPosition="864">formalism we use is a variant of lexicalized tree-insertion grammar (LTIG), which is in turn a restriction of LTAG (Schabes and Waters, 1995). In this variant there are three kinds of elementary tree: initial, (predicative) auxiliary, and modi\x0cer, and three composition operations: substitution, adjunction, and sister-adjunction. Auxiliary trees and adjunction are restricted as in TIG: essentially, no wrapping adjunction or anything equivalent to wrapping adjunction is allowed. Sister-adjunction is not an operation found in standard de\x0cnitions of TAG, but is borrowed from D-Tree Grammar (Rambow et al., 1995). In sisteradjunction the root of a modi\x0cer tree is added as a new daughter to any other node. (Note that as it stands sister-adjunction is completely unconstrained; it will be constrained by the probability model.) We introduce this operation simply so we can derive the at structures found in the Penn Treebank. Following (Schabes and Shieber, 1994), multiple modi\x0cer trees can be sister-adjoined at a single site, but only one auxiliary tree may be adjoined at a single node. Figure 1 shows an example grammar and the derivation of the sentence \\John should leave tomorrow.&amp;quot; The derivation </context>
+</contexts>
+<marker>Rambow, Vijay-Shanker, Weir, 1995</marker>
+<rawString>Owen Rambow, K. Vijay-Shanker, and David Weir. 1995. D-tree grammars. In Proceedings of the 33rd Annual Meeting of the Assocation for Computational Linguistics, pages 151{158.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Adwait Ratnaparkhi</author>
+</authors>
+<title>A maximum-entropy model for part-of-speech tagging.</title>
+<date>1996</date>
+<booktitle>In Proceedings of the Conference on Empirical Methods in Natural Language Processing,</booktitle>
+<pages>1--10</pages>
+<contexts>
+<context position="18621" citStr="Ratnaparkhi, 1996" startWordPosition="3087" endWordPosition="3088"> useless substitutions. We also extended the parser to simulate sister-adjunction as regular adjunction and compute the ag f which distinguishes the \x0crst modi\x0cer from subsequent modi\x0cers. We use a beam search, computing the score of an item [\x11;i;j] by multiplying it by the prior probability P(\x11) (Goodman, 1997); any item with score less than 10,5 times that of the best item in a cell is pruned. Following (Collins, 1997), words occurring fewer than four times in training were replaced with the symbol *UNKNOWN* and tagged with the output of the part-of-speech tagger described in (Ratnaparkhi, 1996). Tree templates occurring only once in training were ignored entirely. We \x0crst compared the parser with (Hwa, 1998): we trained the model on sentences of length 40 or less in sections 02{09 of the Penn Treebank, down to parts of speech only, and then tested on sentences of length 40 or less in section 23, parsing from part-of-speech tag sequences to fully bracketed parses. The metric used was the percentage of guessed brackets which did not cross any correct brackets. Our parser scored 84.4% compared with 82.4% for (Hwa, 1998), an error reduction of 11%. Next we compared our parser against</context>
+</contexts>
+<marker>Ratnaparkhi, 1996</marker>
+<rawString>Adwait Ratnaparkhi. 1996. A maximum-entropy model for part-of-speech tagging. In Proceedings of the Conference on Empirical Methods in Natural Language Processing, pages 1{10.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Philip Resnik</author>
+</authors>
+<title>Probabilistic tree-adjoining grammar as a framework for statistical natural language processing.</title>
+<date>1992</date>
+<booktitle>In Proceedings of the Fourteenth International Conference on Computational Linguistics (COLING-92),</booktitle>
+<pages>418--424</pages>
+<contexts>
+<context position="3740" citStr="Resnik, 1992" startWordPosition="593" endWordPosition="594"> each sentence not only a parse tree, which is built out of elementary trees and is interpreted as encoding constituency, but a derivation tree, which records how the various elementary trees were combined together and is commonly intepreted as encoding dependency. The ability of probabilistic LTAG to \x0cNP NNP John S NP# VP VB leave VP MD should VP\x03 NP NN tomorrow (\x0b1) (\x0b2) (\x0c) ( ) ) \x0b2 \x0b1 1 \x0c 2 2,1 S NP NNP John VP MD should VP VB leave NP NN tomorrow Figure 1: Grammar and derivation for \\John should leave tomorrow.&amp;quot; model bilexical dependencies was noted early on by (Resnik, 1992). It turns out that there are other pieces of contextual information that need to be explicitly accounted for in a CFG by grammar transformations but come for free in a TAG. We discuss a few such cases in Section 3. In Sections 4 and 5 we describe an experiment to test the parsing accuracy of a probabilistic TAG extracted automatically from the Penn Treebank. We \x0cnd that the automatically-extracted grammar gives an improvement over the EM-based induction method of (Hwa, 1998), and that the parser performs comparably to lexicalized PCFG parsers, though certainly with room for improvement. We</context>
+<context position="7024" citStr="Resnik, 1992" startWordPosition="1137" endWordPosition="1138">ldren of \x11 (allowing for two imaginary children beyond the leftmost and rightmost children) is labeled \x11;i. This grammar, as well as the grammar used by the parser, is lexicalized in the sense that every elementary tree has exactly one terminal node, its lexical anchor. Since sister-adjunction can be simulated by ordinary adjunction, this variant is, like TIG (and CFG), weakly context-free and O(n3)-time parsable. Rather than coin a new acronym for this particular variant, we will simply refer to it as \\TAG&amp;quot; and trust that no confusion will arise. The parameters of a probabilistic TAG (Resnik, 1992; Schabes, 1992) are: X \x0b Pi(\x0b) = 1 X \x0b Ps(\x0b j \x11) = 1 X \x0c Pa(\x0c j \x11) + Pa(NONE j \x11) = 1 where \x0b ranges over initial trees, \x0c over auxiliary trees, over modi\x0cer trees, and \x11 over nodes. Pi(\x0b) is the probability of beginning a derivation with \x0b; Ps(\x0b j \x11) is the probability of substituting \x0b at \x11; Pa(\x0c j \x11) is the probability of adjoining \x0c at \x11; \x0cnally, Pa(NONE j \x11) is the probability of nothing adjoining at \x11. (Carroll and Weir, 1997) suggest other parameterizations worth exploring as well. Our variant adds another se</context>
+</contexts>
+<marker>Resnik, 1992</marker>
+<rawString>Philip Resnik. 1992. Probabilistic tree-adjoining grammar as a framework for statistical natural language processing. In Proceedings of the Fourteenth International Conference on Computational Linguistics (COLING-92), pages 418{424.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yves Schabes</author>
+<author>Stuart M Shieber</author>
+</authors>
+<title>An alternative conception of tree-adjoining derivation.</title>
+<date>1994</date>
+<journal>Computational Linguistics,</journal>
+<volume>20</volume>
+<issue>1</issue>
+<contexts>
+<context position="5755" citStr="Schabes and Shieber, 1994" startWordPosition="921" endWordPosition="924">s and adjunction are restricted as in TIG: essentially, no wrapping adjunction or anything equivalent to wrapping adjunction is allowed. Sister-adjunction is not an operation found in standard de\x0cnitions of TAG, but is borrowed from D-Tree Grammar (Rambow et al., 1995). In sisteradjunction the root of a modi\x0cer tree is added as a new daughter to any other node. (Note that as it stands sister-adjunction is completely unconstrained; it will be constrained by the probability model.) We introduce this operation simply so we can derive the at structures found in the Penn Treebank. Following (Schabes and Shieber, 1994), multiple modi\x0cer trees can be sister-adjoined at a single site, but only one auxiliary tree may be adjoined at a single node. Figure 1 shows an example grammar and the derivation of the sentence \\John should leave tomorrow.&amp;quot; The derivation tree encodes this process, with each arc corresponding to a composition operation. Arcs corresponding to substitution and adjunction are labeled with the Gorn address1 of the substitution or ad1 A Gorn address is a list of integers: the root of a tree has address \x0f, and the jth child of the node with \x0cjunction site. An arc corresponding to the si</context>
+</contexts>
+<marker>Schabes, Shieber, 1994</marker>
+<rawString>Yves Schabes and Stuart M. Shieber. 1994. An alternative conception of tree-adjoining derivation. Computational Linguistics, 20(1):91{124.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yves Schabes</author>
+<author>Richard C Waters</author>
+</authors>
+<title>Tree insertion grammar: a cubic-time parsable formalism that lexicalizes context-free grammar without changing the trees produced.</title>
+<date>1995</date>
+<journal>Computational Linguistics,</journal>
+<pages>21--479</pages>
+<contexts>
+<context position="4922" citStr="Schabes and Waters, 1995" startWordPosition="792" endWordPosition="795">ugh certainly with room for improvement. We emphasize that TAG is attractive not because it can do things that CFG cannot, but because it does everything that CFG can, only more cleanly. (This is where the analogy with (Chelba and Jelinek, 1998) breaks down.) Thus certain possibilities which were not apparent in a PCFG framework or prohibitively complicated might become simple to implement in a PTAG framework; we conclude by o\x0bering two such possibilities. 2 The formalism The formalism we use is a variant of lexicalized tree-insertion grammar (LTIG), which is in turn a restriction of LTAG (Schabes and Waters, 1995). In this variant there are three kinds of elementary tree: initial, (predicative) auxiliary, and modi\x0cer, and three composition operations: substitution, adjunction, and sister-adjunction. Auxiliary trees and adjunction are restricted as in TIG: essentially, no wrapping adjunction or anything equivalent to wrapping adjunction is allowed. Sister-adjunction is not an operation found in standard de\x0cnitions of TAG, but is borrowed from D-Tree Grammar (Rambow et al., 1995). In sisteradjunction the root of a modi\x0cer tree is added as a new daughter to any other node. (Note that as it stands</context>
+</contexts>
+<marker>Schabes, Waters, 1995</marker>
+<rawString>Yves Schabes and Richard C. Waters. 1995. Tree insertion grammar: a cubic-time parsable formalism that lexicalizes context-free grammar without changing the trees produced. Computational Linguistics, 21:479{513.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yves Schabes</author>
+<author>Richard Waters</author>
+</authors>
+<title>Stochastic lexicalized tree-insertion grammar.</title>
+<date>1996</date>
+<booktitle>Recent Advances in Parsing Technology,</booktitle>
+<pages>281--294</pages>
+<editor>In H. Bunt and M. Tomita, editors,</editor>
+<publisher>Kluwer Academic Press,</publisher>
+<location>London.</location>
+<contexts>
+<context position="17872" citStr="Schabes and Waters, 1996" startWordPosition="2965" endWordPosition="2968">amounts to about one unseen tree template every 20 sentences. When we consider lexicalized trees, this \x0cgure of course rises: out of the same 45082 tree tokens, 1828 lexicalized trees, or 4%, had not been seen in training. So the coverage of the grammar is quite good. Note that even incases where the parser encounters a sentence for which the (fallible) extraction heuristics would have produced an unseen tree template, it is possible that the parser will use other trees to produce the correct bracketing. 5.2 Parsing with the grammar We used a CKY-style parser similarto the one describedin (Schabes and Waters, 1996), with a modi\x0ccation to ensure completeness (because foot nodes are treated as empty, which CKY prohibits) and another to reduce useless substitutions. We also extended the parser to simulate sister-adjunction as regular adjunction and compute the ag f which distinguishes the \x0crst modi\x0cer from subsequent modi\x0cers. We use a beam search, computing the score of an item [\x11;i;j] by multiplying it by the prior probability P(\x11) (Goodman, 1997); any item with score less than 10,5 times that of the best item in a cell is pruned. Following (Collins, 1997), words occurring fewer than fo</context>
+</contexts>
+<marker>Schabes, Waters, 1996</marker>
+<rawString>Yves Schabes and Richard Waters. 1996. Stochastic lexicalized tree-insertion grammar. In H. Bunt and M. Tomita, editors, Recent Advances in Parsing Technology, pages 281{294. Kluwer Academic Press, London.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Yves Schabes</author>
+</authors>
+<title>Stochastic lexicalized treeadjoining grammars.</title>
+<date>1992</date>
+<booktitle>In Proceedings of the Fourteenth International Conference on Computational Linguistics (COLING-92),</booktitle>
+<pages>426--432</pages>
+<contexts>
+<context position="7040" citStr="Schabes, 1992" startWordPosition="1139" endWordPosition="1140">(allowing for two imaginary children beyond the leftmost and rightmost children) is labeled \x11;i. This grammar, as well as the grammar used by the parser, is lexicalized in the sense that every elementary tree has exactly one terminal node, its lexical anchor. Since sister-adjunction can be simulated by ordinary adjunction, this variant is, like TIG (and CFG), weakly context-free and O(n3)-time parsable. Rather than coin a new acronym for this particular variant, we will simply refer to it as \\TAG&amp;quot; and trust that no confusion will arise. The parameters of a probabilistic TAG (Resnik, 1992; Schabes, 1992) are: X \x0b Pi(\x0b) = 1 X \x0b Ps(\x0b j \x11) = 1 X \x0c Pa(\x0c j \x11) + Pa(NONE j \x11) = 1 where \x0b ranges over initial trees, \x0c over auxiliary trees, over modi\x0cer trees, and \x11 over nodes. Pi(\x0b) is the probability of beginning a derivation with \x0b; Ps(\x0b j \x11) is the probability of substituting \x0b at \x11; Pa(\x0c j \x11) is the probability of adjoining \x0c at \x11; \x0cnally, Pa(NONE j \x11) is the probability of nothing adjoining at \x11. (Carroll and Weir, 1997) suggest other parameterizations worth exploring as well. Our variant adds another set of parameters:</context>
+</contexts>
+<marker>Schabes, 1992</marker>
+<rawString>Yves Schabes. 1992. Stochastic lexicalized treeadjoining grammars. In Proceedings of the Fourteenth International Conference on Computational Linguistics (COLING-92), pages 426{432.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Fei Xia</author>
+</authors>
+<title>Extracting tree adjoining grammars from bracketed corpora.</title>
+<date>1999</date>
+<booktitle>In Proceedings of the 5th Natural Language Processing Paci\x0cc Rim Symposium (NLPRS-99),</booktitle>
+<pages>398--403</pages>
+<contexts>
+<context position="9073" citStr="Xia, 1999" startWordPosition="1487" endWordPosition="1488">b2(2);1;false ) \x01 Psa(STOP j \x0b2(\x0f);0;true) \x01 ::: where \x0b(i) is the node of \x0b with address i. We want to obtain a maximum-likelihood estimate of these parameters, but cannot estimate them directly from the Treebank, because the sample space of PTAG is the space of TAG derivations, not the derived trees that are found in the Treebank. One approach, taken in (Hwa, 1998), is to choose some grammar general enough to parse the whole corpus and obtain a maximum-likelihoodestimate by EM. Another approach, taken in (Magerman, 1995) and others for lexicalized PCFGs and (Neumann, 1998; Xia, 1999; Chen and VijayShanker, 2000) for LTAGs, is to use heuristics to reconstruct the derivations, and directly estimate the PTAG parameters from the reconstructed derivations. We take this approach as well. (One could imagine combining the two approaches, using heuristics to extract a grammar but EM to estimate its parameters.) 3 Some properties of probabilistic TAG In a lexicalized TAG, because each composition brings together two lexical items, every composition probability involves a bilexical dependency. Given a CFG and headpercolation scheme, an equivalent TAG can be constructed whose deriva</context>
+<context position="20516" citStr="Xia, 1999" startWordPosition="3417" endWordPosition="3418">, 2000) 90.1 90.1 0.74 70.1 89.6 89.6 89.5 0.88 67.6 87.7 Figure 6: Parsing results. LR = labeled recall, LP = labeled precision; CB = average crossing brackets, 0 CB = no crossing brackets, \x14 2 CB = two or fewer crossing brackets. All \x0cgures except CB are percentages. improvements in smoothing and cleaner handling of punctuation and coordination, perhaps these results can be brought more upto-date. 6 Conclusion: related and future work (Neumann, 1998) describes an experiment similar to ours, although the grammar he extracts only arrives at a complete parse for 10% of unseen sentences. (Xia, 1999) describes a grammar extraction process similar to ours, and describes some techniques for automatically \x0cltering out invalid elementary trees. Our work has a great deal in common with independent work by Chen and VijayShanker (2000). They present a more detailed discussion of various grammar extraction processes and the performance of supertagging models (B. Srinivas, 1997) based on the extracted grammars. They do not report parsing results, though their intention is to evaluate how the various grammars a\x0bect parsing accuracy and how k-best supertagging a\x0bfects parsing speed. Sriniva</context>
+</contexts>
+<marker>Xia, 1999</marker>
+<rawString>Fei Xia. 1999. Extracting tree adjoining grammars from bracketed corpora. In Proceedings of the 5th Natural Language Processing Paci\x0cc Rim Symposium (NLPRS-99), pages 398{403. \x0c&amp;apos;</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

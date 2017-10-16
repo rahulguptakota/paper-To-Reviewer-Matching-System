@@ -1,0 +1,1444 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.8560465">
+b&apos;Proceedings of the 50th Annual Meeting of the Association for Computational Linguistics, pages 685693,
+Jeju, Republic of Korea, 8-14 July 2012. c
+</bodyText>
+<sectionHeader confidence="0.565021" genericHeader="abstract">
+2012 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.951228">
+A Probabilistic Model for Canonicalizing Named Entity Mentions
+</title>
+<author confidence="0.878538">
+Dani Yogatama Yanchuan Sim Noah A. Smith
+</author>
+<affiliation confidence="0.9146615">
+Language Technologies Institute
+Carnegie Mellon University
+</affiliation>
+<address confidence="0.805709">
+Pittsburgh, PA 15213, USA
+</address>
+<email confidence="0.998556">
+{dyogatama,ysim,nasmith}@cs.cmu.edu
+</email>
+<sectionHeader confidence="0.990856" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999567769230769">
+We present a statistical model for canonicalizing
+named entity mentions into a table whose rows rep-
+resent entities and whose columns are attributes (or
+parts of attributes). The model is novel in that it
+incorporates entity context, surface features, first-
+order dependencies among attribute-parts, and a no-
+tion of noise. Transductive learning from a few
+seeds and a collection of mention tokens combines
+Bayesian inference and conditional estimation. We
+evaluate our model and its components on two
+datasets collected from political blogs and sports
+news, finding that it outperforms a simple agglom-
+erative clustering approach and previous work.
+</bodyText>
+<sectionHeader confidence="0.998222" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.99646704">
+Proper handling of mentions in text of real-world
+entitiesidentifying and resolving themis a cen-
+tral part of many NLP applications. We seek an al-
+gorithm that infers a set of real-world entities from
+mentions in a text, mapping each entity mention to-
+ken to an entity, and discovers general categories of
+words used in names (e.g., titles and last names).
+Here, we use a probabilistic model to infer a struc-
+tured representation of canonical forms of entity at-
+tributes through transductive learning from named
+entity mentions with a small number of seeds (see
+Table 1). The input is a collection of mentions found
+by a named entity recognizer, along with their con-
+texts, and, following Eisenstein et al. (2011), the
+output is a table in which entities are rows (the num-
+ber of which is not pre-specified) and attribute words
+are organized into columns.
+This paper contributes a model that builds on the
+approach of Eisenstein et al. (2011), but also:
+incorporates context of the mention to help with
+disambiguation and to allow mentions that do not
+share words to be merged liberally;
+conditions against shape features, which improve
+the assignment of words to columns;
+is designed to explicitly handle some noise; and
+is learned using elements of Bayesian inference
+with conditional estimation (see 2).
+We experiment with variations of our model,
+comparing it to a baseline clustering method and the
+model of Eisenstein et al. (2011), on two datasets,
+demonstrating improved performance over both at
+recovering a gold standard table. In a political
+blogs dataset, the mentions refer to political fig-
+ures in the United States (e.g., Mrs. Obama and
+Michelle Obama). As a result, the model discov-
+ers parts of nameshMrs., Michelle, Obamai
+while simultaneously performing coreference res-
+olution for named entity mentions. In the sports
+news dataset, the model is provided with named en-
+tity mentions of heterogenous types, and success
+here consists of identifying the correct team for ev-
+ery player (e.g., Kobe Bryant and Los Angeles Lak-
+ers). In this scenario, given a few seed examples,
+the model begins to identify simple relations among
+named entities (in addition to discovering attribute
+structures), since attributes are expressed as named
+entities across multiple mentions. We believe this
+adaptability is important, as the salience of different
+kinds of names and their usages vary considerably
+across domains.
+</bodyText>
+<table confidence="0.2248276">
+Bill Clinton Mr.
+George Bush Mr. W.
+Barack Obama Sen. Hussein
+Hillary Clinton Mrs. Sen.
+Bristol Palin Ms.
+Emil Jones Jr.
+Kay Hutchison Bailey
+Ben Roethlisberger Steelers
+Bryant Los Angeles
+Derek Jeter New York
+</table>
+<tableCaption confidence="0.973002">
+Table 1: Seeds for politics (above) and sports (below).
+</tableCaption>
+<page confidence="0.970225">
+685
+</page>
+<figure confidence="0.9886431">
+\x0cx
+1
+1
+f
+w c
+r s
+M
+L
+T
+C
+</figure>
+<figureCaption confidence="0.8117875">
+Figure 1: Graphical representation of our model. Top,
+the generation of the table: C is the number of at-
+</figureCaption>
+<bodyText confidence="0.9832433125">
+tributes/columns, the number of rows is infinite, is a
+vector of concentration parameters, is a multinomial
+distribution over strings, and x is a word in a table cell.
+Lower left, for choosing entities to be mentioned: deter-
+mines the stick lengths and is the distribution over en-
+tities to be selected for mention. Middle right, for choos-
+ing attributes to use in a mention: f is the feature vector,
+and is the weight vector drawn from a Laplace distri-
+bution with mean zero and variance . Center, for gen-
+erating mentions: M is the number of mentions in the
+data, w is a word token set from an entity/row r and at-
+tribute/column c. Lower right, for generating contexts: s
+is a context word, drawn from a multinomial distribution
+with a Dirichlet prior . Variables that are known or
+fixed are shaded; variables that are optimized are double
+circled. Others are latent; dashed lines imply collapsing.
+</bodyText>
+<sectionHeader confidence="0.993513" genericHeader="method">
+2 Model
+</sectionHeader>
+<bodyText confidence="0.999135088235294">
+We begin by assuming as input a set of mention to-
+kens, each one or more words. In our experiments
+these are obtained by running a named entity recog-
+nizer. The output is a table in which rows are un-
+derstood to correspond to entities (types, not men-
+tion tokens) and columns are fields, each associated
+with an attribute or a part of it. Our approach is
+based on a probabilistic graphical model that gener-
+ates the mentions, which are observed, and the table,
+which is mostly unobserved, similar to Eisenstein et
+al. (2011). Our learning procedure is a hybrid of
+Bayesian inference and conditional estimation. The
+generative story, depicted in Figure 1, is:
+For each column j {1, . . . , C}:
+Draw a multinomial distribution j over the
+vocabulary from a Dirichlet process: j
+DP(j, G0). This is the lexicon for field j.
+Generate table entries. For each row i (of which
+there are infinitely many), draw an entry xi,j
+for cell i, j from j. A few of these entries (the
+seeds) are observed; we denote those x.
+Draw weights j that associate shape and po-
+sitional features with columns from a 0-mean,
+-variance Laplace distribution.
+Generate the distribution over entities to be men-
+tioned in general text: GEM() (stick-
+breaking distribution).
+Generate context distributions. For each row r:
+Draw a multinomial over the context vocabu-
+lary (distinct from mention vocabulary) from a
+Dirichlet distribution, r Dir().
+For each mention token m:
+Draw an entity/row r .
+For each word in the mention w, given some of
+</bodyText>
+<listItem confidence="0.3636745">
+its features f (assumed observed):
+. Choose a column c 1
+Z exp(&gt;
+c f). This
+</listItem>
+<bodyText confidence="0.995518956521739">
+uses a log-linear distribution with partition
+function Z. In one variation of our model,
+first-order dependencies among the columns
+are enabled; these introduce a dynamic char-
+acter to the graphical model that is not shown
+in Figure 1.
+. With probability 1 \x0f, set the text wm` to
+be xrc. Otherwise, generate any word from a
+unigram-noise distribution.
+Generate mention context. For each of the T =
+10 context positions (five before and five after
+the mention), draw the word s from r.
+Our choices of prior distributions reflect our be-
+liefs about the shapes of the various distributions.
+We expect field lexicons j and the distributions
+over mentioned entities to be Zipfian and so use
+tools from nonparametric statistics to model them.
+We expect column-feature weights to be mostly
+zero, so a sparsity-inducing Laplace prior is used
+(Tibshirani, 1996).
+Our goal is to maximize the conditional likeli-
+hood of most of the evidence (mentions, contexts,
+and seeds), p(w, s, x  |, , , , , \x0f, f) =
+</bodyText>
+<equation confidence="0.915220230769231">
+P
+r
+P
+c
+P
+x\\x
+R
+d
+R
+d
+R
+d
+p(w, s, r, c, x, , ,  |, , , , , \x0f, f)
+</equation>
+<page confidence="0.997643">
+686
+</page>
+<bodyText confidence="0.96123576">
+\x0cwith respect to and . We fix (see 3.3 for the
+values of for each dataset), = 2 (equivalent to
+add-one smoothing), = 2 108, \x0f = 1010,
+and each mention words f. Fixing , , and is
+essentially just being Bayesian, or fixing a hyper-
+parameter based on prior beliefs. Fixing f is quite
+different; it is conditioning our model on some ob-
+servable features of the data, in this case word shape
+features. We do this to avoid integrating over fea-
+ture vector values. These choices highlight that the
+design of a probabilistic model can draw from both
+Bayesian and discriminative tools. Observing some
+of x as seeds (x) renders this approach transductive.
+Exact inference in this model is intractable, so we
+resort to an approximate inference technique based
+on Markov Chain Monte Carlo simulation. The opti-
+mization of can be described as contrastive esti-
+mation (Smith and Eisner, 2005), in which some as-
+pects of the data are conditioned against for compu-
+tational convenience. The optimization of can be
+described as empirical Bayesian estimation (Mor-
+ris, 1983) in which the parameters of a prior are
+fit to data. Our overall learning procedure is a
+Monte Carlo Expectation Maximization algorithm
+(Wei and Tanner, 1990).
+</bodyText>
+<sectionHeader confidence="0.9374" genericHeader="method">
+3 Learning and Inference
+</sectionHeader>
+<bodyText confidence="0.998731142857143">
+Our learning procedure is an iterative algorithm con-
+sisting of two steps. In the E-step, we perform col-
+lapsed Gibbs sampling to obtain distributions over
+row and column indices for every mention, given the
+current value of the hyperparamaters. In the M-step,
+we obtain estimates for the hyperparameters, given
+the current posterior distributions.
+</bodyText>
+<subsectionHeader confidence="0.992994">
+3.1 E-step
+</subsectionHeader>
+<bodyText confidence="0.999017">
+For the mth mention, we sample row index r, then
+for each word wm`, we sample column index c.
+</bodyText>
+<subsubsectionHeader confidence="0.963054">
+3.1.1 Sampling Rows
+</subsubsectionHeader>
+<bodyText confidence="0.99727575">
+Similar to Eisenstein et al. (2011), when we sam-
+ple the row for a mention, we use Bayes rule and
+marginalize the columns. We further incorporate
+context information and a notion of noise.
+</bodyText>
+<equation confidence="0.999341444444444">
+p(rm = r  |. . .) p(rm = r  |rm, )
+(
+Q
+`
+P
+c p(wm`  |x, rm = r, cm` = c))
+(
+Q
+t p(smt  |rm = r))
+</equation>
+<bodyText confidence="0.994875333333333">
+We consider each quantity in turn.
+Prior. The probability of drawing a row index fol-
+lows a stick breaking distribution. This allows us
+to have an unbounded number of rows and let the
+model infer the optimal value from data. A standard
+marginalization of gives us:
+</bodyText>
+<equation confidence="0.999324428571428">
+p(rm = r  |rm, ) =
+(
+Nm
+r
+N+ if Nm
+r &gt; 0
+N+ otherwise,
+</equation>
+<bodyText confidence="0.999518875">
+where N is the number of mentions, Nr is the num-
+ber of mentions assigned to row r, and Nm
+r is the
+number of mentions assigned to row r, excluding m.
+Mention likelihood. In order to compute the likeli-
+hood of observing mentions in the dataset, we have
+to consider a few cases. If a cell in a table has al-
+ready generated a word, it can only generate that
+word. This hard constraint was a key factor in the
+inference algorithm of Eisenstein et al. (2011); we
+speculate that softening it may reduce MCMC mix-
+ing time, so introduce a notion of noise. With proba-
+bility \x0f = 1010, the cell can generate any word. If a
+cell has not generated any word, its probability still
+depends on other elements of the table. With base
+distribution G0,1 and marginalizing , we have:
+</bodyText>
+<equation confidence="0.984742">
+p(wm`  |x, rm = r, cm` = c, c) = (1)
+1 \x0f if xrc = wm`
+\x0f if xrc 6 {wm`, }
+Nm`
+cw
+Nm`
+c +c
+if xrc = and Ncw &gt; 0
+G0(wm`) c
+Nm`
+c +c
+</equation>
+<bodyText confidence="0.992384">
+if xrc = and Ncw = 0
+where Nm`
+c is the number of cells in column c that
+are not empty and Nm`
+cw is the number of cells in
+column c that are set to the word wm`; both counts
+excluding the current word under consideration.
+Context likelihood. It is important to be able to
+use context information to determine which row
+a mention should go into. As a novel extension,
+our model also uses surrounding words of a men-
+tion as its contextsimilar context words can en-
+courage two mentions that do not share any words
+to be merged. We choose a Dirichlet-multinomial
+distribution for our context distribution. For every
+row in the table, we have a multinomial distribution
+over context vocabulary r from a Dirichlet prior .
+</bodyText>
+<page confidence="0.889236">
+1
+</page>
+<bodyText confidence="0.993039">
+We let G0 be a uniform distribution over the vocabulary.
+</bodyText>
+<page confidence="0.994617">
+687
+</page>
+<bodyText confidence="0.886772">
+\x0cTherefore, the probability of observing the tth con-
+text word for mention m is p(smt  |rm = r, )
+</bodyText>
+<equation confidence="0.967436">
+=
+( Nmt
+rs +s1
+Nmt
+r +
+P
+v vV
+if Nmt
+r &gt; 0
+s1
+P
+v vV otherwise,
+</equation>
+<bodyText confidence="0.989025571428572">
+where Nmt
+r is the number of context words of men-
+tions assigned to row r, Nmt
+rs is the number of con-
+text words of mentions assigned to row r that are
+smt, both excluding the current context word, and v
+ranges over the context vocabulary of size V .
+</bodyText>
+<subsubsectionHeader confidence="0.96591">
+3.1.2 Sampling Columns
+</subsubsectionHeader>
+<bodyText confidence="0.995101333333334">
+Our column sampling procedure is novel to this
+work and substantially differs from that of Eisen-
+stein et al. (2011). First, we note that when we sam-
+ple column indices for each word in a mention, the
+row index for the mention r has already been sam-
+pled. Also, our model has interdependencies among
+column indices of a mention.2 Standard Gibbs sam-
+pling procedure breaks down these dependencies.
+For faster mixing, we experiment with first-order
+dependencies between columns when sampling col-
+umn indices. This idea was suggested by Eisenstein
+et al. (2011, footnote 1) as a way to learn structure
+in name conventions. We suppressed this aspect of
+the model in Figure 1 for clarity.
+We sample the column index c1 for the first word
+in the mention, marginalizing out probabilities of
+other words in the mention. After we sample the
+column index for the first word, we sample the col-
+umn index c2 for the second word, fixing the pre-
+vious word to be in column c1, and marginalizing
+out probabilities of c3, . . . , cL as before. We repeat
+the above procedure until we reach the last word
+in the mention. In practice, this can be done effi-
+ciently using backward probabilities computed via
+dynamic programming. This kind of blocked Gibbs
+sampling was proposed by Jensen et al. (1995) and
+used in NLP by Mochihashi et al. (2009). We have:
+</bodyText>
+<equation confidence="0.935541625">
+p(cm` = c  |. . .)
+p(cm` = c  |fm`, )p(cm` = c  |cm` = c)
+\x10P
+c+
+pb(cm` = c  |cm`+ = c+)
+\x11
+p(wm`  |x, rm = r, cm` = c, c),
+2
+</equation>
+<bodyText confidence="0.999652538461538">
+As shown in Figure 1, column indices in a mention form
+v-structures with the row index r. Since every w` is observed,
+there is an active path that goes through all these nodes.
+where ` is the preceding word and c is its sam-
+pled index, `+ is the following word and c+ is its
+possible index, and pb() are backward probabilities.
+Alternatively, we can perform standard Gibbs sam-
+pling and drop the dependencies between columns,
+which makes the model rely more heavily on the fea-
+tures. For completeness, we detail the computations.
+Featurized log linear distribution. Our model can
+use arbitrary features to choose a column index.
+These features are incorporated as a log-linear dis-
+</bodyText>
+<equation confidence="0.962844166666667">
+tribution, p(cm` = c  |fm`, ) = exp(&gt;
+c fm`)
+P
+c0 exp(&gt;
+c0 fm`)
+.
+</equation>
+<bodyText confidence="0.911781823529412">
+The list of features used in our experiments is:
+1{w is the first word in the mention}; 1{w ends
+with a period}; 1{w is the last word in the men-
+tion}; 1{w is a Roman numeral}; 1{w starts with
+an upper-case letter}; 1{w is an Arabic number};
+1{w {mr, mrs, ms, miss, dr, mdm} }; 1{w con-
+tains 1 punctuation symbol}; 1{w {jr, sr}};
+1{w {is, in, of, for}}; 1{w is a person entity};
+1{w is an organization entity}.
+Forward and backward probabilities. Since
+we introduce first-order dependencies between
+columns, we have forward and backward probabili-
+ties, as in HMMs. However, we always sample from
+left to right, so we do not need to marginalize ran-
+dom variables to the left of the current variable be-
+cause their values are already sampled. Our transi-
+tion probabilities are as follows:
+</bodyText>
+<equation confidence="0.997818333333333">
+p(cm` = c  |cm` = c) =
+Nm
+c,c
+P
+c0
+Nm
+c0
+,c
+,
+</equation>
+<bodyText confidence="0.957704375">
+where Nm
+c,c is the number of times we observe tran-
+sitions from column c to c, excluding mention m.
+The forward and backward equations are simple (we
+omit them for space).
+Mention likelihood. Mention likelihood p(wm` |
+x, rm = r, cm` = c, c) is identical to when we
+sample the row index (Eq. 1).
+</bodyText>
+<subsectionHeader confidence="0.998827">
+3.2 M-step
+</subsectionHeader>
+<bodyText confidence="0.91946675">
+In the M-step, we use gradient-based optimization
+routines, L-BFGS (Liu and Nocedal, 1989) and
+OWL-QN (Andrew and Gao, 2007) respectively, to
+maximize with respect to and .
+</bodyText>
+<page confidence="0.99043">
+688
+</page>
+<subsubsectionHeader confidence="0.470098">
+\x0c3.3 Implementation Details
+</subsubsectionHeader>
+<bodyText confidence="0.996601333333333">
+We ran Gibbs sampling for 500 iterations,3 discard-
+ing the first 200 for burn-in and averaging counts
+over every 10th sample to reduce autocorrelation.
+For each word in a mention w, we introduced 12
+binary features f for our featurized log-linear distri-
+bution (3.1.2).
+We then downcased all words in mentions for the
+purpose of defining the table and the mention words
+w. Ten context words (5 each to the left and right)
+define s for each mention token.
+For non-convex optimization problems like ours,
+initialization is important. To guide the model to
+reach a good local optimum without many restarts,
+we manually initialized feature weights and put a
+prior on transition probabilities to reflect phenom-
+ena observed in the initial seeds. The initializer was
+constructed once and not tuned across experiments.4
+The M-step was performed every 50 Gibbs sampling
+iterations. After inference, we filled each cell with
+the word that occurred at least 80% of the time in the
+averaged counts for the cell, if such a word existed.
+</bodyText>
+<sectionHeader confidence="0.999453" genericHeader="evaluation">
+4 Experiments
+</sectionHeader>
+<bodyText confidence="0.9991">
+We compare several variations of our model to
+Eisenstein et al. (2011) (the authors provided their
+implementation to us) and a clustering baseline.
+</bodyText>
+<subsectionHeader confidence="0.992068">
+4.1 Datasets
+</subsectionHeader>
+<bodyText confidence="0.997411333333333">
+We collected named entity mentions from two cor-
+pora: political blogs and sports news. The political
+blogs corpus is a collection of blog posts about poli-
+tics in the United States (Eisenstein and Xing, 2010),
+and the sports news corpus contains news summaries
+of major league sports games (National Basketball
+</bodyText>
+<page confidence="0.986314">
+3
+</page>
+<bodyText confidence="0.991372">
+On our moderate-sized datasets (see 4.1), each iteration
+takes approximately three minutes on a 2.2GHz CPU.
+</bodyText>
+<page confidence="0.979304">
+4
+</page>
+<bodyText confidence="0.963729">
+For the politics dataset, we set C = 6, =
+</bodyText>
+<equation confidence="0.9274306">
+h1.0, 1.0, 1012
+, 1015
+, 1012
+, 108
+i, initialized = 1, and
+</equation>
+<bodyText confidence="0.90729375">
+used a Dirichlet prior on transition counts such that before ob-
+serving any data: N0,1 = 10, N0,5 = 5, N2,0 = 10, N2,1 =
+10, N2,3 = 10, N2,4 = 5, N3,0 = 10, N3,1 = 10, N5,1 = 15
+(others are set to zero). For the sports dataset, we set C = 5,
+</bodyText>
+<equation confidence="0.8189785">
+= h1.0, 1.0, 1015
+, 106
+, 106
+i, initialized = 1, and
+</equation>
+<bodyText confidence="0.9492368">
+used a Dirichlet prior on transition counts N0,1 = 10, N2,3 =
+20, N3,4 = 10 (others are set to zero). We also manually initial-
+ized the weights of some features for both datasets. These val-
+ues were obtained from preliminary experiments on a smaller
+sample of the datasets, and updated on the first EM iteration.
+</bodyText>
+<table confidence="0.931661666666667">
+Politics Sports
+# source documents 3,000 700
+# mentions 10,647 13,813
+# unique mentions 528 884
+size of mention vocabulary 666 1,177
+size of context vocabulary 2,934 2,844
+</table>
+<tableCaption confidence="0.97277">
+Table 2: Descriptive statistics about the datasets.
+</tableCaption>
+<bodyText confidence="0.99188024">
+Association, National Football League, and Major
+League Baseball) in 2009. Due to the large size of
+the corpora, we uniformly sampled a subset of doc-
+uments for each corpus and ran the Stanford NER
+tagger (Finkel et al., 2005), which tagged named en-
+tities mentions as person, location, and organization.
+We used named entity of type person from the po-
+litical blogs corpus, while we are interested in per-
+son and organization entities for the sports news cor-
+pus. Mentions that appear less than five times are
+discarded. Table 2 summarizes statistics for both
+datasets of named entity mentions.
+Reference tables. We use Eisenstein et al.s man-
+ually built 125-entity (282 vocabulary items) refer-
+ence table for the politics dataset. Each entity in the
+table is represented by the set of all tokens that app-
+pear in its references, and the tokens are placed in its
+correct column. For the sports data, we obtained a
+roster of all NBA, NFL, and MLB players in 2009.
+We built our sports reference table using the play-
+ers names, teams and locations, to get 3,642 play-
+ers and 15,932 vocabulary items. The gold standard
+table for the politics dataset is incomplete, whereas
+it is complete for the sports dataset.
+Seeds. Table 1 shows the seeds for both datasets.
+</bodyText>
+<subsectionHeader confidence="0.997853">
+4.2 Evaluation Scores
+</subsectionHeader>
+<bodyText confidence="0.998461875">
+We propose both a row evaluation to determine
+how well a model disambiguates entities and merges
+mentions of the same entity and a column evaluation
+to measure how well the model relates words used in
+different mentions. Both scores are new for this task.
+The first step in evaluation is to find a maximum
+score bipartite matching between rows in the re-
+sponse and reference table.5 Given the response and
+</bodyText>
+<page confidence="0.967764">
+5
+</page>
+<bodyText confidence="0.905904375">
+Treating each row as a set of words, we can optimize the
+matching using the Jonker and Volgenant (1987) algorithm.
+The column evaluation is identical, except that sets of words
+that are matched are defined by columns. We use the Jaccard
+similarityfor two sets A and B, |AB|
+|AB|
+for our similarity
+function, Sim(i, j).
+</bodyText>
+<page confidence="0.992983">
+689
+</page>
+<bodyText confidence="0.531859">
+\x0creference tables, xres and xref , we can compute:
+</bodyText>
+<equation confidence="0.983718">
+Sres = 1
+|xres |
+P
+ixres ,jxref :Match(i,j)=1 Sim(i, j)
+Sref = 1
+|xref |
+P
+ixres ,jxref :Match(i,j)=1 Sim(i, j)
+</equation>
+<bodyText confidence="0.9995698">
+where i and j denote rows, Match(i, j) is one if i and
+j are matched to each other in the optimal matching
+or zero otherwise. Sres is a precision-like score, and
+Sref is a recall-like score.6 Column evaluation is the
+same, but compares columns instead.
+</bodyText>
+<subsectionHeader confidence="0.998756">
+4.3 Baselines
+</subsectionHeader>
+<bodyText confidence="0.9992086">
+Our simple baseline is an agglomerative clustering
+algorithm that clusters mentions into entities using
+the single-linkage criterion. Initially, each unique
+mention forms its own cluster that we incremen-
+tally merge together to form rows in the table. This
+method requires a similarity score between two clus-
+ters. For the politics dataset, we follow Eisenstein et
+al. (2011) and use the string edit distance between
+mention strings in each cluster to define the score.
+For the sports dataset, since mentions contain per-
+son and organization named entity types, our score
+for clustering uses the Jaccard distance between con-
+text words of the mentions. However, such cluster-
+ings do not produce columns. Therefore, we first
+match words in mentions of type person against
+a regular expression to recognize entity attributes
+from a fixed set of titles and suffixes, and the first,
+middle and last names. We treat words in mentions
+of type organization as a single attribute.7 As we
+merge clusters together, we arrange words such that
+</bodyText>
+<page confidence="0.991218">
+6
+</page>
+<bodyText confidence="0.9993342">
+Eisenstein et al. (2011) used precision and recall for their
+similarity function. Precision prefers a more compact response
+row (or column), which unfairly penalizes situations like those
+of our sports dataset, where rows are heterogeneous (e.g., in-
+cluding people and organizations). Consider a response ta-
+ble made up of two rows: hKobe, Bryanti and hLos, Ange-
+les, Lakersi, and a reference table containing all NBA play-
+ers and their team names, e.g., hKobe, Bryant, Los, Angeles,
+Lakersi. Evaluating with the precision similarity function, we
+will have perfect precision by matching the first row to the ref-
+erence row for Kobe Bryant and the latter row to any Lakers
+player. The system is not rewarded for merging the two rows
+together, even if they are describing the same entity. Our eval-
+uation scores, however, reward the system for accurately filling
+in more cells.
+</bodyText>
+<page confidence="0.993925">
+7
+</page>
+<bodyText confidence="0.999772583333333">
+Note that the baseline system uses NER tags, list of titles
+and suffixes; which are also provided to our model through the
+features in 3.1.2.
+all words within a column belong to the same at-
+tribute, creating columns as necessary to accomo-
+date multiple similar attributes as a result of merg-
+ing. We can evaluate the tables produced by each
+step of the clustering to obtain the entire sequence
+of response-reference scores.
+As a strong baseline, we also compare our ap-
+proach with the original implementation of the
+model of Eisenstein et al. (2011), denoted by EEA.
+</bodyText>
+<subsectionHeader confidence="0.721836">
+4.4 Results
+</subsectionHeader>
+<bodyText confidence="0.998107081081081">
+For both the politics and sports dataset, we run the
+procedure in 3.3 three times and report the results.
+Politics. The results for the politics dataset are
+shown in Figure 2. Our model consistently outper-
+formed both baselines. We also analyze how much
+each of our four main extensions (shape features,
+context information, noise, and first-order column
+dependencies) to EEA contributes to overall per-
+formance by ablating each in turn (also shown in
+Fig. 2). The best-performing complete model has
+415 rows, of which 113 were matched to the ref-
+erence table. Shape features are useful: remov-
+ing them was detrimental, and they work even bet-
+ter without column dependencies. Indeed, the best
+model did not have column dependencies. Remov-
+ing context features had a strong negative effect,
+though perhaps this could be overcome with a more
+carefully tuned initializer.
+In row evaluation, the baseline system can achieve
+a high reference score by creating one entity row per
+unique string, but as it merges strings, the clusters
+encompass more word tokens, improving response
+score at the expense of reference score. With fewer
+clusters, there are fewer entities in the response ta-
+ble for matching and the response score suffers. Al-
+though we use the same seed table in both exper-
+iments, the results from EEA are below the base-
+line curve because it has the additional complexity
+of inferring the number of columns from data. Our
+model is simpler in this regard since it assumes that
+the number of columns is known (C = 6). In col-
+umn evaluation, our method without column depen-
+dencies was best.
+Sports. The results for the sports dataset are shown
+in Figure 3. Our best-performing complete models
+response table contains 599 rows, of which 561
+were matched to the reference table. In row eval-
+</bodyText>
+<page confidence="0.645814">
+690
+</page>
+<figure confidence="0.984092483870968">
+\x0c0.2
+0.21
+0.22
+0.23
+0.24
+0.25
+0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8
+response
+score
+reference score
+0.3
+0.35
+0.4
+0
+0.05
+0.1
+0.15
+0.2
+0.25
+0.3
+0.1 0.15 0.2 0.25 0.3 0.35
+response
+score
+reference score
+baseline
+EEA
+complete
+-dependencies
+-noise
+-context
+-features
+</figure>
+<figureCaption confidence="0.968640333333333">
+Figure 2: Row (left) and column (right) scores for the politics dataset. For all but baseline (clustering), each point
+denotes a unique sampling run. Note the change in scale in the left plot at y = 0.25. For the clustering baseline, points
+correspond to iterations.
+</figureCaption>
+<figure confidence="0.9861116">
+0.25
+0.3
+0.35
+0.4
+0 0.02 0.04 0.06 0.08 0.1
+response
+score
+reference score
+0
+0.05
+0.1
+0.15
+0.2
+0.25
+0 0.05 0.1 0.15 0.2 0.25
+response
+score
+reference score
+baseline
+EEA
+complete
+-dependencies
+-noise
+-context
+-features
+</figure>
+<figureCaption confidence="0.999385">
+Figure 3: Row (left) and column (right) scores for the sports dataset. Each point denotes a unique sampling run. The
+</figureCaption>
+<bodyText confidence="0.971881555555556">
+reference score is low since the reference set includes all entities in the NBA, NFL, and MLB, but most of them were
+not mentioned in our dataset.
+uation, our model lies above the baseline response-
+reference score curve, demonstrating its ability to
+correctly identify and combine player mentions with
+their team names. Similar to the previous dataset,
+our model is also substantially better in column eval-
+uation, indicating that it mapped mention words into
+a coherent set of five columns.
+</bodyText>
+<subsectionHeader confidence="0.956843">
+4.5 Discussion
+</subsectionHeader>
+<bodyText confidence="0.9894635">
+The two datasets illustrate that our model adapts to
+somewhat different tasks, depending on its input.
+Furthermore, fixing C (unlike EEA) does appear to
+have benefits.
+In the politics dataset, most of the mentions con-
+tain information about people. Therefore, besides
+canonicalizing named entities, the model also re-
+solves within-document and cross-document coref-
+erence, since it assigned a row index for every men-
+tion. For example, our model learned that most men-
+tions of John McCain, Sen. John McCain, Sen. Mc-
+Cain, and Mr. McCain refer to the same entity. Ta-
+ble 3 shows a few noteworthy entities from our com-
+plete models output table.
+</bodyText>
+<table confidence="0.7519066">
+Barack Obama Mr. Sen. Hussein
+Michelle Obama Mrs.
+Norm Coleman Sen.
+Sarah Palin Ms.
+John McCain Mr. Sen. Hussein
+</table>
+<tableCaption confidence="0.99724">
+Table 3: A small segment of the output table for the poli-
+</tableCaption>
+<bodyText confidence="0.998342">
+tics dataset, showing a few noteworthy correct (blue) and
+incorrect (red) examples. Black indicates seeds. Though
+Ms. is technically correct, there is variation in prefer-
+ences and conventions. Our data include eight instances
+of Ms. Palin and none of Mrs. Palin or Mrs. Sarah
+Palin.
+The first entity is an easy example since it only
+had to complete information provided in the seed ta-
+ble. The model found the correct gender-specific ti-
+tle for Barack Obama, Mr.. The rest of the examples
+were fully inferred from the data. The model was es-
+sentially correct for the second, third, and fourth en-
+tities. The last row illustrates a partially erroneous
+example, in which the model confused the middle
+name of John McCain, possibly because of a com-
+bination of a strong prior to reuse this row and the
+</bodyText>
+<page confidence="0.91363">
+691
+</page>
+<figure confidence="0.566557333333333">
+\x0cDerek Jeter New York
+Ben Roethlisberger Pittsburgh Steelers
+Alex Rodriguez New York Yankees
+Michael Vick Philadelphia Eagles
+Kevin Garnett Los Angeles Lakers
+Dave Toub The Bears
+</figure>
+<tableCaption confidence="0.979056">
+Table 4: A small segment of the output table for the sports
+</tableCaption>
+<bodyText confidence="0.999763351351351">
+dataset, showing a few noteworthy correct (blue) and in-
+correct (red) examples. Black indicates seed examples.
+introduction of a notion of noise.
+In the sports dataset, persons and organizations
+are mentioned. Recall that success here consists of
+identifying the correct team for every player. The
+EEA model is not designed for this and performed
+poorly. Our model can do better, since it makes use
+of context information and features, and it can put a
+person and an organization in one row even though
+they do not share common words. Table 4 shows a
+few noteworthy entities from our complete models
+output.
+Surprisingly, the model failed to infer that Derek
+Jeter plays for New York Yankees, although men-
+tions of the organization New York Yankees can be
+found in our dataset. This is because the model did
+not see enough evidence to put them in the same row.
+However, it successfully inferred the missing infor-
+mation for Ben Roethlisberger. The next two rows
+show cases where our model successfully matched
+players with their teams and put each word token to
+its respective column. The most frequent error, by
+far, is illustrated in the fifth row, where a player is
+matched with a wrong team. Kevin Garnett plays for
+the Boston Celtics, not the Los Angeles Lakers. It
+shows that in some cases context information is not
+adequate, and a possible improvement might be ob-
+tained by providing more context to the model. The
+sixth row is interesting because Dave Toub is indeed
+affiliated with the Chicago Bears. However, when
+the model saw a mention token The Bears, it did not
+have any other columns to put the word token The,
+and decided to put it in the fourth column although it
+is not a location. If we added more columns, deter-
+miners could become another attribute of the entities
+that might go into one of these new columns.
+</bodyText>
+<sectionHeader confidence="0.999703" genericHeader="related work">
+5 Related Work
+</sectionHeader>
+<bodyText confidence="0.99972532">
+There has been work that attempts to fill predefined
+templates using Bayesian nonparametrics (Haghighi
+and Klein, 2010) and automatically learns template
+structures using agglomerative clustering (Cham-
+bers and Jurafsky, 2011). Charniak (2001) and El-
+sner et al. (2009) focused specifically on names and
+discovering their structure, which is a part of the
+problem we consider here. More similar to our
+work, Eisenstein et al. (2011) introduced a non-
+parametric Bayesian approach to extract structured
+databases of entities. A fundamental difference of
+our approach from any of the previous work is it
+maximizes conditional likelihood and thus allows
+beneficial incorporation of arbitrary features.
+Our model is focused on the problem of canoni-
+calizing mention strings into their parts, though its r
+variables (which map mentions to rows) could be in-
+terpreted as (within-document and cross-document)
+coreference resolution, which has been tackled us-
+ing a range of probabilistic models (Li et al., 2004;
+Haghighi and Klein, 2007; Poon and Domingos,
+2008; Singh et al., 2011). We have not evaluated it
+as such, believing that further work should be done
+to integrate appropriate linguistic cues before such
+an application.
+</bodyText>
+<sectionHeader confidence="0.999334" genericHeader="conclusions">
+6 Conclusions
+</sectionHeader>
+<bodyText confidence="0.999871">
+We presented an improved probabilistic model for
+canonicalizing named entities into a table. We
+showed that the model adapts to different tasks de-
+pending on its input and seeds, and that it improves
+over state-of-the-art performance on two corpora.
+</bodyText>
+<sectionHeader confidence="0.962614" genericHeader="acknowledgments">
+Acknowledgements
+</sectionHeader>
+<bodyText confidence="0.996899">
+The authors thank Jacob Eisenstein and Tae Yano for
+helpful discussions and providing us with the implemen-
+tation of their model, Tim Hawes for helpful discussions,
+Naomi Saphra for assistance in developing the gold stan-
+dard for the politics dataset, and three anonymous review-
+ers for comments on an earlier draft of this paper. This re-
+search was supported in part by the U.S. Army Research
+Office, Googles sponsorship of the Worldly Knowledge
+project at CMU, and A
+STAR (fellowship to Y. Sim); the
+contents of this paper do not necessarily reflect the posi-
+tion or the policy of the sponsors, and no official endorse-
+ment should be inferred.
+</bodyText>
+<page confidence="0.994652">
+692
+</page>
+<reference confidence="0.9978645">
+\x0cReferences
+G. Andrew and J. Gao. 2007. Scalable training of L1-
+regularized log-linear models. In Proc. of ICML.
+N. Chambers and D. Jurafsky. 2011. Template-based
+information extraction without the templates. In Proc.
+of ACL-HLT.
+E. Charniak. 2001. Unsupervised learning of name
+structure from coreference data. In Proc. of NAACL.
+J. Eisenstein and E. P. Xing. 2010. The CMU 2008 po-
+litical blog corpus. Technical report, Carnegie Mellon
+University.
+J. Eisenstein, T. Yano, W. W. Cohen, N. A. Smith, and
+E. P. Xing. 2011. Structured databases of named
+entities from Bayesian nonparametrics. In Proc. of
+EMNLP Workshop on Unsupervised Learning in NLP.
+M. Elsner, E. Charniak, and M. Johnson. 2009. Struc-
+tured generative models for unsupervised named-
+entity clustering. In Proc. of NAACL-HLT.
+J. R. Finkel, T. Grenager, and C. Manning. 2005. In-
+corporating non-local information into information ex-
+traction systems by Gibbs sampling. In Proc. of ACL.
+A. Haghighi and D. Klein. 2007. Unsupervised coref-
+erence resolution in a nonparametric Bayesian model.
+In Proc. of ACL.
+A. Haghighi and D. Klein. 2010. An entity-level ap-
+proach to information extraction. In Proc. of ACL
+Short Papers.
+C. S. Jensen, U. Kjaerulff, and A. Kong. 1995. Blocking
+Gibbs sampling in very large probabilistic expert sys-
+tem. International Journal of Human-Computer Stud-
+ies, 42(6):647666.
+R. Jonker and A. Volgenant. 1987. A shortest augment-
+ing path algorithm for dense and sparse linear assign-
+ment problems. Computing, 38(4):325340.
+X. Li, P. Morie, and D. Roth. 2004. Identification and
+tracing of ambiguous names: discriminative and gen-
+erative approaches. In Proc. of AAAI.
+D. C. Liu and J. Nocedal. 1989. On the limited memory
+BFGS method for large scale optimization. Mathemat-
+ical Programming B, 45(3):503528.
+D. Mochihashi, T. Yamada, and N. Ueda. 2009.
+Bayesian unsupervised word segmentation with nested
+Pitman-Yor language modeling. In Proc. of ACL-
+IJCNLP.
+C. Morris. 1983. Parametric empirical Bayes inference:
+Theory and applications. Journal of the American Sta-
+tistical Association, 78(381):4765.
+H. Poon and P. Domingos. 2008. Joint unsupervised
+coreference resolution with Markov logic. In Proc. of
+EMNLP.
+S. Singh, A. Subramanya, F. Pereira, and A. McCallum.
+2011. Large-scale cross-document coreference using
+distributed inference and hierarchical models. In Proc.
+of ACL-HLT.
+N. A. Smith and J. Eisner. 2005. Contrastive estimation:
+training log-linear models on unlabeled data. In Proc.
+of ACL.
+R. Tibshirani. 1996. Regression shrinkage and selection
+via the lasso. Journal of Royal Statistical Society B,
+58(1):267288.
+G. C. G. Wei and M. A. Tanner. 1990. A Monte Carlo
+implementation of the EM algorithm and the poor
+mans data augmentation algorithms. Journal of the
+American Statistical Association, 85(411):699704.
+</reference>
+<page confidence="0.988423">
+693
+</page>
+<figure confidence="0.247548">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.679110">
+<note confidence="0.906150333333333">b&apos;Proceedings of the 50th Annual Meeting of the Association for Computational Linguistics, pages 685693, Jeju, Republic of Korea, 8-14 July 2012. c 2012 Association for Computational Linguistics</note>
+<title confidence="0.969315">A Probabilistic Model for Canonicalizing Named Entity Mentions</title>
+<author confidence="0.999975">Dani Yogatama Yanchuan Sim Noah A Smith</author>
+<affiliation confidence="0.9988355">Language Technologies Institute Carnegie Mellon University</affiliation>
+<address confidence="0.992896">Pittsburgh, PA 15213, USA</address>
+<email confidence="0.999777">dyogatama@cs.cmu.edu</email>
+<email confidence="0.999777">ysim@cs.cmu.edu</email>
+<email confidence="0.999777">nasmith@cs.cmu.edu</email>
+<abstract confidence="0.9981835">We present a statistical model for canonicalizing named entity mentions into a table whose rows represent entities and whose columns are attributes (or parts of attributes). The model is novel in that it incorporates entity context, surface features, firstorder dependencies among attribute-parts, and a notion of noise. Transductive learning from a few seeds and a collection of mention tokens combines Bayesian inference and conditional estimation. We evaluate our model and its components on two datasets collected from political blogs and sports news, finding that it outperforms a simple agglomerative clustering approach and previous work.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>\x0cReferences G Andrew</author>
+<author>J Gao</author>
+</authors>
+<title>Scalable training of L1-regularized log-linear models.</title>
+<date>2007</date>
+<booktitle>In Proc. of ICML.</booktitle>
+<contexts>
+<context position="15315" citStr="Andrew and Gao, 2007" startWordPosition="2712" endWordPosition="2715">lize random variables to the left of the current variable because their values are already sampled. Our transition probabilities are as follows: p(cm` = c |cm` = c) = Nm c,c P c0 Nm c0 ,c , where Nm c,c is the number of times we observe transitions from column c to c, excluding mention m. The forward and backward equations are simple (we omit them for space). Mention likelihood. Mention likelihood p(wm` | x, rm = r, cm` = c, c) is identical to when we sample the row index (Eq. 1). 3.2 M-step In the M-step, we use gradient-based optimization routines, L-BFGS (Liu and Nocedal, 1989) and OWL-QN (Andrew and Gao, 2007) respectively, to maximize with respect to and . 688 \x0c3.3 Implementation Details We ran Gibbs sampling for 500 iterations,3 discarding the first 200 for burn-in and averaging counts over every 10th sample to reduce autocorrelation. For each word in a mention w, we introduced 12 binary features f for our featurized log-linear distribution (3.1.2). We then downcased all words in mentions for the purpose of defining the table and the mention words w. Ten context words (5 each to the left and right) define s for each mention token. For non-convex optimization problems like ours, initialization </context>
+</contexts>
+<marker>Andrew, Gao, 2007</marker>
+<rawString>\x0cReferences G. Andrew and J. Gao. 2007. Scalable training of L1-regularized log-linear models. In Proc. of ICML.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N Chambers</author>
+<author>D Jurafsky</author>
+</authors>
+<title>Template-based information extraction without the templates.</title>
+<date>2011</date>
+<booktitle>In Proc. of ACL-HLT.</booktitle>
+<contexts>
+<context position="29924" citStr="Chambers and Jurafsky, 2011" startWordPosition="5195" endWordPosition="5199">ting because Dave Toub is indeed affiliated with the Chicago Bears. However, when the model saw a mention token The Bears, it did not have any other columns to put the word token The, and decided to put it in the fourth column although it is not a location. If we added more columns, determiners could become another attribute of the entities that might go into one of these new columns. 5 Related Work There has been work that attempts to fill predefined templates using Bayesian nonparametrics (Haghighi and Klein, 2010) and automatically learns template structures using agglomerative clustering (Chambers and Jurafsky, 2011). Charniak (2001) and Elsner et al. (2009) focused specifically on names and discovering their structure, which is a part of the problem we consider here. More similar to our work, Eisenstein et al. (2011) introduced a nonparametric Bayesian approach to extract structured databases of entities. A fundamental difference of our approach from any of the previous work is it maximizes conditional likelihood and thus allows beneficial incorporation of arbitrary features. Our model is focused on the problem of canonicalizing mention strings into their parts, though its r variables (which map mentions</context>
+</contexts>
+<marker>Chambers, Jurafsky, 2011</marker>
+<rawString>N. Chambers and D. Jurafsky. 2011. Template-based information extraction without the templates. In Proc. of ACL-HLT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Charniak</author>
+</authors>
+<title>Unsupervised learning of name structure from coreference data.</title>
+<date>2001</date>
+<booktitle>In Proc. of NAACL.</booktitle>
+<contexts>
+<context position="29941" citStr="Charniak (2001)" startWordPosition="5200" endWordPosition="5201">ed affiliated with the Chicago Bears. However, when the model saw a mention token The Bears, it did not have any other columns to put the word token The, and decided to put it in the fourth column although it is not a location. If we added more columns, determiners could become another attribute of the entities that might go into one of these new columns. 5 Related Work There has been work that attempts to fill predefined templates using Bayesian nonparametrics (Haghighi and Klein, 2010) and automatically learns template structures using agglomerative clustering (Chambers and Jurafsky, 2011). Charniak (2001) and Elsner et al. (2009) focused specifically on names and discovering their structure, which is a part of the problem we consider here. More similar to our work, Eisenstein et al. (2011) introduced a nonparametric Bayesian approach to extract structured databases of entities. A fundamental difference of our approach from any of the previous work is it maximizes conditional likelihood and thus allows beneficial incorporation of arbitrary features. Our model is focused on the problem of canonicalizing mention strings into their parts, though its r variables (which map mentions to rows) could b</context>
+</contexts>
+<marker>Charniak, 2001</marker>
+<rawString>E. Charniak. 2001. Unsupervised learning of name structure from coreference data. In Proc. of NAACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Eisenstein</author>
+<author>E P Xing</author>
+</authors>
+<title>political blog corpus.</title>
+<date>2010</date>
+<booktitle>The CMU</booktitle>
+<tech>Technical report,</tech>
+<institution>Carnegie Mellon University.</institution>
+<contexts>
+<context position="16802" citStr="Eisenstein and Xing, 2010" startWordPosition="2956" endWordPosition="2959">d not tuned across experiments.4 The M-step was performed every 50 Gibbs sampling iterations. After inference, we filled each cell with the word that occurred at least 80% of the time in the averaged counts for the cell, if such a word existed. 4 Experiments We compare several variations of our model to Eisenstein et al. (2011) (the authors provided their implementation to us) and a clustering baseline. 4.1 Datasets We collected named entity mentions from two corpora: political blogs and sports news. The political blogs corpus is a collection of blog posts about politics in the United States (Eisenstein and Xing, 2010), and the sports news corpus contains news summaries of major league sports games (National Basketball 3 On our moderate-sized datasets (see 4.1), each iteration takes approximately three minutes on a 2.2GHz CPU. 4 For the politics dataset, we set C = 6, = h1.0, 1.0, 1012 , 1015 , 1012 , 108 i, initialized = 1, and used a Dirichlet prior on transition counts such that before observing any data: N0,1 = 10, N0,5 = 5, N2,0 = 10, N2,1 = 10, N2,3 = 10, N2,4 = 5, N3,0 = 10, N3,1 = 10, N5,1 = 15 (others are set to zero). For the sports dataset, we set C = 5, = h1.0, 1.0, 1015 , 106 , 106 i, initializ</context>
+</contexts>
+<marker>Eisenstein, Xing, 2010</marker>
+<rawString>J. Eisenstein and E. P. Xing. 2010. The CMU 2008 political blog corpus. Technical report, Carnegie Mellon University.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Eisenstein</author>
+<author>T Yano</author>
+<author>W W Cohen</author>
+<author>N A Smith</author>
+<author>E P Xing</author>
+</authors>
+<title>Structured databases of named entities from Bayesian nonparametrics.</title>
+<date>2011</date>
+<booktitle>In Proc. of EMNLP Workshop on Unsupervised Learning in NLP.</booktitle>
+<contexts>
+<context position="1797" citStr="Eisenstein et al. (2011)" startWordPosition="269" endWordPosition="272"> themis a central part of many NLP applications. We seek an algorithm that infers a set of real-world entities from mentions in a text, mapping each entity mention token to an entity, and discovers general categories of words used in names (e.g., titles and last names). Here, we use a probabilistic model to infer a structured representation of canonical forms of entity attributes through transductive learning from named entity mentions with a small number of seeds (see Table 1). The input is a collection of mentions found by a named entity recognizer, along with their contexts, and, following Eisenstein et al. (2011), the output is a table in which entities are rows (the number of which is not pre-specified) and attribute words are organized into columns. This paper contributes a model that builds on the approach of Eisenstein et al. (2011), but also: incorporates context of the mention to help with disambiguation and to allow mentions that do not share words to be merged liberally; conditions against shape features, which improve the assignment of words to columns; is designed to explicitly handle some noise; and is learned using elements of Bayesian inference with conditional estimation (see 2). We expe</context>
+<context position="5323" citStr="Eisenstein et al. (2011)" startWordPosition="865" endWordPosition="868">riables that are optimized are double circled. Others are latent; dashed lines imply collapsing. 2 Model We begin by assuming as input a set of mention tokens, each one or more words. In our experiments these are obtained by running a named entity recognizer. The output is a table in which rows are understood to correspond to entities (types, not mention tokens) and columns are fields, each associated with an attribute or a part of it. Our approach is based on a probabilistic graphical model that generates the mentions, which are observed, and the table, which is mostly unobserved, similar to Eisenstein et al. (2011). Our learning procedure is a hybrid of Bayesian inference and conditional estimation. The generative story, depicted in Figure 1, is: For each column j {1, . . . , C}: Draw a multinomial distribution j over the vocabulary from a Dirichlet process: j DP(j, G0). This is the lexicon for field j. Generate table entries. For each row i (of which there are infinitely many), draw an entry xi,j for cell i, j from j. A few of these entries (the seeds) are observed; we denote those x. Draw weights j that associate shape and positional features with columns from a 0-mean, -variance Laplace distribution.</context>
+<context position="9187" citStr="Eisenstein et al. (2011)" startWordPosition="1537" endWordPosition="1540">rning procedure is a Monte Carlo Expectation Maximization algorithm (Wei and Tanner, 1990). 3 Learning and Inference Our learning procedure is an iterative algorithm consisting of two steps. In the E-step, we perform collapsed Gibbs sampling to obtain distributions over row and column indices for every mention, given the current value of the hyperparamaters. In the M-step, we obtain estimates for the hyperparameters, given the current posterior distributions. 3.1 E-step For the mth mention, we sample row index r, then for each word wm`, we sample column index c. 3.1.1 Sampling Rows Similar to Eisenstein et al. (2011), when we sample the row for a mention, we use Bayes rule and marginalize the columns. We further incorporate context information and a notion of noise. p(rm = r |. . .) p(rm = r |rm, ) ( Q ` P c p(wm` |x, rm = r, cm` = c)) ( Q t p(smt |rm = r)) We consider each quantity in turn. Prior. The probability of drawing a row index follows a stick breaking distribution. This allows us to have an unbounded number of rows and let the model infer the optimal value from data. A standard marginalization of gives us: p(rm = r |rm, ) = ( Nm r N+ if Nm r &gt; 0 N+ otherwise, where N is the number of mentions, N</context>
+<context position="11978" citStr="Eisenstein et al. (2011)" startWordPosition="2098" endWordPosition="2102">t prior . 1 We let G0 be a uniform distribution over the vocabulary. 687 \x0cTherefore, the probability of observing the tth context word for mention m is p(smt |rm = r, ) = ( Nmt rs +s1 Nmt r + P v vV if Nmt r &gt; 0 s1 P v vV otherwise, where Nmt r is the number of context words of mentions assigned to row r, Nmt rs is the number of context words of mentions assigned to row r that are smt, both excluding the current context word, and v ranges over the context vocabulary of size V . 3.1.2 Sampling Columns Our column sampling procedure is novel to this work and substantially differs from that of Eisenstein et al. (2011). First, we note that when we sample column indices for each word in a mention, the row index for the mention r has already been sampled. Also, our model has interdependencies among column indices of a mention.2 Standard Gibbs sampling procedure breaks down these dependencies. For faster mixing, we experiment with first-order dependencies between columns when sampling column indices. This idea was suggested by Eisenstein et al. (2011, footnote 1) as a way to learn structure in name conventions. We suppressed this aspect of the model in Figure 1 for clarity. We sample the column index c1 for th</context>
+<context position="16505" citStr="Eisenstein et al. (2011)" startWordPosition="2908" endWordPosition="2911">roblems like ours, initialization is important. To guide the model to reach a good local optimum without many restarts, we manually initialized feature weights and put a prior on transition probabilities to reflect phenomena observed in the initial seeds. The initializer was constructed once and not tuned across experiments.4 The M-step was performed every 50 Gibbs sampling iterations. After inference, we filled each cell with the word that occurred at least 80% of the time in the averaged counts for the cell, if such a word existed. 4 Experiments We compare several variations of our model to Eisenstein et al. (2011) (the authors provided their implementation to us) and a clustering baseline. 4.1 Datasets We collected named entity mentions from two corpora: political blogs and sports news. The political blogs corpus is a collection of blog posts about politics in the United States (Eisenstein and Xing, 2010), and the sports news corpus contains news summaries of major league sports games (National Basketball 3 On our moderate-sized datasets (see 4.1), each iteration takes approximately three minutes on a 2.2GHz CPU. 4 For the politics dataset, we set C = 6, = h1.0, 1.0, 1012 , 1015 , 1012 , 108 i, initial</context>
+<context position="20756" citStr="Eisenstein et al. (2011)" startWordPosition="3653" endWordPosition="3656">note rows, Match(i, j) is one if i and j are matched to each other in the optimal matching or zero otherwise. Sres is a precision-like score, and Sref is a recall-like score.6 Column evaluation is the same, but compares columns instead. 4.3 Baselines Our simple baseline is an agglomerative clustering algorithm that clusters mentions into entities using the single-linkage criterion. Initially, each unique mention forms its own cluster that we incrementally merge together to form rows in the table. This method requires a similarity score between two clusters. For the politics dataset, we follow Eisenstein et al. (2011) and use the string edit distance between mention strings in each cluster to define the score. For the sports dataset, since mentions contain person and organization named entity types, our score for clustering uses the Jaccard distance between context words of the mentions. However, such clusterings do not produce columns. Therefore, we first match words in mentions of type person against a regular expression to recognize entity attributes from a fixed set of titles and suffixes, and the first, middle and last names. We treat words in mentions of type organization as a single attribute.7 As w</context>
+<context position="22829" citStr="Eisenstein et al. (2011)" startWordPosition="3999" endWordPosition="4002">ion scores, however, reward the system for accurately filling in more cells. 7 Note that the baseline system uses NER tags, list of titles and suffixes; which are also provided to our model through the features in 3.1.2. all words within a column belong to the same attribute, creating columns as necessary to accomodate multiple similar attributes as a result of merging. We can evaluate the tables produced by each step of the clustering to obtain the entire sequence of response-reference scores. As a strong baseline, we also compare our approach with the original implementation of the model of Eisenstein et al. (2011), denoted by EEA. 4.4 Results For both the politics and sports dataset, we run the procedure in 3.3 three times and report the results. Politics. The results for the politics dataset are shown in Figure 2. Our model consistently outperformed both baselines. We also analyze how much each of our four main extensions (shape features, context information, noise, and first-order column dependencies) to EEA contributes to overall performance by ablating each in turn (also shown in Fig. 2). The best-performing complete model has 415 rows, of which 113 were matched to the reference table. Shape featur</context>
+<context position="30129" citStr="Eisenstein et al. (2011)" startWordPosition="5231" endWordPosition="5234">the fourth column although it is not a location. If we added more columns, determiners could become another attribute of the entities that might go into one of these new columns. 5 Related Work There has been work that attempts to fill predefined templates using Bayesian nonparametrics (Haghighi and Klein, 2010) and automatically learns template structures using agglomerative clustering (Chambers and Jurafsky, 2011). Charniak (2001) and Elsner et al. (2009) focused specifically on names and discovering their structure, which is a part of the problem we consider here. More similar to our work, Eisenstein et al. (2011) introduced a nonparametric Bayesian approach to extract structured databases of entities. A fundamental difference of our approach from any of the previous work is it maximizes conditional likelihood and thus allows beneficial incorporation of arbitrary features. Our model is focused on the problem of canonicalizing mention strings into their parts, though its r variables (which map mentions to rows) could be interpreted as (within-document and cross-document) coreference resolution, which has been tackled using a range of probabilistic models (Li et al., 2004; Haghighi and Klein, 2007; Poon </context>
+</contexts>
+<marker>Eisenstein, Yano, Cohen, Smith, Xing, 2011</marker>
+<rawString>J. Eisenstein, T. Yano, W. W. Cohen, N. A. Smith, and E. P. Xing. 2011. Structured databases of named entities from Bayesian nonparametrics. In Proc. of EMNLP Workshop on Unsupervised Learning in NLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Elsner</author>
+<author>E Charniak</author>
+<author>M Johnson</author>
+</authors>
+<title>Structured generative models for unsupervised namedentity clustering.</title>
+<date>2009</date>
+<booktitle>In Proc. of NAACL-HLT.</booktitle>
+<contexts>
+<context position="29966" citStr="Elsner et al. (2009)" startWordPosition="5203" endWordPosition="5207">he Chicago Bears. However, when the model saw a mention token The Bears, it did not have any other columns to put the word token The, and decided to put it in the fourth column although it is not a location. If we added more columns, determiners could become another attribute of the entities that might go into one of these new columns. 5 Related Work There has been work that attempts to fill predefined templates using Bayesian nonparametrics (Haghighi and Klein, 2010) and automatically learns template structures using agglomerative clustering (Chambers and Jurafsky, 2011). Charniak (2001) and Elsner et al. (2009) focused specifically on names and discovering their structure, which is a part of the problem we consider here. More similar to our work, Eisenstein et al. (2011) introduced a nonparametric Bayesian approach to extract structured databases of entities. A fundamental difference of our approach from any of the previous work is it maximizes conditional likelihood and thus allows beneficial incorporation of arbitrary features. Our model is focused on the problem of canonicalizing mention strings into their parts, though its r variables (which map mentions to rows) could be interpreted as (within-</context>
+</contexts>
+<marker>Elsner, Charniak, Johnson, 2009</marker>
+<rawString>M. Elsner, E. Charniak, and M. Johnson. 2009. Structured generative models for unsupervised namedentity clustering. In Proc. of NAACL-HLT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J R Finkel</author>
+<author>T Grenager</author>
+<author>C Manning</author>
+</authors>
+<title>Incorporating non-local information into information extraction systems by Gibbs sampling.</title>
+<date>2005</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="18174" citStr="Finkel et al., 2005" startWordPosition="3211" endWordPosition="3214">ts of some features for both datasets. These values were obtained from preliminary experiments on a smaller sample of the datasets, and updated on the first EM iteration. Politics Sports # source documents 3,000 700 # mentions 10,647 13,813 # unique mentions 528 884 size of mention vocabulary 666 1,177 size of context vocabulary 2,934 2,844 Table 2: Descriptive statistics about the datasets. Association, National Football League, and Major League Baseball) in 2009. Due to the large size of the corpora, we uniformly sampled a subset of documents for each corpus and ran the Stanford NER tagger (Finkel et al., 2005), which tagged named entities mentions as person, location, and organization. We used named entity of type person from the political blogs corpus, while we are interested in person and organization entities for the sports news corpus. Mentions that appear less than five times are discarded. Table 2 summarizes statistics for both datasets of named entity mentions. Reference tables. We use Eisenstein et al.s manually built 125-entity (282 vocabulary items) reference table for the politics dataset. Each entity in the table is represented by the set of all tokens that apppear in its references, an</context>
+</contexts>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>J. R. Finkel, T. Grenager, and C. Manning. 2005. Incorporating non-local information into information extraction systems by Gibbs sampling. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Haghighi</author>
+<author>D Klein</author>
+</authors>
+<title>Unsupervised coreference resolution in a nonparametric Bayesian model.</title>
+<date>2007</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="30722" citStr="Haghighi and Klein, 2007" startWordPosition="5321" endWordPosition="5324"> work, Eisenstein et al. (2011) introduced a nonparametric Bayesian approach to extract structured databases of entities. A fundamental difference of our approach from any of the previous work is it maximizes conditional likelihood and thus allows beneficial incorporation of arbitrary features. Our model is focused on the problem of canonicalizing mention strings into their parts, though its r variables (which map mentions to rows) could be interpreted as (within-document and cross-document) coreference resolution, which has been tackled using a range of probabilistic models (Li et al., 2004; Haghighi and Klein, 2007; Poon and Domingos, 2008; Singh et al., 2011). We have not evaluated it as such, believing that further work should be done to integrate appropriate linguistic cues before such an application. 6 Conclusions We presented an improved probabilistic model for canonicalizing named entities into a table. We showed that the model adapts to different tasks depending on its input and seeds, and that it improves over state-of-the-art performance on two corpora. Acknowledgements The authors thank Jacob Eisenstein and Tae Yano for helpful discussions and providing us with the implementation of their mode</context>
+</contexts>
+<marker>Haghighi, Klein, 2007</marker>
+<rawString>A. Haghighi and D. Klein. 2007. Unsupervised coreference resolution in a nonparametric Bayesian model. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Haghighi</author>
+<author>D Klein</author>
+</authors>
+<title>An entity-level approach to information extraction.</title>
+<date>2010</date>
+<booktitle>In Proc. of ACL Short Papers.</booktitle>
+<contexts>
+<context position="29818" citStr="Haghighi and Klein, 2010" startWordPosition="5183" endWordPosition="5186">possible improvement might be obtained by providing more context to the model. The sixth row is interesting because Dave Toub is indeed affiliated with the Chicago Bears. However, when the model saw a mention token The Bears, it did not have any other columns to put the word token The, and decided to put it in the fourth column although it is not a location. If we added more columns, determiners could become another attribute of the entities that might go into one of these new columns. 5 Related Work There has been work that attempts to fill predefined templates using Bayesian nonparametrics (Haghighi and Klein, 2010) and automatically learns template structures using agglomerative clustering (Chambers and Jurafsky, 2011). Charniak (2001) and Elsner et al. (2009) focused specifically on names and discovering their structure, which is a part of the problem we consider here. More similar to our work, Eisenstein et al. (2011) introduced a nonparametric Bayesian approach to extract structured databases of entities. A fundamental difference of our approach from any of the previous work is it maximizes conditional likelihood and thus allows beneficial incorporation of arbitrary features. Our model is focused on </context>
+</contexts>
+<marker>Haghighi, Klein, 2010</marker>
+<rawString>A. Haghighi and D. Klein. 2010. An entity-level approach to information extraction. In Proc. of ACL Short Papers.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C S Jensen</author>
+<author>U Kjaerulff</author>
+<author>A Kong</author>
+</authors>
+<title>Blocking Gibbs sampling in very large probabilistic expert system.</title>
+<date>1995</date>
+<journal>International Journal of Human-Computer Studies,</journal>
+<volume>42</volume>
+<issue>6</issue>
+<contexts>
+<context position="13136" citStr="Jensen et al. (1995)" startWordPosition="2302" endWordPosition="2305"> in Figure 1 for clarity. We sample the column index c1 for the first word in the mention, marginalizing out probabilities of other words in the mention. After we sample the column index for the first word, we sample the column index c2 for the second word, fixing the previous word to be in column c1, and marginalizing out probabilities of c3, . . . , cL as before. We repeat the above procedure until we reach the last word in the mention. In practice, this can be done efficiently using backward probabilities computed via dynamic programming. This kind of blocked Gibbs sampling was proposed by Jensen et al. (1995) and used in NLP by Mochihashi et al. (2009). We have: p(cm` = c |. . .) p(cm` = c |fm`, )p(cm` = c |cm` = c) \x10P c+ pb(cm` = c |cm`+ = c+) \x11 p(wm` |x, rm = r, cm` = c, c), 2 As shown in Figure 1, column indices in a mention form v-structures with the row index r. Since every w` is observed, there is an active path that goes through all these nodes. where ` is the preceding word and c is its sampled index, `+ is the following word and c+ is its possible index, and pb() are backward probabilities. Alternatively, we can perform standard Gibbs sampling and drop the dependencies between colum</context>
+</contexts>
+<marker>Jensen, Kjaerulff, Kong, 1995</marker>
+<rawString>C. S. Jensen, U. Kjaerulff, and A. Kong. 1995. Blocking Gibbs sampling in very large probabilistic expert system. International Journal of Human-Computer Studies, 42(6):647666.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Jonker</author>
+<author>A Volgenant</author>
+</authors>
+<title>A shortest augmenting path algorithm for dense and sparse linear assignment problems.</title>
+<date>1987</date>
+<journal>Computing,</journal>
+<volume>38</volume>
+<issue>4</issue>
+<contexts>
+<context position="19730" citStr="Jonker and Volgenant (1987)" startWordPosition="3480" endWordPosition="3483">ereas it is complete for the sports dataset. Seeds. Table 1 shows the seeds for both datasets. 4.2 Evaluation Scores We propose both a row evaluation to determine how well a model disambiguates entities and merges mentions of the same entity and a column evaluation to measure how well the model relates words used in different mentions. Both scores are new for this task. The first step in evaluation is to find a maximum score bipartite matching between rows in the response and reference table.5 Given the response and 5 Treating each row as a set of words, we can optimize the matching using the Jonker and Volgenant (1987) algorithm. The column evaluation is identical, except that sets of words that are matched are defined by columns. We use the Jaccard similarityfor two sets A and B, |AB| |AB| for our similarity function, Sim(i, j). 689 \x0creference tables, xres and xref , we can compute: Sres = 1 |xres | P ixres ,jxref :Match(i,j)=1 Sim(i, j) Sref = 1 |xref | P ixres ,jxref :Match(i,j)=1 Sim(i, j) where i and j denote rows, Match(i, j) is one if i and j are matched to each other in the optimal matching or zero otherwise. Sres is a precision-like score, and Sref is a recall-like score.6 Column evaluation is t</context>
+</contexts>
+<marker>Jonker, Volgenant, 1987</marker>
+<rawString>R. Jonker and A. Volgenant. 1987. A shortest augmenting path algorithm for dense and sparse linear assignment problems. Computing, 38(4):325340.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>X Li</author>
+<author>P Morie</author>
+<author>D Roth</author>
+</authors>
+<title>Identification and tracing of ambiguous names: discriminative and generative approaches.</title>
+<date>2004</date>
+<booktitle>In Proc. of AAAI.</booktitle>
+<contexts>
+<context position="30696" citStr="Li et al., 2004" startWordPosition="5317" endWordPosition="5320">re similar to our work, Eisenstein et al. (2011) introduced a nonparametric Bayesian approach to extract structured databases of entities. A fundamental difference of our approach from any of the previous work is it maximizes conditional likelihood and thus allows beneficial incorporation of arbitrary features. Our model is focused on the problem of canonicalizing mention strings into their parts, though its r variables (which map mentions to rows) could be interpreted as (within-document and cross-document) coreference resolution, which has been tackled using a range of probabilistic models (Li et al., 2004; Haghighi and Klein, 2007; Poon and Domingos, 2008; Singh et al., 2011). We have not evaluated it as such, believing that further work should be done to integrate appropriate linguistic cues before such an application. 6 Conclusions We presented an improved probabilistic model for canonicalizing named entities into a table. We showed that the model adapts to different tasks depending on its input and seeds, and that it improves over state-of-the-art performance on two corpora. Acknowledgements The authors thank Jacob Eisenstein and Tae Yano for helpful discussions and providing us with the im</context>
+</contexts>
+<marker>Li, Morie, Roth, 2004</marker>
+<rawString>X. Li, P. Morie, and D. Roth. 2004. Identification and tracing of ambiguous names: discriminative and generative approaches. In Proc. of AAAI.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D C Liu</author>
+<author>J Nocedal</author>
+</authors>
+<title>On the limited memory BFGS method for large scale optimization.</title>
+<date>1989</date>
+<journal>Mathematical Programming B,</journal>
+<volume>45</volume>
+<issue>3</issue>
+<contexts>
+<context position="15281" citStr="Liu and Nocedal, 1989" startWordPosition="2706" endWordPosition="2709">right, so we do not need to marginalize random variables to the left of the current variable because their values are already sampled. Our transition probabilities are as follows: p(cm` = c |cm` = c) = Nm c,c P c0 Nm c0 ,c , where Nm c,c is the number of times we observe transitions from column c to c, excluding mention m. The forward and backward equations are simple (we omit them for space). Mention likelihood. Mention likelihood p(wm` | x, rm = r, cm` = c, c) is identical to when we sample the row index (Eq. 1). 3.2 M-step In the M-step, we use gradient-based optimization routines, L-BFGS (Liu and Nocedal, 1989) and OWL-QN (Andrew and Gao, 2007) respectively, to maximize with respect to and . 688 \x0c3.3 Implementation Details We ran Gibbs sampling for 500 iterations,3 discarding the first 200 for burn-in and averaging counts over every 10th sample to reduce autocorrelation. For each word in a mention w, we introduced 12 binary features f for our featurized log-linear distribution (3.1.2). We then downcased all words in mentions for the purpose of defining the table and the mention words w. Ten context words (5 each to the left and right) define s for each mention token. For non-convex optimization p</context>
+</contexts>
+<marker>Liu, Nocedal, 1989</marker>
+<rawString>D. C. Liu and J. Nocedal. 1989. On the limited memory BFGS method for large scale optimization. Mathematical Programming B, 45(3):503528.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Mochihashi</author>
+<author>T Yamada</author>
+<author>N Ueda</author>
+</authors>
+<title>Bayesian unsupervised word segmentation with nested Pitman-Yor language modeling.</title>
+<date>2009</date>
+<booktitle>In Proc. of ACLIJCNLP.</booktitle>
+<contexts>
+<context position="13180" citStr="Mochihashi et al. (2009)" startWordPosition="2311" endWordPosition="2314">column index c1 for the first word in the mention, marginalizing out probabilities of other words in the mention. After we sample the column index for the first word, we sample the column index c2 for the second word, fixing the previous word to be in column c1, and marginalizing out probabilities of c3, . . . , cL as before. We repeat the above procedure until we reach the last word in the mention. In practice, this can be done efficiently using backward probabilities computed via dynamic programming. This kind of blocked Gibbs sampling was proposed by Jensen et al. (1995) and used in NLP by Mochihashi et al. (2009). We have: p(cm` = c |. . .) p(cm` = c |fm`, )p(cm` = c |cm` = c) \x10P c+ pb(cm` = c |cm`+ = c+) \x11 p(wm` |x, rm = r, cm` = c, c), 2 As shown in Figure 1, column indices in a mention form v-structures with the row index r. Since every w` is observed, there is an active path that goes through all these nodes. where ` is the preceding word and c is its sampled index, `+ is the following word and c+ is its possible index, and pb() are backward probabilities. Alternatively, we can perform standard Gibbs sampling and drop the dependencies between columns, which makes the model rely more heavily </context>
+</contexts>
+<marker>Mochihashi, Yamada, Ueda, 2009</marker>
+<rawString>D. Mochihashi, T. Yamada, and N. Ueda. 2009. Bayesian unsupervised word segmentation with nested Pitman-Yor language modeling. In Proc. of ACLIJCNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C Morris</author>
+</authors>
+<title>Parametric empirical Bayes inference: Theory and applications.</title>
+<date>1983</date>
+<journal>Journal of the American Statistical Association,</journal>
+<volume>78</volume>
+<issue>381</issue>
+<contexts>
+<context position="8495" citStr="Morris, 1983" startWordPosition="1425" endWordPosition="1427">ture vector values. These choices highlight that the design of a probabilistic model can draw from both Bayesian and discriminative tools. Observing some of x as seeds (x) renders this approach transductive. Exact inference in this model is intractable, so we resort to an approximate inference technique based on Markov Chain Monte Carlo simulation. The optimization of can be described as contrastive estimation (Smith and Eisner, 2005), in which some aspects of the data are conditioned against for computational convenience. The optimization of can be described as empirical Bayesian estimation (Morris, 1983) in which the parameters of a prior are fit to data. Our overall learning procedure is a Monte Carlo Expectation Maximization algorithm (Wei and Tanner, 1990). 3 Learning and Inference Our learning procedure is an iterative algorithm consisting of two steps. In the E-step, we perform collapsed Gibbs sampling to obtain distributions over row and column indices for every mention, given the current value of the hyperparamaters. In the M-step, we obtain estimates for the hyperparameters, given the current posterior distributions. 3.1 E-step For the mth mention, we sample row index r, then for each</context>
+</contexts>
+<marker>Morris, 1983</marker>
+<rawString>C. Morris. 1983. Parametric empirical Bayes inference: Theory and applications. Journal of the American Statistical Association, 78(381):4765.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H Poon</author>
+<author>P Domingos</author>
+</authors>
+<title>Joint unsupervised coreference resolution with Markov logic.</title>
+<date>2008</date>
+<booktitle>In Proc. of EMNLP.</booktitle>
+<contexts>
+<context position="30747" citStr="Poon and Domingos, 2008" startWordPosition="5325" endWordPosition="5328">2011) introduced a nonparametric Bayesian approach to extract structured databases of entities. A fundamental difference of our approach from any of the previous work is it maximizes conditional likelihood and thus allows beneficial incorporation of arbitrary features. Our model is focused on the problem of canonicalizing mention strings into their parts, though its r variables (which map mentions to rows) could be interpreted as (within-document and cross-document) coreference resolution, which has been tackled using a range of probabilistic models (Li et al., 2004; Haghighi and Klein, 2007; Poon and Domingos, 2008; Singh et al., 2011). We have not evaluated it as such, believing that further work should be done to integrate appropriate linguistic cues before such an application. 6 Conclusions We presented an improved probabilistic model for canonicalizing named entities into a table. We showed that the model adapts to different tasks depending on its input and seeds, and that it improves over state-of-the-art performance on two corpora. Acknowledgements The authors thank Jacob Eisenstein and Tae Yano for helpful discussions and providing us with the implementation of their model, Tim Hawes for helpful </context>
+</contexts>
+<marker>Poon, Domingos, 2008</marker>
+<rawString>H. Poon and P. Domingos. 2008. Joint unsupervised coreference resolution with Markov logic. In Proc. of EMNLP.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Singh</author>
+<author>A Subramanya</author>
+<author>F Pereira</author>
+<author>A McCallum</author>
+</authors>
+<title>Large-scale cross-document coreference using distributed inference and hierarchical models.</title>
+<date>2011</date>
+<booktitle>In Proc. of ACL-HLT.</booktitle>
+<contexts>
+<context position="30768" citStr="Singh et al., 2011" startWordPosition="5329" endWordPosition="5332">ametric Bayesian approach to extract structured databases of entities. A fundamental difference of our approach from any of the previous work is it maximizes conditional likelihood and thus allows beneficial incorporation of arbitrary features. Our model is focused on the problem of canonicalizing mention strings into their parts, though its r variables (which map mentions to rows) could be interpreted as (within-document and cross-document) coreference resolution, which has been tackled using a range of probabilistic models (Li et al., 2004; Haghighi and Klein, 2007; Poon and Domingos, 2008; Singh et al., 2011). We have not evaluated it as such, believing that further work should be done to integrate appropriate linguistic cues before such an application. 6 Conclusions We presented an improved probabilistic model for canonicalizing named entities into a table. We showed that the model adapts to different tasks depending on its input and seeds, and that it improves over state-of-the-art performance on two corpora. Acknowledgements The authors thank Jacob Eisenstein and Tae Yano for helpful discussions and providing us with the implementation of their model, Tim Hawes for helpful discussions, Naomi Sa</context>
+</contexts>
+<marker>Singh, Subramanya, Pereira, McCallum, 2011</marker>
+<rawString>S. Singh, A. Subramanya, F. Pereira, and A. McCallum. 2011. Large-scale cross-document coreference using distributed inference and hierarchical models. In Proc. of ACL-HLT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N A Smith</author>
+<author>J Eisner</author>
+</authors>
+<title>Contrastive estimation: training log-linear models on unlabeled data.</title>
+<date>2005</date>
+<booktitle>In Proc. of ACL.</booktitle>
+<contexts>
+<context position="8320" citStr="Smith and Eisner, 2005" startWordPosition="1396" endWordPosition="1399">or beliefs. Fixing f is quite different; it is conditioning our model on some observable features of the data, in this case word shape features. We do this to avoid integrating over feature vector values. These choices highlight that the design of a probabilistic model can draw from both Bayesian and discriminative tools. Observing some of x as seeds (x) renders this approach transductive. Exact inference in this model is intractable, so we resort to an approximate inference technique based on Markov Chain Monte Carlo simulation. The optimization of can be described as contrastive estimation (Smith and Eisner, 2005), in which some aspects of the data are conditioned against for computational convenience. The optimization of can be described as empirical Bayesian estimation (Morris, 1983) in which the parameters of a prior are fit to data. Our overall learning procedure is a Monte Carlo Expectation Maximization algorithm (Wei and Tanner, 1990). 3 Learning and Inference Our learning procedure is an iterative algorithm consisting of two steps. In the E-step, we perform collapsed Gibbs sampling to obtain distributions over row and column indices for every mention, given the current value of the hyperparamate</context>
+</contexts>
+<marker>Smith, Eisner, 2005</marker>
+<rawString>N. A. Smith and J. Eisner. 2005. Contrastive estimation: training log-linear models on unlabeled data. In Proc. of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Tibshirani</author>
+</authors>
+<title>Regression shrinkage and selection via the lasso.</title>
+<date>1996</date>
+<journal>Journal of Royal Statistical Society B,</journal>
+<volume>58</volume>
+<issue>1</issue>
+<contexts>
+<context position="7227" citStr="Tibshirani, 1996" startWordPosition="1190" endWordPosition="1191"> With probability 1 \x0f, set the text wm` to be xrc. Otherwise, generate any word from a unigram-noise distribution. Generate mention context. For each of the T = 10 context positions (five before and five after the mention), draw the word s from r. Our choices of prior distributions reflect our beliefs about the shapes of the various distributions. We expect field lexicons j and the distributions over mentioned entities to be Zipfian and so use tools from nonparametric statistics to model them. We expect column-feature weights to be mostly zero, so a sparsity-inducing Laplace prior is used (Tibshirani, 1996). Our goal is to maximize the conditional likelihood of most of the evidence (mentions, contexts, and seeds), p(w, s, x |, , , , , \x0f, f) = P r P c P x\\x R d R d R d p(w, s, r, c, x, , , |, , , , , \x0f, f) 686 \x0cwith respect to and . We fix (see 3.3 for the values of for each dataset), = 2 (equivalent to add-one smoothing), = 2 108, \x0f = 1010, and each mention words f. Fixing , , and is essentially just being Bayesian, or fixing a hyperparameter based on prior beliefs. Fixing f is quite different; it is conditioning our model on some observable features of the data, in this case word s</context>
+</contexts>
+<marker>Tibshirani, 1996</marker>
+<rawString>R. Tibshirani. 1996. Regression shrinkage and selection via the lasso. Journal of Royal Statistical Society B, 58(1):267288.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>G C G Wei</author>
+<author>M A Tanner</author>
+</authors>
+<title>A Monte Carlo implementation of the EM algorithm and the poor mans data augmentation algorithms.</title>
+<date>1990</date>
+<journal>Journal of the American Statistical Association,</journal>
+<volume>85</volume>
+<issue>411</issue>
+<contexts>
+<context position="8653" citStr="Wei and Tanner, 1990" startWordPosition="1450" endWordPosition="1453">ome of x as seeds (x) renders this approach transductive. Exact inference in this model is intractable, so we resort to an approximate inference technique based on Markov Chain Monte Carlo simulation. The optimization of can be described as contrastive estimation (Smith and Eisner, 2005), in which some aspects of the data are conditioned against for computational convenience. The optimization of can be described as empirical Bayesian estimation (Morris, 1983) in which the parameters of a prior are fit to data. Our overall learning procedure is a Monte Carlo Expectation Maximization algorithm (Wei and Tanner, 1990). 3 Learning and Inference Our learning procedure is an iterative algorithm consisting of two steps. In the E-step, we perform collapsed Gibbs sampling to obtain distributions over row and column indices for every mention, given the current value of the hyperparamaters. In the M-step, we obtain estimates for the hyperparameters, given the current posterior distributions. 3.1 E-step For the mth mention, we sample row index r, then for each word wm`, we sample column index c. 3.1.1 Sampling Rows Similar to Eisenstein et al. (2011), when we sample the row for a mention, we use Bayes rule and marg</context>
+</contexts>
+<marker>Wei, Tanner, 1990</marker>
+<rawString>G. C. G. Wei and M. A. Tanner. 1990. A Monte Carlo implementation of the EM algorithm and the poor mans data augmentation algorithms. Journal of the American Statistical Association, 85(411):699704.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

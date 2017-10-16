@@ -1,0 +1,1273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<title confidence="0.631684">
+b&amp;apos;Human Language Technologies: The 2010 Annual Conference of the North American Chapter of the ACL, pages 483491,
+</title>
+<author confidence="0.46133">
+Los Angeles, California, June 2010. c
+</author>
+<title confidence="0.674123">
+2010 Association for Computational Linguistics
+Learning to Link Entities with Knowledge Base
+</title>
+<author confidence="0.905973">
+Zhicheng Zheng, Fangtao Li, Minlie Huang, Xiaoyan Zhu
+</author>
+<affiliation confidence="0.833837333333333">
+State Key Laboratory of Intelligent Technology and Systems
+Tsinghua National Laboratory for Information Science and Technology
+Department of Computer Science and Technology, Tsinghua University, Beijing 100084, China
+</affiliation>
+<email confidence="0.981592">
+{zhengzc04,fangtao06}@gmail.com, {aihuang,zxy-dcs}@tsinghua.edu.cn
+</email>
+<sectionHeader confidence="0.990515" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.99794592">
+This paper address the problem of entity link-
+ing. Specifically, given an entity mentioned in
+unstructured texts, the task is to link this entity
+with an entry stored in the existing knowledge
+base. This is an important task for informa-
+tion extraction. It can serve as a convenient
+gateway to encyclopedic information, and can
+greatly improve the web users experience.
+Previous learning based solutions mainly fo-
+cus on classification framework. However, its
+more suitable to consider it as a ranking prob-
+lem. In this paper, we propose a learning to
+rank algorithm for entity linking. It effectively
+utilizes the relationship information among
+the candidates when ranking. The experi-
+ment results on the TAC 20091
+dataset demon-
+strate the effectiveness of our proposed frame-
+work. The proposed method achieves 18.5%
+improvement in terms of accuracy over the
+classification models for those entities which
+have corresponding entries in the Knowledge
+Base. The overall performance of the system
+is also better than that of the state-of-the-art
+methods.
+</bodyText>
+<sectionHeader confidence="0.998174" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.990981857142857">
+The entity linking task is to map a named-entity
+mentioned in a text to a corresponding entry stored
+in the existing Knowledge Base. The Knowledge
+Base can be considered as an encyclopedia for en-
+tities. It contains definitional, descriptive or rele-
+vant information for each entity. We can acquire the
+knowledge of entities by looking up the Knowledge
+</bodyText>
+<page confidence="0.610194">
+1
+</page>
+<bodyText confidence="0.921714923076923">
+http://www.nist.gov/tac/
+Base. Wikipedia is an online encyclopedia, and now
+it becomes one of the largest repositories of encyclo-
+pedic knowledge. In this paper, we use Wikipedia as
+our Knowledge Base.
+Entity linking can be used to automatically aug-
+ment text with links, which serve as a conve-
+nient gateway to encyclopedic information, and can
+greatly improve user experience. For example, Fig-
+ure 1 shows news from BBC.com. When a user is
+interested in Thierry Henry, he can acquire more
+detailed information by linking Thierry Henry to
+the corresponding entry in the Knowledge Base.
+</bodyText>
+<figureCaption confidence="0.990134">
+Figure 1: Entity linking example
+</figureCaption>
+<bodyText confidence="0.992731">
+Entity linking is also useful for some information
+extraction (IE) applications. We can make use of
+information stored in the Knowledge Base to assist
+the IE problems. For example, to answer the ques-
+tion When was the famous basketball player Jor-
+dan born?, if the Knowledge Base contains the en-
+</bodyText>
+<page confidence="0.99783">
+483
+</page>
+<bodyText confidence="0.962812090909091">
+\x0ctity of basketball player Michael Jordan and his in-
+formation (such as infobox2 in Wikipedia), the cor-
+rect answer February 17, 1963 can be easily re-
+trieved.
+Entity linking encounters the problem of entity
+ambiguity. One entity may refer to several entries
+in the Knowledge Base. For example, the entity
+Michael Jordan can be linked to the basketball
+player or the professor in UC Berkeley.
+Previous solutions find that classification based
+methods are effective for this task (Milne and Wit-
+ten, 2008). These methods consider each candidate
+entity independently, and estimate a probability that
+the candidate entry corresponds to the target entity.
+The candidate with the highest probability was cho-
+sen as the target entity. In this way, its more like
+a ranking problem rather than a classification prob-
+lem. Learning to rank methods take into account the
+relations between candidates, which is better than
+considering them independently. Learning to rank
+methods are popular in document information re-
+trieval, but there are few studies on information ex-
+traction. In this paper, we investigate the application
+of learning to rank methods to the entity linking task.
+And we compare several machine learning methods
+for this task. We investigate the pairwise learning to
+rank method, Ranking Perceptron (Shen and Joshi,
+2005), and the listwise method, ListNet (Cao et al.,
+2007). Two classification methods, SVM and Per-
+ceptron, are developed as our baselines. In com-
+parison, learning to rank methods show significant
+improvements over classification methods, and List-
+Net achieves the best result. The best overall per-
+formance is also achieved with our proposed frame-
+work.
+This paper is organized as follows. In the next
+section we will briefly review the related work. We
+present our framework for entity linking in section
+3. We then describe in section 4 learning to rank
+methods and features for entity linking. A top1 can-
+didate validation module will be explained in section
+5. Experiment results will be discussed in section 6.
+Finally, we conclude the paper and discusses the fu-
+ture work in section 7.
+</bodyText>
+<page confidence="0.97364">
+2
+</page>
+<bodyText confidence="0.831072">
+Infoboxes are tables with semi-structured information in
+some pages of Wikipedia
+</bodyText>
+<sectionHeader confidence="0.999297" genericHeader="related work">
+2 Related Work
+</sectionHeader>
+<bodyText confidence="0.998804">
+There are a number of studies on named entity dis-
+ambiguation, which is quite relevant to entity link-
+ing. Bagga and Baldwin (1998) used a Bag of Words
+(BOW) model to resolve ambiguities among people.
+Mann and Yarowsky (2003) improved the perfor-
+mance of personal names disambiguation by adding
+biographic features. Fleischman (2004) trained a
+Maximum Entropy model with Web Features, Over-
+lap Features, and some other features to judge
+whether two names refer to the same individual.
+Pedersen (2005) developed features to represent the
+context of an ambiguous name with the statistically
+significant bigrams.
+These methods determined to which entity a spe-
+cific name refer by measuring the similarity between
+the context of the specific name and the context of
+the entities. They measured similarity with a BOW
+model. Since the BOW model describes the con-
+text as a term vector, the similarity is based on co-
+occurrences. Although a term can be one word or
+one phrase, it cant capture various semantic rela-
+tions. For example, Michael Jordan now is the boss
+of Charlotte Bobcats and Michael Jordan retired
+from NBA. The BOW model cant describe the re-
+lationship between Charlotte Bobcats and NBA. Ma-
+lin and Airoldi (2005) proposed an alternative sim-
+ilarity metric based on the probability of walking
+from one ambiguous name to another in a random
+walk within the social network constructed from all
+documents. Minkov (2006) considered extended
+similarity metrics for documents and other objects
+embedded in graphs, facilitated via a lazy graph
+walk, and used it to disambiguate names in email
+documents. Bekkerman and McCallum (2005) dis-
+ambiguated web appearances of people based on the
+link structure of Web pages. These methods tried to
+add background knowledge via social networks. So-
+cial networks can capture the relatedness between
+terms, so the problem of a BOW model can be
+solved to some extent. Xianpei and Jun (2009) pro-
+posed to use Wikipedia as the background knowl-
+edge for disambiguation. By leveraging Wikipedias
+semantic knowledge like social relatedness between
+named entities and associative relatedness between
+concepts, they can measure the similarity between
+entities more accurately. Cucerzan (2007) and
+</bodyText>
+<page confidence="0.9989">
+484
+</page>
+<bodyText confidence="0.994707629629629">
+\x0cBunescu (2006) used Wikipedias category informa-
+tion in the disambiguation process. Using different
+background knowledge, researcher may find differ-
+ent efficient features for disambiguation.
+Hence researchers have proposed so many effi-
+cient features for disambiguation. It is important to
+integrate these features to improve the system per-
+formance. Some researchers combine features by
+manual rules or weights. However, it is not conve-
+nient to directly use these rules or weights in another
+data set. Some researchers also try to use machine
+learning methods to combine the features. Milne and
+Witten (2008) used typical classifiers such as Naive
+Bayes, C4.5 and SVM to combine features. They
+trained a two-class classifier to judge whether a can-
+didate is a correct target. And then when they try
+to do disambiguation for one query, each candidate
+will be classified into the two classes: correct tar-
+get or incorrect target. Finally the candidate answer
+with the highest probability will be selected as the
+target if there are more than one candidates classi-
+fied as answers. They achieve great performance in
+this way with three efficient features. The classifier
+based methods can be easily used even the feature
+set changed. However, as we proposed in Introduc-
+tion, its not the best way for such work. Well detail
+the learning to rank methods in the next section.
+</bodyText>
+<sectionHeader confidence="0.89272" genericHeader="method">
+3 Framework for Entity Linking
+</sectionHeader>
+<figure confidence="0.98853925">
+Input%a%query
+Output%the%
+final answer
+final%answer
+</figure>
+<figureCaption confidence="0.999769">
+Figure 2: The framework for entity linking
+</figureCaption>
+<bodyText confidence="0.966314142857143">
+Entity linking is to align a named-entity men-
+tioned in a text to a corresponding entry stored in
+the existing Knowledge Base. We proposed a frame-
+work to solve the entity linking task. As illustrated
+in Figure 2, when inputting a query which is an en-
+tity mentioned in a text, the system will return the
+target entry in Knowledge Base with four modules:
+</bodyText>
+<listItem confidence="0.584786">
+1. Query Processing. First, we try to correct the
+</listItem>
+<bodyText confidence="0.915718">
+spelling errors in the queries by using query
+spelling correction supplied by Google. Sec-
+ond, we expand the query in three ways: ex-
+panding acronym queries from the text where
+the entity is located, expanding queries with the
+corresponding redirect pages of Wikipedia and
+</bodyText>
+<listItem confidence="0.814058142857143">
+expanding queries by using the anchor text in
+the pages from Wikipedia.
+2. Candidates Generation. With the queries gen-
+erated in the first step, the candidate genera-
+tion module retrieves the candidates from the
+Knowledge Base. The candidate generation
+module also makes use of the disambiguation
+pages in Wikipedia. If there is a disambigua-
+tion page corresponding to the query, the linked
+entities listed in the disambiguation page are
+added to the candidate set.
+3. Candidates Ranking. In the module, we rank all
+the candidates with learning to rank methods.
+4. Top1 Candidate Validation. To deal with those
+</listItem>
+<bodyText confidence="0.924541833333333">
+queries without appropriate matching, we fi-
+nally add a validation module to judge whether
+the top one candidate is the target entry.
+The detail information of ranking module and val-
+idation module will be introduced in next two sec-
+tions.
+</bodyText>
+<sectionHeader confidence="0.943504" genericHeader="method">
+4 Learning to Rank Candidates
+</sectionHeader>
+<bodyText confidence="0.997669">
+In this section we first introduce the learning to rank
+methods, and then describe the features for ranking
+methods.
+</bodyText>
+<subsectionHeader confidence="0.997206">
+4.1 Learning to rank methods
+</subsectionHeader>
+<bodyText confidence="0.99885325">
+Learning to rank methods are popular in the area of
+document retrieval. There are mainly two types of
+learning to rank methods: pairwise and listwise. The
+pairwise approach takes as instances object pairs in
+a ranking list for a query in learning. In this way,
+it transforms the ranking problem to the classifica-
+tion problem. Each pair from ranking list is labeled
+based on the relative position or with the score of
+</bodyText>
+<page confidence="0.996398">
+485
+</page>
+<bodyText confidence="0.990296692307693">
+\x0cranking objects. Then a classification model can be
+trained on the labeled data and then be used for rank-
+ing. The pairwise approach has advantages in that
+the existing methodologies on classification can be
+applied directly. The listwise approach takes can-
+didate lists for a query as instances to train ranking
+models. Then it trains a ranking function by min-
+imizing a listwise loss function defined on the pre-
+dicted list and the ground truth list.
+To describe the learning to rank methods, we first
+introduce some notations:
+Query set Q = {q(i)i = 1 : m}.
+Each query q(i) is associated with a list of ob-
+</bodyText>
+<listItem confidence="0.869925722222222">
+jects(in document retrieval, the objects should
+be documents), d(i) = {d
+(i)
+j j = 1 : n(i)}.
+Each object list has a labeled score list y(i) =
+{y
+(i)
+j j = 1 : n(i)} represents the relevance de-
+gree between the objects and the query.
+Features vectors x
+(i)
+j from each query-object
+pair, j = 1 : n(i).
+Ranking function f, for each x
+(i)
+j it outputs a
+score f(x
+(i)
+</listItem>
+<bodyText confidence="0.880045">
+j ). After the training phase, to rank
+the objects, just use the ranking function f to
+output the score list of the objects, and rank
+them with the score list.
+In the paper we will compare two different learn-
+ing to rank approaches: Ranking Perceptron for pair-
+wise and ListNet for listwise. A detailed introduc-
+tion on Ranking Perceptron (Shen and Joshi, 2005)
+and ListNet (Cao et al., 2007) is given.
+</bodyText>
+<subsubsectionHeader confidence="0.978555">
+4.1.1 Ranking Perceptron
+</subsubsectionHeader>
+<bodyText confidence="0.4617875">
+Ranking Perceptron is a pairwise learning to rank
+method. The score function f(x
+</bodyText>
+<equation confidence="0.90396795">
+(i)
+j ) is defined as
+&lt; , x
+(i)
+j &gt;.
+For each pair (x
+(i)
+j1 , x
+(i)
+j2 ), f(x
+(i)
+j1 x
+(i)
+j2 ) is com-
+puted. With a given margin function g(x
+(i)
+j1 , x
+(i)
+j2 ) and
+a positive rate , if f(x
+(i)
+j1 x
+(i)
+j2 ) g(x
+(i)
+j1 , x
+(i)
+j2 ),
+an update is performed:
+t+1
+= t
++ (x
+(i)
+j1 x
+(i)
+j2 )g(x
+(i)
+j1 , x
+(i)
+j2 )
+</equation>
+<bodyText confidence="0.976407">
+After iterating enough times, we can use the func-
+tion f to rank candidates.
+</bodyText>
+<subsubsectionHeader confidence="0.979377">
+4.1.2 ListNet
+</subsubsectionHeader>
+<bodyText confidence="0.9970182">
+ListNet takes lists of objects as instances in learn-
+ing. It uses a probabilistic method to calculate the
+listwise loss function.
+ListNet transforms into probability distributions
+both the scores of the objects assigned by the ora-
+cle ranking function and the real score of the objects
+given by human.
+Let denote a permutation on the objects. In List-
+Net algorithm, the probability of with given scores
+is defined as:
+</bodyText>
+<equation confidence="0.994043166666667">
+Ps() =
+n
+j=1
+exp(s(j))
+n
+k=j exp(s(k))
+</equation>
+<bodyText confidence="0.8641695">
+Then the top k probability of Gk(j1, j2, ..., jk) can
+be calculated as:
+</bodyText>
+<equation confidence="0.974408714285714">
+Ps(Gk(j1, j2, ..., jk)) =
+k
+t=1
+exp(sjt)
+l
+l=t exp(sjl
+)
+</equation>
+<bodyText confidence="0.8626325">
+The ListNet uses a listwise loss function with
+Cross Entropy as metric:
+</bodyText>
+<equation confidence="0.9725252">
+L(y(i)
+, z(i)
+) =
+gGk
+Py(i) (g)log(Pz(i) (g))
+</equation>
+<bodyText confidence="0.93148525">
+Denote as f the ranking function based on
+Neural Network model . The gradient of
+L(y(i), z(i)(f)) with respect to parameter can be
+calculated as:
+</bodyText>
+<equation confidence="0.994280857142857">
+=
+L(y(i), z(i)(f))
+=
+gGk
+Pz(i)(f)(g)
+Py(i) (g)
+Pz(i)(f)(g)
+</equation>
+<bodyText confidence="0.959215857142857">
+In each iteration, the is updated with
+in a gradient descent way. Here is the learning
+rate.
+To train a learning to rank model, the manually
+evaluated score list for each querys candidate list is
+required. We assign 1 to the real target entity and 0
+to the others.
+</bodyText>
+<page confidence="0.998174">
+486
+</page>
+<sectionHeader confidence="0.843426" genericHeader="method">
+\x0c4.2 Features for Ranking
+</sectionHeader>
+<bodyText confidence="0.936718925">
+In the section, we will introduce the features used
+in the ranking module. For convenience, we define
+some symbols first:
+Q represents a query, which contains a named
+entity mentioned in a text. CSet represents the
+candidate entries in Knowledge Base for the
+query Q. C represents a candidate in CSet.
+Qs nameString represents the name string of
+Q. Qs sourceText represents the source text of
+Q. Qs querySet represents the queries which
+are expansions of Qs nameString.
+Cs title represents the title of corresponding
+Wikipedia article of C. Cs titleExpand repre-
+sents the union set of the redirect set of C and
+the anchor text set of C. Cs article represents
+the Wikipedia article of C.
+Cs nameEntitySet represents the set of all
+named entities in Cs article labeled by Stan-
+ford NER (Finkel et al., 2005). Qs nameEnti-
+tySet represents the set of all named entities in
+Qs sourceText.
+Cs countrySet represents the set of all coun-
+tries in Cs article, and we detect the countries
+from text via a manual edited country list. Qs
+countrySet represents the set of all countries
+in Qs sourceText. Cs countrySetInTitle rep-
+resents the set of countries exist in one of the
+string s from Cs titleExpand.
+Cs citySetInTitle represents the set of all cities
+exist in one of the string s from Cs titleExpand,
+and we detect the cities from text via a manual
+edited list of famous cities. Qs citySet repre-
+sents the set of all cities in Qs sourceText.
+Qs type represents the type of query Q. Its la-
+beled by Stanford NER. Cs type is manually
+labeled already in the Knowledge Base.
+The features that used in the ranking module can
+be divided into 3 groups: Surface, Context and Spe-
+cial. Each of these feature groups will be detailed
+next.
+</bodyText>
+<subsubsectionHeader confidence="0.986565">
+4.2.1 Surface Features
+</subsubsectionHeader>
+<bodyText confidence="0.9970521">
+The features in Surface group are used to measure
+the similarity between the query string and candidate
+entitys name string.
+StrSimSurface. The feature value is the max-
+imum similarity between the Qs nameString
+and each string s in the set Cs titleExpand. The
+string similarity is measured with edit distance.
+ExactEqualSurface. The feature value is 1 if
+there is a string s in set Cs titleExpand same as
+the Qs nameString, or the Candidate C is ex-
+tracted from the disambiguation page. In other
+case, the feature value is set to 0.
+StartWithQuery. The feature value is 1 if there
+is a string s in set Cs titleExpand starting with
+the Qs nameString, and Cs ExactEqualSur-
+face is not 1. In other case, the feature value
+is set to 0.
+EndWithQuery. The feature value is 1 if there
+is a string s in set Cs titleExpand ending with
+the Qs nameString, and Cs ExactEqualSur-
+face is not 1. In other case, the feature value
+is set to 0.
+StartInQuery. The feature value is 1 if there is a
+string s in set Cs titleExpand that s is the prefix
+of the Qs nameString, and Cs ExactEqualSur-
+face is not 1. In other case, the feature value is
+set to 0.
+EndInQuery. The feature value is 1 if there is a
+string s in set Cs titleExpand that s is the post-
+fix of the Qs nameString, and Cs ExactEqual-
+Surface is not 1. In other case, the feature value
+is set to 0.
+EqualWordNumSurface. The feature value is
+the maximum number of same words between
+the Qs nameString and each string s in the set
+Cs titleExpand.
+MissWordNumSurface. The feature value is
+the minimum number of different words be-
+tween the Qs nameString and each string s in
+the set Cs titleExpand.
+</bodyText>
+<page confidence="0.993973">
+487
+</page>
+<subsubsectionHeader confidence="0.326565">
+\x0c4.2.2 Context Features
+</subsubsectionHeader>
+<bodyText confidence="0.987237722222222">
+The features in Context group are used to measure
+the context relevance between query and the candi-
+date entity. We mainly consider the TF-IDF similar-
+ity and named entity co-occurrence.
+TFSimContext. The feature value is the TF-
+IDF similarity between the Cs article and Qs
+sourceText.
+TFSimRankContext. The feature value is the
+inverted rank of Cs TFSimContext in the CSet.
+AllWordsInSource. The feature value is 1 if all
+words in Cs title exist in Qs sourceText, and
+in other case, the feature value is set to 0.
+NENumMatch. The feature value is the num-
+ber of of same named entities between Cs
+nameEntitySet and Qs nameEntitySet. Two
+named entities are judged to be the same if and
+only if the two named entities strings are iden-
+tical.
+</bodyText>
+<subsubsectionHeader confidence="0.948457">
+4.2.3 Special Features
+</subsubsectionHeader>
+<bodyText confidence="0.988078704918033">
+Besides the features above, we also find that the
+following features are quite significant in the entity
+linking task: country names, city names and types
+of queries and candidates.
+CountryInTextMatch. The feature value is the
+number of same countries between Cs coun-
+trySet and Qs countrySet.
+CountryInTextMiss. The feature value is the
+number of countries that exist in Qs country-
+Set but do not exist in Cs countrySet.
+CountryInTitleMatch. The feature value is the
+number of same countries between Cs coun-
+trySetInTitle and Qs countrySet.
+CountryInTitleMiss. The feature value is the
+number of countries that exist in Cs country-
+SetInTitle but do not exist in Qs countrySet.
+CityInTitleMatch. The feature value is the
+number of same cities between Cs citySetInTi-
+tle and Qs citySet.
+TypeMatch. The feature value is 0 if Cs type is
+not consistent with Qs type, in other case, the
+feature value is set to 1.
+When ranking the candidates in CSet, the fea-
+tures value was normalized into [0, 1] to avoid noise
+caused by large Integer value or small double value.
+5 Top 1 Candidate Validation
+To deal with those queries without target entities in
+the Knowledge Base, we supply a Top 1 candidate
+validation module. In the module, a two-class classi-
+fier is used to judge whether the top one candidate is
+the true target entity. The top one candidate selected
+from the ranking module can be divided into two
+classes: target and non-target, depending on whether
+its the correct target link of the query. According
+to the performance of classification, SVM is chosen
+as the classifier (In practice, the libsvm package is
+used) and the SVM classifier is trained on the entire
+training set.
+Most of the features used in the validation mod-
+ule are the same as those in ranking module, such as
+StrSimSurface, EqualWordNumSurface, MissWord-
+NumSurface, TFSimContext, AllWordsInSource,
+NENumMatch and TypeMatch. We also design
+some other features, as follows:
+AllQueryWordsInWikiText. The feature value
+is one if Qs textRetrievalSet contains C, and
+in other case the feature value is set to zero.
+The case that Qs textRetrievalSet contains C
+means the candidate Cs article contains the Qs
+nameString.
+CountryInTextPer. The feature is the percent-
+age of countries from Qs countrySet exist in
+Cs countrySet too. The feature can be seen as
+a normalization of CountryInTextMatch/Miss
+features in ranking module.
+ScoreOfRank. The feature value is the score
+of the candidate given by the ranking module.
+The ScoreOfRank takes many features in rank-
+ing module into consideration, so only fewer
+features of ranking module are used in the clas-
+sifier.
+</bodyText>
+<page confidence="0.994966">
+488
+</page>
+<subsectionHeader confidence="0.7515955">
+\x0c6 Experiment and Analysis
+6.1 Experiment Setting
+Algorithm Accuracy
+Improvement
+</subsectionHeader>
+<table confidence="0.9280388">
+over SVM
+ListNet 0.9045 +18.5%
+Ranking Perceptron 0.8842 +15.8%
+SVM 0.7636 -
+Perceptron 0.7546 -1.2%
+</table>
+<tableCaption confidence="0.999632">
+Table 1: Evaluation of different ranking algorithm
+</tableCaption>
+<bodyText confidence="0.97185715">
+Entity linking is initiated as a task in this years
+TAC-KBP3 track, so we use the data from this track.
+The entity linking task in the KBP track is to map
+an entity mentioned in a news text to the Knowl-
+edge Base, which consist of articles from Wikipedia.
+The KBP track gives a sample query set which con-
+sists of 416 queries for developing. The test set con-
+sists of 3904 queries. 2229 of these queries cant
+be mapped to Knowledge Base, for which the sys-
+tems should return NIL links. The remaining 1675
+queries all can be aligned to Knowledge Base. We
+will firstly analyze the ranking methods with those
+non-NIL queries, and then with an additional vali-
+dation module, we train and test with all queries in-
+cluding NIL queries.
+As in the entity linking task of KBP track, the ac-
+curacy is taken as
+accuracy =
+#(correct answered queries)
+#(total queries)
+</bodyText>
+<subsectionHeader confidence="0.998255">
+6.2 Evaluation of Machine Learning Methods
+</subsectionHeader>
+<bodyText confidence="0.976933166666667">
+in ranking
+As mentioned in the section of related work, learn-
+ing to rank methods in entity linking performs bet-
+ter than the classification methods. To justify this,
+some experiments are designed to evaluate the per-
+formance of our ranking module when adopting dif-
+ferent algorithms.
+To evaluate the performance of the ranking mod-
+ule, we use all the queries which can be aligned to a
+target entry in the Knowledge Base. The training set
+contains 285 valid queries and the test set contains
+1675.
+</bodyText>
+<page confidence="0.875709">
+3
+</page>
+<table confidence="0.9825267">
+http://apl.jhu.edu/ paulmac/kbp.html
+Set Features in Set
+Set1 Surface Features
+Set2 Set1+TF-IDF Features
+Set3 Set2+AllWordsInSource
+Set4 Set3+NENumMatch
+Set5 Set4+CountryInTitle Features
+Set6 Set5+CountryInText Features
+Set7 Set6+CityInTitleMatch
+Set8 Set7+MatchType
+</table>
+<tableCaption confidence="0.931923">
+Table 2: Feature Sets
+</tableCaption>
+<bodyText confidence="0.982545142857143">
+Three algorithms are taken into comparison: List-
+Net, Ranking Perceptron, and classifier based meth-
+ods. The classifier based methods are trained by di-
+viding the candidates into two classes: target and
+non-target. Then, the candidates are ranked accord-
+ing to their probability of being classified as target.
+two different classifiers are tested here, SVM and
+</bodyText>
+<figure confidence="0.992497647058824">
+Perceptron.
+!
+0.5
+0.55
+0.6
+0.65
+0.7
+0.75
+0.8
+0.85
+0.9
+0.95
+Set1 Set2 Set3 Set4 Set5 Set6 Set7 Set8
+Accuracy
+Feature)Set
+ListNet
+Ranking!Perceptron
+</figure>
+<figureCaption confidence="0.999675">
+Figure 3: Comparison of ListNet and Ranking Perceptron
+</figureCaption>
+<bodyText confidence="0.998346866666667">
+As shown in Table 1, the two learning to rank
+methods perform much better than the classification
+based methods. The experiment results prove our
+point that the learning to rank algorithms are more
+suitable in this work. And the ListNet shows slight
+improvement over Ranking Perceptron, but since the
+improvement is not so significant, maybe it depends
+on the feature set. To confirm this, we compare the
+two algorithms with different features, as showed
+in Table 2. In Figure 3, The ListNet outperforms
+Ranking Perceptron with all feature sets except Set1,
+which indicates that the listwise approach is more
+suitable than the pairwise approach. The pairwise
+approach suffers from two problems: first, the ob-
+jective of learning is to minimize classification er-
+</bodyText>
+<page confidence="0.997003">
+489
+</page>
+<table confidence="0.990736">
+\x0cSystems Accuracy of all queries Accuracy of non-NIL queries Accuracy of NIL queries
+System1 0.8217 0.7654 0.8641
+System2 0.8033 0.7725 0.8241
+System3 0.7984 0.7063 0.8677
+ListNet+SVM 0.8494 0.79 0.8941
+</table>
+<tableCaption confidence="0.999785">
+Table 3: Evaluation of the overall performance, compared with KBP results (System 1-3 demonstrate the top three
+</tableCaption>
+<bodyText confidence="0.991364176470588">
+ranked systems)
+rors but not to minimize the errors in ranking; sec-
+ond, the number of pairs generated from list varies
+largely from list to list, which will result in a model
+biased toward lists with more objects. The issues are
+also discussed in (Y.B. Cao et al., 2006; Cao et al.,
+2007). And the listwise approach can fix the prob-
+lems well.
+As the feature sets are added incrementally, it can
+be used for analyzing the importance of the features
+to the ranking task. Although Surface Group only
+takes into consideration the candidates title and the
+querys name string, its accuracy is still higher than
+60%. This is because many queries have quite small
+number of candidates, the target entry can be picked
+out with the surface features only. The result shows
+that after adding the TF-IDF similarity related fea-
+tures, the accuracy increases significantly to 84.5%.
+Although TF-IDF similarity is a simple way to mea-
+sure the contextual similarity, it performs well in
+practice. Another improvement is achieved when
+adding the CountryInTitleMatch and CountryInTi-
+tleMiss features. Since a number of queries in test
+set need to disambiguate candidates with different
+countries in their titles, the features about coun-
+try in the candidates title are quite useful to deal
+with these queries. But it doesnt mean that the
+features mentioned above are the most important.
+Because many features correlated with each other
+quite closely, adding these features doesnt lead to
+remarkable improvement. The conclusion from the
+results is that the Context Features significantly im-
+prove the ranking performance and the Special Fea-
+tures are also useful in the entity linking task.
+</bodyText>
+<subsectionHeader confidence="0.997736">
+6.3 Overall Performance Evaluation
+</subsectionHeader>
+<bodyText confidence="0.996868666666667">
+We are also interested in overall performance with
+the additional validation module. We use all the
+3904 queries as the test set, including both NIL
+and non-NIL queries. The top three results from
+the KBP track (McNamee and Dang, 2009) are se-
+lected as comparison. The evaluation result in Table
+3 shows that our proposed framework outperforms
+the best result in the KBP track, which demonstrates
+the effectiveness of our methods.
+</bodyText>
+<sectionHeader confidence="0.996523" genericHeader="conclusions">
+7 Conclusions and Future Work
+</sectionHeader>
+<bodyText confidence="0.999119380952381">
+This paper demonstrates a framework of learning to
+rank for linking entities with the Knowledge Base.
+Experimenting with different ranking algorithms, it
+shows that the learning to rank methods perform
+much better than the classification methods in this
+problem. ListNet achieves 18.5% improvement over
+SVM, and Ranking Perceptron gets 15.8% improve-
+ment over SVM. We also observe that the listwise
+learning to rank methods are more suitable for this
+problem than pairwise methods. We also add a vali-
+dation module to deal with those entities which have
+no corresponding entry in the Knowledge Base. We
+also evaluate the proposed method on the whole data
+set given by the KBP track, for which we add a bi-
+nary SVM classification module to validate the top
+one candidate. The result of experiment shows the
+proposed strategy performs better than all the sys-
+tems participated in the entity linking task.
+In the future, we will try to develop more sophis-
+ticated features in entity linking and design a typical
+learning to rank method for the entity linking task.
+</bodyText>
+<sectionHeader confidence="0.984598" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<reference confidence="0.791382333333333">
+This work was partly supported by the Chinese Nat-
+ural Science Foundation under grant No.60973104
+and No. 60803075, partly carried out with the aid
+of a grant from the International Development Re-
+search Center, Ottawa, Canada IRCI project from
+the International Development.
+</reference>
+<page confidence="0.896661">
+490
+</page>
+<reference confidence="0.998112967741936">
+\x0cReferences
+Bagga and Baldwin. 1998. Entity-Based Cross-
+Document Coreferencing Using the Vector Spcae
+Model. in Proceedings of HLT/ACL.
+Gideon S. Mann and David Yarowsky. 2003. Unsuper-
+vised Personal Name Disambiguation. in Proceedings
+of CONIL.
+Michael Ben Fleishman. 2004. Multi-Document Person
+Name Resolution. in Proceedings of ACL.
+Ted Pedersen, Amruta Purandare and Anagha Kulkarni.
+2005. Name Discrimination by Clustering Similar
+Contexts. in Proceedings of CICLing.
+B.Malin and E. Airoldi. 2005. A Network Analysis
+Model for Disambiguation of Names in Lists. in Pro-
+ceedings of CMOT.
+Einat Minkov, William W. Cohen and Andrew Y. Ng.
+2006. Contextual Search and Name Disambiguation
+in Email Using Graph. in Proceedings of SIGIR.
+Ron Bekkerman and Andrew McCallum. 2005. Disam-
+biguating Web Appearances of People in a Social Net-
+work. in Proceedings of WWW.
+Xianpei Han and Jun Zhao. 2009. Named Entity Disam-
+biguation by Leveraging Wikipedia Semantic Knowl-
+edge. in Proceedings of CIKM.
+David Milne and Ian H. Witten. 2008. Learning to Link
+with Wikipedia. in Proceedings of CIKM.
+Herbrich, R., Graepel, T. and Obermayer K. 1999. Sup-
+port vector learning for ordinal regression. in Pro-
+ceedings of ICANN.
+Freund, Y., Iyer, R., Schapire, R. E. and Singer, Y. 1998.
+An efficient boosting algorithm for combining prefer-
+ences. in Proceedings of ICML.
+Burges, C., Shaked, T., Renshaw, E., Lazier, A., Deeds,
+M., Hamilton, N. and Hullender, G. 2005. Learning to
+rank using gradient descent. in Proceedings of ICML.
+Cao, Y. B., Xu, J., Liu, T. Y., Li, H., Huang, Y. L. and
+Hon, H. W. 2006. Adapting ranking SVM to document
+retrieval. in Proceedings of SIGIR.
+Cao, Z., Qin, T., Liu, T. Y., Tsai, M. F. and Li, H. 2007.
+Learning to rank: From pairwise approach to listwise
+approach. in Proceedings of ICML.
+Qin, T., Zhang, X.-D., Tsai, M.-F., Wang, D.-S., Liu,
+T.Y., and Li, H. 2007. Query-level loss functions for
+information retrieval. in Proceedings of Information
+processing and management.
+L. Shen and A. Joshi. 2005. Ranking and Reranking with
+Perceptron. Machine Learning,60(1-3),pp. 73-96.
+Silviu Cucerzan. 2007. Large-Scale Named Entity Dis-
+ambiguation Based on Wikipedia Data. in Proceed-
+ings of EMNLP-CoNLL.
+Razvan Bunescu and Marius Pasca. 2006. Using En-
+cyclopedic Knowledge for Named Entity Disambigua-
+tion. in Proceedings of EACL.
+Paul McNamee and Hoa Dang. 2009. Overview
+of the TAC 2009 Knowledge Base Population Track
+(DRAFT). in Proceedings of TAC.
+Jenny Rose Finkel, Trond Grenager, and Christopher
+Manning. 2005. Incorporating Non-local Information
+into Information Extraction Systems by Gibbs Sam-
+pling. Proceedings of the 43nd Annual Meeting of
+the Association for Computational Linguistics (ACL
+2005), pp. 363-370.
+</reference>
+<page confidence="0.986225">
+491
+</page>
+<figure confidence="0.245617">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.220202">
+<note confidence="0.974063">b&amp;apos;Human Language Technologies: The 2010 Annual Conference of the North American Chapter of the ACL, pages 483491, Los Angeles, California, June 2010. c 2010 Association for Computational Linguistics Learning to Link Entities with Knowledge Base</note>
+<author confidence="0.682514">Zhicheng Zheng</author>
+<author confidence="0.682514">Fangtao Li</author>
+<author confidence="0.682514">Minlie Huang</author>
+<author confidence="0.682514">Xiaoyan Zhu</author>
+<title confidence="0.649345">State Key Laboratory of Intelligent Technology and Systems</title>
+<author confidence="0.638907">Tsinghua National Laboratory for Information Science</author>
+<author confidence="0.638907">Technology</author>
+<affiliation confidence="0.870838">Department of Computer Science and Technology, Tsinghua University, Beijing 100084, China</affiliation>
+<email confidence="0.853075">zhengzc04@tsinghua.edu.cn</email>
+<email confidence="0.853075">fangtao06}@gmail.com@tsinghua.edu.cn</email>
+<email confidence="0.853075">{aihuang@tsinghua.edu.cn</email>
+<email confidence="0.853075">zxy-dcs@tsinghua.edu.cn</email>
+<abstract confidence="0.996726961538462">This paper address the problem of entity linking. Specifically, given an entity mentioned in unstructured texts, the task is to link this entity with an entry stored in the existing knowledge base. This is an important task for information extraction. It can serve as a convenient gateway to encyclopedic information, and can greatly improve the web users experience. Previous learning based solutions mainly focus on classification framework. However, its more suitable to consider it as a ranking problem. In this paper, we propose a learning to rank algorithm for entity linking. It effectively utilizes the relationship information among the candidates when ranking. The experiment results on the TAC 20091 dataset demonstrate the effectiveness of our proposed framework. The proposed method achieves 18.5% improvement in terms of accuracy over the classification models for those entities which have corresponding entries in the Knowledge Base. The overall performance of the system is also better than that of the state-of-the-art methods.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>\x0cReferences Bagga</author>
+<author>Baldwin</author>
+</authors>
+<title>Entity-Based CrossDocument Coreferencing Using the Vector Spcae Model.</title>
+<date>1998</date>
+<booktitle>in Proceedings of HLT/ACL.</booktitle>
+<contexts>
+<context position="5253" citStr="Bagga and Baldwin (1998)" startWordPosition="820" endWordPosition="823">the next section we will briefly review the related work. We present our framework for entity linking in section 3. We then describe in section 4 learning to rank methods and features for entity linking. A top1 candidate validation module will be explained in section 5. Experiment results will be discussed in section 6. Finally, we conclude the paper and discusses the future work in section 7. 2 Infoboxes are tables with semi-structured information in some pages of Wikipedia 2 Related Work There are a number of studies on named entity disambiguation, which is quite relevant to entity linking. Bagga and Baldwin (1998) used a Bag of Words (BOW) model to resolve ambiguities among people. Mann and Yarowsky (2003) improved the performance of personal names disambiguation by adding biographic features. Fleischman (2004) trained a Maximum Entropy model with Web Features, Overlap Features, and some other features to judge whether two names refer to the same individual. Pedersen (2005) developed features to represent the context of an ambiguous name with the statistically significant bigrams. These methods determined to which entity a specific name refer by measuring the similarity between the context of the speci</context>
+</contexts>
+<marker>Bagga, Baldwin, 1998</marker>
+<rawString>\x0cReferences Bagga and Baldwin. 1998. Entity-Based CrossDocument Coreferencing Using the Vector Spcae Model. in Proceedings of HLT/ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Gideon S Mann</author>
+<author>David Yarowsky</author>
+</authors>
+<title>Unsupervised Personal Name Disambiguation.</title>
+<date>2003</date>
+<booktitle>in Proceedings of CONIL.</booktitle>
+<contexts>
+<context position="5347" citStr="Mann and Yarowsky (2003)" startWordPosition="836" endWordPosition="839">linking in section 3. We then describe in section 4 learning to rank methods and features for entity linking. A top1 candidate validation module will be explained in section 5. Experiment results will be discussed in section 6. Finally, we conclude the paper and discusses the future work in section 7. 2 Infoboxes are tables with semi-structured information in some pages of Wikipedia 2 Related Work There are a number of studies on named entity disambiguation, which is quite relevant to entity linking. Bagga and Baldwin (1998) used a Bag of Words (BOW) model to resolve ambiguities among people. Mann and Yarowsky (2003) improved the performance of personal names disambiguation by adding biographic features. Fleischman (2004) trained a Maximum Entropy model with Web Features, Overlap Features, and some other features to judge whether two names refer to the same individual. Pedersen (2005) developed features to represent the context of an ambiguous name with the statistically significant bigrams. These methods determined to which entity a specific name refer by measuring the similarity between the context of the specific name and the context of the entities. They measured similarity with a BOW model. Since the</context>
+</contexts>
+<marker>Mann, Yarowsky, 2003</marker>
+<rawString>Gideon S. Mann and David Yarowsky. 2003. Unsupervised Personal Name Disambiguation. in Proceedings of CONIL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michael Ben Fleishman</author>
+</authors>
+<title>Multi-Document Person Name Resolution.</title>
+<date>2004</date>
+<booktitle>in Proceedings of ACL.</booktitle>
+<marker>Fleishman, 2004</marker>
+<rawString>Michael Ben Fleishman. 2004. Multi-Document Person Name Resolution. in Proceedings of ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ted Pedersen</author>
+</authors>
+<title>Amruta Purandare and Anagha Kulkarni.</title>
+<date>2005</date>
+<booktitle>in Proceedings of CICLing.</booktitle>
+<contexts>
+<context position="5620" citStr="Pedersen (2005)" startWordPosition="879" endWordPosition="880">e work in section 7. 2 Infoboxes are tables with semi-structured information in some pages of Wikipedia 2 Related Work There are a number of studies on named entity disambiguation, which is quite relevant to entity linking. Bagga and Baldwin (1998) used a Bag of Words (BOW) model to resolve ambiguities among people. Mann and Yarowsky (2003) improved the performance of personal names disambiguation by adding biographic features. Fleischman (2004) trained a Maximum Entropy model with Web Features, Overlap Features, and some other features to judge whether two names refer to the same individual. Pedersen (2005) developed features to represent the context of an ambiguous name with the statistically significant bigrams. These methods determined to which entity a specific name refer by measuring the similarity between the context of the specific name and the context of the entities. They measured similarity with a BOW model. Since the BOW model describes the context as a term vector, the similarity is based on cooccurrences. Although a term can be one word or one phrase, it cant capture various semantic relations. For example, Michael Jordan now is the boss of Charlotte Bobcats and Michael Jordan retir</context>
+</contexts>
+<marker>Pedersen, 2005</marker>
+<rawString>Ted Pedersen, Amruta Purandare and Anagha Kulkarni. 2005. Name Discrimination by Clustering Similar Contexts. in Proceedings of CICLing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>B Malin</author>
+<author>E Airoldi</author>
+</authors>
+<title>A Network Analysis Model for Disambiguation of Names in Lists.</title>
+<date>2005</date>
+<booktitle>in Proceedings of CMOT.</booktitle>
+<contexts>
+<context position="6337" citStr="Malin and Airoldi (2005)" startWordPosition="997" endWordPosition="1001">ificant bigrams. These methods determined to which entity a specific name refer by measuring the similarity between the context of the specific name and the context of the entities. They measured similarity with a BOW model. Since the BOW model describes the context as a term vector, the similarity is based on cooccurrences. Although a term can be one word or one phrase, it cant capture various semantic relations. For example, Michael Jordan now is the boss of Charlotte Bobcats and Michael Jordan retired from NBA. The BOW model cant describe the relationship between Charlotte Bobcats and NBA. Malin and Airoldi (2005) proposed an alternative similarity metric based on the probability of walking from one ambiguous name to another in a random walk within the social network constructed from all documents. Minkov (2006) considered extended similarity metrics for documents and other objects embedded in graphs, facilitated via a lazy graph walk, and used it to disambiguate names in email documents. Bekkerman and McCallum (2005) disambiguated web appearances of people based on the link structure of Web pages. These methods tried to add background knowledge via social networks. Social networks can capture the rela</context>
+</contexts>
+<marker>Malin, Airoldi, 2005</marker>
+<rawString>B.Malin and E. Airoldi. 2005. A Network Analysis Model for Disambiguation of Names in Lists. in Proceedings of CMOT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Einat Minkov</author>
+<author>William W Cohen</author>
+<author>Andrew Y Ng</author>
+</authors>
+<title>Contextual Search and Name Disambiguation in Email Using Graph.</title>
+<date>2006</date>
+<booktitle>in Proceedings of SIGIR.</booktitle>
+<marker>Minkov, Cohen, Ng, 2006</marker>
+<rawString>Einat Minkov, William W. Cohen and Andrew Y. Ng. 2006. Contextual Search and Name Disambiguation in Email Using Graph. in Proceedings of SIGIR.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ron Bekkerman</author>
+<author>Andrew McCallum</author>
+</authors>
+<title>Disambiguating Web Appearances of People in a Social Network. in</title>
+<date>2005</date>
+<booktitle>Proceedings of WWW.</booktitle>
+<contexts>
+<context position="6749" citStr="Bekkerman and McCallum (2005)" startWordPosition="1061" endWordPosition="1064">relations. For example, Michael Jordan now is the boss of Charlotte Bobcats and Michael Jordan retired from NBA. The BOW model cant describe the relationship between Charlotte Bobcats and NBA. Malin and Airoldi (2005) proposed an alternative similarity metric based on the probability of walking from one ambiguous name to another in a random walk within the social network constructed from all documents. Minkov (2006) considered extended similarity metrics for documents and other objects embedded in graphs, facilitated via a lazy graph walk, and used it to disambiguate names in email documents. Bekkerman and McCallum (2005) disambiguated web appearances of people based on the link structure of Web pages. These methods tried to add background knowledge via social networks. Social networks can capture the relatedness between terms, so the problem of a BOW model can be solved to some extent. Xianpei and Jun (2009) proposed to use Wikipedia as the background knowledge for disambiguation. By leveraging Wikipedias semantic knowledge like social relatedness between named entities and associative relatedness between concepts, they can measure the similarity between entities more accurately. Cucerzan (2007) and 484 \x0cB</context>
+</contexts>
+<marker>Bekkerman, McCallum, 2005</marker>
+<rawString>Ron Bekkerman and Andrew McCallum. 2005. Disambiguating Web Appearances of People in a Social Network. in Proceedings of WWW.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Xianpei Han</author>
+<author>Jun Zhao</author>
+</authors>
+<title>Named Entity Disambiguation by Leveraging Wikipedia Semantic Knowledge.</title>
+<date>2009</date>
+<booktitle>in Proceedings of CIKM.</booktitle>
+<marker>Han, Zhao, 2009</marker>
+<rawString>Xianpei Han and Jun Zhao. 2009. Named Entity Disambiguation by Leveraging Wikipedia Semantic Knowledge. in Proceedings of CIKM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Milne</author>
+<author>Ian H Witten</author>
+</authors>
+<title>Learning to Link with Wikipedia.</title>
+<date>2008</date>
+<booktitle>in Proceedings of CIKM.</booktitle>
+<contexts>
+<context position="3422" citStr="Milne and Witten, 2008" startWordPosition="524" endWordPosition="528">le, to answer the question When was the famous basketball player Jordan born?, if the Knowledge Base contains the en483 \x0ctity of basketball player Michael Jordan and his information (such as infobox2 in Wikipedia), the correct answer February 17, 1963 can be easily retrieved. Entity linking encounters the problem of entity ambiguity. One entity may refer to several entries in the Knowledge Base. For example, the entity Michael Jordan can be linked to the basketball player or the professor in UC Berkeley. Previous solutions find that classification based methods are effective for this task (Milne and Witten, 2008). These methods consider each candidate entity independently, and estimate a probability that the candidate entry corresponds to the target entity. The candidate with the highest probability was chosen as the target entity. In this way, its more like a ranking problem rather than a classification problem. Learning to rank methods take into account the relations between candidates, which is better than considering them independently. Learning to rank methods are popular in document information retrieval, but there are few studies on information extraction. In this paper, we investigate the appl</context>
+<context position="7954" citStr="Milne and Witten (2008)" startWordPosition="1243" endWordPosition="1246">007) and 484 \x0cBunescu (2006) used Wikipedias category information in the disambiguation process. Using different background knowledge, researcher may find different efficient features for disambiguation. Hence researchers have proposed so many efficient features for disambiguation. It is important to integrate these features to improve the system performance. Some researchers combine features by manual rules or weights. However, it is not convenient to directly use these rules or weights in another data set. Some researchers also try to use machine learning methods to combine the features. Milne and Witten (2008) used typical classifiers such as Naive Bayes, C4.5 and SVM to combine features. They trained a two-class classifier to judge whether a candidate is a correct target. And then when they try to do disambiguation for one query, each candidate will be classified into the two classes: correct target or incorrect target. Finally the candidate answer with the highest probability will be selected as the target if there are more than one candidates classified as answers. They achieve great performance in this way with three efficient features. The classifier based methods can be easily used even the f</context>
+</contexts>
+<marker>Milne, Witten, 2008</marker>
+<rawString>David Milne and Ian H. Witten. 2008. Learning to Link with Wikipedia. in Proceedings of CIKM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Herbrich</author>
+<author>T Graepel</author>
+<author>K Obermayer</author>
+</authors>
+<title>Support vector learning for ordinal regression.</title>
+<date>1999</date>
+<booktitle>in Proceedings of ICANN.</booktitle>
+<marker>Herbrich, Graepel, Obermayer, 1999</marker>
+<rawString>Herbrich, R., Graepel, T. and Obermayer K. 1999. Support vector learning for ordinal regression. in Proceedings of ICANN.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y Freund</author>
+<author>R Iyer</author>
+<author>R E Schapire</author>
+<author>Y Singer</author>
+</authors>
+<title>An efficient boosting algorithm for combining preferences.</title>
+<date>1998</date>
+<booktitle>in Proceedings of ICML.</booktitle>
+<marker>Freund, Iyer, Schapire, Singer, 1998</marker>
+<rawString>Freund, Y., Iyer, R., Schapire, R. E. and Singer, Y. 1998. An efficient boosting algorithm for combining preferences. in Proceedings of ICML.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C Burges</author>
+<author>T Shaked</author>
+<author>E Renshaw</author>
+<author>A Lazier</author>
+<author>M Deeds</author>
+<author>N Hamilton</author>
+<author>G Hullender</author>
+</authors>
+<title>Learning to rank using gradient descent.</title>
+<date>2005</date>
+<booktitle>in Proceedings of ICML.</booktitle>
+<marker>Burges, Shaked, Renshaw, Lazier, Deeds, Hamilton, Hullender, 2005</marker>
+<rawString>Burges, C., Shaked, T., Renshaw, E., Lazier, A., Deeds, M., Hamilton, N. and Hullender, G. 2005. Learning to rank using gradient descent. in Proceedings of ICML.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Y B Cao</author>
+<author>J Xu</author>
+<author>T Y Liu</author>
+<author>H Li</author>
+<author>Y L Huang</author>
+<author>H W Hon</author>
+</authors>
+<title>Adapting ranking SVM to document retrieval.</title>
+<date>2006</date>
+<booktitle>in Proceedings of SIGIR.</booktitle>
+<contexts>
+<context position="24640" citStr="Cao et al., 2006" startWordPosition="4115" endWordPosition="4118">inimize classification er489 \x0cSystems Accuracy of all queries Accuracy of non-NIL queries Accuracy of NIL queries System1 0.8217 0.7654 0.8641 System2 0.8033 0.7725 0.8241 System3 0.7984 0.7063 0.8677 ListNet+SVM 0.8494 0.79 0.8941 Table 3: Evaluation of the overall performance, compared with KBP results (System 1-3 demonstrate the top three ranked systems) rors but not to minimize the errors in ranking; second, the number of pairs generated from list varies largely from list to list, which will result in a model biased toward lists with more objects. The issues are also discussed in (Y.B. Cao et al., 2006; Cao et al., 2007). And the listwise approach can fix the problems well. As the feature sets are added incrementally, it can be used for analyzing the importance of the features to the ranking task. Although Surface Group only takes into consideration the candidates title and the querys name string, its accuracy is still higher than 60%. This is because many queries have quite small number of candidates, the target entry can be picked out with the surface features only. The result shows that after adding the TF-IDF similarity related features, the accuracy increases significantly to 84.5%. Al</context>
+</contexts>
+<marker>Cao, Xu, Liu, Li, Huang, Hon, 2006</marker>
+<rawString>Cao, Y. B., Xu, J., Liu, T. Y., Li, H., Huang, Y. L. and Hon, H. W. 2006. Adapting ranking SVM to document retrieval. in Proceedings of SIGIR.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Z Cao</author>
+<author>T Qin</author>
+<author>T Y Liu</author>
+<author>M F Tsai</author>
+<author>H Li</author>
+</authors>
+<title>Learning to rank: From pairwise approach to listwise approach.</title>
+<date>2007</date>
+<booktitle>in Proceedings of ICML.</booktitle>
+<contexts>
+<context position="4296" citStr="Cao et al., 2007" startWordPosition="661" endWordPosition="664">ing problem rather than a classification problem. Learning to rank methods take into account the relations between candidates, which is better than considering them independently. Learning to rank methods are popular in document information retrieval, but there are few studies on information extraction. In this paper, we investigate the application of learning to rank methods to the entity linking task. And we compare several machine learning methods for this task. We investigate the pairwise learning to rank method, Ranking Perceptron (Shen and Joshi, 2005), and the listwise method, ListNet (Cao et al., 2007). Two classification methods, SVM and Perceptron, are developed as our baselines. In comparison, learning to rank methods show significant improvements over classification methods, and ListNet achieves the best result. The best overall performance is also achieved with our proposed framework. This paper is organized as follows. In the next section we will briefly review the related work. We present our framework for entity linking in section 3. We then describe in section 4 learning to rank methods and features for entity linking. A top1 candidate validation module will be explained in section</context>
+<context position="12316" citStr="Cao et al., 2007" startWordPosition="1998" endWordPosition="2001">(i) = {y (i) j j = 1 : n(i)} represents the relevance degree between the objects and the query. Features vectors x (i) j from each query-object pair, j = 1 : n(i). Ranking function f, for each x (i) j it outputs a score f(x (i) j ). After the training phase, to rank the objects, just use the ranking function f to output the score list of the objects, and rank them with the score list. In the paper we will compare two different learning to rank approaches: Ranking Perceptron for pairwise and ListNet for listwise. A detailed introduction on Ranking Perceptron (Shen and Joshi, 2005) and ListNet (Cao et al., 2007) is given. 4.1.1 Ranking Perceptron Ranking Perceptron is a pairwise learning to rank method. The score function f(x (i) j ) is defined as &lt; , x (i) j &gt;. For each pair (x (i) j1 , x (i) j2 ), f(x (i) j1 x (i) j2 ) is computed. With a given margin function g(x (i) j1 , x (i) j2 ) and a positive rate , if f(x (i) j1 x (i) j2 ) g(x (i) j1 , x (i) j2 ), an update is performed: t+1 = t + (x (i) j1 x (i) j2 )g(x (i) j1 , x (i) j2 ) After iterating enough times, we can use the function f to rank candidates. 4.1.2 ListNet ListNet takes lists of objects as instances in learning. It uses a probabilistic</context>
+<context position="24659" citStr="Cao et al., 2007" startWordPosition="4119" endWordPosition="4122">tion er489 \x0cSystems Accuracy of all queries Accuracy of non-NIL queries Accuracy of NIL queries System1 0.8217 0.7654 0.8641 System2 0.8033 0.7725 0.8241 System3 0.7984 0.7063 0.8677 ListNet+SVM 0.8494 0.79 0.8941 Table 3: Evaluation of the overall performance, compared with KBP results (System 1-3 demonstrate the top three ranked systems) rors but not to minimize the errors in ranking; second, the number of pairs generated from list varies largely from list to list, which will result in a model biased toward lists with more objects. The issues are also discussed in (Y.B. Cao et al., 2006; Cao et al., 2007). And the listwise approach can fix the problems well. As the feature sets are added incrementally, it can be used for analyzing the importance of the features to the ranking task. Although Surface Group only takes into consideration the candidates title and the querys name string, its accuracy is still higher than 60%. This is because many queries have quite small number of candidates, the target entry can be picked out with the surface features only. The result shows that after adding the TF-IDF similarity related features, the accuracy increases significantly to 84.5%. Although TF-IDF simil</context>
+</contexts>
+<marker>Cao, Qin, Liu, Tsai, Li, 2007</marker>
+<rawString>Cao, Z., Qin, T., Liu, T. Y., Tsai, M. F. and Li, H. 2007. Learning to rank: From pairwise approach to listwise approach. in Proceedings of ICML.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Qin</author>
+<author>X-D Zhang</author>
+<author>M-F Tsai</author>
+<author>D-S Wang</author>
+<author>T Y Liu</author>
+<author>H Li</author>
+</authors>
+<title>Query-level loss functions for information retrieval.</title>
+<date>2007</date>
+<booktitle>in Proceedings of Information processing and management.</booktitle>
+<marker>Qin, Zhang, Tsai, Wang, Liu, Li, 2007</marker>
+<rawString>Qin, T., Zhang, X.-D., Tsai, M.-F., Wang, D.-S., Liu, T.Y., and Li, H. 2007. Query-level loss functions for information retrieval. in Proceedings of Information processing and management.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Shen</author>
+<author>A Joshi</author>
+</authors>
+<title>Ranking and Reranking with Perceptron.</title>
+<date>2005</date>
+<booktitle>Machine Learning,60(1-3),pp.</booktitle>
+<pages>73--96</pages>
+<contexts>
+<context position="4243" citStr="Shen and Joshi, 2005" startWordPosition="652" endWordPosition="655">n as the target entity. In this way, its more like a ranking problem rather than a classification problem. Learning to rank methods take into account the relations between candidates, which is better than considering them independently. Learning to rank methods are popular in document information retrieval, but there are few studies on information extraction. In this paper, we investigate the application of learning to rank methods to the entity linking task. And we compare several machine learning methods for this task. We investigate the pairwise learning to rank method, Ranking Perceptron (Shen and Joshi, 2005), and the listwise method, ListNet (Cao et al., 2007). Two classification methods, SVM and Perceptron, are developed as our baselines. In comparison, learning to rank methods show significant improvements over classification methods, and ListNet achieves the best result. The best overall performance is also achieved with our proposed framework. This paper is organized as follows. In the next section we will briefly review the related work. We present our framework for entity linking in section 3. We then describe in section 4 learning to rank methods and features for entity linking. A top1 can</context>
+<context position="12285" citStr="Shen and Joshi, 2005" startWordPosition="1992" endWordPosition="1995">ect list has a labeled score list y(i) = {y (i) j j = 1 : n(i)} represents the relevance degree between the objects and the query. Features vectors x (i) j from each query-object pair, j = 1 : n(i). Ranking function f, for each x (i) j it outputs a score f(x (i) j ). After the training phase, to rank the objects, just use the ranking function f to output the score list of the objects, and rank them with the score list. In the paper we will compare two different learning to rank approaches: Ranking Perceptron for pairwise and ListNet for listwise. A detailed introduction on Ranking Perceptron (Shen and Joshi, 2005) and ListNet (Cao et al., 2007) is given. 4.1.1 Ranking Perceptron Ranking Perceptron is a pairwise learning to rank method. The score function f(x (i) j ) is defined as &lt; , x (i) j &gt;. For each pair (x (i) j1 , x (i) j2 ), f(x (i) j1 x (i) j2 ) is computed. With a given margin function g(x (i) j1 , x (i) j2 ) and a positive rate , if f(x (i) j1 x (i) j2 ) g(x (i) j1 , x (i) j2 ), an update is performed: t+1 = t + (x (i) j1 x (i) j2 )g(x (i) j1 , x (i) j2 ) After iterating enough times, we can use the function f to rank candidates. 4.1.2 ListNet ListNet takes lists of objects as instances in le</context>
+</contexts>
+<marker>Shen, Joshi, 2005</marker>
+<rawString>L. Shen and A. Joshi. 2005. Ranking and Reranking with Perceptron. Machine Learning,60(1-3),pp. 73-96.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Silviu Cucerzan</author>
+</authors>
+<title>Large-Scale Named Entity Disambiguation Based on Wikipedia Data.</title>
+<date>2007</date>
+<booktitle>in Proceedings of EMNLP-CoNLL.</booktitle>
+<contexts>
+<context position="7335" citStr="Cucerzan (2007)" startWordPosition="1152" endWordPosition="1153">Bekkerman and McCallum (2005) disambiguated web appearances of people based on the link structure of Web pages. These methods tried to add background knowledge via social networks. Social networks can capture the relatedness between terms, so the problem of a BOW model can be solved to some extent. Xianpei and Jun (2009) proposed to use Wikipedia as the background knowledge for disambiguation. By leveraging Wikipedias semantic knowledge like social relatedness between named entities and associative relatedness between concepts, they can measure the similarity between entities more accurately. Cucerzan (2007) and 484 \x0cBunescu (2006) used Wikipedias category information in the disambiguation process. Using different background knowledge, researcher may find different efficient features for disambiguation. Hence researchers have proposed so many efficient features for disambiguation. It is important to integrate these features to improve the system performance. Some researchers combine features by manual rules or weights. However, it is not convenient to directly use these rules or weights in another data set. Some researchers also try to use machine learning methods to combine the features. Miln</context>
+</contexts>
+<marker>Cucerzan, 2007</marker>
+<rawString>Silviu Cucerzan. 2007. Large-Scale Named Entity Disambiguation Based on Wikipedia Data. in Proceedings of EMNLP-CoNLL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Razvan Bunescu</author>
+<author>Marius Pasca</author>
+</authors>
+<title>Using Encyclopedic Knowledge for Named Entity Disambiguation.</title>
+<date>2006</date>
+<booktitle>in Proceedings of EACL.</booktitle>
+<marker>Bunescu, Pasca, 2006</marker>
+<rawString>Razvan Bunescu and Marius Pasca. 2006. Using Encyclopedic Knowledge for Named Entity Disambiguation. in Proceedings of EACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Paul McNamee</author>
+<author>Hoa Dang</author>
+</authors>
+<title>Knowledge Base Population Track (DRAFT).</title>
+<date>2009</date>
+<journal>Overview of the TAC</journal>
+<booktitle>in Proceedings of TAC.</booktitle>
+<contexts>
+<context position="26306" citStr="McNamee and Dang, 2009" startWordPosition="4382" endWordPosition="4385">he features mentioned above are the most important. Because many features correlated with each other quite closely, adding these features doesnt lead to remarkable improvement. The conclusion from the results is that the Context Features significantly improve the ranking performance and the Special Features are also useful in the entity linking task. 6.3 Overall Performance Evaluation We are also interested in overall performance with the additional validation module. We use all the 3904 queries as the test set, including both NIL and non-NIL queries. The top three results from the KBP track (McNamee and Dang, 2009) are selected as comparison. The evaluation result in Table 3 shows that our proposed framework outperforms the best result in the KBP track, which demonstrates the effectiveness of our methods. 7 Conclusions and Future Work This paper demonstrates a framework of learning to rank for linking entities with the Knowledge Base. Experimenting with different ranking algorithms, it shows that the learning to rank methods perform much better than the classification methods in this problem. ListNet achieves 18.5% improvement over SVM, and Ranking Perceptron gets 15.8% improvement over SVM. We also obs</context>
+</contexts>
+<marker>McNamee, Dang, 2009</marker>
+<rawString>Paul McNamee and Hoa Dang. 2009. Overview of the TAC 2009 Knowledge Base Population Track (DRAFT). in Proceedings of TAC.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Rose Finkel</author>
+<author>Trond Grenager</author>
+<author>Christopher Manning</author>
+</authors>
+<title>Incorporating Non-local Information into Information Extraction Systems by Gibbs Sampling.</title>
+<date>2005</date>
+<booktitle>Proceedings of the 43nd Annual Meeting of the Association for Computational Linguistics (ACL</booktitle>
+<pages>363--370</pages>
+<contexts>
+<context position="14843" citStr="Finkel et al., 2005" startWordPosition="2471" endWordPosition="2474"> in a text. CSet represents the candidate entries in Knowledge Base for the query Q. C represents a candidate in CSet. Qs nameString represents the name string of Q. Qs sourceText represents the source text of Q. Qs querySet represents the queries which are expansions of Qs nameString. Cs title represents the title of corresponding Wikipedia article of C. Cs titleExpand represents the union set of the redirect set of C and the anchor text set of C. Cs article represents the Wikipedia article of C. Cs nameEntitySet represents the set of all named entities in Cs article labeled by Stanford NER (Finkel et al., 2005). Qs nameEntitySet represents the set of all named entities in Qs sourceText. Cs countrySet represents the set of all countries in Cs article, and we detect the countries from text via a manual edited country list. Qs countrySet represents the set of all countries in Qs sourceText. Cs countrySetInTitle represents the set of countries exist in one of the string s from Cs titleExpand. Cs citySetInTitle represents the set of all cities exist in one of the string s from Cs titleExpand, and we detect the cities from text via a manual edited list of famous cities. Qs citySet represents the set of al</context>
+</contexts>
+<marker>Finkel, Grenager, Manning, 2005</marker>
+<rawString>Jenny Rose Finkel, Trond Grenager, and Christopher Manning. 2005. Incorporating Non-local Information into Information Extraction Systems by Gibbs Sampling. Proceedings of the 43nd Annual Meeting of the Association for Computational Linguistics (ACL 2005), pp. 363-370.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

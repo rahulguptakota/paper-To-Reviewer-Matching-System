@@ -1,0 +1,1296 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000095">
+<bodyText confidence="0.730488">
+b&amp;apos;Shallow parsing on the basis of words only: A case study
+Antal van den Bosch and Sabine Buchholz
+ILK / Computational Linguistics and AI
+</bodyText>
+<affiliation confidence="0.87286">
+Tilburg University
+Tilburg, The Netherlands
+</affiliation>
+<email confidence="0.743312">
+Antal.vdnBosch,S.Buchholz\x01 @kub.nl
+</email>
+<sectionHeader confidence="0.9823" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999252346153846">
+We describe a case study in which
+a memory-based learning algorithm is
+trained to simultaneously chunk sentences
+and assign grammatical function tags to
+these chunks. We compare the algo-
+rithms performance on this parsing task
+with varying training set sizes (yielding
+learning curves) and different input repre-
+sentations. In particular we compare in-
+put consisting of words only, a variant that
+includes word form information for low-
+frequency words, gold-standard POS only,
+and combinations of these. The word-
+based shallow parser displays an appar-
+ently log-linear increase in performance,
+and surpasses the flatter POS-based curve
+at about 50,000 sentences of training data.
+The low-frequency variant performs even
+better, and the combinations is best. Com-
+parative experiments with a real POS tag-
+ger produce lower results. We argue that
+we might not need an explicit intermediate
+POS-tagging step for parsing when a suffi-
+cient amount of training material is avail-
+able and word form information is used
+for low-frequency words.
+</bodyText>
+<sectionHeader confidence="0.998246" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999407337209303">
+It is common in parsing to assign part-of-speech
+(POS) tags to words as a first analysis step provid-
+ing information for further steps. In many early
+parsers, the POS sequences formed the only input
+to the parser, i.e. the actual words were not used
+except in POS tagging. Later, with feature-based
+grammars, information on POS had a more central
+place in the lexical entry of a word than the identity
+of the word itself, e.g. MAJOR and other HEAD fea-
+tures in (Pollard and Sag, 1987). In the early days of
+statistical parsers, POS were explicitly and often ex-
+clusively used as symbols to base probabilities on;
+these probabilities are generally more reliable than
+lexical probabilities, due to the inherent sparseness
+of words.
+In modern lexicalized parsers, POS tagging is of-
+ten interleaved with parsing proper instead of be-
+ing a separate preprocessing module (Collins, 1996;
+Ratnaparkhi, 1997). Charniak (2000) notes that hav-
+ing his generative parser generate the POS of a con-
+stituents head before the head itself increases per-
+formance by 2 points. He suggests that this is due to
+the usefulness of POS for estimating back-off prob-
+abilities.
+Abneys (1991) chunking parser consists of two
+modules: a chunker and an attacher. The chunker
+divides the sentence into labeled, non-overlapping
+sequences (chunks) of words, with each chunk con-
+taining a head and (nearly) all of its premodi-
+fiers, exluding arguments and postmodifiers. His
+chunker works on the basis of POS information
+alone, whereas the second module, the attacher,
+also uses lexical information. Chunks as a sepa-
+rate level have also been used in Collins (1996) and
+Ratnaparkhi (1997).
+This brief overview shows that the main reason
+for the use of POS tags in parsing is that they provide
+Computational Linguistics (ACL), Philadelphia, July 2002, pp. 433-440.
+Proceedings of the 40th Annual Meeting of the Association for
+\x0cuseful generalizations and (thereby) counteract the
+sparse data problem. However, there are two objec-
+tions to this reasoning. First, as naturally occurring
+text does not come POS-tagged, we first need a mod-
+ule to assign POS. This tagger can base its decisions
+only on the information present in the sentence, i.e.
+on the words themselves. The question then arises
+whether we could use this information directly, and
+thus save the explicit tagging step. The second ob-
+jection is that sparseness of data is tightly coupled
+to the amount of training material used. As train-
+ing material is more abundant now than it was even
+a few years ago, and todays computers can handle
+these amounts, we might ask whether there is now
+enough data to overcome the sparseness problem for
+certain tasks.
+To answer these two questions, we designed the
+following experiments. The task to be learned is
+a shallow parsing task (described below). In one
+experiment, it has to be performed on the basis of
+the gold-standard, assumed-perfect POS taken di-
+rectly from the training data, the Penn Treebank
+(Marcus et al., 1993), so as to abstract from a par-
+ticular POS tagger and to provide an upper bound.
+In another experiment, parsing is done on the ba-
+sis of the words alone. In a third, a special en-
+coding of low-frequency words is used. Finally,
+words and POS are combined. In all experiments,
+we increase the amount of training data stepwise and
+record parse performance for each step. This yields
+four learning curves. The word-based shallow parser
+displays an apparently log-linear increase in perfor-
+mance, and surpasses the flatter POS-based curve at
+about 50,000 sentences of training data. The low-
+frequency variant performs even better, and the com-
+binations is best. Comparative experiments with a
+real POS tagger produce lower results.
+The paper is structured as follows. In Section 2
+we describe the parsing task, its input representation,
+how this data was extracted from the Penn Treebank,
+and how we set up the learning curve experiments
+using a memory-based learner. Section 3 provides
+the experimental learning curve results and analyses
+them. Section 4 contains a comparison of the effects
+with gold-standard and automatically assigned POS.
+We review related research in Section 5, and formu-
+late our conclusions in Section 6.
+</bodyText>
+<sectionHeader confidence="0.961669" genericHeader="method">
+2 Task representation, data preparation,
+</sectionHeader>
+<bodyText confidence="0.994095">
+and experimental setup
+We chose a shallow parsing task as our benchmark
+task. If, to support an application such as infor-
+mation extraction, summarization, or question an-
+swering, we are only interested in parts of the parse
+tree, then a shallow parser forms a viable alterna-
+tive to a full parser. Li and Roth (2001) show that
+for the chunking task it is specialized in, their shal-
+low parser is more accurate and more robust than a
+general-purpose, i.e. full, parser.
+Our shallow parsing task is a combination of
+chunking (finding and labelling non-overlapping
+syntactically functional sequences) and what we will
+call function tagging. Our chunks and functions are
+based on the annotations in the third release of the
+Penn Treebank (Marcus et al., 1993). Below is an
+example of a tree and the corresponding chunk (sub-
+scripts on brackets) and function (superscripts on
+</bodyText>
+<figure confidence="0.8024605">
+headwords) annotation:
+((S (ADVP-TMP Once)
+(NP-SBJ-1 he)
+(VP was
+(VP held
+(NP *-1)
+(PP-TMP for
+(NP three months))
+(PP without
+(S-NOM (NP-SBJ *-1)
+(VP being
+(VP charged)
+))))) .))
+[\x02\x04\x03\x06\x05\x08\x07 Once
+\x02\x08\x03\t\x05
+\x07\x0c\x0b\x0e
+\x10\x0f\x11\x07 ] [\x12\x13\x07 he
+\x12\x13\x07\x0c\x0b\x15\x14\x17\x16
+\x18 ]
+[\x05\x0c\x07 was held
+\x05\x0c\x07\x1a\x19\x1b\x14 ] [\x07\x08\x07 for
+\x07\x04\x07\x1c\x0b\x10
+\x0e\x0f\x11\x07 ]
+[\x12\x13\x07 three months
+\x12\x06\x07 ] [\x07\x08\x07 without
+\x07\x04\x07 ]
+[\x05\x0c\x07 being charged
+\x05\x08\x07\x10\x19\x1b\x14\x1a\x0b\x0e\x12\x13\x1d\x0c\x0f ] .
+</figure>
+<bodyText confidence="0.980209066666667">
+Nodes in the tree are labeled with a syntactic cat-
+egory and up to four function tags that specify gram-
+matical relations (e.g. SBJ for subject), subtypes
+of adverbials (e.g. TMP for temporal), discrepan-
+cies between syntactic form and syntactic function
+(e.g. NOM for non-nominal constituents function-
+ing nominally) and notions like topicalization. Our
+chunks are based on the syntactic part of the con-
+stituent label. The conversion program is the same
+as used for the CoNLL-2000 shared task (Tjong Kim
+Sang and Buchholz, 2000). Head words of chunks
+are assigned a function code that is based on the full
+constituent label of the parent and of ancestors with
+\x0ca different category, as in the case of VP/S-NOM in
+the example.
+</bodyText>
+<subsectionHeader confidence="0.943641">
+2.1 Task representation and evaluation method
+</subsectionHeader>
+<bodyText confidence="0.999410652173913">
+To formulate the task as a machine-learnable classi-
+fication task, we use a representation that encodes
+the joint task of chunking and function-tagging a
+sentence in per-word classification instances. As
+illustrated in Table 2.1, an instance (which corre-
+sponds to a row in the table) consists of the val-
+ues for all features (the columns) and the function-
+chunk code for the focus word. The features de-
+scribe the focus word and its local context. For
+the chunk part of the code, we adopt the Inside,
+Outside, and Between (IOB) encoding originat-
+ing from (Ramshaw and Marcus, 1995). For the
+function part of the code, the value is either the
+function for the head of a chunk, or the dummy
+value NOFUNC for all non-heads. For creating the
+POS-based task, all words are replaced by the gold-
+standard POS tags associated with them in the Penn
+Treebank. For the combined task, both types of fea-
+tures are used simultaneously.
+When the learner is presented with new instances
+from heldout material, its task is thus to assign the
+combined function-chunk codes to either words or
+POS in context. From the sequence of predicted
+function-chunk codes, the complete chunking and
+function assignment can be reconstructed. How-
+ever, predictions can be inconsistent, blocking a
+straightforward reconstruction of the complete shal-
+low parse. We employed the following four rules
+to resolve such problems: (1) When an O chunk
+code is followed by a B chunk code, or when an
+I chunk code is followed by a B chunk code with
+a different chunk type, the B is converted to an I.
+(2) When more than one word in a chunk is given
+a function code, the function code of the rightmost
+word is taken as the chunks function code. (3) If all
+words of the chunk receive NOFUNC tags, a prior
+function code is assigned to the rightmost word of
+the chunk. This prior, estimated on the training set,
+represents the most frequent function code for that
+type of chunk.
+To measure the success of our learner, we com-
+pute the precision, recall and their harmonic mean,
+the F-score1 with \x1e =1 (Van Rijsbergen, 1979). In
+the combined function-chunking evaluation, a chunk
+is only counted as correct when its boundaries, its
+type and its function are identified correctly.
+</bodyText>
+<subsectionHeader confidence="0.997007">
+2.2 Data preparation
+</subsectionHeader>
+<bodyText confidence="0.998925470588235">
+Our total data set consists of all 74,024 sentences
+in the Wall Street Journal, Brown and ATIS Cor-
+pus subparts of the Penn Treebank III. We ran-
+domized the order of the sentences in this dataset,
+and then split it into ten 90%/10% partitionings
+with disjoint 10% portions, in order to run 10-
+fold cross-validation experiments (Weiss and Ku-
+likowski, 1991). To provide differently-sized train-
+ing sets for learning curve experiments, each train-
+ing set (of 66,627 sentences) was also clipped at the
+following sizes: 100 sentences, 500, 1000, 2000,
+5000, 10,000, 20,000 and 50,000. All data was con-
+verted to instances as illustrated in Table 2.1. For the
+total data set, this yields 1,637,268 instances, one for
+each word or punctuation mark. 62,472 word types
+occur in the total data set, and 874 different function-
+chunk codes.
+</bodyText>
+<subsectionHeader confidence="0.984265">
+2.3 Classifier: Memory-based learning
+</subsectionHeader>
+<bodyText confidence="0.992343523809524">
+Arguably, the choice of algorithm is not crucial in
+learning curve experiments. First, we aim at mea-
+suring relative differences arising from the selection
+of types of input. Second, there are indications that
+increasing the training set of language processing
+tasks produces much larger performance gains than
+varying among algorithms at fixed training set sizes;
+moreover, these differences also tend to get smaller
+with larger data sets (Banko and Brill, 2001).
+Memory-based learning (Stanfill and Waltz,
+1986; Aha et al., 1991; Daelemans et al., 1999b) is a
+supervised inductive learning algorithm for learning
+classification tasks. Memory-based learning treats
+a set of labeled (pre-classified) training instances
+as points in a multi-dimensional feature space, and
+stores them as such in an instance base in mem-
+ory (rather than performing some abstraction over
+them). Classification in memory-based learning is
+performed by the \x1f -NN algorithm (Cover and Hart,
+1967) that searches for the \x1f nearest neighbors
+according to the distance function between two in-
+</bodyText>
+<page confidence="0.324712">
+1
+</page>
+<table confidence="0.7901265">
+F&amp;quot;!$#
+&amp;%(\&amp;apos;\x0c)+*-,precision,recall
+% ,precision\&amp;apos; recall
+\x0cLeft context Focus Right context Function-chunk code
+Once he was held I-ADVP ADVP-TMP
+Once he was held for I-NP NP-SBJ
+Once he was held for three I-VP NOFUNC
+Once he was held for three months I-VP VP/S
+</table>
+<bodyText confidence="0.892542571428571">
+he was held for three months without I-PP PP-TMP
+was held for three months without being I-NP NOFUNC
+held for three months without being charged I-NP NP
+for three months without being charged . I-PP PP
+three months without being charged . I-VP NOFUNC
+months without being charged . I-VP VP/S-NOM
+without being charged . O NOFUNC
+</bodyText>
+<tableCaption confidence="0.92568">
+Table 1: Encoding into instances, with words as input, of the example sentence Once he was held for three
+</tableCaption>
+<bodyText confidence="0.98251605">
+months without being charged .
+stances . and / , 0213.546/87:9&amp;lt;;&amp;gt;=?A@CBED ?GF 13H ? 4JI ? 7 ,
+where K is the number of features, D ? is a weight for
+feature L , and F estimates the difference between the
+two instances values at the L th feature. The classes
+of the \x1f nearest neighbors then determine the class
+of the new case.
+In our experiments, we used a variant of the IB1
+memory-based learner and classifier as implemented
+in TiMBL (Daelemans et al., 2001). On top of the \x1f -
+NN kernel of IB1 we used the following metrics that
+fine-tune the distance function and the class voting
+automatically: (1) The weight (importance) of a fea-
+ture L , D ? , is estimated in our experiments by com-
+puting its gain ratio MON ? (Quinlan, 1993). This is
+the algorithms default choice. (2) Differences be-
+tween feature values (i.e. words or POS tags) are es-
+timated by the real-valued outcome of the modified
+value difference metric (Stanfill and Waltz, 1986;
+Cost and Salzberg, 1993). (3) \x1f was set to seven.
+This and the previous parameter setting turned out
+best for a chunking task using the same algorithm as
+reported by Veenstra and van den Bosch (2000). (4)
+Class voting among the \x1f nearest neighbours is done
+by weighting each neighbours vote by the inverse of
+its distance to the test example (Dudani, 1976). In
+Zavrel (1997), this distance was shown to improve
+over standard \x1f -NN on a PP-attachment task. (5)
+For efficiency, search for the \x1f -nearest neighbours is
+approximated by employing TRIBL (Daelemans et
+al., 1997), a hybrid between pure \x1f -NN search and
+decision-tree traversal. The switch point of TRIBL
+was set to 1 for the words only and POS only ex-
+periments, i.e. a decision-tree split was made on the
+most important feature, the focus word, respectively
+focus POS. For the experiments with both words and
+POS, the switch point was set to 2 and the algorithm
+was forced to split on the focus word and focus POS.
+The metrics under 1) to 4) then apply to the remain-
+ing features.
+</bodyText>
+<sectionHeader confidence="0.971083" genericHeader="method">
+3 Learning Curve Experiments
+</sectionHeader>
+<bodyText confidence="0.997239481481482">
+We report the learning curve results in three para-
+graphs. In the first, we compare the performance
+of a plain words input representation with that of
+a gold-standard POS one. In the second we intro-
+duce a variant of the word-based task that deals with
+low-frequency words. The last paragraph describes
+results with input consisting of words and POS tags.
+Words only versus POS tags only As illus-
+trated in Figure 1, the learning curves of both the
+word-based and the POS-based representation are
+upward with more training data. The word-based
+curve starts much lower but flattens less; in the tested
+range it has an approximately log-linear growth.
+Given the measured results, the word-based curve
+surpasses the POS-based curve at a training set size
+between 20,000 and 50,000 sentences. This proves
+two points: First, experiments with a fixed training
+set size might present a misleading snapshot. Sec-
+ond, the amount of training material available today
+is already enough to make words more valuable in-
+put than (gold-standard!) POS.
+Low-frequency word encoding variant If
+TRIBL encounters an unknown word in the test ma-
+terial, it stops already at the decision tree stage and
+returns the default class without even using the in-
+formation provided by the context. This is clearly
+disadvantageous and specific to this choice of al-
+</bodyText>
+<figure confidence="0.974270789473684">
+\x0c35
+40
+45
+50
+55
+60
+65
+70
+75
+80
+100 200 500 1000 2000 5000 10,000 20,000 50,000
+66,627
+F
+P
+# sentences
+gold-standard POS
+words
+attenuated words
+attenuated words + gold-standard POS
+</figure>
+<figureCaption confidence="0.999852">
+Figure 1: Learning curves of the main experiments on POS tags, words, attenuated words, and the combi-
+</figureCaption>
+<bodyText confidence="0.989701875">
+nation of words and POS. The y-axis represents FQ @CB on combined chunking and function assignment. The
+x-axis represents the number of training sentences; its scale is logarithmic.
+gorithm. A more general shortcoming is that the
+word form of an unknown word often contains use-
+ful information that is not available in the present
+setup. To overcome these two problems, we applied
+what Eisner (1997) calls attenuation to all words
+occurring ten times or less in training material. If
+such a word ends in a digit, it is converted to the
+string MORPH-NUM; if the word is six charac-
+ters or longer it becomes MORPH-XX where XX
+are the final two letters, else it becomes MORPH-
+SHORT. If the first letter is capitalised, the atten-
+uated form is MORPH-CAP. This produces se-
+quences such as A number of MORPH-ts were MORPH-
+ly MORPH-ed by traders . (A number of developments
+were negatively interpreted by traders ). We applied this
+attenuation method to all training sets. All words in
+test material that did not occur as words in the atten-
+uated training material were also attenuated follow-
+ing the same procedure.
+The curve resulting from the attenuated word-
+based experiment is also displayed in Figure 1. The
+curve illustrates that the attenuated representation
+performs better than the pure word-based one at all
+reasonable training set sizes. However the effect
+clearly diminuishes with more training data, so we
+cannot exclude that the two curves will meet with
+yet more training data.
+Combining words with POS tags Although the
+word-based curve, and especially its attenuated vari-
+ant, end higher than the POS-based curve, POS
+might still be useful in addition to words. We there-
+fore also tested a representation with both types of
+features. As shown in Figure 1, the attenuated word
++ gold-standard POS curve starts close to the gold-
+standard POS curve, attains break-even with this
+curve at about 500 sentences, and ends close to but
+higher than all other curves, including the attenu-
+ated word curve.
+</bodyText>
+<page confidence="0.983889">
+4
+</page>
+<bodyText confidence="0.976020625">
+Although the performance increase through the ad-
+dition of POS becomes smaller with more train-
+ing data, it is still highly significant with maximal
+training set size. As the tags are the gold-standard
+tags taken directly from the Penn Treebank, this re-
+sult provides an upper bound for the contribution of
+POS tags to the shallow parsing task under inves-
+tigation. Automatic POS tagging is a well-studied
+</bodyText>
+<table confidence="0.922792333333333">
+\x0cInput features Precision R Recall R F-score R
+gold-standard POS 73.8 0.2 73.9 0.2 73.9 0.2
+MBT POS 72.2 0.2 72.4 0.2 72.3 0.2
+words 75.4 0.1 75.4 0.1 75.4 0.1
+words S gold-standard POS 76.5 0.2 77.1 0.2 76.8 0.2
+words S MBT POS 75.8 0.2 76.1 0.1 75.9 0.1
+attenuated words 77.3 0.1 77.2 0.2 77.3 0.2
+attenuated words S gold-standard POS 78.9 0.2 79.1 0.2 79.0 0.2
+attenuated words S MBT POS 77.6 0.2 77.7 0.2 77.6 0.2
+</table>
+<tableCaption confidence="0.998463">
+Table 2: Average precision, recall, and F-scores on the chunking-function-tagging task, with standard devi-
+</tableCaption>
+<bodyText confidence="0.9992835">
+ation, using the input features words, attenuated words, gold-standard POS, and MBT POS, and combina-
+tions, on the maximal training set size.
+task (Church, 1988; Brill, 1993; Ratnaparkhi, 1996;
+Daelemans et al., 1996), and reported errors in the
+range of 26% are common. To investigate the ef-
+fect of using automatically assigned tags, we trained
+MBT, a memory-based tagger (Daelemans et al.,
+1996), on the training portions of our 10-fold cross-
+validation experiment for the maximal data and let it
+predict tags for the test material. The memory-based
+tagger attained an accuracy of 96.7% (R 0.1; 97.0%
+on known words, and 80.9% on unknown words).
+We then used these MBT POS instead of the gold-
+standard ones.
+The results of these experiments, along with the
+equivalent results using gold-standard POS, are dis-
+played in Table 2. As they show, the scores with au-
+tomatically assigned tags are always lower than with
+the gold-standard ones. When taken individually,
+the difference in F-scores of the gold-standard ver-
+sus the MBT POS tags is 1.6 points. Combined with
+words, the MBT POS contribute 0.5 points (com-
+pared against words taken individually); combined
+with attenuated words, they contribute 0.3 points.
+This is much less than the improvement by the gold-
+standard tags (1.7 points) but still significant. How-
+ever, as the learning curve experiments showed, this
+is only a snapshot and the improvement may well
+diminish with more training data.
+A breakdown of accuracy results shows that the
+highest improvement in accuracy is achieved for fo-
+cus words in the MORPH-SHORT encoding. In
+these cases, the POS tagger has access to more infor-
+mation about the low-frequency word (e.g. its suffix)
+than the attenuated form provides. This suggests that
+this encoding is not optimal.
+</bodyText>
+<sectionHeader confidence="0.998104" genericHeader="method">
+5 Related Research
+</sectionHeader>
+<bodyText confidence="0.99699424137931">
+Ramshaw and Marcus (1995), Munoz et al. (1999),
+Argamon et al. (1998), Daelemans et al. (1999a)
+find NP chunks, using Wall Street Journal training
+material of about 9000 sentences. F-scores range
+between 91.4 and 92.8. The first two articles
+mention that words and (automatically assigned)
+POS together perform better than POS alone.
+Chunking is one part of the task studied here, so
+we also computed performance on chunks alone,
+ignoring function codes. Indeed the learning curve
+of words combined with gold-standard POS crosses
+the POS-based curve before 10,000 sentences on
+the chunking subtask.
+Tjong Kim Sang and Buchholz (2000) give an
+overview of the CoNLL shared task of chunking.
+The types and definitions of chunks are identical to
+the ones used here. Training material again consists
+of the 9000 Wall Street Journal sentences with
+automatically assigned POS tags. The best F-score
+(93.5) is higher than the 91.5 F-score attained on
+chunking in our study using attenuated words only,
+but using the maximally-sized training sets. With
+gold-standard POS and attenuated words we attain
+an F-score of 94.2; with MBT POS tags and atten-
+uated words, 92.8. In the CoNLL competition, all
+three best systems used combinations of classifiers
+instead of one single classifier. In addition, the
+effect of our mix of sentences from different corpora
+on top of WSJ is not clear.
+Ferro et al. (1999) describe a system for find-
+\x0cing grammatical relations in automatically tagged
+and manually chunked text. They report an F-
+score of 69.8 for a training size of 3299 words
+of elementary school reading comprehension tests.
+Buchholz et al. (1999) achieve 71.2 F-score for
+grammatical relation assignment on automatically
+tagged and chunked text after training on about
+40,000 Wall Street Journal sentences. In contrast
+to these studies, we do not chunk before find-
+ing grammatical relations; rather, chunking is per-
+formed simultaneously with headword function tag-
+ging. Measuring F-scores on the correct assign-
+ment of functions to headwords in our study, we at-
+tain 78.2 F-score using words, 80.1 using attenuated
+words, 80.9 using attenuated words combined with
+gold-standard POS, and 79.7 using attenuated words
+combined with MBT POS (which is slightly worse
+than with attenuated words only). Our function tag-
+ging task is easier than finding grammatical relations
+as we tag a headword of a chunk as e.g. a subject
+in isolation whereas grammatical relation assign-
+ment also includes deciding which verb this chunk is
+the subject of. At-Mokhtar and Chanod (1997) de-
+scribe a sequence of finite-state transducers in which
+function tagging is a separate step, after POS tag-
+ging and chunking. The last transducer then uses the
+function tags to extract subject/verb and object/verb
+relations (from French text).
+</bodyText>
+<sectionHeader confidence="0.997555" genericHeader="conclusions">
+6 Conclusion
+</sectionHeader>
+<bodyText confidence="0.995755137931034">
+POS are normally considered useful information in
+shallow and full parsing. Our learning curve experi-
+ments show that:
+T The relative merit of words versus POS as in-
+put for the combined chunking and function-
+tagging task depends on the amount of training
+data available.
+T The absolute performance of words depends on
+the treatment of rare words. The additional
+use of word form information (attenuation) im-
+proves performance.
+T The addition of POS also improves perfor-
+mance. In this and the previous case, the effect
+becomes smaller with more training data.
+Experiments with the maximal training set size show
+that:
+T Addition of POS maximally yields an improve-
+ment of 1.7 points on this data.
+T With realistic POS the improvement is much
+smaller.
+Preliminary analysis shows that the improvement by
+realistic POS seems to be caused mainly by a supe-
+rior use of word form information by the POS tag-
+ger. We therefore plan to experiment with a POS
+tagger and an attenuated words variant that use ex-
+actly the same word form information. In addition
+we also want to pursue using the combined chunker
+and grammatical function tagger described here as a
+first step towards grammatical relation assignment.
+</bodyText>
+<sectionHeader confidence="0.983883" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.950409166666667">
+S. Abney. 1991. Parsing by chunks. In Principle-Based
+Parsing, pages 257278. Kluwer Academic Publish-
+ers, Dordrecht.
+D. W. Aha, D. Kibler, and M. Albert. 1991. Instance-
+based learning algorithms. Machine Learning, 6:37
+66.
+S. At-Mokhtar and J.-P. Chanod. 1997. Subject and ob-
+ject dependency extraction using finite-state transduc-
+ers. In Proceedings of ACL97 Workshop on Informa-
+tion Extraction and the Building of Lexical Semantic
+Resources for NLP Applications, Madrid.
+S. Argamon, I. Dagan, and Y. Krymolowski. 1998. A
+</reference>
+<bodyText confidence="0.710738428571429">
+memory-based approach to learning shallow natural
+language patterns. In Proc. of 36th annual meeting
+of the ACL, pages 6773, Montreal.
+M. Banko and E. Brill. 2001. Scaling to very very large
+corpora for natural language disambiguation. In Pro-
+ceedings of the 39th Annual Meeting and 10th Confer-
+ence of the European Chapter of the Association for
+</bodyText>
+<reference confidence="0.99760770909091">
+Computational Linguistics, Toulouse, France.
+E. Brill. 1993. A Corpus-Based Approach to Language
+Learning. Ph.D. thesis, University of Pennsylvania,
+Department of Computer and Information Science.
+S. Buchholz, J. Veenstra, and W. Daelemans. 1999.
+Cascaded grammatical relation assignment. In Pas-
+cale Fung and Joe Zhou, editors, Proceedings of
+EMNLP/VLC-99, pages 239246. ACL.
+E. Charniak. 2000. A maximum-entropy-inspired parser.
+In Proceedings of NAACL00, pages 132139.
+K. W. Church. 1988. A stochastic parts program and
+noun phrase parser for unrestricted text. In Proc. of
+Second Applied NLP (ACL).
+M.J. Collins. 1996. A new statistical parser based on bi-
+gram lexical dependencies. In Proceedings of the 34th
+Annual Meeting of the Association for Computational
+Linguistics.
+\x0cS. Cost and S. Salzberg. 1993. A weighted nearest neigh-
+bour algorithm for learning with symbolic features.
+Machine Learning, 10:5778.
+T. M. Cover and P. E. Hart. 1967. Nearest neighbor
+pattern classification. Institute of Electrical and Elec-
+tronics Engineers Transactions on Information The-
+ory, 13:2127.
+W. Daelemans, J. Zavrel, P. Berck, and S. Gillis. 1996.
+MBT: A memory-based part of speech tagger genera-
+tor. In E. Ejerhed and I. Dagan, editors, Proc. of Fourth
+Workshop on Very Large Corpora, pages 1427. ACL
+SIGDAT.
+W. Daelemans, A. Van den Bosch, and J. Zavrel. 1997.
+A feature-relevance heuristic for indexing and com-
+pressing large case bases. In M. Van Someren and
+G. Widmer, editors, Poster Papers of the Ninth Euro-
+pean Conference on Machine Learing, pages 2938,
+Prague, Czech Republic. University of Economics.
+W. Daelemans, S. Buchholz, and J. Veenstra. 1999a.
+Memory-based shallow parsing. In Proceedings of
+CoNLL, Bergen, Norway.
+W. Daelemans, A. Van den Bosch, and J. Zavrel. 1999b.
+Forgetting exceptions is harmful in language learning.
+Machine Learning, Special issue on Natural Language
+Learning, 34:1141.
+W. Daelemans, J. Zavrel, K. Van der Sloot, and A. Van
+den Bosch. 2001. TiMBL: Tilburg memory based
+learner, version 4.0, reference guide. ILK Techni-
+cal Report 01-04, Tilburg University. available from
+http://ilk.kub.nl.
+S.A. Dudani. 1976. The distance-weighted U -nearest
+neighbor rule. In IEEE Transactions on Systems, Man,
+and Cybernetics, volume SMC-6, pages 325327.
+J. Eisner. 1997. Three new probabilistic models for de-
+pendency parsing: An exploration. In Proceedings of
+the 16th International Conference on Computational
+Linguistics (COLING-96).
+L. Ferro, M. Vilain, and A. Yeh. 1999. Learning trans-
+formation rules to find grammatical relations. In Pro-
+ceedings of the Third Computational Natural Lan-
+guage Learning workshop (CoNLL), pages 4352.
+X. Li and D. Roth. 2001. Exploring evidence for shallow
+parsing. In Proceedings of the Fifth Computational
+Natural Language Learning workshop (CoNLL).
+M. Marcus, B. Santorini, and M.A. Marcinkiewicz.
+1993. Building a large annotated corpus of en-
+glish: The Penn Treebank. Computational Linguistics,
+19(2):313330.
+M. Munoz, V. Punyakanok, D. Roth, and D. Zimak.
+1999. A learning approach to shallow parsing. In Pas-
+cale Fung and Joe Zhou, editors, Proceedings of the
+1999 Joint SIGDAT Conference on Empirical Meth-
+ods in Natural Language Processing and Very Large
+Corpora, pages 168178.
+C. Pollard and I. Sag. 1987. Information-Based Syntax
+and Semantics, Volume 1: Fundamentals, volume 13
+of CSLI Lecture Notes. Center for the Study of Lan-
+guage and Information, Stanford.
+J.R. Quinlan. 1993. C4.5: Programs for Machine Learn-
+ing. Morgan Kaufmann, San Mateo, CA.
+L.A. Ramshaw and M.P. Marcus. 1995. Text chunking
+using transformation-based learning. In Proceedings
+of the 3rd ACL/SIGDAT Workshop on Very Large Cor-
+pora, Cambridge, Massachusetts, USA, pages 8294.
+A. Ratnaparkhi. 1996. A maximum entropy part-of-
+speech tagger. In Proc. of the Conference on Empirical
+Methods in Natural Language Processing, May 17-18,
+1996, University of Pennsylvania.
+A. Ratnaparkhi. 1997. A linear observed time statis-
+tical parser based on maximum entropy models. In
+Proceedings of the Second Conference on Empirical
+Methods in Natural Language Processing, EMNLP-2,
+Providence, Rhode Island, pages 110.
+C. Stanfill and D. Waltz. 1986. Toward memory-
+based reasoning. Communications of the ACM,
+29(12):12131228, December.
+E. Tjong Kim Sang and S. Buchholz. 2000. Introduction
+to the CoNLL-2000 shared task: Chunking. In Pro-
+ceedings of CoNLL-2000 and LLL-2000, pages 127
+132, Lisbon, Portugal.
+C.J. Van Rijsbergen. 1979. Information Retrieval. But-
+tersworth, London.
+J. Veenstra and Antal van den Bosch. 2000. Single-
+classifier memory-based phrase chunking. In Proceed-
+ings of CoNLL-2000 and LLL-2000, pages 157159,
+Lisbon, Portugal.
+S. Weiss and C. Kulikowski. 1991. Computer systems
+that learn. San Mateo, CA: Morgan Kaufmann.
+J. Zavrel. 1997. An empirical re-examination of
+weighted voting for k-NN. In Proceedings of the
+7th Belgian-Dutch Conference on Machine Learning,
+pages xxxx.
+\x0c&amp;apos;
+</reference>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.295332">
+<title confidence="0.928591">b&amp;apos;Shallow parsing on the basis of words only: A case study</title>
+<author confidence="0.994569">Antal van_den_Bosch</author>
+<author confidence="0.994569">Sabine Buchholz</author>
+<affiliation confidence="0.9783065">ILK / Computational Linguistics and AI Tilburg University</affiliation>
+<address confidence="0.978832">Tilburg, The Netherlands</address>
+<email confidence="0.346528">Antal.vdnBosch,S.Buchholz\x01@kub.nl</email>
+<abstract confidence="0.998806592592593">We describe a case study in which a memory-based learning algorithm is trained to simultaneously chunk sentences and assign grammatical function tags to these chunks. We compare the algorithms performance on this parsing task with varying training set sizes (yielding learning curves) and different input representations. In particular we compare input consisting of words only, a variant that includes word form information for lowfrequency words, gold-standard POS only, and combinations of these. The wordbased shallow parser displays an apparently log-linear increase in performance, and surpasses the flatter POS-based curve at about 50,000 sentences of training data. The low-frequency variant performs even better, and the combinations is best. Comparative experiments with a real POS tagger produce lower results. We argue that we might not need an explicit intermediate POS-tagging step for parsing when a sufficient amount of training material is available and word form information is used for low-frequency words.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>S Abney</author>
+</authors>
+<title>Parsing by chunks.</title>
+<date>1991</date>
+<booktitle>In Principle-Based Parsing,</booktitle>
+<pages>257278</pages>
+<publisher>Kluwer Academic Publishers,</publisher>
+<location>Dordrecht.</location>
+<marker>Abney, 1991</marker>
+<rawString>S. Abney. 1991. Parsing by chunks. In Principle-Based Parsing, pages 257278. Kluwer Academic Publishers, Dordrecht.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D W Aha</author>
+<author>D Kibler</author>
+<author>M Albert</author>
+</authors>
+<title>Instancebased learning algorithms.</title>
+<date>1991</date>
+<journal>Machine Learning,</journal>
+<volume>6</volume>
+<pages>66</pages>
+<contexts>
+<context position="11404" citStr="Aha et al., 1991" startWordPosition="1830" endWordPosition="1833">data set, and 874 different functionchunk codes. 2.3 Classifier: Memory-based learning Arguably, the choice of algorithm is not crucial in learning curve experiments. First, we aim at measuring relative differences arising from the selection of types of input. Second, there are indications that increasing the training set of language processing tasks produces much larger performance gains than varying among algorithms at fixed training set sizes; moreover, these differences also tend to get smaller with larger data sets (Banko and Brill, 2001). Memory-based learning (Stanfill and Waltz, 1986; Aha et al., 1991; Daelemans et al., 1999b) is a supervised inductive learning algorithm for learning classification tasks. Memory-based learning treats a set of labeled (pre-classified) training instances as points in a multi-dimensional feature space, and stores them as such in an instance base in memory (rather than performing some abstraction over them). Classification in memory-based learning is performed by the \x1f -NN algorithm (Cover and Hart, 1967) that searches for the \x1f nearest neighbors according to the distance function between two in1 F&amp;quot;!$# &amp;%(\&amp;apos;\x0c)+*-,precision,recall % ,precision\&amp;apos; recall</context>
+</contexts>
+<marker>Aha, Kibler, Albert, 1991</marker>
+<rawString>D. W. Aha, D. Kibler, and M. Albert. 1991. Instancebased learning algorithms. Machine Learning, 6:37 66.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S At-Mokhtar</author>
+<author>J-P Chanod</author>
+</authors>
+<title>Subject and object dependency extraction using finite-state transducers.</title>
+<date>1997</date>
+<booktitle>In Proceedings of ACL97 Workshop on Information Extraction and the Building of Lexical Semantic Resources for NLP Applications,</booktitle>
+<location>Madrid.</location>
+<contexts>
+<context position="23557" citStr="At-Mokhtar and Chanod (1997)" startWordPosition="3858" endWordPosition="3861">ously with headword function tagging. Measuring F-scores on the correct assignment of functions to headwords in our study, we attain 78.2 F-score using words, 80.1 using attenuated words, 80.9 using attenuated words combined with gold-standard POS, and 79.7 using attenuated words combined with MBT POS (which is slightly worse than with attenuated words only). Our function tagging task is easier than finding grammatical relations as we tag a headword of a chunk as e.g. a subject in isolation whereas grammatical relation assignment also includes deciding which verb this chunk is the subject of. At-Mokhtar and Chanod (1997) describe a sequence of finite-state transducers in which function tagging is a separate step, after POS tagging and chunking. The last transducer then uses the function tags to extract subject/verb and object/verb relations (from French text). 6 Conclusion POS are normally considered useful information in shallow and full parsing. Our learning curve experiments show that: T The relative merit of words versus POS as input for the combined chunking and functiontagging task depends on the amount of training data available. T The absolute performance of words depends on the treatment of rare word</context>
+</contexts>
+<marker>At-Mokhtar, Chanod, 1997</marker>
+<rawString>S. At-Mokhtar and J.-P. Chanod. 1997. Subject and object dependency extraction using finite-state transducers. In Proceedings of ACL97 Workshop on Information Extraction and the Building of Lexical Semantic Resources for NLP Applications, Madrid.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Argamon</author>
+<author>I Dagan</author>
+<author>Y Krymolowski</author>
+</authors>
+<title>A Computational Linguistics,</title>
+<date>1998</date>
+<location>Toulouse, France.</location>
+<contexts>
+<context position="21077" citStr="Argamon et al. (1998)" startWordPosition="3463" endWordPosition="3466">ment by the goldstandard tags (1.7 points) but still significant. However, as the learning curve experiments showed, this is only a snapshot and the improvement may well diminish with more training data. A breakdown of accuracy results shows that the highest improvement in accuracy is achieved for focus words in the MORPH-SHORT encoding. In these cases, the POS tagger has access to more information about the low-frequency word (e.g. its suffix) than the attenuated form provides. This suggests that this encoding is not optimal. 5 Related Research Ramshaw and Marcus (1995), Munoz et al. (1999), Argamon et al. (1998), Daelemans et al. (1999a) find NP chunks, using Wall Street Journal training material of about 9000 sentences. F-scores range between 91.4 and 92.8. The first two articles mention that words and (automatically assigned) POS together perform better than POS alone. Chunking is one part of the task studied here, so we also computed performance on chunks alone, ignoring function codes. Indeed the learning curve of words combined with gold-standard POS crosses the POS-based curve before 10,000 sentences on the chunking subtask. Tjong Kim Sang and Buchholz (2000) give an overview of the CoNLL share</context>
+</contexts>
+<marker>Argamon, Dagan, Krymolowski, 1998</marker>
+<rawString>S. Argamon, I. Dagan, and Y. Krymolowski. 1998. A Computational Linguistics, Toulouse, France.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Brill</author>
+</authors>
+<title>A Corpus-Based Approach to Language Learning.</title>
+<date>1993</date>
+<tech>Ph.D. thesis,</tech>
+<institution>University of Pennsylvania, Department of Computer and Information Science.</institution>
+<contexts>
+<context position="19387" citStr="Brill, 1993" startWordPosition="3187" endWordPosition="3188">.9 0.2 MBT POS 72.2 0.2 72.4 0.2 72.3 0.2 words 75.4 0.1 75.4 0.1 75.4 0.1 words S gold-standard POS 76.5 0.2 77.1 0.2 76.8 0.2 words S MBT POS 75.8 0.2 76.1 0.1 75.9 0.1 attenuated words 77.3 0.1 77.2 0.2 77.3 0.2 attenuated words S gold-standard POS 78.9 0.2 79.1 0.2 79.0 0.2 attenuated words S MBT POS 77.6 0.2 77.7 0.2 77.6 0.2 Table 2: Average precision, recall, and F-scores on the chunking-function-tagging task, with standard deviation, using the input features words, attenuated words, gold-standard POS, and MBT POS, and combinations, on the maximal training set size. task (Church, 1988; Brill, 1993; Ratnaparkhi, 1996; Daelemans et al., 1996), and reported errors in the range of 26% are common. To investigate the effect of using automatically assigned tags, we trained MBT, a memory-based tagger (Daelemans et al., 1996), on the training portions of our 10-fold crossvalidation experiment for the maximal data and let it predict tags for the test material. The memory-based tagger attained an accuracy of 96.7% (R 0.1; 97.0% on known words, and 80.9% on unknown words). We then used these MBT POS instead of the goldstandard ones. The results of these experiments, along with the equivalent resul</context>
+</contexts>
+<marker>Brill, 1993</marker>
+<rawString>E. Brill. 1993. A Corpus-Based Approach to Language Learning. Ph.D. thesis, University of Pennsylvania, Department of Computer and Information Science.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Buchholz</author>
+<author>J Veenstra</author>
+<author>W Daelemans</author>
+</authors>
+<title>Cascaded grammatical relation assignment.</title>
+<date>1999</date>
+<booktitle>Proceedings of EMNLP/VLC-99,</booktitle>
+<pages>239246</pages>
+<editor>In Pascale Fung and Joe Zhou, editors,</editor>
+<publisher>ACL.</publisher>
+<contexts>
+<context position="22645" citStr="Buchholz et al. (1999)" startWordPosition="3715" endWordPosition="3718">ly-sized training sets. With gold-standard POS and attenuated words we attain an F-score of 94.2; with MBT POS tags and attenuated words, 92.8. In the CoNLL competition, all three best systems used combinations of classifiers instead of one single classifier. In addition, the effect of our mix of sentences from different corpora on top of WSJ is not clear. Ferro et al. (1999) describe a system for find\x0cing grammatical relations in automatically tagged and manually chunked text. They report an Fscore of 69.8 for a training size of 3299 words of elementary school reading comprehension tests. Buchholz et al. (1999) achieve 71.2 F-score for grammatical relation assignment on automatically tagged and chunked text after training on about 40,000 Wall Street Journal sentences. In contrast to these studies, we do not chunk before finding grammatical relations; rather, chunking is performed simultaneously with headword function tagging. Measuring F-scores on the correct assignment of functions to headwords in our study, we attain 78.2 F-score using words, 80.1 using attenuated words, 80.9 using attenuated words combined with gold-standard POS, and 79.7 using attenuated words combined with MBT POS (which is sli</context>
+</contexts>
+<marker>Buchholz, Veenstra, Daelemans, 1999</marker>
+<rawString>S. Buchholz, J. Veenstra, and W. Daelemans. 1999. Cascaded grammatical relation assignment. In Pascale Fung and Joe Zhou, editors, Proceedings of EMNLP/VLC-99, pages 239246. ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Charniak</author>
+</authors>
+<title>A maximum-entropy-inspired parser.</title>
+<date>2000</date>
+<booktitle>In Proceedings of NAACL00,</booktitle>
+<pages>132139</pages>
+<contexts>
+<context position="2181" citStr="Charniak (2000)" startWordPosition="341" endWordPosition="342">d grammars, information on POS had a more central place in the lexical entry of a word than the identity of the word itself, e.g. MAJOR and other HEAD features in (Pollard and Sag, 1987). In the early days of statistical parsers, POS were explicitly and often exclusively used as symbols to base probabilities on; these probabilities are generally more reliable than lexical probabilities, due to the inherent sparseness of words. In modern lexicalized parsers, POS tagging is often interleaved with parsing proper instead of being a separate preprocessing module (Collins, 1996; Ratnaparkhi, 1997). Charniak (2000) notes that having his generative parser generate the POS of a constituents head before the head itself increases performance by 2 points. He suggests that this is due to the usefulness of POS for estimating back-off probabilities. Abneys (1991) chunking parser consists of two modules: a chunker and an attacher. The chunker divides the sentence into labeled, non-overlapping sequences (chunks) of words, with each chunk containing a head and (nearly) all of its premodifiers, exluding arguments and postmodifiers. His chunker works on the basis of POS information alone, whereas the second module, </context>
+</contexts>
+<marker>Charniak, 2000</marker>
+<rawString>E. Charniak. 2000. A maximum-entropy-inspired parser. In Proceedings of NAACL00, pages 132139.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K W Church</author>
+</authors>
+<title>A stochastic parts program and noun phrase parser for unrestricted text.</title>
+<date>1988</date>
+<booktitle>In Proc. of Second Applied NLP (ACL).</booktitle>
+<contexts>
+<context position="19374" citStr="Church, 1988" startWordPosition="3185" endWordPosition="3186">.2 73.9 0.2 73.9 0.2 MBT POS 72.2 0.2 72.4 0.2 72.3 0.2 words 75.4 0.1 75.4 0.1 75.4 0.1 words S gold-standard POS 76.5 0.2 77.1 0.2 76.8 0.2 words S MBT POS 75.8 0.2 76.1 0.1 75.9 0.1 attenuated words 77.3 0.1 77.2 0.2 77.3 0.2 attenuated words S gold-standard POS 78.9 0.2 79.1 0.2 79.0 0.2 attenuated words S MBT POS 77.6 0.2 77.7 0.2 77.6 0.2 Table 2: Average precision, recall, and F-scores on the chunking-function-tagging task, with standard deviation, using the input features words, attenuated words, gold-standard POS, and MBT POS, and combinations, on the maximal training set size. task (Church, 1988; Brill, 1993; Ratnaparkhi, 1996; Daelemans et al., 1996), and reported errors in the range of 26% are common. To investigate the effect of using automatically assigned tags, we trained MBT, a memory-based tagger (Daelemans et al., 1996), on the training portions of our 10-fold crossvalidation experiment for the maximal data and let it predict tags for the test material. The memory-based tagger attained an accuracy of 96.7% (R 0.1; 97.0% on known words, and 80.9% on unknown words). We then used these MBT POS instead of the goldstandard ones. The results of these experiments, along with the equ</context>
+</contexts>
+<marker>Church, 1988</marker>
+<rawString>K. W. Church. 1988. A stochastic parts program and noun phrase parser for unrestricted text. In Proc. of Second Applied NLP (ACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M J Collins</author>
+</authors>
+<title>A new statistical parser based on bigram lexical dependencies.</title>
+<date>1996</date>
+<booktitle>In Proceedings of the 34th Annual Meeting of the Association for Computational Linguistics.</booktitle>
+<contexts>
+<context position="2144" citStr="Collins, 1996" startWordPosition="337" endWordPosition="338">S tagging. Later, with feature-based grammars, information on POS had a more central place in the lexical entry of a word than the identity of the word itself, e.g. MAJOR and other HEAD features in (Pollard and Sag, 1987). In the early days of statistical parsers, POS were explicitly and often exclusively used as symbols to base probabilities on; these probabilities are generally more reliable than lexical probabilities, due to the inherent sparseness of words. In modern lexicalized parsers, POS tagging is often interleaved with parsing proper instead of being a separate preprocessing module (Collins, 1996; Ratnaparkhi, 1997). Charniak (2000) notes that having his generative parser generate the POS of a constituents head before the head itself increases performance by 2 points. He suggests that this is due to the usefulness of POS for estimating back-off probabilities. Abneys (1991) chunking parser consists of two modules: a chunker and an attacher. The chunker divides the sentence into labeled, non-overlapping sequences (chunks) of words, with each chunk containing a head and (nearly) all of its premodifiers, exluding arguments and postmodifiers. His chunker works on the basis of POS informati</context>
+</contexts>
+<marker>Collins, 1996</marker>
+<rawString>M.J. Collins. 1996. A new statistical parser based on bigram lexical dependencies. In Proceedings of the 34th Annual Meeting of the Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Cost</author>
+<author>S Salzberg</author>
+</authors>
+<title>A weighted nearest neighbour algorithm for learning with symbolic features.</title>
+<date>1993</date>
+<booktitle>Machine Learning,</booktitle>
+<pages>10--5778</pages>
+<contexts>
+<context position="13621" citStr="Cost and Salzberg, 1993" startWordPosition="2206" endWordPosition="2209">e used a variant of the IB1 memory-based learner and classifier as implemented in TiMBL (Daelemans et al., 2001). On top of the \x1f - NN kernel of IB1 we used the following metrics that fine-tune the distance function and the class voting automatically: (1) The weight (importance) of a feature L , D ? , is estimated in our experiments by computing its gain ratio MON ? (Quinlan, 1993). This is the algorithms default choice. (2) Differences between feature values (i.e. words or POS tags) are estimated by the real-valued outcome of the modified value difference metric (Stanfill and Waltz, 1986; Cost and Salzberg, 1993). (3) \x1f was set to seven. This and the previous parameter setting turned out best for a chunking task using the same algorithm as reported by Veenstra and van den Bosch (2000). (4) Class voting among the \x1f nearest neighbours is done by weighting each neighbours vote by the inverse of its distance to the test example (Dudani, 1976). In Zavrel (1997), this distance was shown to improve over standard \x1f -NN on a PP-attachment task. (5) For efficiency, search for the \x1f -nearest neighbours is approximated by employing TRIBL (Daelemans et al., 1997), a hybrid between pure \x1f -NN search </context>
+</contexts>
+<marker>Cost, Salzberg, 1993</marker>
+<rawString>\x0cS. Cost and S. Salzberg. 1993. A weighted nearest neighbour algorithm for learning with symbolic features. Machine Learning, 10:5778.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T M Cover</author>
+<author>P E Hart</author>
+</authors>
+<title>Nearest neighbor pattern classification.</title>
+<date>1967</date>
+<booktitle>Institute of Electrical and Electronics Engineers Transactions on Information Theory,</booktitle>
+<pages>13--2127</pages>
+<contexts>
+<context position="11849" citStr="Cover and Hart, 1967" startWordPosition="1895" endWordPosition="1898">set sizes; moreover, these differences also tend to get smaller with larger data sets (Banko and Brill, 2001). Memory-based learning (Stanfill and Waltz, 1986; Aha et al., 1991; Daelemans et al., 1999b) is a supervised inductive learning algorithm for learning classification tasks. Memory-based learning treats a set of labeled (pre-classified) training instances as points in a multi-dimensional feature space, and stores them as such in an instance base in memory (rather than performing some abstraction over them). Classification in memory-based learning is performed by the \x1f -NN algorithm (Cover and Hart, 1967) that searches for the \x1f nearest neighbors according to the distance function between two in1 F&amp;quot;!$# &amp;%(\&amp;apos;\x0c)+*-,precision,recall % ,precision\&amp;apos; recall \x0cLeft context Focus Right context Function-chunk code Once he was held I-ADVP ADVP-TMP Once he was held for I-NP NP-SBJ Once he was held for three I-VP NOFUNC Once he was held for three months I-VP VP/S he was held for three months without I-PP PP-TMP was held for three months without being I-NP NOFUNC held for three months without being charged I-NP NP for three months without being charged . I-PP PP three months without being charged .</context>
+</contexts>
+<marker>Cover, Hart, 1967</marker>
+<rawString>T. M. Cover and P. E. Hart. 1967. Nearest neighbor pattern classification. Institute of Electrical and Electronics Engineers Transactions on Information Theory, 13:2127.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W Daelemans</author>
+<author>J Zavrel</author>
+<author>P Berck</author>
+<author>S Gillis</author>
+</authors>
+<date>1996</date>
+<contexts>
+<context position="19431" citStr="Daelemans et al., 1996" startWordPosition="3191" endWordPosition="3194"> 72.3 0.2 words 75.4 0.1 75.4 0.1 75.4 0.1 words S gold-standard POS 76.5 0.2 77.1 0.2 76.8 0.2 words S MBT POS 75.8 0.2 76.1 0.1 75.9 0.1 attenuated words 77.3 0.1 77.2 0.2 77.3 0.2 attenuated words S gold-standard POS 78.9 0.2 79.1 0.2 79.0 0.2 attenuated words S MBT POS 77.6 0.2 77.7 0.2 77.6 0.2 Table 2: Average precision, recall, and F-scores on the chunking-function-tagging task, with standard deviation, using the input features words, attenuated words, gold-standard POS, and MBT POS, and combinations, on the maximal training set size. task (Church, 1988; Brill, 1993; Ratnaparkhi, 1996; Daelemans et al., 1996), and reported errors in the range of 26% are common. To investigate the effect of using automatically assigned tags, we trained MBT, a memory-based tagger (Daelemans et al., 1996), on the training portions of our 10-fold crossvalidation experiment for the maximal data and let it predict tags for the test material. The memory-based tagger attained an accuracy of 96.7% (R 0.1; 97.0% on known words, and 80.9% on unknown words). We then used these MBT POS instead of the goldstandard ones. The results of these experiments, along with the equivalent results using gold-standard POS, are displayed in</context>
+</contexts>
+<marker>Daelemans, Zavrel, Berck, Gillis, 1996</marker>
+<rawString>W. Daelemans, J. Zavrel, P. Berck, and S. Gillis. 1996.</rawString>
+</citation>
+<citation valid="false">
+<title>MBT: A memory-based part of speech tagger generator.</title>
+<booktitle>Proc. of Fourth Workshop on Very Large Corpora,</booktitle>
+<pages>1427</pages>
+<editor>In E. Ejerhed and I. Dagan, editors,</editor>
+<publisher>ACL SIGDAT.</publisher>
+<marker></marker>
+<rawString>MBT: A memory-based part of speech tagger generator. In E. Ejerhed and I. Dagan, editors, Proc. of Fourth Workshop on Very Large Corpora, pages 1427. ACL SIGDAT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W Daelemans</author>
+<author>A Van den Bosch</author>
+<author>J Zavrel</author>
+</authors>
+<date>1997</date>
+<marker>Daelemans, Van den Bosch, Zavrel, 1997</marker>
+<rawString>W. Daelemans, A. Van den Bosch, and J. Zavrel. 1997.</rawString>
+</citation>
+<citation valid="false">
+<title>A feature-relevance heuristic for indexing and compressing large case bases.</title>
+<booktitle>Poster Papers of the Ninth European Conference on Machine Learing,</booktitle>
+<pages>2938</pages>
+<editor>In M. Van Someren and G. Widmer, editors,</editor>
+<publisher>University of Economics.</publisher>
+<location>Prague, Czech Republic.</location>
+<marker></marker>
+<rawString>A feature-relevance heuristic for indexing and compressing large case bases. In M. Van Someren and G. Widmer, editors, Poster Papers of the Ninth European Conference on Machine Learing, pages 2938, Prague, Czech Republic. University of Economics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W Daelemans</author>
+<author>S Buchholz</author>
+<author>J Veenstra</author>
+</authors>
+<title>Memory-based shallow parsing.</title>
+<date>1999</date>
+<booktitle>In Proceedings of CoNLL,</booktitle>
+<location>Bergen,</location>
+<contexts>
+<context position="11428" citStr="Daelemans et al., 1999" startWordPosition="1834" endWordPosition="1837">different functionchunk codes. 2.3 Classifier: Memory-based learning Arguably, the choice of algorithm is not crucial in learning curve experiments. First, we aim at measuring relative differences arising from the selection of types of input. Second, there are indications that increasing the training set of language processing tasks produces much larger performance gains than varying among algorithms at fixed training set sizes; moreover, these differences also tend to get smaller with larger data sets (Banko and Brill, 2001). Memory-based learning (Stanfill and Waltz, 1986; Aha et al., 1991; Daelemans et al., 1999b) is a supervised inductive learning algorithm for learning classification tasks. Memory-based learning treats a set of labeled (pre-classified) training instances as points in a multi-dimensional feature space, and stores them as such in an instance base in memory (rather than performing some abstraction over them). Classification in memory-based learning is performed by the \x1f -NN algorithm (Cover and Hart, 1967) that searches for the \x1f nearest neighbors according to the distance function between two in1 F&amp;quot;!$# &amp;%(\&amp;apos;\x0c)+*-,precision,recall % ,precision\&amp;apos; recall \x0cLeft context Focus </context>
+<context position="21101" citStr="Daelemans et al. (1999" startWordPosition="3467" endWordPosition="3470">d tags (1.7 points) but still significant. However, as the learning curve experiments showed, this is only a snapshot and the improvement may well diminish with more training data. A breakdown of accuracy results shows that the highest improvement in accuracy is achieved for focus words in the MORPH-SHORT encoding. In these cases, the POS tagger has access to more information about the low-frequency word (e.g. its suffix) than the attenuated form provides. This suggests that this encoding is not optimal. 5 Related Research Ramshaw and Marcus (1995), Munoz et al. (1999), Argamon et al. (1998), Daelemans et al. (1999a) find NP chunks, using Wall Street Journal training material of about 9000 sentences. F-scores range between 91.4 and 92.8. The first two articles mention that words and (automatically assigned) POS together perform better than POS alone. Chunking is one part of the task studied here, so we also computed performance on chunks alone, ignoring function codes. Indeed the learning curve of words combined with gold-standard POS crosses the POS-based curve before 10,000 sentences on the chunking subtask. Tjong Kim Sang and Buchholz (2000) give an overview of the CoNLL shared task of chunking. The </context>
+</contexts>
+<marker>Daelemans, Buchholz, Veenstra, 1999</marker>
+<rawString>W. Daelemans, S. Buchholz, and J. Veenstra. 1999a. Memory-based shallow parsing. In Proceedings of CoNLL, Bergen, Norway.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W Daelemans</author>
+<author>A Van den Bosch</author>
+<author>J Zavrel</author>
+</authors>
+<title>Forgetting exceptions is harmful in language learning.</title>
+<date>1999</date>
+<marker>Daelemans, Van den Bosch, Zavrel, 1999</marker>
+<rawString>W. Daelemans, A. Van den Bosch, and J. Zavrel. 1999b. Forgetting exceptions is harmful in language learning.</rawString>
+</citation>
+<citation valid="false">
+<booktitle>Machine Learning, Special issue on Natural Language Learning,</booktitle>
+<pages>34--1141</pages>
+<marker></marker>
+<rawString>Machine Learning, Special issue on Natural Language Learning, 34:1141.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W Daelemans</author>
+<author>J Zavrel</author>
+<author>K Van der Sloot</author>
+<author>A Van den Bosch</author>
+</authors>
+<title>TiMBL: Tilburg memory based learner, version 4.0, reference guide.</title>
+<date>2001</date>
+<tech>ILK Technical Report 01-04,</tech>
+<institution>Tilburg University.</institution>
+<note>available from http://ilk.kub.nl.</note>
+<marker>Daelemans, Zavrel, Van der Sloot, Van den Bosch, 2001</marker>
+<rawString>W. Daelemans, J. Zavrel, K. Van der Sloot, and A. Van den Bosch. 2001. TiMBL: Tilburg memory based learner, version 4.0, reference guide. ILK Technical Report 01-04, Tilburg University. available from http://ilk.kub.nl.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S A Dudani</author>
+</authors>
+<title>The distance-weighted U -nearest neighbor rule. In</title>
+<date>1976</date>
+<journal>IEEE Transactions on Systems, Man, and Cybernetics,</journal>
+<volume>6</volume>
+<pages>325327</pages>
+<contexts>
+<context position="13959" citStr="Dudani, 1976" startWordPosition="2267" endWordPosition="2268">g its gain ratio MON ? (Quinlan, 1993). This is the algorithms default choice. (2) Differences between feature values (i.e. words or POS tags) are estimated by the real-valued outcome of the modified value difference metric (Stanfill and Waltz, 1986; Cost and Salzberg, 1993). (3) \x1f was set to seven. This and the previous parameter setting turned out best for a chunking task using the same algorithm as reported by Veenstra and van den Bosch (2000). (4) Class voting among the \x1f nearest neighbours is done by weighting each neighbours vote by the inverse of its distance to the test example (Dudani, 1976). In Zavrel (1997), this distance was shown to improve over standard \x1f -NN on a PP-attachment task. (5) For efficiency, search for the \x1f -nearest neighbours is approximated by employing TRIBL (Daelemans et al., 1997), a hybrid between pure \x1f -NN search and decision-tree traversal. The switch point of TRIBL was set to 1 for the words only and POS only experiments, i.e. a decision-tree split was made on the most important feature, the focus word, respectively focus POS. For the experiments with both words and POS, the switch point was set to 2 and the algorithm was forced to split on th</context>
+</contexts>
+<marker>Dudani, 1976</marker>
+<rawString>S.A. Dudani. 1976. The distance-weighted U -nearest neighbor rule. In IEEE Transactions on Systems, Man, and Cybernetics, volume SMC-6, pages 325327.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Eisner</author>
+</authors>
+<title>Three new probabilistic models for dependency parsing: An exploration.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the 16th International Conference on Computational Linguistics (COLING-96).</booktitle>
+<contexts>
+<context position="16688" citStr="Eisner (1997)" startWordPosition="2726" endWordPosition="2727">0,000 50,000 66,627 F P # sentences gold-standard POS words attenuated words attenuated words + gold-standard POS Figure 1: Learning curves of the main experiments on POS tags, words, attenuated words, and the combination of words and POS. The y-axis represents FQ @CB on combined chunking and function assignment. The x-axis represents the number of training sentences; its scale is logarithmic. gorithm. A more general shortcoming is that the word form of an unknown word often contains useful information that is not available in the present setup. To overcome these two problems, we applied what Eisner (1997) calls attenuation to all words occurring ten times or less in training material. If such a word ends in a digit, it is converted to the string MORPH-NUM; if the word is six characters or longer it becomes MORPH-XX where XX are the final two letters, else it becomes MORPHSHORT. If the first letter is capitalised, the attenuated form is MORPH-CAP. This produces sequences such as A number of MORPH-ts were MORPHly MORPH-ed by traders . (A number of developments were negatively interpreted by traders ). We applied this attenuation method to all training sets. All words in test material that did no</context>
+</contexts>
+<marker>Eisner, 1997</marker>
+<rawString>J. Eisner. 1997. Three new probabilistic models for dependency parsing: An exploration. In Proceedings of the 16th International Conference on Computational Linguistics (COLING-96).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Ferro</author>
+<author>M Vilain</author>
+<author>A Yeh</author>
+</authors>
+<title>Learning transformation rules to find grammatical relations.</title>
+<date>1999</date>
+<booktitle>In Proceedings of the Third Computational Natural Language Learning workshop (CoNLL),</booktitle>
+<pages>4352</pages>
+<contexts>
+<context position="22401" citStr="Ferro et al. (1999)" startWordPosition="3676" endWordPosition="3679">erial again consists of the 9000 Wall Street Journal sentences with automatically assigned POS tags. The best F-score (93.5) is higher than the 91.5 F-score attained on chunking in our study using attenuated words only, but using the maximally-sized training sets. With gold-standard POS and attenuated words we attain an F-score of 94.2; with MBT POS tags and attenuated words, 92.8. In the CoNLL competition, all three best systems used combinations of classifiers instead of one single classifier. In addition, the effect of our mix of sentences from different corpora on top of WSJ is not clear. Ferro et al. (1999) describe a system for find\x0cing grammatical relations in automatically tagged and manually chunked text. They report an Fscore of 69.8 for a training size of 3299 words of elementary school reading comprehension tests. Buchholz et al. (1999) achieve 71.2 F-score for grammatical relation assignment on automatically tagged and chunked text after training on about 40,000 Wall Street Journal sentences. In contrast to these studies, we do not chunk before finding grammatical relations; rather, chunking is performed simultaneously with headword function tagging. Measuring F-scores on the correct </context>
+</contexts>
+<marker>Ferro, Vilain, Yeh, 1999</marker>
+<rawString>L. Ferro, M. Vilain, and A. Yeh. 1999. Learning transformation rules to find grammatical relations. In Proceedings of the Third Computational Natural Language Learning workshop (CoNLL), pages 4352.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>X Li</author>
+<author>D Roth</author>
+</authors>
+<title>Exploring evidence for shallow parsing.</title>
+<date>2001</date>
+<booktitle>In Proceedings of the Fifth Computational Natural Language Learning workshop (CoNLL).</booktitle>
+<contexts>
+<context position="5825" citStr="Li and Roth (2001)" startWordPosition="939" endWordPosition="942">. Section 3 provides the experimental learning curve results and analyses them. Section 4 contains a comparison of the effects with gold-standard and automatically assigned POS. We review related research in Section 5, and formulate our conclusions in Section 6. 2 Task representation, data preparation, and experimental setup We chose a shallow parsing task as our benchmark task. If, to support an application such as information extraction, summarization, or question answering, we are only interested in parts of the parse tree, then a shallow parser forms a viable alternative to a full parser. Li and Roth (2001) show that for the chunking task it is specialized in, their shallow parser is more accurate and more robust than a general-purpose, i.e. full, parser. Our shallow parsing task is a combination of chunking (finding and labelling non-overlapping syntactically functional sequences) and what we will call function tagging. Our chunks and functions are based on the annotations in the third release of the Penn Treebank (Marcus et al., 1993). Below is an example of a tree and the corresponding chunk (subscripts on brackets) and function (superscripts on headwords) annotation: ((S (ADVP-TMP Once) (NP-</context>
+</contexts>
+<marker>Li, Roth, 2001</marker>
+<rawString>X. Li and D. Roth. 2001. Exploring evidence for shallow parsing. In Proceedings of the Fifth Computational Natural Language Learning workshop (CoNLL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Marcus</author>
+<author>B Santorini</author>
+<author>M A Marcinkiewicz</author>
+</authors>
+<title>Building a large annotated corpus of english: The Penn Treebank. Computational Linguistics,</title>
+<date>1993</date>
+<contexts>
+<context position="4252" citStr="Marcus et al., 1993" startWordPosition="681" endWordPosition="684">that sparseness of data is tightly coupled to the amount of training material used. As training material is more abundant now than it was even a few years ago, and todays computers can handle these amounts, we might ask whether there is now enough data to overcome the sparseness problem for certain tasks. To answer these two questions, we designed the following experiments. The task to be learned is a shallow parsing task (described below). In one experiment, it has to be performed on the basis of the gold-standard, assumed-perfect POS taken directly from the training data, the Penn Treebank (Marcus et al., 1993), so as to abstract from a particular POS tagger and to provide an upper bound. In another experiment, parsing is done on the basis of the words alone. In a third, a special encoding of low-frequency words is used. Finally, words and POS are combined. In all experiments, we increase the amount of training data stepwise and record parse performance for each step. This yields four learning curves. The word-based shallow parser displays an apparently log-linear increase in performance, and surpasses the flatter POS-based curve at about 50,000 sentences of training data. The lowfrequency variant p</context>
+<context position="6263" citStr="Marcus et al., 1993" startWordPosition="1009" endWordPosition="1012">action, summarization, or question answering, we are only interested in parts of the parse tree, then a shallow parser forms a viable alternative to a full parser. Li and Roth (2001) show that for the chunking task it is specialized in, their shallow parser is more accurate and more robust than a general-purpose, i.e. full, parser. Our shallow parsing task is a combination of chunking (finding and labelling non-overlapping syntactically functional sequences) and what we will call function tagging. Our chunks and functions are based on the annotations in the third release of the Penn Treebank (Marcus et al., 1993). Below is an example of a tree and the corresponding chunk (subscripts on brackets) and function (superscripts on headwords) annotation: ((S (ADVP-TMP Once) (NP-SBJ-1 he) (VP was (VP held (NP *-1) (PP-TMP for (NP three months)) (PP without (S-NOM (NP-SBJ *-1) (VP being (VP charged) ))))) .)) [\x02\x04\x03\x06\x05\x08\x07 Once \x02\x08\x03\t\x05 \x07\x0c\x0b\x0e \x10\x0f\x11\x07 ] [\x12\x13\x07 he \x12\x13\x07\x0c\x0b\x15\x14\x17\x16 \x18 ] [\x05\x0c\x07 was held \x05\x0c\x07\x1a\x19\x1b\x14 ] [\x07\x08\x07 for \x07\x04\x07\x1c\x0b\x10 \x0e\x0f\x11\x07 ] [\x12\x13\x07 three months \x12\x06\x07</context>
+</contexts>
+<marker>Marcus, Santorini, Marcinkiewicz, 1993</marker>
+<rawString>M. Marcus, B. Santorini, and M.A. Marcinkiewicz. 1993. Building a large annotated corpus of english: The Penn Treebank. Computational Linguistics, 19(2):313330.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Munoz</author>
+<author>V Punyakanok</author>
+<author>D Roth</author>
+<author>D Zimak</author>
+</authors>
+<title>A learning approach to shallow parsing.</title>
+<date>1999</date>
+<booktitle>Proceedings of the 1999 Joint SIGDAT Conference on Empirical Methods in Natural Language Processing and Very Large Corpora,</booktitle>
+<pages>168178</pages>
+<editor>In Pascale Fung and Joe Zhou, editors,</editor>
+<contexts>
+<context position="21054" citStr="Munoz et al. (1999)" startWordPosition="3459" endWordPosition="3462">less than the improvement by the goldstandard tags (1.7 points) but still significant. However, as the learning curve experiments showed, this is only a snapshot and the improvement may well diminish with more training data. A breakdown of accuracy results shows that the highest improvement in accuracy is achieved for focus words in the MORPH-SHORT encoding. In these cases, the POS tagger has access to more information about the low-frequency word (e.g. its suffix) than the attenuated form provides. This suggests that this encoding is not optimal. 5 Related Research Ramshaw and Marcus (1995), Munoz et al. (1999), Argamon et al. (1998), Daelemans et al. (1999a) find NP chunks, using Wall Street Journal training material of about 9000 sentences. F-scores range between 91.4 and 92.8. The first two articles mention that words and (automatically assigned) POS together perform better than POS alone. Chunking is one part of the task studied here, so we also computed performance on chunks alone, ignoring function codes. Indeed the learning curve of words combined with gold-standard POS crosses the POS-based curve before 10,000 sentences on the chunking subtask. Tjong Kim Sang and Buchholz (2000) give an over</context>
+</contexts>
+<marker>Munoz, Punyakanok, Roth, Zimak, 1999</marker>
+<rawString>M. Munoz, V. Punyakanok, D. Roth, and D. Zimak. 1999. A learning approach to shallow parsing. In Pascale Fung and Joe Zhou, editors, Proceedings of the 1999 Joint SIGDAT Conference on Empirical Methods in Natural Language Processing and Very Large Corpora, pages 168178.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C Pollard</author>
+<author>I Sag</author>
+</authors>
+<title>Information-Based Syntax and Semantics, Volume 1: Fundamentals,</title>
+<date>1987</date>
+<volume>13</volume>
+<location>Stanford.</location>
+<contexts>
+<context position="1752" citStr="Pollard and Sag, 1987" startWordPosition="275" endWordPosition="278">arsing when a sufficient amount of training material is available and word form information is used for low-frequency words. 1 Introduction It is common in parsing to assign part-of-speech (POS) tags to words as a first analysis step providing information for further steps. In many early parsers, the POS sequences formed the only input to the parser, i.e. the actual words were not used except in POS tagging. Later, with feature-based grammars, information on POS had a more central place in the lexical entry of a word than the identity of the word itself, e.g. MAJOR and other HEAD features in (Pollard and Sag, 1987). In the early days of statistical parsers, POS were explicitly and often exclusively used as symbols to base probabilities on; these probabilities are generally more reliable than lexical probabilities, due to the inherent sparseness of words. In modern lexicalized parsers, POS tagging is often interleaved with parsing proper instead of being a separate preprocessing module (Collins, 1996; Ratnaparkhi, 1997). Charniak (2000) notes that having his generative parser generate the POS of a constituents head before the head itself increases performance by 2 points. He suggests that this is due to </context>
+</contexts>
+<marker>Pollard, Sag, 1987</marker>
+<rawString>C. Pollard and I. Sag. 1987. Information-Based Syntax and Semantics, Volume 1: Fundamentals, volume 13 of CSLI Lecture Notes. Center for the Study of Language and Information, Stanford.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J R Quinlan</author>
+</authors>
+<title>C4.5: Programs for Machine Learning.</title>
+<date>1993</date>
+<publisher>Morgan Kaufmann,</publisher>
+<location>San Mateo, CA.</location>
+<contexts>
+<context position="13384" citStr="Quinlan, 1993" startWordPosition="2170" endWordPosition="2171">res, D ? is a weight for feature L , and F estimates the difference between the two instances values at the L th feature. The classes of the \x1f nearest neighbors then determine the class of the new case. In our experiments, we used a variant of the IB1 memory-based learner and classifier as implemented in TiMBL (Daelemans et al., 2001). On top of the \x1f - NN kernel of IB1 we used the following metrics that fine-tune the distance function and the class voting automatically: (1) The weight (importance) of a feature L , D ? , is estimated in our experiments by computing its gain ratio MON ? (Quinlan, 1993). This is the algorithms default choice. (2) Differences between feature values (i.e. words or POS tags) are estimated by the real-valued outcome of the modified value difference metric (Stanfill and Waltz, 1986; Cost and Salzberg, 1993). (3) \x1f was set to seven. This and the previous parameter setting turned out best for a chunking task using the same algorithm as reported by Veenstra and van den Bosch (2000). (4) Class voting among the \x1f nearest neighbours is done by weighting each neighbours vote by the inverse of its distance to the test example (Dudani, 1976). In Zavrel (1997), this </context>
+</contexts>
+<marker>Quinlan, 1993</marker>
+<rawString>J.R. Quinlan. 1993. C4.5: Programs for Machine Learning. Morgan Kaufmann, San Mateo, CA.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L A Ramshaw</author>
+<author>M P Marcus</author>
+</authors>
+<title>Text chunking using transformation-based learning.</title>
+<date>1995</date>
+<booktitle>In Proceedings of the 3rd ACL/SIGDAT Workshop on Very Large Corpora,</booktitle>
+<pages>8294</pages>
+<location>Cambridge, Massachusetts, USA,</location>
+<contexts>
+<context position="8344" citStr="Ramshaw and Marcus, 1995" startWordPosition="1318" endWordPosition="1321">e. 2.1 Task representation and evaluation method To formulate the task as a machine-learnable classification task, we use a representation that encodes the joint task of chunking and function-tagging a sentence in per-word classification instances. As illustrated in Table 2.1, an instance (which corresponds to a row in the table) consists of the values for all features (the columns) and the functionchunk code for the focus word. The features describe the focus word and its local context. For the chunk part of the code, we adopt the Inside, Outside, and Between (IOB) encoding originating from (Ramshaw and Marcus, 1995). For the function part of the code, the value is either the function for the head of a chunk, or the dummy value NOFUNC for all non-heads. For creating the POS-based task, all words are replaced by the goldstandard POS tags associated with them in the Penn Treebank. For the combined task, both types of features are used simultaneously. When the learner is presented with new instances from heldout material, its task is thus to assign the combined function-chunk codes to either words or POS in context. From the sequence of predicted function-chunk codes, the complete chunking and function assig</context>
+<context position="21033" citStr="Ramshaw and Marcus (1995)" startWordPosition="3455" endWordPosition="3458">e 0.3 points. This is much less than the improvement by the goldstandard tags (1.7 points) but still significant. However, as the learning curve experiments showed, this is only a snapshot and the improvement may well diminish with more training data. A breakdown of accuracy results shows that the highest improvement in accuracy is achieved for focus words in the MORPH-SHORT encoding. In these cases, the POS tagger has access to more information about the low-frequency word (e.g. its suffix) than the attenuated form provides. This suggests that this encoding is not optimal. 5 Related Research Ramshaw and Marcus (1995), Munoz et al. (1999), Argamon et al. (1998), Daelemans et al. (1999a) find NP chunks, using Wall Street Journal training material of about 9000 sentences. F-scores range between 91.4 and 92.8. The first two articles mention that words and (automatically assigned) POS together perform better than POS alone. Chunking is one part of the task studied here, so we also computed performance on chunks alone, ignoring function codes. Indeed the learning curve of words combined with gold-standard POS crosses the POS-based curve before 10,000 sentences on the chunking subtask. Tjong Kim Sang and Buchhol</context>
+</contexts>
+<marker>Ramshaw, Marcus, 1995</marker>
+<rawString>L.A. Ramshaw and M.P. Marcus. 1995. Text chunking using transformation-based learning. In Proceedings of the 3rd ACL/SIGDAT Workshop on Very Large Corpora, Cambridge, Massachusetts, USA, pages 8294.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Ratnaparkhi</author>
+</authors>
+<title>A maximum entropy part-ofspeech tagger.</title>
+<date>1996</date>
+<booktitle>In Proc. of the Conference on Empirical Methods in Natural Language Processing,</booktitle>
+<institution>University of Pennsylvania.</institution>
+<contexts>
+<context position="19406" citStr="Ratnaparkhi, 1996" startWordPosition="3189" endWordPosition="3190">S 72.2 0.2 72.4 0.2 72.3 0.2 words 75.4 0.1 75.4 0.1 75.4 0.1 words S gold-standard POS 76.5 0.2 77.1 0.2 76.8 0.2 words S MBT POS 75.8 0.2 76.1 0.1 75.9 0.1 attenuated words 77.3 0.1 77.2 0.2 77.3 0.2 attenuated words S gold-standard POS 78.9 0.2 79.1 0.2 79.0 0.2 attenuated words S MBT POS 77.6 0.2 77.7 0.2 77.6 0.2 Table 2: Average precision, recall, and F-scores on the chunking-function-tagging task, with standard deviation, using the input features words, attenuated words, gold-standard POS, and MBT POS, and combinations, on the maximal training set size. task (Church, 1988; Brill, 1993; Ratnaparkhi, 1996; Daelemans et al., 1996), and reported errors in the range of 26% are common. To investigate the effect of using automatically assigned tags, we trained MBT, a memory-based tagger (Daelemans et al., 1996), on the training portions of our 10-fold crossvalidation experiment for the maximal data and let it predict tags for the test material. The memory-based tagger attained an accuracy of 96.7% (R 0.1; 97.0% on known words, and 80.9% on unknown words). We then used these MBT POS instead of the goldstandard ones. The results of these experiments, along with the equivalent results using gold-stand</context>
+</contexts>
+<marker>Ratnaparkhi, 1996</marker>
+<rawString>A. Ratnaparkhi. 1996. A maximum entropy part-ofspeech tagger. In Proc. of the Conference on Empirical Methods in Natural Language Processing, May 17-18, 1996, University of Pennsylvania.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Ratnaparkhi</author>
+</authors>
+<title>A linear observed time statistical parser based on maximum entropy models.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the Second Conference on Empirical Methods in Natural Language Processing, EMNLP-2,</booktitle>
+<pages>110</pages>
+<location>Providence, Rhode Island,</location>
+<contexts>
+<context position="2164" citStr="Ratnaparkhi, 1997" startWordPosition="339" endWordPosition="340">r, with feature-based grammars, information on POS had a more central place in the lexical entry of a word than the identity of the word itself, e.g. MAJOR and other HEAD features in (Pollard and Sag, 1987). In the early days of statistical parsers, POS were explicitly and often exclusively used as symbols to base probabilities on; these probabilities are generally more reliable than lexical probabilities, due to the inherent sparseness of words. In modern lexicalized parsers, POS tagging is often interleaved with parsing proper instead of being a separate preprocessing module (Collins, 1996; Ratnaparkhi, 1997). Charniak (2000) notes that having his generative parser generate the POS of a constituents head before the head itself increases performance by 2 points. He suggests that this is due to the usefulness of POS for estimating back-off probabilities. Abneys (1991) chunking parser consists of two modules: a chunker and an attacher. The chunker divides the sentence into labeled, non-overlapping sequences (chunks) of words, with each chunk containing a head and (nearly) all of its premodifiers, exluding arguments and postmodifiers. His chunker works on the basis of POS information alone, whereas th</context>
+</contexts>
+<marker>Ratnaparkhi, 1997</marker>
+<rawString>A. Ratnaparkhi. 1997. A linear observed time statistical parser based on maximum entropy models. In Proceedings of the Second Conference on Empirical Methods in Natural Language Processing, EMNLP-2, Providence, Rhode Island, pages 110.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C Stanfill</author>
+<author>D Waltz</author>
+</authors>
+<title>Toward memorybased reasoning.</title>
+<date>1986</date>
+<journal>Communications of the ACM,</journal>
+<volume>29</volume>
+<issue>12</issue>
+<contexts>
+<context position="11386" citStr="Stanfill and Waltz, 1986" startWordPosition="1826" endWordPosition="1829"> types occur in the total data set, and 874 different functionchunk codes. 2.3 Classifier: Memory-based learning Arguably, the choice of algorithm is not crucial in learning curve experiments. First, we aim at measuring relative differences arising from the selection of types of input. Second, there are indications that increasing the training set of language processing tasks produces much larger performance gains than varying among algorithms at fixed training set sizes; moreover, these differences also tend to get smaller with larger data sets (Banko and Brill, 2001). Memory-based learning (Stanfill and Waltz, 1986; Aha et al., 1991; Daelemans et al., 1999b) is a supervised inductive learning algorithm for learning classification tasks. Memory-based learning treats a set of labeled (pre-classified) training instances as points in a multi-dimensional feature space, and stores them as such in an instance base in memory (rather than performing some abstraction over them). Classification in memory-based learning is performed by the \x1f -NN algorithm (Cover and Hart, 1967) that searches for the \x1f nearest neighbors according to the distance function between two in1 F&amp;quot;!$# &amp;%(\&amp;apos;\x0c)+*-,precision,recall % ,</context>
+<context position="13595" citStr="Stanfill and Waltz, 1986" startWordPosition="2202" endWordPosition="2205">ase. In our experiments, we used a variant of the IB1 memory-based learner and classifier as implemented in TiMBL (Daelemans et al., 2001). On top of the \x1f - NN kernel of IB1 we used the following metrics that fine-tune the distance function and the class voting automatically: (1) The weight (importance) of a feature L , D ? , is estimated in our experiments by computing its gain ratio MON ? (Quinlan, 1993). This is the algorithms default choice. (2) Differences between feature values (i.e. words or POS tags) are estimated by the real-valued outcome of the modified value difference metric (Stanfill and Waltz, 1986; Cost and Salzberg, 1993). (3) \x1f was set to seven. This and the previous parameter setting turned out best for a chunking task using the same algorithm as reported by Veenstra and van den Bosch (2000). (4) Class voting among the \x1f nearest neighbours is done by weighting each neighbours vote by the inverse of its distance to the test example (Dudani, 1976). In Zavrel (1997), this distance was shown to improve over standard \x1f -NN on a PP-attachment task. (5) For efficiency, search for the \x1f -nearest neighbours is approximated by employing TRIBL (Daelemans et al., 1997), a hybrid bet</context>
+</contexts>
+<marker>Stanfill, Waltz, 1986</marker>
+<rawString>C. Stanfill and D. Waltz. 1986. Toward memorybased reasoning. Communications of the ACM, 29(12):12131228, December.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Tjong Kim Sang</author>
+<author>S Buchholz</author>
+</authors>
+<title>Introduction to the CoNLL-2000 shared task: Chunking.</title>
+<date>2000</date>
+<booktitle>In Proceedings of CoNLL-2000 and LLL-2000,</booktitle>
+<pages>127--132</pages>
+<location>Lisbon, Portugal.</location>
+<contexts>
+<context position="7521" citStr="Sang and Buchholz, 2000" startWordPosition="1178" endWordPosition="1181">x07 ] [\x05\x0c\x07 being charged \x05\x08\x07\x10\x19\x1b\x14\x1a\x0b\x0e\x12\x13\x1d\x0c\x0f ] . Nodes in the tree are labeled with a syntactic category and up to four function tags that specify grammatical relations (e.g. SBJ for subject), subtypes of adverbials (e.g. TMP for temporal), discrepancies between syntactic form and syntactic function (e.g. NOM for non-nominal constituents functioning nominally) and notions like topicalization. Our chunks are based on the syntactic part of the constituent label. The conversion program is the same as used for the CoNLL-2000 shared task (Tjong Kim Sang and Buchholz, 2000). Head words of chunks are assigned a function code that is based on the full constituent label of the parent and of ancestors with \x0ca different category, as in the case of VP/S-NOM in the example. 2.1 Task representation and evaluation method To formulate the task as a machine-learnable classification task, we use a representation that encodes the joint task of chunking and function-tagging a sentence in per-word classification instances. As illustrated in Table 2.1, an instance (which corresponds to a row in the table) consists of the values for all features (the columns) and the function</context>
+<context position="21641" citStr="Sang and Buchholz (2000)" startWordPosition="3550" endWordPosition="3553">nd Marcus (1995), Munoz et al. (1999), Argamon et al. (1998), Daelemans et al. (1999a) find NP chunks, using Wall Street Journal training material of about 9000 sentences. F-scores range between 91.4 and 92.8. The first two articles mention that words and (automatically assigned) POS together perform better than POS alone. Chunking is one part of the task studied here, so we also computed performance on chunks alone, ignoring function codes. Indeed the learning curve of words combined with gold-standard POS crosses the POS-based curve before 10,000 sentences on the chunking subtask. Tjong Kim Sang and Buchholz (2000) give an overview of the CoNLL shared task of chunking. The types and definitions of chunks are identical to the ones used here. Training material again consists of the 9000 Wall Street Journal sentences with automatically assigned POS tags. The best F-score (93.5) is higher than the 91.5 F-score attained on chunking in our study using attenuated words only, but using the maximally-sized training sets. With gold-standard POS and attenuated words we attain an F-score of 94.2; with MBT POS tags and attenuated words, 92.8. In the CoNLL competition, all three best systems used combinations of clas</context>
+</contexts>
+<marker>Sang, Buchholz, 2000</marker>
+<rawString>E. Tjong Kim Sang and S. Buchholz. 2000. Introduction to the CoNLL-2000 shared task: Chunking. In Proceedings of CoNLL-2000 and LLL-2000, pages 127 132, Lisbon, Portugal.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C J Van Rijsbergen</author>
+</authors>
+<title>Information Retrieval.</title>
+<date>1979</date>
+<location>Buttersworth, London.</location>
+<marker>Van Rijsbergen, 1979</marker>
+<rawString>C.J. Van Rijsbergen. 1979. Information Retrieval. Buttersworth, London.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Veenstra</author>
+<author>Antal van den Bosch</author>
+</authors>
+<title>Singleclassifier memory-based phrase chunking.</title>
+<date>2000</date>
+<booktitle>In Proceedings of CoNLL-2000 and LLL-2000,</booktitle>
+<pages>157159</pages>
+<location>Lisbon, Portugal.</location>
+<marker>Veenstra, van den Bosch, 2000</marker>
+<rawString>J. Veenstra and Antal van den Bosch. 2000. Singleclassifier memory-based phrase chunking. In Proceedings of CoNLL-2000 and LLL-2000, pages 157159, Lisbon, Portugal.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Weiss</author>
+<author>C Kulikowski</author>
+</authors>
+<title>Computer systems that learn.</title>
+<date>1991</date>
+<publisher>Morgan Kaufmann.</publisher>
+<location>San Mateo, CA:</location>
+<contexts>
+<context position="10367" citStr="Weiss and Kulikowski, 1991" startWordPosition="1667" endWordPosition="1671"> the precision, recall and their harmonic mean, the F-score1 with \x1e =1 (Van Rijsbergen, 1979). In the combined function-chunking evaluation, a chunk is only counted as correct when its boundaries, its type and its function are identified correctly. 2.2 Data preparation Our total data set consists of all 74,024 sentences in the Wall Street Journal, Brown and ATIS Corpus subparts of the Penn Treebank III. We randomized the order of the sentences in this dataset, and then split it into ten 90%/10% partitionings with disjoint 10% portions, in order to run 10- fold cross-validation experiments (Weiss and Kulikowski, 1991). To provide differently-sized training sets for learning curve experiments, each training set (of 66,627 sentences) was also clipped at the following sizes: 100 sentences, 500, 1000, 2000, 5000, 10,000, 20,000 and 50,000. All data was converted to instances as illustrated in Table 2.1. For the total data set, this yields 1,637,268 instances, one for each word or punctuation mark. 62,472 word types occur in the total data set, and 874 different functionchunk codes. 2.3 Classifier: Memory-based learning Arguably, the choice of algorithm is not crucial in learning curve experiments. First, we ai</context>
+</contexts>
+<marker>Weiss, Kulikowski, 1991</marker>
+<rawString>S. Weiss and C. Kulikowski. 1991. Computer systems that learn. San Mateo, CA: Morgan Kaufmann.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Zavrel</author>
+</authors>
+<title>An empirical re-examination of weighted voting for k-NN.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the 7th Belgian-Dutch Conference on Machine Learning,</booktitle>
+<pages>0</pages>
+<contexts>
+<context position="13977" citStr="Zavrel (1997)" startWordPosition="2270" endWordPosition="2271">ON ? (Quinlan, 1993). This is the algorithms default choice. (2) Differences between feature values (i.e. words or POS tags) are estimated by the real-valued outcome of the modified value difference metric (Stanfill and Waltz, 1986; Cost and Salzberg, 1993). (3) \x1f was set to seven. This and the previous parameter setting turned out best for a chunking task using the same algorithm as reported by Veenstra and van den Bosch (2000). (4) Class voting among the \x1f nearest neighbours is done by weighting each neighbours vote by the inverse of its distance to the test example (Dudani, 1976). In Zavrel (1997), this distance was shown to improve over standard \x1f -NN on a PP-attachment task. (5) For efficiency, search for the \x1f -nearest neighbours is approximated by employing TRIBL (Daelemans et al., 1997), a hybrid between pure \x1f -NN search and decision-tree traversal. The switch point of TRIBL was set to 1 for the words only and POS only experiments, i.e. a decision-tree split was made on the most important feature, the focus word, respectively focus POS. For the experiments with both words and POS, the switch point was set to 2 and the algorithm was forced to split on the focus word and f</context>
+</contexts>
+<marker>Zavrel, 1997</marker>
+<rawString>J. Zavrel. 1997. An empirical re-examination of weighted voting for k-NN. In Proceedings of the 7th Belgian-Dutch Conference on Machine Learning, pages xxxx. \x0c&amp;apos;</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

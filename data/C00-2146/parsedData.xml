@@ -1,0 +1,747 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<title confidence="0.506125">
+b&amp;apos;Structural disambiguation of morpho-syntactic categorial parsing
+for Korean \x03
+</title>
+<author confidence="0.902827">
+Jeongwon Cha and Geunbae Lee
+</author>
+<affiliation confidence="0.832421333333333">
+Department of Computer Science &amp; Engineering
+Pohang University of Science &amp; Technology
+Pohang, Korea
+</affiliation>
+<email confidence="0.918819">
+fhimen, gbleeg@postech.ac.kr
+</email>
+<sectionHeader confidence="0.987" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.989738866666667">
+The Korean Combinatory Categorial Grammar
+(KCCG) formalism can uniformly handle word
+order variation among arguments and adjuncts
+within a clause as well as in complex clauses
+and across clause boundaries, i.e., long distance
+scrambling. In this paper, incremental pars-
+ing technique of a morpheme graph is devel-
+oped using the KCCG. We present techniques
+for choosing the most plausible parse tree us-
+ing lexical information such as category merge
+probability, head-head co-occurrence heuristic,
+and the heuristic based on the coverage of sub-
+trees. The performance results for various mod-
+els for choosing the most plausibleparse tree are
+compared.
+</bodyText>
+<sectionHeader confidence="0.99669" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.9971432">
+Korean is a non-con\x0cgurational, postpositional,
+agglutinative language. Postpositions, such as
+noun-endings, verb-endings, and pre\x0cnal verb-
+endings, are morphemes that determine the
+functional role of NPs (noun phrases) and VPs
+(verb phrases) in sentences and also transform
+VPs into NPs or APs (adjective phrases). Since
+a sequence of pre\x0cnal verb-endings, auxiliary
+verbs and verb-endings can generate hundreds
+of di\x0berent usages of the same verb, morpheme-
+based grammar modeling is considered as a nat-
+ural consequence for Korean.
+There have been various researches to dis-
+ambiguate the structural ambiguities in pars-
+ing. Lexical and contextual information has
+been shown to be most crucial for many pars-
+ing decisions, such as prepositional-phrase at-
+tachment (Hindleand Rooth, 1993). (Charniak,
+1995; Collins, 1996) use the lexical information
+\x03 This research was partially supported by KOSEF spe-
+cial basic research program (1997.9 \x18 2000.8).
+and (Magerman and Marcus, 1991; Magerman
+and Weir, 1992) use the contextual information
+for structural disambiguation. But, there have
+been few researches that used probability infor-
+mation for reducing the spurious ambiguities in
+choosing the most plausible parse tree of CCG
+formalism, especiallyfor morpho-syntactic pars-
+ing of agglutinative language.
+In this paper, we describe the probabilistic
+method (e.g., category merge probability, head-
+head co-occurrence, coverage heuristics) to re-
+duce the spurious ambiguities and choose the
+most plausible parse tree for agglutinative lan-
+guages such as Korean.
+</bodyText>
+<sectionHeader confidence="0.968762" genericHeader="method">
+2 Overview of KCCG
+</sectionHeader>
+<bodyText confidence="0.996024888888889">
+This section brie
+y reviews the basic KCCG for-
+malism.
+Following (Steedman, 1985), order-preserving
+type-raising rules are used to convert nouns in
+grammar into the functors over a verb. The
+following rules are obligatorily activated during
+parsing when case-marking morphemes attach
+to noun stems.
+</bodyText>
+<equation confidence="0.894105">
+\x0f Type Raising Rules:
+np + case-marker =) v=(vnnp[case-
+feature])
+</equation>
+<bodyText confidence="0.997126833333333">
+This rule indicates that a noun in the pres-
+ence of a case morpheme becomes a functor
+looking for a verb on its right; this verb is also
+a functor looking for the original noun with the
+appropriate case on its left. After the noun
+functor combines with the appropriate verb, the
+result is a functor, which is looking for the re-
+maining arguments of the verb. `v\&amp;apos; is a vari-
+able for a verb phrase at any level, e.g., the
+verb of a matrix clause or the verb of an em-
+bedded clause. And `v\&amp;apos; is matched to all of
+\x0cthe \\v[X]nArgs&quot; patterns of the verb categories.
+Since all case-marked nouns in Korean occur in
+front of the verb, we don\&amp;apos;t need to employ the
+directionalrules introducedby (Ho\x0bman, 1995).
+We extend the combinatory rules for uncur-
+ried functions as follows. The sets indicated by
+braces in these rules are order-free.
+</bodyText>
+<equation confidence="0.68139575">
+\x0f Forward Application (A&gt;):
+X=(Args [ fYg) Y =) X=Args
+\x0f Backward Application (A&amp;lt;):
+Y Xn(Args [ fYg) =) XnArgs
+</equation>
+<bodyText confidence="0.9956605">
+Using these rules, a verb can apply to its
+arguments in any order, or as in most cases,
+the case-marked noun phrases, which are type-
+raised functors, can apply to the appropriate
+verbs.
+Coordination constructions are modi\x0ced to
+allow two type-raised noun phrases that are
+looking for the same verb to combine together.
+Since noun phrases, or a noun phrase and ad-
+verb phrase, are functors, the following compo-
+sition rules combine two functions with a set
+value arguments.
+</bodyText>
+<equation confidence="0.963709777777778">
+\x0f Forward Composition (B&gt;):
+X=(XnArgsX ) Y=(YnArgsY ) =)
+X=(Xn(ArgsX [ArgsY )),
+Y = XnArgsX
+\x0f Backward Composition (B&amp;lt;):
+YnArgsY Xn(ArgsX [ fYg) =)
+Xn(ArgsX [ArgsY )
+\x0f Coordination (\x08):
+X CONJ X =) X
+</equation>
+<sectionHeader confidence="0.490577" genericHeader="method">
+3 Basic morph-syntactic chart
+</sectionHeader>
+<bodyText confidence="0.992862230769231">
+parsing
+Korean chart parser has been developed based
+on our KCCG modeling with a 100,000 mor-
+pheme dictionary. Each morpheme entry in
+the dictionary has morphological category, mor-
+photactics connectivity and KCCG syntax cat-
+egories for the morpheme.
+In the morphological analysis stage, a un-
+known word treatment method based on a mor-
+pheme pattern dictionary and syllable bigrams
+is used after (Cha et al., 1998). POS(part-of-
+speech) tagger which is tightly coupled with
+the morphological analyzer removes the irrele-
+vant morpheme candidates from the morpheme
+graph. The morpheme graph is a compact
+representation method of Korean morphologi-
+cal structure. KCCG parser analyzes the mor-
+pheme graph at once through the morpheme
+graph embedding technique (Lee et al., 1996).
+The KCCG parser incrementally analyzes the
+sentence, eojeol by eojeol 1. Whenever an eo-
+jeol is newly processed by the morphological an-
+alyzer, the morphemes resulted in a new mor-
+pheme graph are embedded in a chart and an-
+alyzed and combined with the previous parsing
+results.
+</bodyText>
+<sectionHeader confidence="0.972359" genericHeader="method">
+4 Statistical structured
+</sectionHeader>
+<bodyText confidence="0.998472611111111">
+disambiguation for KCCG parsing
+The statistics which have been used in the ex-
+periments have been collected from the KCCG
+parsed corpora. The data required for train-
+ing have been collected by parsing the stan-
+dard Korean sentence types2, example sentences
+of grammar book, and colloquial sentences in
+trade interview domain3 and hotel reservation
+domain4. We use about 1500 sentences for
+training and 591 independent sentences for eval-
+uation.
+The evaluation is based on parseval
+method (Black et al., 1991). In the evalu-
+ation, \\No-crossing&quot; is the number of sentences
+which have no crossing brackets between the
+result and the corresponding correct trees of
+the sentences. \\Ave. crossing&quot; is the average
+number of crossings per sentence.
+</bodyText>
+<subsectionHeader confidence="0.98706">
+4.1 Basic statistical model
+</subsectionHeader>
+<bodyText confidence="0.993128285714286">
+A basic method of choosing the most plausible
+parse tree is to order the probabilitiesby the lex-
+ical preferences5 and the syntactic merge prob-
+ability. In general, a statistical parsing model
+de\x0cnes the conditional probability, P(\x1cjS), for
+each candidate tree \x1c for a sentence S. A gener-
+ative model uses the observation that maximis-
+</bodyText>
+<figure confidence="0.9377418">
+ing P(\x1c;S) is equivalent to maximisingP(\x1cjS)6.
+1
+Eojeol is a spacing unit in Korean and is similar to
+an English word.
+2
+Sentences of length \x14 11.
+3
+Sentences of length \x14 25.
+4
+Sentences of length \x14 13.
+</figure>
+<page confidence="0.439368">
+5
+</page>
+<bodyText confidence="0.5472345">
+The frequency with which a certain category is as-
+sociated with a morpheme tagged for part-of-speech.
+</bodyText>
+<page confidence="0.735553">
+6
+</page>
+<bodyText confidence="0.921037125">
+P(S) is constant.
+\x0cThus, when S is a sentence consisted of a se-
+quence of morphemes tagged for part-of-speech,
+(w1;t1);(w2;t2);:::;(wn;tn), where wi is a ith
+morpheme, ti is the part-of-speech tag of the
+morpheme wi, and cij is a category with rela-
+tive position i, j, the basic statistical model will
+be given by:
+</bodyText>
+<equation confidence="0.9998721">
+\x1c\x03 = argmax
+\x1c
+P(\x1cjS) (1)
+= argmax
+\x1c
+P(\x1c;S)
+P(S) (2)
+\x19 argmax
+\x1c
+P(\x1c;S): (3)
+</equation>
+<bodyText confidence="0.94089">
+The \x1c\x03 is the probabilities of the optimal parse
+tree.
+P(\x1c;S) is then estimated by attaching proba-
+bilities to a bottom-up composition of the tree.
+</bodyText>
+<equation confidence="0.992810470588235">
+P(\x1c;S) =
+Y
+cij 2\x1c
+P(cij) (4)
+=
+Y
+cij 2\x1c
+(P(cijjcik;ck+1j)
+\x02P(cik)P(ck+1j)); (5)
+i \x14 k \x14 j;
+if cij is a terminal;
+then P(cij) = P(cijjwi;ti);
+and
+P(cijjti;wi) \x19 frequency(cij;ti;wi)
+frequency(ti;wi) ; (6)
+P(cijjcik;ck+1j) \x19 frequency(cij;cik;ck+1j)
+frequency(cik;ck+1j) : (7)
+</equation>
+<bodyText confidence="0.997120769230769">
+The basic statistical model has been applied
+to morpheme/part-of-speech/category 3-tuple.
+Due to the sparseness of the data, we have
+used part-of-speech/category pairs7 together,
+i.e., collected the frequencies of the categories
+associated with the part-of-speeches assigned to
+the morpheme. Table 1 illustrates the sample
+entries of the category probability database. In
+table, \&amp;apos;nal (
+y)\&amp;apos; has two categories with 0.6375
+and 0.3625 probability respectively. Table 2 il-
+lustrates the sample entries of the merge prob-
+ability database using equation 7.
+</bodyText>
+<page confidence="0.994767">
+7
+</page>
+<bodyText confidence="0.997301">
+We de\x0cne this as P(cij jti) \x19 f requency(cij;ti)
+</bodyText>
+<equation confidence="0.964779">
+f requency(ti)
+.
+</equation>
+<tableCaption confidence="0.985749">
+Table 3: Results from the Basic Statistical
+</tableCaption>
+<figure confidence="0.97618175">
+Model
+Total sentences 591
+No-crossing 74.62%
+Ave. crossing 1.00
+Labeled Recall 77.02
+Labeled Precision 79.15
+Ch
+Bh
+r
+Ch
+Bh
+r
+</figure>
+<figureCaption confidence="0.7841535">
+Figure 1: Sub-constituents for head-head co-
+occurrence heuristics
+</figureCaption>
+<bodyText confidence="0.789145">
+Table 3 summarizes the results on an open
+test set of 591 sentences.
+</bodyText>
+<subsectionHeader confidence="0.970553">
+4.2 Head-head co-occurrence heuristics
+</subsectionHeader>
+<bodyText confidence="0.992994444444444">
+In the basic statistical model, lexical depen-
+dencies between morphemes that take part in
+merging process cannot be incorporated into the
+model. When there is a di\x0berent morpheme
+with the same syntactic category, it can be a
+miss match on merging process. This limita-
+tion can be overcome through the co-occurrence
+between the head morphemes of left and right
+sub-constituent.
+</bodyText>
+<subsectionHeader confidence="0.488059">
+When Bh
+</subsectionHeader>
+<bodyText confidence="0.878794">
+is a head morpheme of left sub-
+constituent, r is a case relation, Ch
+is a head
+morpheme of right sub-constituent as shown in
+</bodyText>
+<equation confidence="0.8528065">
+\x0cgure 1, head-head co-occurrence heuristics are
+de\x0cned by:
+P(Bh
+jr;Ch
+) \x19 frequency(Bh
+;r;Ch
+)
+frequency(r;Ch) :(8)
+</equation>
+<bodyText confidence="0.99885675">
+The head-head co-occurrence heuristics have
+been augmented to equation 5 to model the lex-
+ical co-occurrence preference in category merg-
+ing process. Table 4 illustrates the sample en-
+tries of the co-occurrence probability database.
+In Table 4, a morpheme `sae (means `bird\&amp;apos;)\&amp;apos;,
+which has a \\MCK (common noun)&quot; as POS
+tag, has been used a nominative of verb `nal
+</bodyText>
+<table confidence="0.6310615">
+(means `
+y\&amp;apos;)\&amp;apos; with 0.8925 probability.
+\x0cTable 1: Sample entries of the category probability database (`DIl\&amp;apos; means an `l\&amp;apos; irregular verb.)
+POS, morpheme category probability
+DIl, nal v[D]nfnp[nom]g 0.6375
+DIl, nal v[D]nfnp[nom],np[acc]g 0.3625
+DIl v[D]nfnp[nom]g 0.3079
+DIl v[D]nfnp[nom],np[acc]g 0.2020
+</table>
+<tableCaption confidence="0.990857">
+Table 2: Sample entries of syntactic merge probability database
+</tableCaption>
+<bodyText confidence="0.879478454545454">
+left category right category merged category probability
+v=(vnnp[nom]) v[D]nfnp[nom],np[acc]g v[D]nfnp[acc]g 0.0473
+v=(vnnp[acc]) v[D]nfnp[nom],np[acc]g v[D]nfnp[nom]g 0.6250
+np (v=(vnnom))nnp v=(vnnp[nom]) 0.2197
+The modi\x0ced model has been tested on the
+same set of the open sentences as in the basic
+model experiment. Table 5 summarizes the re-
+sult of these experiments.
+\x0f Experiment: (linear combination of the ba-
+sic model and the head-head co-occurrence
+heuristics).
+</bodyText>
+<equation confidence="0.996046111111111">
+P(\x1c;S) =
+Y
+cij 2\x1c
+((\x0bP(cijjcik;ck+1j)
++ \x0cP(Bh
+jr;Ch
+))
+\x02P(cik)P(ck+1j)); (9)
+i \x14 k \x14 j;
+</equation>
+<bodyText confidence="0.827021">
+if cij is a terminal;
+</bodyText>
+<tableCaption confidence="0.6631115">
+then P(cij) = P(cijjwi;ti):
+Table 5: Results from the Basic Statistical
+</tableCaption>
+<table confidence="0.990108833333333">
+Model plus head-head co-occurrence heuristics
+Total sentences 591
+No-crossing 81.05%
+Ave. crossing 0.70
+Labeled Recall 84.02
+Labeled Precision 85.30
+</table>
+<subsectionHeader confidence="0.96752">
+4.3 The coverage heuristics
+</subsectionHeader>
+<bodyText confidence="0.941708555555555">
+If there is a case relation or a modi\x0ccation re-
+lation in two constituents, coverage heuristics
+designate it is easier to add the smaller tree to
+the larger one than to merge the two medium
+sized trees. On the contrary, in the coordination
+relation, it is easier to merge two medium sized
+trees. We implemented these heuristics using
+the following coverage score:
+Case relation, modi\x0ccation relation:
+</bodyText>
+<figure confidence="0.964670272727273">
+COV score =
+left subtree coverage + right subtree coverage
+4\x02
+peft subtree coverage \x02 right subtree coverage
+(10)
+Coordination:
+COV score =
+2\x02
+pleft subtree coverage \x02 right subtree coverage
+left subtree coverage + right subtree coverage
+(11)
+</figure>
+<bodyText confidence="0.966071222222222">
+A coverage heuristics are added to the basic
+model to model the structural preferences. Ta-
+ble 6 shows the results of the experiments on
+the same set of the open sentences.
+\x0f Experiment: (the basic model to the
+COV score heuristics). We have used the
+COV score as the exponent weight feature
+for this experiment since the two numbers
+are in the di\x0berent nature of statistics.
+</bodyText>
+<equation confidence="0.992906166666667">
+P(\x1c;S) =
+Y
+cij 2\x1c
+(P(cijjcik;ck+1j)1,COV score
+\x02P(cik)P(ck+1j)); (12)
+i \x14 k \x14 j;
+</equation>
+<bodyText confidence="0.935226">
+if cij is a terminal;
+</bodyText>
+<figure confidence="0.9370735">
+then P(cij) = P(cijjwi;ti):
+\x0cTable 4: Sample entries of co-occurrence probability database.
+head-head co-occurrence probability
+(MCC&amp;lt;ganeungseong&gt;,np[nom],HR&amp;lt;nob&gt;) 0.8932
+(MCK&amp;lt;sae&gt;,np[nom],DIl&amp;lt;nal&gt;) 0.8925
+(MCK&amp;lt;galeuchim&gt;,np[acc],DIeu&amp;lt;ddaleu&gt;) 0.8743
+</figure>
+<tableCaption confidence="0.7453165">
+Table 6: Results from the Basic Statistical
+model plus Coverage heuristics
+</tableCaption>
+<table confidence="0.9662532">
+Total sentences 591
+No-crossing 80.13%
+Ave. crossing 0.81
+Labeled Recall 82.59
+Labeled Precision 83.75
+</table>
+<sectionHeader confidence="0.985676" genericHeader="conclusions">
+5 Summary
+</sectionHeader>
+<bodyText confidence="0.999418666666666">
+We developed a morpho-syntactic categorial
+parser of Korean and devised a morpheme-
+based statistical structural disambiguation
+schemes.
+Through the KCCG model, we successfully
+handled di\x0ecult Korean modeling problems, in-
+cluding relative free-word ordering, coordina-
+tion, and case-marking, during the parsing.
+To extract the most plausibleparse trees from
+the parse forest, we have presented basic statis-
+tical techniques using the lexical and contextual
+information such as morpheme-category proba-
+bility and category merge probability.
+Two di\x0berent nature of heuristics, head-head
+co-occurrence and coverage scores, are also de-
+veloped and tested to augment the basic statis-
+tical model. Each of them demonstrates reason-
+able performance increase.
+The next step willbeto devisemore heuristics
+and good combination strategies for the di\x0ber-
+ent nature of heuristics.
+</bodyText>
+<sectionHeader confidence="0.991462" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.99811870212766">
+E. Black, S. Abney, D. Flickenger, C. Gdaniec,
+R. Grishman, P. Harrison, D. Hindle, R. In-
+gria, F. Jelinek, J. Klavans, M. Liberman,
+M. Marcus, S. Roukos, B. Santorini, and
+T. Strzalkowski. 1991. A Procedure for
+Quantitatively Comparing the Syntactic Cov-
+erage of English Grammars. In Proc. of
+Fourth DARPA Speech and Natural Lan-
+guage Workshop.
+Jeongwon Cha, Geunbae Lee, and Jong-Hyeok
+Lee. 1998. Generalized unknown morpheme
+guessing for hybrid pos tagging of korean.
+In Proceedings of Sixth Workshop on Very
+Large Corpora in Coling-ACL 98, Montreal,
+Canada.
+E. Charniak. 1995. Prsing with Context-Free
+Grammars and Word Statistics. Technical
+Report CS-95-28, Brown University.
+M. Collins. 1996. A New Statistical Parser
+Based on Bigram Lexical Dependencies. In
+Proceedings of the 34th Annual Meeting of the
+ACL, Santa Cruz.
+D. Hindle and M. Rooth. 1993. Structural am-
+biguity and lexical relations. Computational
+Linguistics, 19(1):103{120.
+B. Ho\x0bman. 1995. The Computational Analy-
+sis of the Syntax and Interpretation of \\Free&quot;
+Word Order in Turkish. Ph.D. thesis, Univer-
+sity of Pennsylvania. IRCS Report 95-17.
+Wonil Lee, Geunbae Lee, and Jong-Hyeok Lee.
+1996. Chart-driven connectionist categorial
+parsing of spoken korean. Computer process-
+ing of oriental languages, Vol 10, No 2:147{
+159.
+D. M. Magerman and M. P. Marcus. 1991.
+Parsing the voyager domain using pearl. In
+In Proc. Of the DARPA Speech and Natural
+Language Workshop, pages 231{236.
+D. M. Magerman and C. Weir. 1992. Ef-
+\x0cciency, robustness and accuracy in picky
+chart parsing. In In Proc. Of the 30th An-
+nual Meeting of the Assoc. For Computa-
+tional Linguistics(ACL-92), pages 40{47.
+Mark Steedman. 1985. Dependency and Coor-
+dination in the Grammar of Dutch and En-
+glish. Language, 61:523{568.
+\x0c&amp;apos;
+</reference>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.426355">
+<title confidence="0.741224">b&amp;apos;Structural disambiguation of morpho-syntactic categorial parsing for Korean \x03</title>
+<author confidence="0.974594">Jeongwon Cha</author>
+<author confidence="0.974594">Geunbae Lee</author>
+<affiliation confidence="0.9996095">Department of Computer Science &amp; Engineering Pohang University of Science &amp; Technology</affiliation>
+<address confidence="0.964598">Pohang, Korea</address>
+<email confidence="0.994865">fhimen,gbleeg@postech.ac.kr</email>
+<abstract confidence="0.99196025">The Korean Combinatory Categorial Grammar (KCCG) formalism can uniformly handle word order variation among arguments and adjuncts within a clause as well as in complex clauses and across clause boundaries, i.e., long distance scrambling. In this paper, incremental parsing technique of a morpheme graph is developed using the KCCG. We present techniques for choosing the most plausible parse tree using lexical information such as category merge probability, head-head co-occurrence heuristic, and the heuristic based on the coverage of subtrees. The performance results for various models for choosing the most plausibleparse tree are compared.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>E Black</author>
+<author>S Abney</author>
+<author>D Flickenger</author>
+<author>C Gdaniec</author>
+<author>R Grishman</author>
+<author>P Harrison</author>
+<author>D Hindle</author>
+<author>R Ingria</author>
+<author>F Jelinek</author>
+<author>J Klavans</author>
+<author>M Liberman</author>
+<author>M Marcus</author>
+<author>S Roukos</author>
+<author>B Santorini</author>
+<author>T Strzalkowski</author>
+</authors>
+<title>A Procedure for Quantitatively Comparing the Syntactic Coverage of English Grammars.</title>
+<date>1991</date>
+<booktitle>In Proc. of Fourth DARPA Speech and Natural Language Workshop.</booktitle>
+<contexts>
+<context position="6095" citStr="Black et al., 1991" startWordPosition="947" endWordPosition="950">raph are embedded in a chart and analyzed and combined with the previous parsing results. 4 Statistical structured disambiguation for KCCG parsing The statistics which have been used in the experiments have been collected from the KCCG parsed corpora. The data required for training have been collected by parsing the standard Korean sentence types2, example sentences of grammar book, and colloquial sentences in trade interview domain3 and hotel reservation domain4. We use about 1500 sentences for training and 591 independent sentences for evaluation. The evaluation is based on parseval method (Black et al., 1991). In the evaluation, \\No-crossing&quot; is the number of sentences which have no crossing brackets between the result and the corresponding correct trees of the sentences. \\Ave. crossing&quot; is the average number of crossings per sentence. 4.1 Basic statistical model A basic method of choosing the most plausible parse tree is to order the probabilitiesby the lexical preferences5 and the syntactic merge probability. In general, a statistical parsing model de\x0cnes the conditional probability, P(\x1cjS), for each candidate tree \x1c for a sentence S. A generative model uses the observation that maxim</context>
+</contexts>
+<marker>Black, Abney, Flickenger, Gdaniec, Grishman, Harrison, Hindle, Ingria, Jelinek, Klavans, Liberman, Marcus, Roukos, Santorini, Strzalkowski, 1991</marker>
+<rawString>E. Black, S. Abney, D. Flickenger, C. Gdaniec, R. Grishman, P. Harrison, D. Hindle, R. Ingria, F. Jelinek, J. Klavans, M. Liberman, M. Marcus, S. Roukos, B. Santorini, and T. Strzalkowski. 1991. A Procedure for Quantitatively Comparing the Syntactic Coverage of English Grammars. In Proc. of Fourth DARPA Speech and Natural Language Workshop.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jeongwon Cha</author>
+<author>Geunbae Lee</author>
+<author>Jong-Hyeok Lee</author>
+</authors>
+<title>Generalized unknown morpheme guessing for hybrid pos tagging of korean.</title>
+<date>1998</date>
+<booktitle>In Proceedings of Sixth Workshop on Very Large Corpora in Coling-ACL 98,</booktitle>
+<location>Montreal, Canada.</location>
+<contexts>
+<context position="4935" citStr="Cha et al., 1998" startWordPosition="764" endWordPosition="767">XnArgsX ) Y=(YnArgsY ) =) X=(Xn(ArgsX [ArgsY )), Y = XnArgsX \x0f Backward Composition (B&amp;lt;): YnArgsY Xn(ArgsX [ fYg) =) Xn(ArgsX [ArgsY ) \x0f Coordination (\x08): X CONJ X =) X 3 Basic morph-syntactic chart parsing Korean chart parser has been developed based on our KCCG modeling with a 100,000 morpheme dictionary. Each morpheme entry in the dictionary has morphological category, morphotactics connectivity and KCCG syntax categories for the morpheme. In the morphological analysis stage, a unknown word treatment method based on a morpheme pattern dictionary and syllable bigrams is used after (Cha et al., 1998). POS(part-ofspeech) tagger which is tightly coupled with the morphological analyzer removes the irrelevant morpheme candidates from the morpheme graph. The morpheme graph is a compact representation method of Korean morphological structure. KCCG parser analyzes the morpheme graph at once through the morpheme graph embedding technique (Lee et al., 1996). The KCCG parser incrementally analyzes the sentence, eojeol by eojeol 1. Whenever an eojeol is newly processed by the morphological analyzer, the morphemes resulted in a new morpheme graph are embedded in a chart and analyzed and combined with</context>
+</contexts>
+<marker>Cha, Lee, Lee, 1998</marker>
+<rawString>Jeongwon Cha, Geunbae Lee, and Jong-Hyeok Lee. 1998. Generalized unknown morpheme guessing for hybrid pos tagging of korean. In Proceedings of Sixth Workshop on Very Large Corpora in Coling-ACL 98, Montreal, Canada.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Charniak</author>
+</authors>
+<title>Prsing with Context-Free Grammars and Word Statistics.</title>
+<date>1995</date>
+<tech>Technical Report CS-95-28,</tech>
+<institution>Brown University.</institution>
+<contexts>
+<context position="1722" citStr="Charniak, 1995" startWordPosition="245" endWordPosition="246">l role of NPs (noun phrases) and VPs (verb phrases) in sentences and also transform VPs into NPs or APs (adjective phrases). Since a sequence of pre\x0cnal verb-endings, auxiliary verbs and verb-endings can generate hundreds of di\x0berent usages of the same verb, morphemebased grammar modeling is considered as a natural consequence for Korean. There have been various researches to disambiguate the structural ambiguities in parsing. Lexical and contextual information has been shown to be most crucial for many parsing decisions, such as prepositional-phrase attachment (Hindleand Rooth, 1993). (Charniak, 1995; Collins, 1996) use the lexical information \x03 This research was partially supported by KOSEF special basic research program (1997.9 \x18 2000.8). and (Magerman and Marcus, 1991; Magerman and Weir, 1992) use the contextual information for structural disambiguation. But, there have been few researches that used probability information for reducing the spurious ambiguities in choosing the most plausible parse tree of CCG formalism, especiallyfor morpho-syntactic parsing of agglutinative language. In this paper, we describe the probabilistic method (e.g., category merge probability, headhead c</context>
+</contexts>
+<marker>Charniak, 1995</marker>
+<rawString>E. Charniak. 1995. Prsing with Context-Free Grammars and Word Statistics. Technical Report CS-95-28, Brown University.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+</authors>
+<title>A New Statistical Parser Based on Bigram Lexical Dependencies.</title>
+<date>1996</date>
+<booktitle>In Proceedings of the 34th Annual Meeting of the ACL,</booktitle>
+<location>Santa Cruz.</location>
+<contexts>
+<context position="1738" citStr="Collins, 1996" startWordPosition="247" endWordPosition="248">oun phrases) and VPs (verb phrases) in sentences and also transform VPs into NPs or APs (adjective phrases). Since a sequence of pre\x0cnal verb-endings, auxiliary verbs and verb-endings can generate hundreds of di\x0berent usages of the same verb, morphemebased grammar modeling is considered as a natural consequence for Korean. There have been various researches to disambiguate the structural ambiguities in parsing. Lexical and contextual information has been shown to be most crucial for many parsing decisions, such as prepositional-phrase attachment (Hindleand Rooth, 1993). (Charniak, 1995; Collins, 1996) use the lexical information \x03 This research was partially supported by KOSEF special basic research program (1997.9 \x18 2000.8). and (Magerman and Marcus, 1991; Magerman and Weir, 1992) use the contextual information for structural disambiguation. But, there have been few researches that used probability information for reducing the spurious ambiguities in choosing the most plausible parse tree of CCG formalism, especiallyfor morpho-syntactic parsing of agglutinative language. In this paper, we describe the probabilistic method (e.g., category merge probability, headhead co-occurrence, co</context>
+</contexts>
+<marker>Collins, 1996</marker>
+<rawString>M. Collins. 1996. A New Statistical Parser Based on Bigram Lexical Dependencies. In Proceedings of the 34th Annual Meeting of the ACL, Santa Cruz.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Hindle</author>
+<author>M Rooth</author>
+</authors>
+<title>Structural ambiguity and lexical relations.</title>
+<date>1993</date>
+<journal>Computational Linguistics,</journal>
+<volume>19</volume>
+<issue>1</issue>
+<marker>Hindle, Rooth, 1993</marker>
+<rawString>D. Hindle and M. Rooth. 1993. Structural ambiguity and lexical relations. Computational Linguistics, 19(1):103{120.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>B Ho\x0bman</author>
+</authors>
+<title>The Computational Analysis of the Syntax and Interpretation of \\Free&quot; Word Order in Turkish.</title>
+<date>1995</date>
+<tech>Ph.D. thesis,</tech>
+<institution>University of Pennsylvania.</institution>
+<marker>Ho\x0bman, 1995</marker>
+<rawString>B. Ho\x0bman. 1995. The Computational Analysis of the Syntax and Interpretation of \\Free&quot; Word Order in Turkish. Ph.D. thesis, University of Pennsylvania. IRCS Report 95-17.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Wonil Lee</author>
+<author>Geunbae Lee</author>
+<author>Jong-Hyeok Lee</author>
+</authors>
+<title>Chart-driven connectionist categorial parsing of spoken korean. Computer processing of oriental languages,</title>
+<date>1996</date>
+<volume>10</volume>
+<pages>159</pages>
+<contexts>
+<context position="5290" citStr="Lee et al., 1996" startWordPosition="817" endWordPosition="820"> has morphological category, morphotactics connectivity and KCCG syntax categories for the morpheme. In the morphological analysis stage, a unknown word treatment method based on a morpheme pattern dictionary and syllable bigrams is used after (Cha et al., 1998). POS(part-ofspeech) tagger which is tightly coupled with the morphological analyzer removes the irrelevant morpheme candidates from the morpheme graph. The morpheme graph is a compact representation method of Korean morphological structure. KCCG parser analyzes the morpheme graph at once through the morpheme graph embedding technique (Lee et al., 1996). The KCCG parser incrementally analyzes the sentence, eojeol by eojeol 1. Whenever an eojeol is newly processed by the morphological analyzer, the morphemes resulted in a new morpheme graph are embedded in a chart and analyzed and combined with the previous parsing results. 4 Statistical structured disambiguation for KCCG parsing The statistics which have been used in the experiments have been collected from the KCCG parsed corpora. The data required for training have been collected by parsing the standard Korean sentence types2, example sentences of grammar book, and colloquial sentences in </context>
+</contexts>
+<marker>Lee, Lee, Lee, 1996</marker>
+<rawString>Wonil Lee, Geunbae Lee, and Jong-Hyeok Lee. 1996. Chart-driven connectionist categorial parsing of spoken korean. Computer processing of oriental languages, Vol 10, No 2:147{ 159.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D M Magerman</author>
+<author>M P Marcus</author>
+</authors>
+<title>Parsing the voyager domain using pearl. In</title>
+<date>1991</date>
+<booktitle>In Proc. Of the DARPA Speech and Natural Language Workshop,</booktitle>
+<pages>231--236</pages>
+<contexts>
+<context position="1902" citStr="Magerman and Marcus, 1991" startWordPosition="270" endWordPosition="273"> auxiliary verbs and verb-endings can generate hundreds of di\x0berent usages of the same verb, morphemebased grammar modeling is considered as a natural consequence for Korean. There have been various researches to disambiguate the structural ambiguities in parsing. Lexical and contextual information has been shown to be most crucial for many parsing decisions, such as prepositional-phrase attachment (Hindleand Rooth, 1993). (Charniak, 1995; Collins, 1996) use the lexical information \x03 This research was partially supported by KOSEF special basic research program (1997.9 \x18 2000.8). and (Magerman and Marcus, 1991; Magerman and Weir, 1992) use the contextual information for structural disambiguation. But, there have been few researches that used probability information for reducing the spurious ambiguities in choosing the most plausible parse tree of CCG formalism, especiallyfor morpho-syntactic parsing of agglutinative language. In this paper, we describe the probabilistic method (e.g., category merge probability, headhead co-occurrence, coverage heuristics) to reduce the spurious ambiguities and choose the most plausible parse tree for agglutinative languages such as Korean. 2 Overview of KCCG This s</context>
+</contexts>
+<marker>Magerman, Marcus, 1991</marker>
+<rawString>D. M. Magerman and M. P. Marcus. 1991. Parsing the voyager domain using pearl. In In Proc. Of the DARPA Speech and Natural Language Workshop, pages 231{236.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D M Magerman</author>
+<author>C Weir</author>
+</authors>
+<title>Ef\x0cciency, robustness and accuracy in picky chart parsing. In</title>
+<date>1992</date>
+<booktitle>In Proc. Of the 30th Annual Meeting of the Assoc. For Computational Linguistics(ACL-92),</booktitle>
+<pages>40--47</pages>
+<contexts>
+<context position="1928" citStr="Magerman and Weir, 1992" startWordPosition="274" endWordPosition="277">ndings can generate hundreds of di\x0berent usages of the same verb, morphemebased grammar modeling is considered as a natural consequence for Korean. There have been various researches to disambiguate the structural ambiguities in parsing. Lexical and contextual information has been shown to be most crucial for many parsing decisions, such as prepositional-phrase attachment (Hindleand Rooth, 1993). (Charniak, 1995; Collins, 1996) use the lexical information \x03 This research was partially supported by KOSEF special basic research program (1997.9 \x18 2000.8). and (Magerman and Marcus, 1991; Magerman and Weir, 1992) use the contextual information for structural disambiguation. But, there have been few researches that used probability information for reducing the spurious ambiguities in choosing the most plausible parse tree of CCG formalism, especiallyfor morpho-syntactic parsing of agglutinative language. In this paper, we describe the probabilistic method (e.g., category merge probability, headhead co-occurrence, coverage heuristics) to reduce the spurious ambiguities and choose the most plausible parse tree for agglutinative languages such as Korean. 2 Overview of KCCG This section brie y reviews the </context>
+</contexts>
+<marker>Magerman, Weir, 1992</marker>
+<rawString>D. M. Magerman and C. Weir. 1992. Ef\x0cciency, robustness and accuracy in picky chart parsing. In In Proc. Of the 30th Annual Meeting of the Assoc. For Computational Linguistics(ACL-92), pages 40{47.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mark Steedman</author>
+</authors>
+<date>1985</date>
+<booktitle>Dependency and Coordination in the Grammar of Dutch and English. Language,</booktitle>
+<pages>61--523</pages>
+<contexts>
+<context position="2576" citStr="Steedman, 1985" startWordPosition="370" endWordPosition="371">or structural disambiguation. But, there have been few researches that used probability information for reducing the spurious ambiguities in choosing the most plausible parse tree of CCG formalism, especiallyfor morpho-syntactic parsing of agglutinative language. In this paper, we describe the probabilistic method (e.g., category merge probability, headhead co-occurrence, coverage heuristics) to reduce the spurious ambiguities and choose the most plausible parse tree for agglutinative languages such as Korean. 2 Overview of KCCG This section brie y reviews the basic KCCG formalism. Following (Steedman, 1985), order-preserving type-raising rules are used to convert nouns in grammar into the functors over a verb. The following rules are obligatorily activated during parsing when case-marking morphemes attach to noun stems. \x0f Type Raising Rules: np + case-marker =) v=(vnnp[casefeature]) This rule indicates that a noun in the presence of a case morpheme becomes a functor looking for a verb on its right; this verb is also a functor looking for the original noun with the appropriate case on its left. After the noun functor combines with the appropriate verb, the result is a functor, which is looking</context>
+</contexts>
+<marker>Steedman, 1985</marker>
+<rawString>Mark Steedman. 1985. Dependency and Coordination in the Grammar of Dutch and English. Language, 61:523{568. \x0c&amp;apos;</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

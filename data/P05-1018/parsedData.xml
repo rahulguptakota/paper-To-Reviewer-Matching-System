@@ -1,0 +1,1386 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000004">
+<bodyText confidence="0.6417995">
+b&amp;apos;Proceedings of the 43rd Annual Meeting of the ACL, pages 141148,
+Ann Arbor, June 2005. c
+</bodyText>
+<sectionHeader confidence="0.404939" genericHeader="abstract">
+2005 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.978716">
+Modeling Local Coherence: An Entity-based Approach
+</title>
+<author confidence="0.967932">
+Regina Barzilay
+</author>
+<affiliation confidence="0.9943665">
+Computer Science and Artificial Intelligence Laboratory
+Massachusetts Institute of Technology
+</affiliation>
+<email confidence="0.993925">
+regina@csail.mit.edu
+</email>
+<author confidence="0.871701">
+Mirella Lapata
+</author>
+<affiliation confidence="0.987826">
+School of Informatics
+University of Edinburgh
+</affiliation>
+<email confidence="0.995071">
+mlap@inf.ed.ac.uk
+</email>
+<sectionHeader confidence="0.990742" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.998959714285714">
+This paper considers the problem of auto-
+matic assessment of local coherence. We
+present a novel entity-based representa-
+tion of discourse which is inspired by Cen-
+tering Theory and can be computed au-
+tomatically from raw text. We view co-
+herence assessment as a ranking learning
+problem and show that the proposed dis-
+course representation supports the effec-
+tive learning of a ranking function. Our
+experiments demonstrate that the induced
+model achieves significantly higher ac-
+curacy than a state-of-the-art coherence
+model.
+</bodyText>
+<sectionHeader confidence="0.998256" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999746016666666">
+A key requirement for any system that produces
+text is the coherence of its output. Not surprisingly,
+a variety of coherence theories have been devel-
+oped over the years (e.g., Mann and Thomson, 1988;
+Grosz et al. 1995) and their principles have found
+application in many symbolic text generation sys-
+tems (e.g., Scott and de Souza, 1990; Kibble and
+Power, 2004). The ability of these systems to gener-
+ate high quality text, almost indistinguishable from
+human writing, makes the incorporation of coher-
+ence theories in robust large-scale systems partic-
+ularly appealing. The task is, however, challenging
+considering that most previous efforts have relied on
+handcrafted rules, valid only for limited domains,
+with no guarantee of scalability or portability (Re-
+iter and Dale, 2000). Furthermore, coherence con-
+straints are often embedded in complex representa-
+tions (e.g., Asher and Lascarides, 2003) which are
+hard to implement in a robust application.
+This paper focuses on local coherence, which
+captures text relatedness at the level of sentence-to-
+sentence transitions, and is essential for generating
+globally coherent text. The key premise of our work
+is that the distribution of entities in locally coherent
+texts exhibits certain regularities. This assumption is
+not arbitrary some of these regularities have been
+recognized in Centering Theory (Grosz et al., 1995)
+and other entity-based theories of discourse.
+The algorithm introduced in the paper automat-
+ically abstracts a text into a set of entity transi-
+tion sequences, a representation that reflects distri-
+butional, syntactic, and referential information about
+discourse entities. We argue that this representation
+of discourse allows the system to learn the proper-
+ties of locally coherent texts opportunistically from
+a given corpus, without recourse to manual annota-
+tion or a predefined knowledge base.
+We view coherence assessment as a ranking prob-
+lem and present an efficiently learnable model that
+orders alternative renderings of the same informa-
+tion based on their degree of local coherence. Such
+a mechanism is particularly appropriate for gener-
+ation and summarization systems as they can pro-
+duce multiple text realizations of the same underly-
+ing content, either by varying parameter values, or
+by relaxing constraints that control the generation
+process. A system equipped with a ranking mech-
+anism, could compare the quality of the candidate
+outputs, much in the same way speech recognizers
+employ language models at the sentence level.
+Our evaluation results demonstrate the effective-
+ness of our entity-based ranking model within the
+general framework of coherence assessment. First,
+we evaluate the utility of the model in a text order-
+ing task where our algorithm has to select a max-
+imally coherent sentence order from a set of can-
+didate permutations. Second, we compare the rank-
+ings produced by the model against human coher-
+ence judgments elicited for automatically generated
+summaries. In both experiments, our method yields
+</bodyText>
+<page confidence="0.99675">
+141
+</page>
+<bodyText confidence="0.997955111111111">
+\x0ca significant improvement over a state-of-the-art co-
+herence model based on Latent Semantic Analysis
+(Foltz et al., 1998).
+In the following section, we provide an overview
+of existing work on the automatic assessment of lo-
+cal coherence. Then, we introduce our entity-based
+representation, and describe our ranking model.
+Next, we present the experimental framework and
+data. Evaluation results conclude the paper.
+</bodyText>
+<sectionHeader confidence="0.999629" genericHeader="related work">
+2 Related Work
+</sectionHeader>
+<bodyText confidence="0.999376413043478">
+Local coherence has been extensively studied within
+the modeling framework put forward by Centering
+Theory (Grosz et al., 1995; Walker et al., 1998;
+Strube and Hahn, 1999; Poesio et al., 2004; Kibble
+and Power, 2004). One of the main assumptions un-
+derlying Centering is that a text segment which fore-
+grounds a single entity is perceived to be more co-
+herent than a segment in which multiple entities are
+discussed. The theory formalizes this intuition by in-
+troducing constraints on the distribution of discourse
+entities in coherent text. These constraints are for-
+mulated in terms of focus, the most salient entity in
+a discourse segment, and transition of focus between
+adjacent sentences. The theory also establishes con-
+straints on the linguistic realization of focus, sug-
+gesting that it is more likely to appear in prominent
+syntactic positions (such as subject or object), and to
+be referred to with anaphoric expressions.
+A great deal of research has attempted to translate
+principles of Centering Theory into a robust coher-
+ence metric (Miltsakaki and Kukich, 2000; Hasler,
+2004; Karamanis et al., 2004). Such a translation is
+challenging in several respects: one has to specify
+the free parameters of the system (Poesio et al.,
+2004) and to determine ways of combining the ef-
+fects of various constraints. A common methodol-
+ogy that has emerged in this research is to develop
+and evaluate coherence metrics on manually anno-
+tated corpora. For instance, Miltsakaki and Kukich
+(2000) annotate a corpus of student essays with tran-
+sition information, and show that the distribution of
+transitions correlates with human grades. Karamanis
+et al. (2004) use a similar methodology to compare
+coherence metrics with respect to their usefulness
+for text planning in generation.
+The present work differs from these approaches
+in two key respects. First, our method does not re-
+quire manual annotation of input texts. We do not
+aim to produce complete centering annotations; in-
+stead, our inference procedure is based on a dis-
+course representation that preserves essential entity
+transition information, and can be computed auto-
+matically from raw text. Second, we learn patterns
+of entity distribution from a corpus, without attempt-
+ing to directly implement or refine Centering con-
+straints.
+</bodyText>
+<sectionHeader confidence="0.999184" genericHeader="method">
+3 The Coherence Model
+</sectionHeader>
+<bodyText confidence="0.9974864">
+In this section we introduce our entity-based repre-
+sentation of discourse. We describe how it can be
+computed and how entity transition patterns can be
+extracted. The latter constitute a rich feature space
+on which probabilistic inference is performed.
+Text Representation Each text is represented
+by an entity grid, a two-dimensional array that cap-
+tures the distribution of discourse entities across text
+sentences. We follow Miltsakaki and Kukich (2000)
+in assuming that our unit of analysis is the tradi-
+tional sentence (i.e., a main clause with accompa-
+nying subordinate and adjunct clauses). The rows of
+the grid correspond to sentences, while the columns
+correspond to discourse entities. By discourse en-
+tity we mean a class of coreferent noun phrases. For
+each occurrence of a discourse entity in the text, the
+corresponding grid cell contains information about
+its grammatical role in the given sentence. Each grid
+column thus corresponds to a string from a set of
+categories reflecting the entitys presence or absence
+in a sequence of sentences. Our set consists of four
+symbols: S (subject), O (object), X (neither subject
+nor object) and (gap which signals the entitys ab-
+sence from a given sentence).
+Table 1 illustrates a fragment of an entity grid
+constructed for the text in Table 2. Since the text
+contains six sentences, the grid columns are of
+length six. Consider for instance the grid column for
+the entity trial, [O X]. It records that trial
+is present in sentences 1 and 6 (as O and X respec-
+tively) but is absent from the rest of the sentences.
+Grid Computation The ability to identify and
+cluster coreferent discourse entities is an impor-
+tant prerequisite for computing entity grids. The
+same entity may appear in different linguistic forms,
+e.g., Microsoft Corp., Microsoft, and the company,
+but should still be mapped to a single entry in the
+grid. Table 1 exemplifies the entity grid for the text
+in Table 2 when coreference resolution is taken into
+account. To automatically compute entity classes,
+</bodyText>
+<page confidence="0.991791">
+142
+</page>
+<figure confidence="0.994800190476191">
+\x0cDepartment
+Trial
+Microsoft
+Evidence
+Competitors
+Markets
+Products
+Brands
+Case
+Netscape
+Software
+Tactics
+Government
+Suit
+Earnings
+1 S O S X O 1
+2 O X S O 2
+3 S O S O O 3
+4 S S 4
+5 S O 5
+6 X S O 6
+</figure>
+<tableCaption confidence="0.947245">
+Table 1: A fragment of the entity grid. Noun phrases
+</tableCaption>
+<bodyText confidence="0.549464">
+are represented by their head nouns.
+</bodyText>
+<sectionHeader confidence="0.389684" genericHeader="method">
+1 [The Justice Department]S is conducting an [anti-trust
+</sectionHeader>
+<bodyText confidence="0.321905666666667">
+trial]O against [Microsoft Corp.]X with [evidence]X that
+[the company]S is increasingly attempting to crush
+[competitors]O.
+</bodyText>
+<listItem confidence="0.919220615384615">
+2 [Microsoft]O is accused of trying to forcefully buy into
+[markets]X where [its own products]S are not competitive
+enough to unseat [established brands]O.
+3 [The case]S revolves around [evidence]O of [Microsoft]S
+aggressively pressuring [Netscape]O into merging
+[browser software]O.
+4 [Microsoft]S claims [its tactics]S are commonplace and
+good economically.
+5 [The government]S may file [a civil suit]O ruling
+that [conspiracy]S to curb [competition]O through
+[collusion]X is [a violation of the Sherman Act]O.
+6 [Microsoft]S continues to show [increased earnings]O de-
+spite [the trial]X.
+</listItem>
+<tableCaption confidence="0.8230405">
+Table 2: Summary augmented with syntactic anno-
+tations for grid computation.
+</tableCaption>
+<bodyText confidence="0.99858">
+we employ a state-of-the-art noun phrase coref-
+erence resolution system (Ng and Cardie, 2002)
+trained on the MUC (67) data sets. The system de-
+cides whether two NPs are coreferent by exploit-
+ing a wealth of features that fall broadly into four
+categories: lexical, grammatical, semantic and posi-
+tional.
+Once we have identified entity classes, the next
+step is to fill out grid entries with relevant syn-
+tactic information. We employ a robust statistical
+parser (Collins, 1997) to determine the constituent
+structure for each sentence, from which subjects (s),
+objects (o), and relations other than subject or ob-
+ject (x) are identified. Passive verbs are recognized
+using a small set of patterns, and the underlying deep
+grammatical role for arguments involved in the pas-
+sive construction is entered in the grid (see the grid
+cell o for Microsoft, Sentence 2, Table 2).
+When a noun is attested more than once with a dif-
+ferent grammatical role in the same sentence, we de-
+fault to the role with the highest grammatical rank-
+ing: subjects are ranked higher than objects, which
+in turn are ranked higher than the rest. For exam-
+ple, the entity Microsoft is mentioned twice in Sen-
+tence 1 with the grammatical roles x (for Microsoft
+Corp.) and s (for the company), but is represented
+only by s in the grid (see Tables 1 and 2).
+Coherence Assessment We introduce a method
+for coherence assessment that is based on grid rep-
+resentation. A fundamental assumption underlying
+our approach is that the distribution of entities in
+coherent texts exhibits certain regularities reflected
+in grid topology. Some of these regularities are for-
+malized in Centering Theory as constraints on tran-
+sitions of local focus in adjacent sentences. Grids of
+coherent texts are likely to have some dense columns
+(i.e., columns with just a few gaps such as Microsoft
+in Table 1) and many sparse columns which will
+consist mostly of gaps (see markets, earnings in Ta-
+ble 1). One would further expect that entities cor-
+responding to dense columns are more often sub-
+jects or objects. These characteristics will be less
+pronounced in low-coherence texts.
+Inspired by Centering Theory, our analysis re-
+volves around patterns of local entity transitions.
+A local entity transition is a sequence {S,O,X,}n
+that represents entity occurrences and their syntactic
+roles in n adjacent sentences. Local transitions can
+be easily obtained from a grid as continuous subse-
+quences of each column. Each transition will have a
+certain probability in a given grid. For instance, the
+probability of the transition [S ] in the grid from
+Table 1 is 0.08 (computed as a ratio of its frequency
+(i.e., six) divided by the total number of transitions
+of length two (i.e., 75)). Each text can thus be viewed
+as a distribution defined over transition types. We
+believe that considering all entity transitions may
+uncover new patterns relevant for coherence assess-
+ment.
+We further refine our analysis by taking into ac-
+count the salience of discourse entities. Centering
+and other discourse theories conjecture that the way
+an entity is introduced and mentioned depends on
+its global role in a given discourse. Therefore, we
+discriminate between transitions of salient entities
+and the rest, collecting statistics for each group sep-
+arately. We identify salient entities based on their
+</bodyText>
+<page confidence="0.993935">
+143
+</page>
+<figure confidence="0.9083535625">
+\x0cS
+S
+S
+O
+S
+X
+S
+O
+S
+O
+O
+O
+X
+O
+X
+S
+</figure>
+<equation confidence="0.764030181818182">
+X
+O
+X
+X
+X
+S
+O
+X
+d1 0 0 0 .03 0 0 0 .02 .07 0 0 .12 .02 .02 .05 .25
+d2 0 0 0 .02 0 .07 0 .02 0 0 .06 .04 0 0 0 .36
+d3 .02 0 0 .03 0 0 0 .06 0 0 0 .05 .03 .07 .07 .29
+</equation>
+<tableCaption confidence="0.992627">
+Table 3: Example of a feature-vector document rep-
+</tableCaption>
+<bodyText confidence="0.9881744">
+resentation using all transitions of length two given
+syntactic categories: S, O, X, and .
+frequency,1 following the widely accepted view that
+the occurrence frequency of an entity correlates with
+its discourse prominence (Morris and Hirst, 1991;
+Grosz et al., 1995).
+Ranking We view coherence assessment as a
+ranking learning problem. The ranker takes as input
+a set of alternative renderings of the same document
+and ranks them based on their degree of local coher-
+ence. Examples of such renderings include a set of
+different sentence orderings of the same text and a
+set of summaries produced by different systems for
+the same document. Ranking is more suitable than
+classification for our purposes since in text gener-
+ation, a system needs a scoring function to com-
+pare among alternative renderings. Furthermore, it
+is clear that coherence assessment is not a categori-
+cal decision but a graded one: there is often no single
+coherent rendering of a given text but many different
+possibilities that can be partially ordered.
+As explained previously, coherence constraints
+are modeled in the grid representation implicitly by
+entity transition sequences. To employ a machine
+learning algorithm to our problem, we encode tran-
+sition sequences explicitly using a standard feature
+vector notation. Each grid rendering j of a docu-
+ment di is represented by a feature vector (xi j) =
+(p1(xi j), p2(xi j),..., pm(xi j)), where m is the num-
+ber of all predefined entity transitions, and pt(xi j)
+the probability of transition t in grid xi j. Note that
+considerable latitude is available when specifying
+the transition types to be included in a feature vec-
+tor. These can be all transitions of a given length
+(e.g., two or three) or the most frequent transitions
+within a document collection. An example of a fea-
+ture space with transitions of length two is illustrated
+in Table 3.
+The training set consists of ordered pairs of ren-
+derings (xi j,xik), where xi j and xik are renderings
+</bodyText>
+<footnote confidence="0.700396">
+1The frequency threshold is empirically determined on the
+</footnote>
+<bodyText confidence="0.9789651">
+development set. See Section 5 for further discussion.
+of the same document di, and xi j exhibits a higher
+degree of coherence than xik. Without loss of gen-
+erality, we assume j &amp;gt; k. The goal of the training
+procedure is to find a parameter vector ~
+w that yields
+a ranking score function ~
+w (xi j), which mini-
+mizes the number of violations of pairwise rankings
+provided in the training set. Thus, the ideal ~
+</bodyText>
+<equation confidence="0.942048">
+w would
+satisfy the condition ~
+w((xi j)(xik)) &amp;gt; 0 j,i,k
+</equation>
+<bodyText confidence="0.9970839">
+such that j &amp;gt; k. The problem is typically treated as
+a Support Vector Machine constraint optimization
+problem, and can be solved using the search tech-
+nique described in Joachims (2002a). This approach
+has been shown to be highly effective in various
+tasks ranging from collaborative filtering (Joachims,
+2002a) to parsing (Toutanova et al., 2004).
+In our ranking experiments, we use Joachims
+(2002a) SVMlight package for training and testing
+with all parameters set to their default values.
+</bodyText>
+<sectionHeader confidence="0.997009" genericHeader="method">
+4 Evaluation Set-Up
+</sectionHeader>
+<bodyText confidence="0.999714166666667">
+In this section we describe two evaluation tasks that
+assess the merits of the coherence modeling frame-
+work introduced above. We also give details regard-
+ing our data collection, and parameter estimation.
+Finally, we introduce the baseline method used for
+comparison with our approach.
+</bodyText>
+<subsectionHeader confidence="0.997067">
+4.1 Text Ordering
+</subsectionHeader>
+<bodyText confidence="0.996315545454546">
+Text structuring algorithms (Lapata, 2003; Barzi-
+lay and Lee, 2004; Karamanis et al., 2004)
+are commonly evaluated by their performance at
+information-ordering. The task concerns determin-
+ing a sequence in which to present a pre-selected set
+of information-bearing items; this is an essential step
+in concept-to-text generation, multi-document sum-
+marization, and other text-synthesis problems. Since
+local coherence is a key property of any well-formed
+text, our model can be used to rank alternative sen-
+tence orderings. We do not assume that local coher-
+ence is sufficient to uniquely determine the best or-
+dering other constraints clearly play a role here.
+However, we expect that the accuracy of a coherence
+model is reflected in its performance in the ordering
+task.
+Data To acquire a large collection for training
+and testing, we create synthetic data, wherein the
+candidate set consists of a source document and per-
+mutations of its sentences. This framework for data
+acquisition is widely used in evaluation of ordering
+algorithms as it enables large scale automatic evalu-
+</bodyText>
+<page confidence="0.998021">
+144
+</page>
+<bodyText confidence="0.996619692307692">
+\x0cation. The underlying assumption is that the orig-
+inal sentence order in the source document must
+be coherent, and so we should prefer models that
+rank it higher than other permutations. Since we do
+not know the relative quality of different permuta-
+tions, our corpus includes only pairwise rankings
+that comprise the original document and one of its
+permutations. Given k original documents, each with
+n randomly generated permutations, we obtain k n
+(trivially) annotated pairwise rankings for training
+and testing.
+Using the technique described above, we col-
+lected data in two different genres: newspaper ar-
+ticles and accident reports written by government
+officials. The first collection consists of Associated
+Press articles from the North American News Cor-
+pus on the topic of natural disasters. The second in-
+cludes narratives from the National Transportation
+Safety Boards database2. Both sets have documents
+of comparable length the average number of sen-
+tences is 10.4 and 11.5, respectively. For each set, we
+used 100 source articles with 20 randomly generated
+permutations for training. The same number of pair-
+wise rankings (i.e., 2000) was used for testing. We
+held out 10 documents (i.e., 200 pairwise rankings)
+from the training data for development purposes.
+</bodyText>
+<subsectionHeader confidence="0.998482">
+4.2 Summary Evaluation
+</subsectionHeader>
+<bodyText confidence="0.990144682926829">
+We further test the ability of our method to assess
+coherence by comparing model induced rankings
+against rankings elicited by human judges. Admit-
+tedly, the information ordering task only partially
+approximates degrees of coherence violation using
+different sentence permutations of a source docu-
+ment. A stricter evaluation exercise concerns the as-
+sessment of texts with naturally occurring coherence
+violations as perceived by human readers. A rep-
+resentative example of such texts are automatically
+generated summaries which often contain sentences
+taken out of context and thus display problems with
+respect to local coherence (e.g., dangling anaphors,
+thematically unrelated sentences). A model that ex-
+hibits high agreement with human judges not only
+accurately captures the coherence properties of the
+summaries in question, but ultimately holds promise
+for the automatic evaluation of machine-generated
+texts. Existing automatic evaluation measures such
+as BLEU (Papineni et al., 2002) and ROUGE (Lin
+2The collections are available from http://www.csail.
+mit.edu/regina/coherence/.
+and Hovy, 2003), are not designed for the coherence
+assessment task, since they focus on content similar-
+ity between system output and reference texts.
+Data Our evaluation was based on materi-
+als from the Document Understanding Conference
+(DUC, 2003), which include multi-document sum-
+maries produced by human writers and by automatic
+summarization systems. In order to learn a rank-
+ing, we require a set of summaries, each of which
+have been rated in terms of coherence. We therefore
+elicited judgments from human subjects.3 We ran-
+domly selected 16 input document clusters and five
+systems that had produced summaries for these sets,
+along with summaries composed by several humans.
+To ensure that we do not tune a model to a particu-
+lar system, we used the output summaries of distinct
+systems for training and testing. Our set of train-
+ing materials contained 4 16 summaries (average
+length 4.8), yielding 4
+</bodyText>
+<equation confidence="0.701028333333333">
+2
+\x01
+16 = 96 pairwise rankings.
+</equation>
+<bodyText confidence="0.995262296296296">
+In a similar fashion, we obtained 32 pairwise rank-
+ings for the test set. Six documents from the training
+data were used as a development set.
+Coherence ratings were obtained during an elic-
+itation study by 177 unpaid volunteers, all native
+speakers of English. The study was conducted re-
+motely over the Internet. Participants first saw a set
+of instructions that explained the task, and defined
+the notion of coherence using multiple examples.
+The summaries were randomized in lists following a
+Latin square design ensuring that no two summaries
+in a given list were generated from the same docu-
+ment cluster. Participants were asked to use a seven
+point scale to rate how coherent the summaries were
+without having seen the source texts. The ratings
+(approximately 23 per summary) given by our sub-
+jects were averaged to provide a rating between 1
+and 7 for each summary.
+The reliability of the collected judgments is cru-
+cial for our analysis; we therefore performed sev-
+eral tests to validate the quality of the annota-
+tions. First, we measured how well humans agree
+in their coherence assessment. We employed leave-
+one-out resampling4 (Weiss and Kulikowski, 1991),
+by correlating the data obtained from each par-
+ticipant with the mean coherence ratings obtained
+from all other participants. The inter-subject agree-
+</bodyText>
+<footnote confidence="0.995597333333333">
+3The ratings are available from http://homepages.inf.
+ed.ac.uk/mlap/coherence/.
+4We cannot apply the commonly used Kappa statistic for
+</footnote>
+<bodyText confidence="0.8525935">
+measuring agreement since it is appropriate for nominal scales,
+whereas our summaries are rated on an ordinal scale.
+</bodyText>
+<page confidence="0.996236">
+145
+</page>
+<bodyText confidence="0.991803222222222">
+\x0cment was r = .768. Second, we examined the ef-
+fect of different types of summaries (human- vs.
+machine-generated.) An ANOVA revealed a reliable
+effect of summary type: F(1;15) = 20.38, p &amp;lt; 0.01
+indicating that human summaries are perceived as
+significantly more coherent than system-generated
+ones. Finally, the judgments of our participants ex-
+hibit a significant correlation with DUC evaluations
+(r = .41, p &amp;lt; 0.01).
+</bodyText>
+<subsectionHeader confidence="0.999449">
+4.3 Parameter Estimation
+</subsectionHeader>
+<bodyText confidence="0.996065555555556">
+Our model has two free parameters: the frequency
+threshold used to identify salient entities and the
+length of the transition sequence. These parameters
+were tuned separately for each data set on the corre-
+sponding held-out development set. For our ordering
+and summarization experiments, optimal salience-
+based models were obtained for entities with fre-
+quency 2. The optimal transition length was 3
+for ordering and 2 for summarization.
+</bodyText>
+<subsectionHeader confidence="0.966197">
+4.4 Baseline
+</subsectionHeader>
+<bodyText confidence="0.997088242424242">
+We compare our algorithm against the coherence
+model proposed by Foltz et al. (1998) which mea-
+sures coherence as a function of semantic related-
+ness between adjacent sentences. Semantic related-
+ness is computed automatically using Latent Se-
+mantic Analysis (LSA, Landauer and Dumais 1997)
+from raw text without employing syntactic or other
+annotations. This model is a good point of compari-
+son for several reasons: (a) it is fully automatic, (b) it
+is a not a straw-man baseline; it correlates reliably
+with human judgments and has been used to analyze
+discourse structure, and (c) it models an aspect of
+coherence which is orthogonal to ours (their model
+is lexicalized).
+Following Foltz et al. (1998) we constructed
+vector-based representations for individual words
+from a lemmatized version of the North American
+News Text Corpus5 (350 million words) using a
+term-document matrix. We used singular value de-
+composition to reduce the semantic space to 100 di-
+mensions obtaining thus a space similar to LSA. We
+represented the meaning of a sentence as a vector
+by taking the mean of the vectors of its words. The
+similarity between two sentences was determined by
+measuring the cosine of their means. An overall text
+coherence measure was obtained by averaging the
+cosines for all pairs of adjacent sentences.
+5Our selection of this corpus was motivated by its similarity
+to the DUC corpus which primarily consists of news stories.
+In sum, each text was represented by a single
+feature, its sentence-to-sentence semantic similar-
+ity. During training, the ranker learns an appropriate
+threshold value for this feature.
+</bodyText>
+<subsectionHeader confidence="0.996419">
+4.5 Evaluation Metric
+</subsectionHeader>
+<bodyText confidence="0.998391">
+Model performance was assessed in the same way
+for information ordering and summary evaluation.
+Given a set of pairwise rankings, we measure accu-
+racy as the ratio of correct predictions made by the
+model over the size of the test set. In this setup, ran-
+dom prediction results in an accuracy of 50%.
+</bodyText>
+<sectionHeader confidence="0.999945" genericHeader="evaluation">
+5 Results
+</sectionHeader>
+<bodyText confidence="0.998534638888889">
+The evaluation of our coherence model was driven
+by two questions: (1) How does the proposed model
+compare to existing methods for coherence assess-
+ment that make use of distinct representations?
+(2) What is the contribution of linguistic knowledge
+to the models performance? Table 4 summarizes the
+accuracy of various configurations of our model for
+the ordering and coherence assessment tasks.
+We first compared a linguistically rich grid model
+that incorporates coreference resolution, expressive
+syntactic information, and a salience-based feature
+space (Coreference+Syntax+Salience) against the
+LSA baseline (LSA). As can be seen in Table 4, the
+grid model outperforms the baseline in both ordering
+and summary evaluation tasks, by a wide margin.
+We conjecture that this difference in performance
+stems from the ability of our model to discriminate
+between various patterns of local sentence transi-
+tions. In contrast, the baseline model only measures
+the degree of overlap across successive sentences,
+without taking into account the properties of the en-
+tities that contribute to the overlap. Not surprisingly,
+the difference between the two methods is more pro-
+nounced for the second task summary evaluation.
+Manual inspection of our summary corpus revealed
+that low-quality summaries often contain repetitive
+information. In such cases, simply knowing about
+high cross-sentential overlap is not sufficient to dis-
+tinguish a repetitive summary from a well-formed
+one.
+In order to investigate the contribution of linguis-
+tic knowledge on model performance we compared
+the full model introduced above against models us-
+ing more impoverished representations. We focused
+on three sources of linguistic knowledge syntax,
+coreference resolution, and salience which play
+</bodyText>
+<page confidence="0.998557">
+146
+</page>
+<table confidence="0.99933">
+\x0cModel Ordering (Set1) Ordering (Set2) Summarization
+Coreference+Syntax+Salience 87.3 90.4 68.8
+Coreference+Salience 86.9 88.3 62.5
+Syntax+Salience 83.4 89.7 81.3
+Coreference+Syntax 76.5 88.8 75.0
+LSA 72.1 72.1 25.0
+</table>
+<tableCaption confidence="0.998387">
+Table 4: Ranking accuracy measured as the fraction of correct pairwise rankings in the test set.
+</tableCaption>
+<bodyText confidence="0.999591421052632">
+a prominent role in Centering analyses of discourse
+coherence. An additional motivation for our study is
+exploration of the trade-off between robustness and
+richness of linguistic annotations. NLP tools are typ-
+ically trained on human-authored texts, and may de-
+teriorate in performance when applied to automati-
+cally generated texts with coherence violations.
+Syntax To evaluate the effect of syntactic
+knowledge, we eliminated the identification of
+grammatical relations from our grid computation
+and recorded solely whether an entity is present or
+absent in a sentence. This leaves only the coref-
+erence and salience information in the model, and
+the results are shown in Table 4 under (Corefer-
+ence+Salience). The omission of syntactic informa-
+tion causes a uniform drop in performance on both
+tasks, which confirms its importance for coherence
+analysis.
+Coreference To measure the effect of fully-
+fledged coreference resolution, we constructed en-
+tity classes simply by clustering nouns on the ba-
+sis of their identity. In other words, each noun in a
+text corresponds to a different entity in a grid, and
+two nouns are considered coreferent only if they
+are identical. The performance of the model (Syn-
+tax+Salience) is shown in the third row of Table 4.
+While coreference resolution improved model
+performance in ordering, it caused a decrease in ac-
+curacy in summary evaluation. This drop in per-
+formance can be attributed to two factors related
+to the nature of our corpus machine-generated
+texts. First, an automatic coreference resolution tool
+expectedly decreases in accuracy because it was
+trained on well-formed human-authored texts. Sec-
+ond, automatic summarization systems do not use
+anaphoric expressions as often as humans do. There-
+fore, a simple entity clustering method is more suit-
+able for automatic summaries.
+Salience Finally, we evaluate the contribution
+of salience information by comparing our orig-
+inal model (Coreference+Syntax+Salience) which
+accounts separately for patterns of salient and
+non-salient entities against a model that does not
+attempt to discriminate between them (Corefer-
+ence+Syntax). Our results on the ordering task indi-
+cate that models that take salience information into
+account consistently outperform models that do not.
+The effect of salience is less pronounced for the
+summarization task when it is combined with coref-
+erence information (Coreference + Salience). This is
+expected, since accurate identification of coreferring
+entities is prerequisite to deriving accurate salience
+models. However, as explained above, our automatic
+coreference tool introduces substantial noise in our
+representation. Once this noise is removed (see Syn-
+tax+Salience), the salience model has a clear advan-
+tage over the other models.
+</bodyText>
+<sectionHeader confidence="0.975663" genericHeader="discussions">
+6 Discussion and Conclusions
+</sectionHeader>
+<bodyText confidence="0.9975255">
+In this paper we proposed a novel framework for
+representing and measuring text coherence. Central
+to this framework is the entity grid representation
+of discourse which we argue captures important pat-
+terns of sentence transitions. We re-conceptualize
+coherence assessment as a ranking task and show
+that our entity-based representation is well suited for
+learning an appropriate ranking function; we achieve
+good performance on text ordering and summary co-
+herence evaluation.
+On the linguistic side, our results yield empirical
+support to some of Centering Theorys main claims.
+We show that coherent texts are characterized by
+transitions with particular properties which do not
+hold for all discourses. Our work, however, not only
+validates these findings, but also quantitatively mea-
+sures the predictive power of various linguistic fea-
+tures for the task of coherence assessment.
+An important future direction lies in augmenting
+our entity-based model with lexico-semantic knowl-
+edge. One way to achieve this goal is to cluster enti-
+ties based on their semantic relatedness, thereby cre-
+</bodyText>
+<page confidence="0.98748">
+147
+</page>
+<bodyText confidence="0.999280571428571">
+\x0cating a grid representation over lexical chains (Mor-
+ris and Hirst, 1991). An entirely different approach
+is to develop fully lexicalized models, akin to tra-
+ditional language models. Cache language mod-
+els (Kuhn and Mori, 1990) seem particularly promis-
+ing in this context.
+In the discourse literature, entity-based theories
+are primarily applied at the level of local coherence,
+while relational models, such as Rhetorical Structure
+Theory (Mann and Thomson, 1988; Marcu, 2000),
+are used to model the global structure of discourse.
+We plan to investigate how to combine the two for
+improved prediction on both local and global levels,
+with the ultimate goal of handling longer texts.
+</bodyText>
+<sectionHeader confidence="0.979697" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.8023624">
+The authors acknowledge the support of the National Science
+Foundation (Barzilay; CAREER grant IIS-0448168 and grant
+IIS-0415865) and EPSRC (Lapata; grant GR/T04540/01).
+We are grateful to Claire Cardie and Vincent Ng for providing
+us the results of their system on our data. Thanks to Eli Barzilay,
+</bodyText>
+<reference confidence="0.988103625">
+Eugene Charniak, Michael Elhadad, Noemie Elhadad, Frank
+Keller, Alex Lascarides, Igor Malioutov, Smaranda Muresan,
+Martin Rinard, Kevin Simler, Caroline Sporleder, Chao Wang,
+Bonnie Webber and three anonymous reviewers for helpful
+comments and suggestions. Any opinions, findings, and con-
+clusions or recommendations expressed above are those of the
+authors and do not necessarily reflect the views of the National
+Science Foundation or EPSRC.
+</reference>
+<sectionHeader confidence="0.540418" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.999678164556962">
+N. Asher, A. Lascarides. 2003. Logics of Conversation.
+Cambridge University Press.
+R. Barzilay, L. Lee. 2004. Catching the drift: Probabilis-
+tic content models, with applications to generation and
+summarization. In Proceedings of HLT-NAACL, 113
+120.
+M. Collins. 1997. Three generative, lexicalised mod-
+els for statistical parsing. In Proceedings of the
+ACL/EACL, 1623.
+P. W. Foltz, W. Kintsch, T. K. Landauer. 1998. Textual
+coherence using latent semantic analysis. Discourse
+Processes, 25(2&amp;3):285307.
+B. Grosz, A. K. Joshi, S. Weinstein. 1995. Centering:
+A framework for modeling the local coherence of dis-
+course. Computational Linguistics, 21(2):203225.
+L. Hasler. 2004. An investigation into the use of cen-
+tering transitions for summarisation. In Proceedings
+of the 7th Annual CLUK Research Colloquium, 100
+107, University of Birmingham.
+T. Joachims. 2002a. Optimizing search engines using
+clickthrough data. In Proceesings of KDD, 133142.
+N. Karamanis, M. Poesio, C. Mellish, J. Oberlander.
+2004. Evaluating centering-based metrics of coher-
+ence for text structuring using a reliably annotated cor-
+pus. In Proceedings of the ACL, 391398.
+R. Kibble, R. Power. 2004. Optimising referential co-
+herence in text generation. Computational Linguistics,
+30(4):401416.
+R. Kuhn, R. D. Mori. 1990. A cache-based natural lan-
+guage model for speech recognition. IEEE Transac-
+tions on PAMI, 12(6):570583.
+T. K. Landauer, S. T. Dumais. 1997. A solution to Platos
+problem: The latent semantic analysis theory of ac-
+quisition, induction and representation of knowledge.
+Psychological Review, 104(2):211240.
+M. Lapata. 2003. Probabilistic text structuring: Exper-
+iments with sentence ordering. In Proceedings of the
+ACL, 545552.
+C.-Y. Lin, E. H. Hovy. 2003. Automatic evaluation of
+summaries using n-gram co-occurrence statistics. In
+Proceedings of HLT-NAACL, 7178.
+W. C. Mann, S. A. Thomson. 1988. Rhetorical structure
+theory. Text, 8(3):243281.
+D. Marcu. 2000. The Theory and Practice of Discourse
+Parsing and Summarization. MIT Press.
+E. Miltsakaki, K. Kukich. 2000. The role of centering
+theorys rough-shift in the teaching and evaluation of
+writing skills. In Proceedings of the ACL, 408415.
+J. Morris, G. Hirst. 1991. Lexical cohesion computed by
+thesaural relations as an indicator of the structure of
+text. Computational Linguistics, 1(17):2143.
+V. Ng, C. Cardie. 2002. Improving machine learning
+approaches to coreference resolution. In Proceedings
+of the ACL, 104111.
+K. Papineni, S. Roukos, T. Ward, W.-J. Zhu. 2002. Bleu:
+a method for automatic evaluation of machine transla-
+tion. In Proceedings of the ACL, 311318.
+M. Poesio, R. Stevenson, B. D. Eugenio, J. Hitzeman.
+2004. Centering: a parametric theory and its instan-
+tiations. Computational Linguistics, 30(3):309363.
+E. Reiter, R. Dale. 2000. Building Natural-Language
+Generation Systems. Cambridge University Press.
+D. Scott, C. S. de Souza. 1990. Getting the message
+across in RST-based text generation. In R. Dale,
+C. Mellish, M. Zock, eds., Current Research in Nat-
+ural Language Generation, 4773. Academic Press.
+M. Strube, U. Hahn. 1999. Functional centering
+grounding referential coherence in information struc-
+ture. Computational Linguistics, 25(3):309344.
+K. Toutanova, P. Markova, C. D. Manning. 2004. The
+leaf projection path view of parse trees: Exploring
+string kernels for HPSG parse selection. In Proceed-
+ings of the EMNLP, 166173.
+M. Walker, A. Joshi, E. Prince, eds. 1998. Centering
+Theory in Discourse. Clarendon Press.
+S. M. Weiss, C. A. Kulikowski. 1991. Computer Sys-
+tems that Learn: Classification and Prediction Meth-
+ods from, Statistics, Neural Nets, Machine Learning,
+and Expert Systems. Morgan Kaufmann.
+</reference>
+<page confidence="0.985304">
+148
+</page>
+<figure confidence="0.249562">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.906877">
+<note confidence="0.984495333333333">b&amp;apos;Proceedings of the 43rd Annual Meeting of the ACL, pages 141148, Ann Arbor, June 2005. c 2005 Association for Computational Linguistics</note>
+<title confidence="0.989467">Modeling Local Coherence: An Entity-based Approach</title>
+<author confidence="0.999631">Regina Barzilay</author>
+<affiliation confidence="0.9999905">Computer Science and Artificial Intelligence Laboratory Massachusetts Institute of Technology</affiliation>
+<email confidence="0.998919">regina@csail.mit.edu</email>
+<author confidence="0.998385">Mirella Lapata</author>
+<affiliation confidence="0.999951">School of Informatics University of Edinburgh</affiliation>
+<email confidence="0.998071">mlap@inf.ed.ac.uk</email>
+<abstract confidence="0.997360333333333">This paper considers the problem of automatic assessment of local coherence. We present a novel entity-based representation of discourse which is inspired by Centering Theory and can be computed automatically from raw text. We view coherence assessment as a ranking learning problem and show that the proposed discourse representation supports the effective learning of a ranking function. Our experiments demonstrate that the induced model achieves significantly higher accuracy than a state-of-the-art coherence model.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>N Asher</author>
+<author>A Lascarides</author>
+</authors>
+<title>Logics of Conversation.</title>
+<date>2003</date>
+<publisher>Cambridge University Press.</publisher>
+<contexts>
+<context position="1838" citStr="Asher and Lascarides, 2003" startWordPosition="268" endWordPosition="271">any symbolic text generation systems (e.g., Scott and de Souza, 1990; Kibble and Power, 2004). The ability of these systems to generate high quality text, almost indistinguishable from human writing, makes the incorporation of coherence theories in robust large-scale systems particularly appealing. The task is, however, challenging considering that most previous efforts have relied on handcrafted rules, valid only for limited domains, with no guarantee of scalability or portability (Reiter and Dale, 2000). Furthermore, coherence constraints are often embedded in complex representations (e.g., Asher and Lascarides, 2003) which are hard to implement in a robust application. This paper focuses on local coherence, which captures text relatedness at the level of sentence-tosentence transitions, and is essential for generating globally coherent text. The key premise of our work is that the distribution of entities in locally coherent texts exhibits certain regularities. This assumption is not arbitrary some of these regularities have been recognized in Centering Theory (Grosz et al., 1995) and other entity-based theories of discourse. The algorithm introduced in the paper automatically abstracts a text into a set </context>
+</contexts>
+<marker>Asher, Lascarides, 2003</marker>
+<rawString>N. Asher, A. Lascarides. 2003. Logics of Conversation. Cambridge University Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Barzilay</author>
+<author>L Lee</author>
+</authors>
+<title>Catching the drift: Probabilistic content models, with applications to generation and summarization.</title>
+<date>2004</date>
+<booktitle>In Proceedings of HLT-NAACL,</booktitle>
+<pages>113--120</pages>
+<contexts>
+<context position="16781" citStr="Barzilay and Lee, 2004" startWordPosition="2729" endWordPosition="2733">anging from collaborative filtering (Joachims, 2002a) to parsing (Toutanova et al., 2004). In our ranking experiments, we use Joachims (2002a) SVMlight package for training and testing with all parameters set to their default values. 4 Evaluation Set-Up In this section we describe two evaluation tasks that assess the merits of the coherence modeling framework introduced above. We also give details regarding our data collection, and parameter estimation. Finally, we introduce the baseline method used for comparison with our approach. 4.1 Text Ordering Text structuring algorithms (Lapata, 2003; Barzilay and Lee, 2004; Karamanis et al., 2004) are commonly evaluated by their performance at information-ordering. The task concerns determining a sequence in which to present a pre-selected set of information-bearing items; this is an essential step in concept-to-text generation, multi-document summarization, and other text-synthesis problems. Since local coherence is a key property of any well-formed text, our model can be used to rank alternative sentence orderings. We do not assume that local coherence is sufficient to uniquely determine the best ordering other constraints clearly play a role here. However, w</context>
+</contexts>
+<marker>Barzilay, Lee, 2004</marker>
+<rawString>R. Barzilay, L. Lee. 2004. Catching the drift: Probabilistic content models, with applications to generation and summarization. In Proceedings of HLT-NAACL, 113 120.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+</authors>
+<title>Three generative, lexicalised models for statistical parsing.</title>
+<date>1997</date>
+<booktitle>In Proceedings of the ACL/EACL,</booktitle>
+<pages>1623</pages>
+<contexts>
+<context position="10310" citStr="Collins, 1997" startWordPosition="1618" endWordPosition="1619">t]S continues to show [increased earnings]O despite [the trial]X. Table 2: Summary augmented with syntactic annotations for grid computation. we employ a state-of-the-art noun phrase coreference resolution system (Ng and Cardie, 2002) trained on the MUC (67) data sets. The system decides whether two NPs are coreferent by exploiting a wealth of features that fall broadly into four categories: lexical, grammatical, semantic and positional. Once we have identified entity classes, the next step is to fill out grid entries with relevant syntactic information. We employ a robust statistical parser (Collins, 1997) to determine the constituent structure for each sentence, from which subjects (s), objects (o), and relations other than subject or object (x) are identified. Passive verbs are recognized using a small set of patterns, and the underlying deep grammatical role for arguments involved in the passive construction is entered in the grid (see the grid cell o for Microsoft, Sentence 2, Table 2). When a noun is attested more than once with a different grammatical role in the same sentence, we default to the role with the highest grammatical ranking: subjects are ranked higher than objects, which in t</context>
+</contexts>
+<marker>Collins, 1997</marker>
+<rawString>M. Collins. 1997. Three generative, lexicalised models for statistical parsing. In Proceedings of the ACL/EACL, 1623.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P W Foltz</author>
+<author>W Kintsch</author>
+<author>T K Landauer</author>
+</authors>
+<title>Textual coherence using latent semantic analysis.</title>
+<date>1998</date>
+<booktitle>Discourse Processes,</booktitle>
+<pages>25--2</pages>
+<contexts>
+<context position="4067" citStr="Foltz et al., 1998" startWordPosition="611" endWordPosition="614">ur evaluation results demonstrate the effectiveness of our entity-based ranking model within the general framework of coherence assessment. First, we evaluate the utility of the model in a text ordering task where our algorithm has to select a maximally coherent sentence order from a set of candidate permutations. Second, we compare the rankings produced by the model against human coherence judgments elicited for automatically generated summaries. In both experiments, our method yields 141 \x0ca significant improvement over a state-of-the-art coherence model based on Latent Semantic Analysis (Foltz et al., 1998). In the following section, we provide an overview of existing work on the automatic assessment of local coherence. Then, we introduce our entity-based representation, and describe our ranking model. Next, we present the experimental framework and data. Evaluation results conclude the paper. 2 Related Work Local coherence has been extensively studied within the modeling framework put forward by Centering Theory (Grosz et al., 1995; Walker et al., 1998; Strube and Hahn, 1999; Poesio et al., 2004; Kibble and Power, 2004). One of the main assumptions underlying Centering is that a text segment wh</context>
+<context position="23662" citStr="Foltz et al. (1998)" startWordPosition="3802" endWordPosition="3805">ficant correlation with DUC evaluations (r = .41, p &amp;lt; 0.01). 4.3 Parameter Estimation Our model has two free parameters: the frequency threshold used to identify salient entities and the length of the transition sequence. These parameters were tuned separately for each data set on the corresponding held-out development set. For our ordering and summarization experiments, optimal saliencebased models were obtained for entities with frequency 2. The optimal transition length was 3 for ordering and 2 for summarization. 4.4 Baseline We compare our algorithm against the coherence model proposed by Foltz et al. (1998) which measures coherence as a function of semantic relatedness between adjacent sentences. Semantic relatedness is computed automatically using Latent Semantic Analysis (LSA, Landauer and Dumais 1997) from raw text without employing syntactic or other annotations. This model is a good point of comparison for several reasons: (a) it is fully automatic, (b) it is a not a straw-man baseline; it correlates reliably with human judgments and has been used to analyze discourse structure, and (c) it models an aspect of coherence which is orthogonal to ours (their model is lexicalized). Following Folt</context>
+</contexts>
+<marker>Foltz, Kintsch, Landauer, 1998</marker>
+<rawString>P. W. Foltz, W. Kintsch, T. K. Landauer. 1998. Textual coherence using latent semantic analysis. Discourse Processes, 25(2&amp;3):285307.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>B Grosz</author>
+<author>A K Joshi</author>
+<author>S Weinstein</author>
+</authors>
+<title>Centering: A framework for modeling the local coherence of discourse.</title>
+<date>1995</date>
+<journal>Computational Linguistics,</journal>
+<volume>21</volume>
+<issue>2</issue>
+<contexts>
+<context position="1162" citStr="Grosz et al. 1995" startWordPosition="167" endWordPosition="170"> which is inspired by Centering Theory and can be computed automatically from raw text. We view coherence assessment as a ranking learning problem and show that the proposed discourse representation supports the effective learning of a ranking function. Our experiments demonstrate that the induced model achieves significantly higher accuracy than a state-of-the-art coherence model. 1 Introduction A key requirement for any system that produces text is the coherence of its output. Not surprisingly, a variety of coherence theories have been developed over the years (e.g., Mann and Thomson, 1988; Grosz et al. 1995) and their principles have found application in many symbolic text generation systems (e.g., Scott and de Souza, 1990; Kibble and Power, 2004). The ability of these systems to generate high quality text, almost indistinguishable from human writing, makes the incorporation of coherence theories in robust large-scale systems particularly appealing. The task is, however, challenging considering that most previous efforts have relied on handcrafted rules, valid only for limited domains, with no guarantee of scalability or portability (Reiter and Dale, 2000). Furthermore, coherence constraints are </context>
+<context position="4501" citStr="Grosz et al., 1995" startWordPosition="676" endWordPosition="679">rated summaries. In both experiments, our method yields 141 \x0ca significant improvement over a state-of-the-art coherence model based on Latent Semantic Analysis (Foltz et al., 1998). In the following section, we provide an overview of existing work on the automatic assessment of local coherence. Then, we introduce our entity-based representation, and describe our ranking model. Next, we present the experimental framework and data. Evaluation results conclude the paper. 2 Related Work Local coherence has been extensively studied within the modeling framework put forward by Centering Theory (Grosz et al., 1995; Walker et al., 1998; Strube and Hahn, 1999; Poesio et al., 2004; Kibble and Power, 2004). One of the main assumptions underlying Centering is that a text segment which foregrounds a single entity is perceived to be more coherent than a segment in which multiple entities are discussed. The theory formalizes this intuition by introducing constraints on the distribution of discourse entities in coherent text. These constraints are formulated in terms of focus, the most salient entity in a discourse segment, and transition of focus between adjacent sentences. The theory also establishes constrai</context>
+<context position="13672" citStr="Grosz et al., 1995" startWordPosition="2210" endWordPosition="2213">rest, collecting statistics for each group separately. We identify salient entities based on their 143 \x0cS S S O S X S O S O O O X O X S X O X X X S O X d1 0 0 0 .03 0 0 0 .02 .07 0 0 .12 .02 .02 .05 .25 d2 0 0 0 .02 0 .07 0 .02 0 0 .06 .04 0 0 0 .36 d3 .02 0 0 .03 0 0 0 .06 0 0 0 .05 .03 .07 .07 .29 Table 3: Example of a feature-vector document representation using all transitions of length two given syntactic categories: S, O, X, and . frequency,1 following the widely accepted view that the occurrence frequency of an entity correlates with its discourse prominence (Morris and Hirst, 1991; Grosz et al., 1995). Ranking We view coherence assessment as a ranking learning problem. The ranker takes as input a set of alternative renderings of the same document and ranks them based on their degree of local coherence. Examples of such renderings include a set of different sentence orderings of the same text and a set of summaries produced by different systems for the same document. Ranking is more suitable than classification for our purposes since in text generation, a system needs a scoring function to compare among alternative renderings. Furthermore, it is clear that coherence assessment is not a cate</context>
+</contexts>
+<marker>Grosz, Joshi, Weinstein, 1995</marker>
+<rawString>B. Grosz, A. K. Joshi, S. Weinstein. 1995. Centering: A framework for modeling the local coherence of discourse. Computational Linguistics, 21(2):203225.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Hasler</author>
+</authors>
+<title>An investigation into the use of centering transitions for summarisation.</title>
+<date>2004</date>
+<booktitle>In Proceedings of the 7th Annual CLUK Research Colloquium,</booktitle>
+<volume>100</volume>
+<institution>University of Birmingham.</institution>
+<contexts>
+<context position="5457" citStr="Hasler, 2004" startWordPosition="834" endWordPosition="835">traints on the distribution of discourse entities in coherent text. These constraints are formulated in terms of focus, the most salient entity in a discourse segment, and transition of focus between adjacent sentences. The theory also establishes constraints on the linguistic realization of focus, suggesting that it is more likely to appear in prominent syntactic positions (such as subject or object), and to be referred to with anaphoric expressions. A great deal of research has attempted to translate principles of Centering Theory into a robust coherence metric (Miltsakaki and Kukich, 2000; Hasler, 2004; Karamanis et al., 2004). Such a translation is challenging in several respects: one has to specify the free parameters of the system (Poesio et al., 2004) and to determine ways of combining the effects of various constraints. A common methodology that has emerged in this research is to develop and evaluate coherence metrics on manually annotated corpora. For instance, Miltsakaki and Kukich (2000) annotate a corpus of student essays with transition information, and show that the distribution of transitions correlates with human grades. Karamanis et al. (2004) use a similar methodology to comp</context>
+</contexts>
+<marker>Hasler, 2004</marker>
+<rawString>L. Hasler. 2004. An investigation into the use of centering transitions for summarisation. In Proceedings of the 7th Annual CLUK Research Colloquium, 100 107, University of Birmingham.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Joachims</author>
+</authors>
+<title>Optimizing search engines using clickthrough data.</title>
+<date>2002</date>
+<booktitle>In Proceesings of KDD,</booktitle>
+<pages>133142</pages>
+<contexts>
+<context position="16085" citStr="Joachims (2002" startWordPosition="2626" endWordPosition="2627">urther discussion. of the same document di, and xi j exhibits a higher degree of coherence than xik. Without loss of generality, we assume j &amp;gt; k. The goal of the training procedure is to find a parameter vector ~ w that yields a ranking score function ~ w (xi j), which minimizes the number of violations of pairwise rankings provided in the training set. Thus, the ideal ~ w would satisfy the condition ~ w((xi j)(xik)) &amp;gt; 0 j,i,k such that j &amp;gt; k. The problem is typically treated as a Support Vector Machine constraint optimization problem, and can be solved using the search technique described in Joachims (2002a). This approach has been shown to be highly effective in various tasks ranging from collaborative filtering (Joachims, 2002a) to parsing (Toutanova et al., 2004). In our ranking experiments, we use Joachims (2002a) SVMlight package for training and testing with all parameters set to their default values. 4 Evaluation Set-Up In this section we describe two evaluation tasks that assess the merits of the coherence modeling framework introduced above. We also give details regarding our data collection, and parameter estimation. Finally, we introduce the baseline method used for comparison with o</context>
+</contexts>
+<marker>Joachims, 2002</marker>
+<rawString>T. Joachims. 2002a. Optimizing search engines using clickthrough data. In Proceesings of KDD, 133142.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N Karamanis</author>
+<author>M Poesio</author>
+<author>C Mellish</author>
+<author>J Oberlander</author>
+</authors>
+<title>Evaluating centering-based metrics of coherence for text structuring using a reliably annotated corpus.</title>
+<date>2004</date>
+<booktitle>In Proceedings of the ACL,</booktitle>
+<pages>391398</pages>
+<contexts>
+<context position="5482" citStr="Karamanis et al., 2004" startWordPosition="836" endWordPosition="839"> distribution of discourse entities in coherent text. These constraints are formulated in terms of focus, the most salient entity in a discourse segment, and transition of focus between adjacent sentences. The theory also establishes constraints on the linguistic realization of focus, suggesting that it is more likely to appear in prominent syntactic positions (such as subject or object), and to be referred to with anaphoric expressions. A great deal of research has attempted to translate principles of Centering Theory into a robust coherence metric (Miltsakaki and Kukich, 2000; Hasler, 2004; Karamanis et al., 2004). Such a translation is challenging in several respects: one has to specify the free parameters of the system (Poesio et al., 2004) and to determine ways of combining the effects of various constraints. A common methodology that has emerged in this research is to develop and evaluate coherence metrics on manually annotated corpora. For instance, Miltsakaki and Kukich (2000) annotate a corpus of student essays with transition information, and show that the distribution of transitions correlates with human grades. Karamanis et al. (2004) use a similar methodology to compare coherence metrics wit</context>
+<context position="16806" citStr="Karamanis et al., 2004" startWordPosition="2734" endWordPosition="2737">e filtering (Joachims, 2002a) to parsing (Toutanova et al., 2004). In our ranking experiments, we use Joachims (2002a) SVMlight package for training and testing with all parameters set to their default values. 4 Evaluation Set-Up In this section we describe two evaluation tasks that assess the merits of the coherence modeling framework introduced above. We also give details regarding our data collection, and parameter estimation. Finally, we introduce the baseline method used for comparison with our approach. 4.1 Text Ordering Text structuring algorithms (Lapata, 2003; Barzilay and Lee, 2004; Karamanis et al., 2004) are commonly evaluated by their performance at information-ordering. The task concerns determining a sequence in which to present a pre-selected set of information-bearing items; this is an essential step in concept-to-text generation, multi-document summarization, and other text-synthesis problems. Since local coherence is a key property of any well-formed text, our model can be used to rank alternative sentence orderings. We do not assume that local coherence is sufficient to uniquely determine the best ordering other constraints clearly play a role here. However, we expect that the accurac</context>
+</contexts>
+<marker>Karamanis, Poesio, Mellish, Oberlander, 2004</marker>
+<rawString>N. Karamanis, M. Poesio, C. Mellish, J. Oberlander. 2004. Evaluating centering-based metrics of coherence for text structuring using a reliably annotated corpus. In Proceedings of the ACL, 391398.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Kibble</author>
+<author>R Power</author>
+</authors>
+<title>Optimising referential coherence in text generation.</title>
+<date>2004</date>
+<journal>Computational Linguistics,</journal>
+<volume>30</volume>
+<issue>4</issue>
+<contexts>
+<context position="1304" citStr="Kibble and Power, 2004" startWordPosition="190" endWordPosition="193">g problem and show that the proposed discourse representation supports the effective learning of a ranking function. Our experiments demonstrate that the induced model achieves significantly higher accuracy than a state-of-the-art coherence model. 1 Introduction A key requirement for any system that produces text is the coherence of its output. Not surprisingly, a variety of coherence theories have been developed over the years (e.g., Mann and Thomson, 1988; Grosz et al. 1995) and their principles have found application in many symbolic text generation systems (e.g., Scott and de Souza, 1990; Kibble and Power, 2004). The ability of these systems to generate high quality text, almost indistinguishable from human writing, makes the incorporation of coherence theories in robust large-scale systems particularly appealing. The task is, however, challenging considering that most previous efforts have relied on handcrafted rules, valid only for limited domains, with no guarantee of scalability or portability (Reiter and Dale, 2000). Furthermore, coherence constraints are often embedded in complex representations (e.g., Asher and Lascarides, 2003) which are hard to implement in a robust application. This paper f</context>
+<context position="4591" citStr="Kibble and Power, 2004" startWordPosition="692" endWordPosition="695">ment over a state-of-the-art coherence model based on Latent Semantic Analysis (Foltz et al., 1998). In the following section, we provide an overview of existing work on the automatic assessment of local coherence. Then, we introduce our entity-based representation, and describe our ranking model. Next, we present the experimental framework and data. Evaluation results conclude the paper. 2 Related Work Local coherence has been extensively studied within the modeling framework put forward by Centering Theory (Grosz et al., 1995; Walker et al., 1998; Strube and Hahn, 1999; Poesio et al., 2004; Kibble and Power, 2004). One of the main assumptions underlying Centering is that a text segment which foregrounds a single entity is perceived to be more coherent than a segment in which multiple entities are discussed. The theory formalizes this intuition by introducing constraints on the distribution of discourse entities in coherent text. These constraints are formulated in terms of focus, the most salient entity in a discourse segment, and transition of focus between adjacent sentences. The theory also establishes constraints on the linguistic realization of focus, suggesting that it is more likely to appear in</context>
+</contexts>
+<marker>Kibble, Power, 2004</marker>
+<rawString>R. Kibble, R. Power. 2004. Optimising referential coherence in text generation. Computational Linguistics, 30(4):401416.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Kuhn</author>
+<author>R D Mori</author>
+</authors>
+<title>A cache-based natural language model for speech recognition.</title>
+<date>1990</date>
+<journal>IEEE Transactions on PAMI,</journal>
+<volume>12</volume>
+<issue>6</issue>
+<contexts>
+<context position="31708" citStr="Kuhn and Mori, 1990" startWordPosition="5029" endWordPosition="5032">rses. Our work, however, not only validates these findings, but also quantitatively measures the predictive power of various linguistic features for the task of coherence assessment. An important future direction lies in augmenting our entity-based model with lexico-semantic knowledge. One way to achieve this goal is to cluster entities based on their semantic relatedness, thereby cre147 \x0cating a grid representation over lexical chains (Morris and Hirst, 1991). An entirely different approach is to develop fully lexicalized models, akin to traditional language models. Cache language models (Kuhn and Mori, 1990) seem particularly promising in this context. In the discourse literature, entity-based theories are primarily applied at the level of local coherence, while relational models, such as Rhetorical Structure Theory (Mann and Thomson, 1988; Marcu, 2000), are used to model the global structure of discourse. We plan to investigate how to combine the two for improved prediction on both local and global levels, with the ultimate goal of handling longer texts. Acknowledgments The authors acknowledge the support of the National Science Foundation (Barzilay; CAREER grant IIS-0448168 and grant IIS-041586</context>
+</contexts>
+<marker>Kuhn, Mori, 1990</marker>
+<rawString>R. Kuhn, R. D. Mori. 1990. A cache-based natural language model for speech recognition. IEEE Transactions on PAMI, 12(6):570583.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T K Landauer</author>
+<author>S T Dumais</author>
+</authors>
+<title>A solution to Platos problem: The latent semantic analysis theory of acquisition, induction and representation of knowledge.</title>
+<date>1997</date>
+<journal>Psychological Review,</journal>
+<volume>104</volume>
+<issue>2</issue>
+<contexts>
+<context position="23863" citStr="Landauer and Dumais 1997" startWordPosition="3832" endWordPosition="3835">f the transition sequence. These parameters were tuned separately for each data set on the corresponding held-out development set. For our ordering and summarization experiments, optimal saliencebased models were obtained for entities with frequency 2. The optimal transition length was 3 for ordering and 2 for summarization. 4.4 Baseline We compare our algorithm against the coherence model proposed by Foltz et al. (1998) which measures coherence as a function of semantic relatedness between adjacent sentences. Semantic relatedness is computed automatically using Latent Semantic Analysis (LSA, Landauer and Dumais 1997) from raw text without employing syntactic or other annotations. This model is a good point of comparison for several reasons: (a) it is fully automatic, (b) it is a not a straw-man baseline; it correlates reliably with human judgments and has been used to analyze discourse structure, and (c) it models an aspect of coherence which is orthogonal to ours (their model is lexicalized). Following Foltz et al. (1998) we constructed vector-based representations for individual words from a lemmatized version of the North American News Text Corpus5 (350 million words) using a term-document matrix. We u</context>
+</contexts>
+<marker>Landauer, Dumais, 1997</marker>
+<rawString>T. K. Landauer, S. T. Dumais. 1997. A solution to Platos problem: The latent semantic analysis theory of acquisition, induction and representation of knowledge. Psychological Review, 104(2):211240.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Lapata</author>
+</authors>
+<title>Probabilistic text structuring: Experiments with sentence ordering.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the ACL,</booktitle>
+<pages>545552</pages>
+<contexts>
+<context position="16757" citStr="Lapata, 2003" startWordPosition="2727" endWordPosition="2728">arious tasks ranging from collaborative filtering (Joachims, 2002a) to parsing (Toutanova et al., 2004). In our ranking experiments, we use Joachims (2002a) SVMlight package for training and testing with all parameters set to their default values. 4 Evaluation Set-Up In this section we describe two evaluation tasks that assess the merits of the coherence modeling framework introduced above. We also give details regarding our data collection, and parameter estimation. Finally, we introduce the baseline method used for comparison with our approach. 4.1 Text Ordering Text structuring algorithms (Lapata, 2003; Barzilay and Lee, 2004; Karamanis et al., 2004) are commonly evaluated by their performance at information-ordering. The task concerns determining a sequence in which to present a pre-selected set of information-bearing items; this is an essential step in concept-to-text generation, multi-document summarization, and other text-synthesis problems. Since local coherence is a key property of any well-formed text, our model can be used to rank alternative sentence orderings. We do not assume that local coherence is sufficient to uniquely determine the best ordering other constraints clearly play</context>
+</contexts>
+<marker>Lapata, 2003</marker>
+<rawString>M. Lapata. 2003. Probabilistic text structuring: Experiments with sentence ordering. In Proceedings of the ACL, 545552.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C-Y Lin</author>
+<author>E H Hovy</author>
+</authors>
+<title>Automatic evaluation of summaries using n-gram co-occurrence statistics.</title>
+<date>2003</date>
+<booktitle>In Proceedings of HLT-NAACL,</booktitle>
+<pages>7178</pages>
+<marker>Lin, Hovy, 2003</marker>
+<rawString>C.-Y. Lin, E. H. Hovy. 2003. Automatic evaluation of summaries using n-gram co-occurrence statistics. In Proceedings of HLT-NAACL, 7178.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W C Mann</author>
+<author>S A Thomson</author>
+</authors>
+<title>Rhetorical structure theory.</title>
+<date>1988</date>
+<tech>Text, 8(3):243281.</tech>
+<contexts>
+<context position="1142" citStr="Mann and Thomson, 1988" startWordPosition="163" endWordPosition="166">resentation of discourse which is inspired by Centering Theory and can be computed automatically from raw text. We view coherence assessment as a ranking learning problem and show that the proposed discourse representation supports the effective learning of a ranking function. Our experiments demonstrate that the induced model achieves significantly higher accuracy than a state-of-the-art coherence model. 1 Introduction A key requirement for any system that produces text is the coherence of its output. Not surprisingly, a variety of coherence theories have been developed over the years (e.g., Mann and Thomson, 1988; Grosz et al. 1995) and their principles have found application in many symbolic text generation systems (e.g., Scott and de Souza, 1990; Kibble and Power, 2004). The ability of these systems to generate high quality text, almost indistinguishable from human writing, makes the incorporation of coherence theories in robust large-scale systems particularly appealing. The task is, however, challenging considering that most previous efforts have relied on handcrafted rules, valid only for limited domains, with no guarantee of scalability or portability (Reiter and Dale, 2000). Furthermore, cohere</context>
+</contexts>
+<marker>Mann, Thomson, 1988</marker>
+<rawString>W. C. Mann, S. A. Thomson. 1988. Rhetorical structure theory. Text, 8(3):243281.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Marcu</author>
+</authors>
+<title>The Theory and Practice of Discourse Parsing and Summarization.</title>
+<date>2000</date>
+<publisher>MIT Press.</publisher>
+<marker>Marcu, 2000</marker>
+<rawString>D. Marcu. 2000. The Theory and Practice of Discourse Parsing and Summarization. MIT Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Miltsakaki</author>
+<author>K Kukich</author>
+</authors>
+<title>The role of centering theorys rough-shift in the teaching and evaluation of writing skills.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the ACL,</booktitle>
+<pages>408415</pages>
+<contexts>
+<context position="5443" citStr="Miltsakaki and Kukich, 2000" startWordPosition="830" endWordPosition="833">intuition by introducing constraints on the distribution of discourse entities in coherent text. These constraints are formulated in terms of focus, the most salient entity in a discourse segment, and transition of focus between adjacent sentences. The theory also establishes constraints on the linguistic realization of focus, suggesting that it is more likely to appear in prominent syntactic positions (such as subject or object), and to be referred to with anaphoric expressions. A great deal of research has attempted to translate principles of Centering Theory into a robust coherence metric (Miltsakaki and Kukich, 2000; Hasler, 2004; Karamanis et al., 2004). Such a translation is challenging in several respects: one has to specify the free parameters of the system (Poesio et al., 2004) and to determine ways of combining the effects of various constraints. A common methodology that has emerged in this research is to develop and evaluate coherence metrics on manually annotated corpora. For instance, Miltsakaki and Kukich (2000) annotate a corpus of student essays with transition information, and show that the distribution of transitions correlates with human grades. Karamanis et al. (2004) use a similar metho</context>
+<context position="7131" citStr="Miltsakaki and Kukich (2000)" startWordPosition="1094" endWordPosition="1097">om raw text. Second, we learn patterns of entity distribution from a corpus, without attempting to directly implement or refine Centering constraints. 3 The Coherence Model In this section we introduce our entity-based representation of discourse. We describe how it can be computed and how entity transition patterns can be extracted. The latter constitute a rich feature space on which probabilistic inference is performed. Text Representation Each text is represented by an entity grid, a two-dimensional array that captures the distribution of discourse entities across text sentences. We follow Miltsakaki and Kukich (2000) in assuming that our unit of analysis is the traditional sentence (i.e., a main clause with accompanying subordinate and adjunct clauses). The rows of the grid correspond to sentences, while the columns correspond to discourse entities. By discourse entity we mean a class of coreferent noun phrases. For each occurrence of a discourse entity in the text, the corresponding grid cell contains information about its grammatical role in the given sentence. Each grid column thus corresponds to a string from a set of categories reflecting the entitys presence or absence in a sequence of sentences. Ou</context>
+</contexts>
+<marker>Miltsakaki, Kukich, 2000</marker>
+<rawString>E. Miltsakaki, K. Kukich. 2000. The role of centering theorys rough-shift in the teaching and evaluation of writing skills. In Proceedings of the ACL, 408415.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Morris</author>
+<author>G Hirst</author>
+</authors>
+<title>Lexical cohesion computed by thesaural relations as an indicator of the structure of text.</title>
+<date>1991</date>
+<journal>Computational Linguistics,</journal>
+<volume>1</volume>
+<issue>17</issue>
+<contexts>
+<context position="13651" citStr="Morris and Hirst, 1991" startWordPosition="2206" endWordPosition="2209">alient entities and the rest, collecting statistics for each group separately. We identify salient entities based on their 143 \x0cS S S O S X S O S O O O X O X S X O X X X S O X d1 0 0 0 .03 0 0 0 .02 .07 0 0 .12 .02 .02 .05 .25 d2 0 0 0 .02 0 .07 0 .02 0 0 .06 .04 0 0 0 .36 d3 .02 0 0 .03 0 0 0 .06 0 0 0 .05 .03 .07 .07 .29 Table 3: Example of a feature-vector document representation using all transitions of length two given syntactic categories: S, O, X, and . frequency,1 following the widely accepted view that the occurrence frequency of an entity correlates with its discourse prominence (Morris and Hirst, 1991; Grosz et al., 1995). Ranking We view coherence assessment as a ranking learning problem. The ranker takes as input a set of alternative renderings of the same document and ranks them based on their degree of local coherence. Examples of such renderings include a set of different sentence orderings of the same text and a set of summaries produced by different systems for the same document. Ranking is more suitable than classification for our purposes since in text generation, a system needs a scoring function to compare among alternative renderings. Furthermore, it is clear that coherence ass</context>
+<context position="31555" citStr="Morris and Hirst, 1991" startWordPosition="5004" endWordPosition="5008">e of Centering Theorys main claims. We show that coherent texts are characterized by transitions with particular properties which do not hold for all discourses. Our work, however, not only validates these findings, but also quantitatively measures the predictive power of various linguistic features for the task of coherence assessment. An important future direction lies in augmenting our entity-based model with lexico-semantic knowledge. One way to achieve this goal is to cluster entities based on their semantic relatedness, thereby cre147 \x0cating a grid representation over lexical chains (Morris and Hirst, 1991). An entirely different approach is to develop fully lexicalized models, akin to traditional language models. Cache language models (Kuhn and Mori, 1990) seem particularly promising in this context. In the discourse literature, entity-based theories are primarily applied at the level of local coherence, while relational models, such as Rhetorical Structure Theory (Mann and Thomson, 1988; Marcu, 2000), are used to model the global structure of discourse. We plan to investigate how to combine the two for improved prediction on both local and global levels, with the ultimate goal of handling long</context>
+</contexts>
+<marker>Morris, Hirst, 1991</marker>
+<rawString>J. Morris, G. Hirst. 1991. Lexical cohesion computed by thesaural relations as an indicator of the structure of text. Computational Linguistics, 1(17):2143.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>V Ng</author>
+<author>C Cardie</author>
+</authors>
+<title>Improving machine learning approaches to coreference resolution.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the ACL,</booktitle>
+<pages>104111</pages>
+<contexts>
+<context position="9930" citStr="Ng and Cardie, 2002" startWordPosition="1553" endWordPosition="1556">blished brands]O. 3 [The case]S revolves around [evidence]O of [Microsoft]S aggressively pressuring [Netscape]O into merging [browser software]O. 4 [Microsoft]S claims [its tactics]S are commonplace and good economically. 5 [The government]S may file [a civil suit]O ruling that [conspiracy]S to curb [competition]O through [collusion]X is [a violation of the Sherman Act]O. 6 [Microsoft]S continues to show [increased earnings]O despite [the trial]X. Table 2: Summary augmented with syntactic annotations for grid computation. we employ a state-of-the-art noun phrase coreference resolution system (Ng and Cardie, 2002) trained on the MUC (67) data sets. The system decides whether two NPs are coreferent by exploiting a wealth of features that fall broadly into four categories: lexical, grammatical, semantic and positional. Once we have identified entity classes, the next step is to fill out grid entries with relevant syntactic information. We employ a robust statistical parser (Collins, 1997) to determine the constituent structure for each sentence, from which subjects (s), objects (o), and relations other than subject or object (x) are identified. Passive verbs are recognized using a small set of patterns, </context>
+</contexts>
+<marker>Ng, Cardie, 2002</marker>
+<rawString>V. Ng, C. Cardie. 2002. Improving machine learning approaches to coreference resolution. In Proceedings of the ACL, 104111.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K Papineni</author>
+<author>S Roukos</author>
+<author>T Ward</author>
+<author>W-J Zhu</author>
+</authors>
+<title>Bleu: a method for automatic evaluation of machine translation.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the ACL,</booktitle>
+<pages>311318</pages>
+<contexts>
+<context position="20081" citStr="Papineni et al., 2002" startWordPosition="3233" endWordPosition="3236">th naturally occurring coherence violations as perceived by human readers. A representative example of such texts are automatically generated summaries which often contain sentences taken out of context and thus display problems with respect to local coherence (e.g., dangling anaphors, thematically unrelated sentences). A model that exhibits high agreement with human judges not only accurately captures the coherence properties of the summaries in question, but ultimately holds promise for the automatic evaluation of machine-generated texts. Existing automatic evaluation measures such as BLEU (Papineni et al., 2002) and ROUGE (Lin 2The collections are available from http://www.csail. mit.edu/regina/coherence/. and Hovy, 2003), are not designed for the coherence assessment task, since they focus on content similarity between system output and reference texts. Data Our evaluation was based on materials from the Document Understanding Conference (DUC, 2003), which include multi-document summaries produced by human writers and by automatic summarization systems. In order to learn a ranking, we require a set of summaries, each of which have been rated in terms of coherence. We therefore elicited judgments fro</context>
+</contexts>
+<marker>Papineni, Roukos, Ward, Zhu, 2002</marker>
+<rawString>K. Papineni, S. Roukos, T. Ward, W.-J. Zhu. 2002. Bleu: a method for automatic evaluation of machine translation. In Proceedings of the ACL, 311318.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Poesio</author>
+<author>R Stevenson</author>
+<author>B D Eugenio</author>
+<author>J Hitzeman</author>
+</authors>
+<title>Centering: a parametric theory and its instantiations.</title>
+<date>2004</date>
+<journal>Computational Linguistics,</journal>
+<volume>30</volume>
+<issue>3</issue>
+<contexts>
+<context position="4566" citStr="Poesio et al., 2004" startWordPosition="688" endWordPosition="691">a significant improvement over a state-of-the-art coherence model based on Latent Semantic Analysis (Foltz et al., 1998). In the following section, we provide an overview of existing work on the automatic assessment of local coherence. Then, we introduce our entity-based representation, and describe our ranking model. Next, we present the experimental framework and data. Evaluation results conclude the paper. 2 Related Work Local coherence has been extensively studied within the modeling framework put forward by Centering Theory (Grosz et al., 1995; Walker et al., 1998; Strube and Hahn, 1999; Poesio et al., 2004; Kibble and Power, 2004). One of the main assumptions underlying Centering is that a text segment which foregrounds a single entity is perceived to be more coherent than a segment in which multiple entities are discussed. The theory formalizes this intuition by introducing constraints on the distribution of discourse entities in coherent text. These constraints are formulated in terms of focus, the most salient entity in a discourse segment, and transition of focus between adjacent sentences. The theory also establishes constraints on the linguistic realization of focus, suggesting that it is</context>
+</contexts>
+<marker>Poesio, Stevenson, Eugenio, Hitzeman, 2004</marker>
+<rawString>M. Poesio, R. Stevenson, B. D. Eugenio, J. Hitzeman. 2004. Centering: a parametric theory and its instantiations. Computational Linguistics, 30(3):309363.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Reiter</author>
+<author>R Dale</author>
+</authors>
+<title>Building Natural-Language Generation Systems.</title>
+<date>2000</date>
+<publisher>Cambridge University Press.</publisher>
+<contexts>
+<context position="1721" citStr="Reiter and Dale, 2000" startWordPosition="251" endWordPosition="255">ver the years (e.g., Mann and Thomson, 1988; Grosz et al. 1995) and their principles have found application in many symbolic text generation systems (e.g., Scott and de Souza, 1990; Kibble and Power, 2004). The ability of these systems to generate high quality text, almost indistinguishable from human writing, makes the incorporation of coherence theories in robust large-scale systems particularly appealing. The task is, however, challenging considering that most previous efforts have relied on handcrafted rules, valid only for limited domains, with no guarantee of scalability or portability (Reiter and Dale, 2000). Furthermore, coherence constraints are often embedded in complex representations (e.g., Asher and Lascarides, 2003) which are hard to implement in a robust application. This paper focuses on local coherence, which captures text relatedness at the level of sentence-tosentence transitions, and is essential for generating globally coherent text. The key premise of our work is that the distribution of entities in locally coherent texts exhibits certain regularities. This assumption is not arbitrary some of these regularities have been recognized in Centering Theory (Grosz et al., 1995) and other</context>
+</contexts>
+<marker>Reiter, Dale, 2000</marker>
+<rawString>E. Reiter, R. Dale. 2000. Building Natural-Language Generation Systems. Cambridge University Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Scott</author>
+<author>C S de Souza</author>
+</authors>
+<title>Getting the message across in RST-based text generation. In</title>
+<date>1990</date>
+<booktitle>Current Research in Natural Language Generation,</booktitle>
+<pages>4773</pages>
+<editor>R. Dale, C. Mellish, M. Zock, eds.,</editor>
+<publisher>Academic Press.</publisher>
+<marker>Scott, de Souza, 1990</marker>
+<rawString>D. Scott, C. S. de Souza. 1990. Getting the message across in RST-based text generation. In R. Dale, C. Mellish, M. Zock, eds., Current Research in Natural Language Generation, 4773. Academic Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Strube</author>
+<author>U Hahn</author>
+</authors>
+<title>Functional centering grounding referential coherence in information structure.</title>
+<date>1999</date>
+<journal>Computational Linguistics,</journal>
+<volume>25</volume>
+<issue>3</issue>
+<contexts>
+<context position="4545" citStr="Strube and Hahn, 1999" startWordPosition="684" endWordPosition="687"> method yields 141 \x0ca significant improvement over a state-of-the-art coherence model based on Latent Semantic Analysis (Foltz et al., 1998). In the following section, we provide an overview of existing work on the automatic assessment of local coherence. Then, we introduce our entity-based representation, and describe our ranking model. Next, we present the experimental framework and data. Evaluation results conclude the paper. 2 Related Work Local coherence has been extensively studied within the modeling framework put forward by Centering Theory (Grosz et al., 1995; Walker et al., 1998; Strube and Hahn, 1999; Poesio et al., 2004; Kibble and Power, 2004). One of the main assumptions underlying Centering is that a text segment which foregrounds a single entity is perceived to be more coherent than a segment in which multiple entities are discussed. The theory formalizes this intuition by introducing constraints on the distribution of discourse entities in coherent text. These constraints are formulated in terms of focus, the most salient entity in a discourse segment, and transition of focus between adjacent sentences. The theory also establishes constraints on the linguistic realization of focus, </context>
+</contexts>
+<marker>Strube, Hahn, 1999</marker>
+<rawString>M. Strube, U. Hahn. 1999. Functional centering grounding referential coherence in information structure. Computational Linguistics, 25(3):309344.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K Toutanova</author>
+<author>P Markova</author>
+<author>C D Manning</author>
+</authors>
+<title>The leaf projection path view of parse trees: Exploring string kernels for HPSG parse selection.</title>
+<date>2004</date>
+<booktitle>In Proceedings of the EMNLP,</booktitle>
+<pages>166173</pages>
+<contexts>
+<context position="16248" citStr="Toutanova et al., 2004" startWordPosition="2648" endWordPosition="2651"> of the training procedure is to find a parameter vector ~ w that yields a ranking score function ~ w (xi j), which minimizes the number of violations of pairwise rankings provided in the training set. Thus, the ideal ~ w would satisfy the condition ~ w((xi j)(xik)) &amp;gt; 0 j,i,k such that j &amp;gt; k. The problem is typically treated as a Support Vector Machine constraint optimization problem, and can be solved using the search technique described in Joachims (2002a). This approach has been shown to be highly effective in various tasks ranging from collaborative filtering (Joachims, 2002a) to parsing (Toutanova et al., 2004). In our ranking experiments, we use Joachims (2002a) SVMlight package for training and testing with all parameters set to their default values. 4 Evaluation Set-Up In this section we describe two evaluation tasks that assess the merits of the coherence modeling framework introduced above. We also give details regarding our data collection, and parameter estimation. Finally, we introduce the baseline method used for comparison with our approach. 4.1 Text Ordering Text structuring algorithms (Lapata, 2003; Barzilay and Lee, 2004; Karamanis et al., 2004) are commonly evaluated by their performan</context>
+</contexts>
+<marker>Toutanova, Markova, Manning, 2004</marker>
+<rawString>K. Toutanova, P. Markova, C. D. Manning. 2004. The leaf projection path view of parse trees: Exploring string kernels for HPSG parse selection. In Proceedings of the EMNLP, 166173.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Walker</author>
+<author>A Joshi</author>
+</authors>
+<title>Centering Theory in Discourse.</title>
+<date>1998</date>
+<editor>E. Prince, eds.</editor>
+<publisher>Clarendon Press.</publisher>
+<marker>Walker, Joshi, 1998</marker>
+<rawString>M. Walker, A. Joshi, E. Prince, eds. 1998. Centering Theory in Discourse. Clarendon Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S M Weiss</author>
+<author>C A Kulikowski</author>
+</authors>
+<date>1991</date>
+<booktitle>Computer Systems that Learn: Classification and Prediction Methods from, Statistics, Neural Nets, Machine Learning, and Expert Systems.</booktitle>
+<publisher>Morgan Kaufmann.</publisher>
+<contexts>
+<context position="22277" citStr="Weiss and Kulikowski, 1991" startWordPosition="3592" endWordPosition="3595">o summaries in a given list were generated from the same document cluster. Participants were asked to use a seven point scale to rate how coherent the summaries were without having seen the source texts. The ratings (approximately 23 per summary) given by our subjects were averaged to provide a rating between 1 and 7 for each summary. The reliability of the collected judgments is crucial for our analysis; we therefore performed several tests to validate the quality of the annotations. First, we measured how well humans agree in their coherence assessment. We employed leaveone-out resampling4 (Weiss and Kulikowski, 1991), by correlating the data obtained from each participant with the mean coherence ratings obtained from all other participants. The inter-subject agree3The ratings are available from http://homepages.inf. ed.ac.uk/mlap/coherence/. 4We cannot apply the commonly used Kappa statistic for measuring agreement since it is appropriate for nominal scales, whereas our summaries are rated on an ordinal scale. 145 \x0cment was r = .768. Second, we examined the effect of different types of summaries (human- vs. machine-generated.) An ANOVA revealed a reliable effect of summary type: F(1;15) = 20.38, p &amp;lt; 0.</context>
+</contexts>
+<marker>Weiss, Kulikowski, 1991</marker>
+<rawString>S. M. Weiss, C. A. Kulikowski. 1991. Computer Systems that Learn: Classification and Prediction Methods from, Statistics, Neural Nets, Machine Learning, and Expert Systems. Morgan Kaufmann.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

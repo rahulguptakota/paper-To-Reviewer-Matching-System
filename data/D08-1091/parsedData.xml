@@ -1,0 +1,1776 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.81057">
+b&apos;Proceedings of the 2008 Conference on Empirical Methods in Natural Language Processing, pages 867876,
+Honolulu, October 2008. c
+</bodyText>
+<sectionHeader confidence="0.572329" genericHeader="abstract">
+2008 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.8055205">
+Sparse Multi-Scale Grammars
+for Discriminative Latent Variable Parsing
+</title>
+<author confidence="0.966514">
+Slav Petrov and Dan Klein
+</author>
+<affiliation confidence="0.9913875">
+Computer Science Division, EECS Department
+University of California at Berkeley
+</affiliation>
+<address confidence="0.96488">
+Berkeley, CA 94720
+</address>
+<email confidence="0.953564">
+{petrov, klein}@eecs.berkeley.edu
+</email>
+<sectionHeader confidence="0.990407" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999231842105263">
+We present a discriminative, latent variable
+approach to syntactic parsing in which rules
+exist at multiple scales of refinement. The
+model is formally a latent variable CRF gram-
+mar over trees, learned by iteratively splitting
+grammar productions (not categories). Dif-
+ferent regions of the grammar are refined to
+different degrees, yielding grammars which
+are three orders of magnitude smaller than
+the single-scale baseline and 20 times smaller
+than the split-and-merge grammars of Petrov
+et al. (2006). In addition, our discriminative
+approach integrally admits features beyond lo-
+cal tree configurations. We present a multi-
+scale training method along with an efficient
+CKY-style dynamic program. On a variety of
+domains and languages, this method produces
+the best published parsing accuracies with the
+smallest reported grammars.
+</bodyText>
+<sectionHeader confidence="0.998333" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.9998205">
+In latent variable approaches to parsing (Matsuzaki
+et al., 2005; Petrov et al., 2006), one models an ob-
+served treebank of coarse parse trees using a gram-
+mar over more refined, but unobserved, derivation
+trees. The parse trees represent the desired output
+of the system, while the derivation trees represent
+the typically much more complex underlying syntac-
+tic processes. In recent years, latent variable meth-
+ods have been shown to produce grammars which
+are as good as, or even better than, earlier parsing
+work (Collins, 1999; Charniak, 2000). In particular,
+in Petrov et al. (2006) we exhibited a very accurate
+category-splitting approach, in which a coarse ini-
+tial grammar is refined by iteratively splitting each
+grammar category into two subcategories using the
+EM algorithm. Of course, each time the number of
+grammar categories is doubled, the number of bi-
+nary productions is increased by a factor of eight.
+As a result, while our final grammars used few cat-
+egories, the number of total active (non-zero) pro-
+ductions was still substantial (see Section 7). In ad-
+dition, it is reasonable to assume that some genera-
+tively learned splits have little discriminative utility.
+In this paper, we present a discriminative approach
+which addresses both of these limitations.
+We introduce multi-scale grammars, in which
+some productions reference fine categories, while
+others reference coarse categories (see Figure 2).
+We use the general framework of hidden variable
+CRFs (Lafferty et al., 2001; Koo and Collins, 2005),
+where gradient-based optimization maximizes the
+likelihood of the observed variables, here parse
+trees, summing over log-linearly scored derivations.
+With multi-scale grammars, it is natural to refine
+productions rather than categories. As a result, a
+category such as NP can be complex in some re-
+gions of the grammar while remaining simpler in
+other regions. Additionally, we exploit the flexibility
+of the discriminative framework both to improve the
+treatment of unknown words as well as to include
+span features (Taskar et al., 2004), giving the bene-
+fit of some input features integrally in our dynamic
+program. Our multi-scale grammars are 3 orders
+of magnitude smaller than the fully-split baseline
+grammar and 20 times smaller than the generative
+split-and-merge grammars of Petrov et al. (2006).
+</bodyText>
+<page confidence="0.990789">
+867
+</page>
+<bodyText confidence="0.998531777777778">
+\x0cIn addition, we exhibit the best parsing numbers on
+several metrics, for several domains and languages.
+Discriminative parsing has been investigated be-
+fore, such as in Johnson (2001), Clark and Curran
+(2004), Henderson (2004), Koo and Collins (2005),
+Turian et al. (2007), Finkel et al. (2008), and, most
+similarly, in Petrov and Klein (2008). However, in
+all of these cases, the final parsing performance fell
+short of the best generative models by several per-
+centage points or only short sentences were used.
+Only in combination with a generative model was
+a discriminative component able to produce high
+parsing accuracies (Charniak and Johnson, 2005;
+Huang, 2008). Multi-scale grammars, in contrast,
+give higher accuracies using smaller grammars than
+previous work in this direction, outperforming top
+generative models in grammar size and in parsing
+accuracy.
+</bodyText>
+<sectionHeader confidence="0.933501" genericHeader="method">
+2 Latent Variable Parsing
+</sectionHeader>
+<bodyText confidence="0.998227285714286">
+Treebanks are typically not annotated with fully de-
+tailed syntactic structure. Rather, they present only
+a coarse trace of the true underlying processes. As
+a result, learning a grammar for parsing requires
+the estimation of a more highly articulated model
+than the naive CFG embodied by such treebanks.
+A manual approach might take the category NP and
+subdivide it into one subcategory NPS for subjects
+and another subcategory NPVP for objects (John-
+son, 1998; Klein and Manning, 2003). However,
+rather than devising linguistically motivated features
+or splits, latent variable parsing takes a fully auto-
+mated approach, in which each symbol is split into
+unconstrained subcategories.
+</bodyText>
+<subsectionHeader confidence="0.992258">
+2.1 Latent Variable Grammars
+</subsectionHeader>
+<bodyText confidence="0.998366470588235">
+Latent variable grammars augment the treebank
+trees with latent variables at each node. This cre-
+ates a set of (exponentially many) derivations over
+split categories for each of the original parse trees
+over unsplit categories. For each observed category
+A we now have a set of latent subcategories Ax. For
+example, NP might be split into NP1 through NP8.
+The parameters of the refined productions
+Ax By Cz, where Ax is a subcategory of A, By
+of B, and Cz of C, can then be estimated in var-
+ious ways; past work has included both generative
+(Matsuzaki et al., 2005; Liang et al., 2007) and dis-
+criminative approaches (Petrov and Klein, 2008).
+We take the discriminative log-linear approach here.
+Note that the comparison is only between estimation
+methods, as Smith and Johnson (2007) show that the
+model classes are the same.
+</bodyText>
+<subsectionHeader confidence="0.997038">
+2.2 Log-Linear Latent Variable Grammars
+</subsectionHeader>
+<bodyText confidence="0.993449857142857">
+In a log-linear latent variable grammar, each pro-
+duction r = Ax By Cz is associated with a
+multiplicative weight r (Johnson, 2001; Petrov and
+Klein, 2008) (sometimes we will use the log-weight
+r when convenient). The probability of a derivation
+t of a sentence w is proportional to the product of the
+weights of its productions r:
+</bodyText>
+<equation confidence="0.99299525">
+P(t|w)
+Y
+rt
+r
+</equation>
+<bodyText confidence="0.958409">
+The score of a parse T is then the sum of the scores
+of its derivations:
+</bodyText>
+<equation confidence="0.99948225">
+P(T|w) =
+X
+tT
+P(t|w)
+</equation>
+<sectionHeader confidence="0.967683" genericHeader="method">
+3 Hierarchical Refinement
+</sectionHeader>
+<bodyText confidence="0.994666476190476">
+Grammar refinement becomes challenging when the
+number of subcategories is large. If each category
+is split into k subcategories, each (binary) produc-
+tion will be split into k3. The resulting memory lim-
+itations alone can prevent the practical learning of
+highly split grammars (Matsuzaki et al., 2005). This
+issue was partially addressed in Petrov et al. (2006),
+where categories were repeatedly split and some
+splits were re-merged if the gains were too small.
+However, while the grammars are indeed compact
+at the (sub-)category level, they are still dense at the
+production level, which we address here.
+As in Petrov et al. (2006), we arrange our subcat-
+egories into a hierarchy, as shown in Figure 1. In
+practice, the construction of the hierarchy is tightly
+coupled to a split-based learning process (see Sec-
+tion 5). We use the naming convention that an origi-
+nal category A becomes A0 and A1 in the first round;
+A0 then becoming A00 and A01 in the second round,
+and so on. We will use x x to indicate that the
+subscript or subcategory x is a refinement of x.1 We
+</bodyText>
+<page confidence="0.925905">
+1
+</page>
+<bodyText confidence="0.9002775">
+Conversely, x is a coarser version of x, or, in the language
+of Petrov and Klein (2007), x is a projection of x.
+</bodyText>
+<page confidence="0.991955">
+868
+</page>
+<equation confidence="0.713235135135135">
+\x0c+ 7 . 3
++ 5 . 0
++ 7 . 3
++ 1 2
++ 2 . 1
+S i n g l e \x12 s c a l e p r o d u c t i o n s
++ 5 . 0
++ 5 . 0
++ 7 . 3
++ 2 . 1
++ 2 . 1
++ 2 . 1
++ 2 . 1
+M
+u l t i \x12 s c a l e p r o d u c t i o n s
++ 2 . 1
++ 1 2
++ 5 . 0
+0 0
+1
+0 1 0 0 1 1
++ 5 . 0 + 5 . 0 + 7 . 3 + 1 2
+0 0 0 1 0 0 1 0 1 1 1 0 1 1 1
+0 0 1 0 1 0 0 1 1
++ 2 . 1 + 2 . 1
++ 2 . 1
++ 2 . 1
+r r
+0 0
+0
+*
+1
+1 0
+0 1 1 1
+0
+*
+0 1
+</equation>
+<table confidence="0.934452133333333">
+D T 0 0 0 t h e
+D T 0 0 1 t h e
+D T 0 1 0 t h e
+D T 0 1 1 t h e
+D T 1 0 0 t h e
+D T 1 0 1 t h e
+D T 1 1 0 t h e
+D T 1 1 1 t h e
+D T 0 0 t h e
+D T 0 1 0 t h e
+D T 0 1 1 t h e
+D T 1 t h e
+}
+}
++ 1 2
+</table>
+<figureCaption confidence="0.995781">
+Figure 1: Multi-scale refinement of the DT the production. The multi-scale grammar can be encoded much more
+</figureCaption>
+<bodyText confidence="0.98702475">
+compactly than the equally expressive single scale grammar by using only the shaded features along the fringe.
+will also say that x dominates x, and x will refer to
+fully refined subcategories. The same terminology
+can be applied to (binary) productions, which split
+into eight refinements each time the subcategories
+are split in two.
+The core observation leading to multi-scale gram-
+mars is that when we look at the refinements of a
+production, many are very similar in weight. It is
+therefore advantageous to record productions only at
+the level where they are distinct from their children
+in the hierarchy.
+</bodyText>
+<sectionHeader confidence="0.999173" genericHeader="method">
+4 Multi-Scale Grammars
+</sectionHeader>
+<bodyText confidence="0.996600684210526">
+A multi-scale grammar is a grammar in which some
+productions reference fine categories, while others
+reference coarse categories. As an example, con-
+sider the multi-scale grammar in Figure 2, where the
+NP category has been split into two subcategories
+(NP0, NP1) to capture subject and object distinc-
+tions. Since it can occur in subject and object po-
+sition, the production NP it has remained unsplit.
+In contrast, in a single-scale grammar, two produc-
+tions NP0 it and NP1 it would have been nec-
+essary. We use * as a wildcard, indicating that NP
+can combine with any other NP, while NP1 can only
+combine with other NP1. Whenever subcategories
+of different granularity are combined, the resulting
+constituent takes the more specific label.
+In terms of its structure, a multi-scale grammar is
+a set of productions over varyingly refined symbols,
+where each production is associated with a weight.
+Consider the refinement of the production shown in
+</bodyText>
+<figureCaption confidence="0.836105">
+Figure 1. The original unsplit production (at top)
+</figureCaption>
+<bodyText confidence="0.998752307692308">
+would naively be split into a tree of many subpro-
+ductions (downward in the diagram) as the grammar
+categories are incrementally split. However, it may
+be that many of the fully refined productions share
+the same weights. This will be especially common
+in the present work, where we go out of our way to
+achieve it (see Section 5). For example, in Figure 1,
+the productions DTx the have the same weight
+for all categories DTx which refine DT1.2 A multi-
+scale grammar can capture this behavior with just 4
+productions, while the single-scale grammar has 8
+productions. For binary productions the savings will
+of course be much higher.
+In terms of its semantics, a multi-scale grammar is
+simply a compact encoding of a fully refined latent
+variable grammar, in which identically weighted re-
+finements of productions have been collapsed to the
+coarsest possible scale. Therefore, rather than at-
+tempting to control the degree to which categories
+are split, multi-scale grammars simply encode pro-
+ductions at varying scales. It is hence natural to
+speak of refining productions, while considering
+the categories to exist at all degrees of refinement.
+Multi-scale grammars enable the use of coarse (even
+unsplit) categories in some regions of the grammar,
+while requiring very specific subcategories in others,
+as needed. As we will see in the following, this flex-
+ibility results in a tremendous reduction of grammar
+parameters, as well as improved parsing time, be-
+cause the vast majority of productions end up only
+partially split.
+Since a multi-scale grammar has productions
+which can refer to different levels of the category
+hierarchy, there must be constraints on their coher-
+ence. Specifically, for each fully refined produc-
+tion, exactly one of its dominating coarse produc-
+tions must be in the grammar. More formally, the
+multi-scale grammar partitions the space of fully re-
+fined base rules such that each r maps to a unique
+</bodyText>
+<page confidence="0.972923">
+2
+</page>
+<bodyText confidence="0.9977475">
+We define dominating productions and refining productions
+analogously as for subcategories.
+</bodyText>
+<page confidence="0.972023">
+869
+</page>
+<equation confidence="0.997732632653061">
+\x0ci t
+s a w
+V P 0
+N P 1
+V *
+S *
+N P 0
+V 0 N P
+*
+h e r
+s a w
+V P 0
+N P 1
+V
+*
+S *
+N P 0
+V 0 N P 1
+V P 0
+N P 1
+V
+*
+S *
+V P
+*
+N P 0
+h e r
+N P 1
+s
+h e
+N P 0
+i t
+N P
+*
+s a w
+V 0
+L
+e x i c o n :
+G
+r
+a m m a
+r :
+V P * V P *
+s
+h e
+N P 0
+i t
+N P
+*
+</equation>
+<figureCaption confidence="0.860512">
+Figure 2: In multi-scale grammars, the categories exist
+</figureCaption>
+<bodyText confidence="0.9862535">
+at varying degrees of refinement. The grammar in this
+example enforces the correct usage of she and her, while
+allowing the use of it in both subject and object position.
+dominating rule r, and for all base rules r such that
+r r, r maps to r as well. This constraint is al-
+ways satisfied if the multi-scale grammar consists of
+fringes of the production refinement hierarchies, in-
+dicated by the shading in Figure 1.
+A multi-scale grammar straightforwardly assigns
+scores to derivations in the corresponding fully re-
+fined single scale grammar: simply map each refined
+derivation rule to its dominating abstraction in the
+multi-scale grammar and give it the corresponding
+weight. The fully refined grammar is therefore triv-
+ially (though not compactly) reconstructable from
+its multi-scale encoding.
+It is possible to directly define a derivational se-
+mantics for multi-scale grammars which does not
+appeal to the underlying single scale grammar.
+However, in the present work, we use our multi-
+scale grammars only to compute expectations of the
+underlying grammars in an efficient, implicit way.
+</bodyText>
+<sectionHeader confidence="0.922291" genericHeader="method">
+5 Learning Sparse Multi-Scale Grammars
+</sectionHeader>
+<bodyText confidence="0.999689727272727">
+We now consider how to discriminatively learn
+multi-scale grammars by iterative splitting produc-
+tions. There are two main concerns. First, be-
+cause multi-scale grammars are most effective when
+many productions share the same weight, sparsity
+is very desirable. In the present work, we exploit
+L1-regularization, though other techniques such as
+structural zeros (Mohri and Roark, 2006) could
+also potentially be used. Second, training requires
+repeated parsing, so we use coarse-to-fine chart
+caching to greatly accelerate each iteration.
+</bodyText>
+<subsectionHeader confidence="0.997321">
+5.1 Hierarchical Training
+</subsectionHeader>
+<bodyText confidence="0.997437428571429">
+We learn discriminative multi-scale grammars in an
+iterative fashion (see Figure 1). As in Petrov et al.
+(2006), we start with a simple X-bar grammar from
+an input treebank. The parameters of the grammar
+(production log-weights for now) are estimated in a
+log-linear framework by maximizing the penalized
+log conditional likelihood Lcond R(), where:
+</bodyText>
+<equation confidence="0.997705">
+Lcond() = log
+Y
+i
+P(Ti|wi)
+R() =
+X
+r
+|r|
+</equation>
+<bodyText confidence="0.980185714285714">
+We directly optimize this non-convex objective
+function using a numerical gradient based method
+(LBFGS (Nocedal and Wright, 1999) in our imple-
+mentation). To handle the non-diferentiability of the
+L1-regularization term R() we use the orthant-wise
+method of Andrew and Gao (2007). Fitting the log-
+linear model involves the following derivatives:
+</bodyText>
+<equation confidence="0.99474425">
+Lcond()
+r
+=
+X
+i
+\x12
+E [fr(t)|Ti] E[fr(t)|wi]
+\x13
+</equation>
+<bodyText confidence="0.993871647058823">
+where the first term is the expected count fr of a pro-
+duction r in derivations corresponding to the correct
+parse tree Ti and the second term is the expected
+count of the production in all derivations of the sen-
+tence wi. Note that r may be of any scale. As we
+will show below, these expectations can be com-
+puted exactly using marginals from the chart of the
+inside/outside algorithm (Lari and Young, 1990).
+Once the base grammar has been estimated, all
+categories are split in two, meaning that all binary
+productions are split in eight. When splitting an al-
+ready refined grammar, we only split productions
+whose log-weight in the previous grammar deviates
+from zero.3 This creates a refinement hierarchy over
+productions. Each newly split production r is given
+a unique feature, as well as inheriting the features of
+its parent productions r r:
+</bodyText>
+<equation confidence="0.9945076">
+r = exp
+\x10 X
+rr
+r
+\x11
+</equation>
+<bodyText confidence="0.987521">
+The parent productions r are then removed from the
+grammar and the new features are fit as described
+</bodyText>
+<page confidence="0.871463">
+3
+</page>
+<figureCaption confidence="0.4459615">
+L1-regularization drives more than 95% of the feature
+weights to zero in each round.
+</figureCaption>
+<page confidence="0.7526">
+870
+</page>
+<equation confidence="0.9956094">
+\x0cV P
+N P
+S
+N P
+D T N N V B D D T N N
+V P
+i k j
+S 0 N P 1 V P 0 1
+I(S0, i, j)
+I(S11, i, j)
+</equation>
+<figureCaption confidence="0.915966">
+Figure 3: A multi-scale chart can be used to efficiently
+compute inside/outside scores using productions of vary-
+ing specificity.
+</figureCaption>
+<bodyText confidence="0.9128024">
+above. We detect that we have split a production too
+far when all child production features are driven to
+zero under L1 regularization. In such cases, the chil-
+dren are collapsed to their parent production, which
+forms an entry in the multi-scale grammar.
+</bodyText>
+<subsectionHeader confidence="0.997836">
+5.2 Efficient Multi-Scale Inference
+</subsectionHeader>
+<bodyText confidence="0.997903875">
+In order to compute the expected counts needed for
+training, we need to parse the training set, score
+all derivations and compute posteriors for all sub-
+categories in the refinement hierarchy. The in-
+side/outside algorithm (Lari and Young, 1990) is an
+efficient dynamic program for summing over deriva-
+tions under a context-free grammar. It is fairly
+straightforward to adapt this algorithm to multi-
+scale grammars, allowing us to sum over an expo-
+nential number of derivations without explicitly re-
+constructing the underlying fully split grammar.
+For single-scale latent variable grammars, the in-
+side score I(Ax, i, j) of a fully refined category Ax
+spanning hi, ji is computed by summing over all
+possible productions r = Ax By Cz with weight
+r, spanning hi, ki and hk, ji respectively:4
+</bodyText>
+<equation confidence="0.928265571428571">
+I(Ax, i, j) =
+X
+r
+r
+X
+k
+I(By, i, k)I(Cz, k, j)
+</equation>
+<bodyText confidence="0.990380666666666">
+Note that this involves summing over all relevant
+fully refined grammar productions.
+The key quantities we will need are marginals of
+the form I(Ax, i, j), the sum of the scores of all fully
+refined derivations rooted at any Ax dominated by
+Ax and spanning hi, ji. We define these marginals
+</bodyText>
+<page confidence="0.955517">
+4
+</page>
+<bodyText confidence="0.9830405">
+These scores lack any probabilistic interpretation, but can
+be normalized to compute the necessary expectations for train-
+ing (Petrov and Klein, 2008).
+in terms of the standard inside scores of the most
+</bodyText>
+<equation confidence="0.9337678">
+refined subcategories Ax:
+I(Ax, i, j) =
+X
+xx
+I(Ax, i, j)
+</equation>
+<bodyText confidence="0.998752333333333">
+When working with multi-scale grammars, we
+expand the standard three-dimensional chart over
+spans and grammar categories to store the scores of
+all subcategories of the refinement hierarchy, as il-
+lustrated in Figure 3. This allows us to compute the
+scores more efficiently by summing only over rules
+</bodyText>
+<equation confidence="0.990339387755102">
+r = Ax By Cz r:
+I(Ax, i, j) =
+X
+r
+X
+rr
+r
+X
+k
+I(By, i, k)I(Cz, k, j)
+=
+X
+r
+r
+X
+rr
+X
+k
+I(By, i, k)I(Cz, k, j)
+=
+X
+r
+r
+X
+yy
+X
+zz
+X
+k
+I(By, i, k)I(Cz, k, j)
+=
+X
+r
+r
+X
+k
+X
+yy
+I(By, i, k)
+X
+zz
+I(Cz, k, j)
+=
+X
+r
+r
+X
+k
+I(By, i, k)I(Cz, k, j)
+</equation>
+<bodyText confidence="0.994973833333333">
+Of course, some of the same quantities are computed
+repeatedly in the above equation and can be cached
+in order to obtain further efficiency gains. Due to
+space constraints we omit these details, and also the
+computation of the outside score, as well as the han-
+dling of unary productions.
+</bodyText>
+<subsectionHeader confidence="0.987082">
+5.3 Feature Count Approximations
+</subsectionHeader>
+<bodyText confidence="0.999266769230769">
+Estimating discriminative grammars is challenging,
+as it requires repeatedly taking expectations over all
+parses of all sentences in the training set. To make
+this computation practical on large data sets, we
+use the same approach as Petrov and Klein (2008).
+Therein, the idea of coarse-to-fine parsing (Charniak
+et al., 1998) is extended to handle the repeated pars-
+ing of the same sentences. Rather than computing
+the entire coarse-to-fine history in every round of
+training, the pruning history is cached between train-
+ing iterations, effectively avoiding the repeated cal-
+culation of similar quantities and allowing the effi-
+cient approximation of feature count expectations.
+</bodyText>
+<page confidence="0.987375">
+871
+</page>
+<sectionHeader confidence="0.255049" genericHeader="method">
+\x0c6 Additional Features
+</sectionHeader>
+<bodyText confidence="0.985974">
+The discriminative framework gives us a convenient
+way of incorporating additional, overlapping fea-
+tures. We investigate two types of features: un-
+known word features (for predicting the part-of-
+speech tags of unknown or rare words) and span fea-
+tures (for determining constituent boundaries based
+on individual words and the overall sentence shape).
+</bodyText>
+<subsectionHeader confidence="0.998933">
+6.1 Unknown Word Features
+</subsectionHeader>
+<bodyText confidence="0.99737756">
+Building a parser that can process arbitrary sen-
+tences requires the handling of previously unseen
+words. Typically, a classification of rare words into
+word classes is used (Collins, 1999). In such an ap-
+proach, the word classes need to be manually de-
+fined a priori, for example based on discriminating
+word shape features (suffixes, prefixes, digits, etc.).
+While this component of the parsing system is
+rarely talked about, its importance should not be un-
+derestimated: when using only one unknown word
+class, final parsing performance drops several per-
+centage points. Some unknown word features are
+universal (e.g. digits, dashes), but most of them
+will be highly language dependent (prefixes, suf-
+fixes), making additional human expertise necessary
+for training a parser on a new language. It is there-
+fore beneficial to automatically learn what the dis-
+criminating word shape features for a language are.
+The discriminative framework allows us to do that
+with ease. In our experiments we extract prefixes
+and suffixes of length 3 and add those features to
+words that occur 25 times or less in the training set.
+These unknown word features make the latent vari-
+able grammar learning process more language inde-
+pendent than in previous work.
+</bodyText>
+<subsectionHeader confidence="0.999252">
+6.2 Span Features
+</subsectionHeader>
+<bodyText confidence="0.990337861111111">
+There are many features beyond local tree config-
+urations which can enhance parsing discrimination;
+Charniak and Johnson (2005) presents a varied list.
+In reranking, one can incorporate any such features,
+of course, but even in our dynamic programming ap-
+proach it is possible to include features that decom-
+pose along the dynamic program structure, as shown
+by Taskar et al. (2004). We use non-local span fea-
+tures, which condition on properties of input spans
+(Taskar et al., 2004). We illustrate our span features
+with the following example and the span h1, 4i:
+0 1 [ Yes 2 3 , ] 4 he 5 said 6 . 7
+We first added the following lexical features:
+the first (Yes), last (comma), preceding () and
+following (he) words,
+the word pairs at the left edge h,Yesi, right
+edge hcomma,hei, inside border hYes,commai
+and outside border h,hei.
+Lexical features were added for each span of length
+three or more. We used two groups of span features,
+one for natural constituents and one for synthetic
+ones.5 We found this approach to work slightly
+better than anchoring the span features to particular
+constituent labels or having only one group.
+We also added shape features, projecting the
+sentence to abstract shapes to capture global sen-
+tence structures. Punctuation shape replaces ev-
+ery non-punctuation word with x and then further
+collapses strings of x to x+. Our example be-
+comes #x,x+.#, and the punctuation feature
+for our span is [x,]x. Capitalization shape
+projects the example sentence to #.X..xx.#, and
+.[X..]x for our span. Span features are a rich
+source of information and our experiments should
+be seen merely as an initial investigation of their ef-
+fect in our system.
+</bodyText>
+<sectionHeader confidence="0.998502" genericHeader="method">
+7 Experiments
+</sectionHeader>
+<bodyText confidence="0.9988823125">
+We ran experiments on a variety of languages and
+corpora using the standard training and test splits,
+as described in Table 1. In each case, we start
+with a completely unannotated X-bar grammar, ob-
+tained from the raw treebank by a simple right-
+branching binarization scheme. We then train multi-
+scale grammars of increasing latent complexity as
+described in Section 5, directly incorporating the
+additional features from Section 6 into the training
+procedure. Hierarchical training starting from a raw
+treebank grammar and proceeding to our most re-
+fined grammars took three days in a parallel im-
+plementation using 8 CPUs. At testing time we
+marginalize out the hidden structure and extract the
+tree with the highest number of expected correct pro-
+ductions, as in Petrov and Klein (2007).
+</bodyText>
+<page confidence="0.88838">
+5
+</page>
+<bodyText confidence="0.69329">
+Synthetic constituents are nodes that are introduced during
+binarization.
+</bodyText>
+<page confidence="0.985994">
+872
+</page>
+<table confidence="0.9966845">
+\x0cTraining Set Dev. Set Test Set
+ENGLISH-WSJ Sections
+Section 22 Section 23
+(Marcus et al., 1993) 2-21
+ENGLISH-BROWN see 10% of 10% of the
+(Francis et al. 2002) ENGLISH-WSJ the data6
+the data6
+FRENCH7
+Sentences Sentences Sentences
+(Abeille et al., 2000) 1-18,609 18,610-19,609 19,609-20,610
+GERMAN Sentences Sentences Sentences
+(Skut et al., 1997) 1-18,602 18,603-19,602 19,603-20,602
+</table>
+<tableCaption confidence="0.999653">
+Table 1: Corpora and standard experimental setups.
+</tableCaption>
+<bodyText confidence="0.999853625">
+We compare to a baseline of discriminatively
+trained latent variable grammars (Petrov and Klein,
+2008). We also compare our discriminative multi-
+scale grammars to their generative split-and-merge
+cousins, which have been shown to produce the
+state-of-the-art figures in terms of accuracy and effi-
+ciency on many corpora. For those comparisons we
+use the grammars from Petrov and Klein (2007).
+</bodyText>
+<subsectionHeader confidence="0.997781">
+7.1 Sparsity
+</subsectionHeader>
+<bodyText confidence="0.999863916666667">
+One of the main motivations behind multi-scale
+grammars was to create compact grammars. Fig-
+ure 4 shows parsing accuracies vs. grammar sizes.
+Focusing on the grammar size for now, we see that
+multi-scale grammars are extremely compact - even
+our most refined grammars have less than 50,000 ac-
+tive productions. This is 20 times smaller than the
+generative split-and-merge grammars, which use ex-
+plicit category merging. The graph also shows that
+this compactness is due to controlling production
+sparsity, as the single-scale discriminative grammars
+are two orders of magnitude larger.
+</bodyText>
+<subsectionHeader confidence="0.996958">
+7.2 Accuracy
+</subsectionHeader>
+<bodyText confidence="0.9951784">
+Figure 4 shows development set results for En-
+glish. In terms of parsing accuracy, multi-scale
+grammars significantly outperform discriminatively
+trained single-scale latent variable grammars and
+perform on par with the generative split-and-merge
+grammars. The graph also shows that the unknown
+word and span features each add about 0.5% in final
+parsing accuracy. Note that the span features im-
+prove the performance of the unsplit baseline gram-
+mar by 8%, but not surprisingly their contribution
+</bodyText>
+<page confidence="0.977969">
+6
+</page>
+<bodyText confidence="0.659094">
+See Gildea (2001) for the exact setup.
+</bodyText>
+<page confidence="0.994353">
+7
+</page>
+<bodyText confidence="0.9838175">
+This setup contains only sentences without annotation er-
+rors, as in (Arun and Keller, 2005).
+</bodyText>
+<page confidence="0.630179">
+90
+</page>
+<figure confidence="0.9742011">
+85
+80
+75
+1000000
+100000
+10000
+Parsing
+accuracy
+(F1)
+Number of grammar productions
+</figure>
+<table confidence="0.648718">
+Discriminative Multi-Scale Grammars
++ Lexical Features
++ Span Features
+Generative Split-Merge Grammars
+Flat Discriminative Grammars
+</table>
+<figureCaption confidence="0.999517">
+Figure 4: Discriminative multi-scale grammars give sim-
+</figureCaption>
+<bodyText confidence="0.787994666666667">
+ilar parsing accuracies as generative split-merge gram-
+mars, while using an order of magnitude fewer rules.
+gets smaller when the grammars get more refined.
+Section 8 contains an analysis of some of the learned
+features, as well as a comparison between discrimi-
+natively and generatively trained grammars.
+</bodyText>
+<subsectionHeader confidence="0.99472">
+7.3 Efficiency
+</subsectionHeader>
+<bodyText confidence="0.998752739130435">
+Petrov and Klein (2007) demonstrates how the idea
+of coarse-to-fine parsing (Charniak et al., 1998;
+Charniak et al., 2006) can be used in the context of
+latent variable models. In coarse-to-fine parsing the
+sentence is rapidly pre-parsed with increasingly re-
+fined grammars, pruning away unlikely chart items
+in each pass. In their work the grammar is pro-
+jected onto coarser versions, which are then used
+for pruning. Multi-scale grammars, in contrast, do
+not require projections. The refinement hierarchy is
+built in and can be used directly for coarse-to-fine
+pruning. Each production in the grammar is associ-
+ated with a set of hierarchical features. To obtain a
+coarser version of a multi-scale grammar, one there-
+fore simply limits which features in the refinement
+hierarchy can be accessed. In our experiments, we
+start by parsing with our coarsest grammar and al-
+low an additional level of refinement at each stage of
+the pre-parsing. Compared to the generative parser
+of Petrov and Klein (2007), parsing with multi-scale
+grammars requires the evaluation of 29% fewer pro-
+ductions, decreasing the average parsing time per
+sentence by 36% to 0.36 sec/sentence.
+</bodyText>
+<page confidence="0.99821">
+873
+</page>
+<table confidence="0.999112869565217">
+\x0c 40 words all
+Parser F1 EX F1 EX
+ENGLISH-WSJ
+Petrov and Klein (2008) 88.8 35.7 88.3 33.1
+Charniak et al. (2005) 90.3 39.6 89.7 37.2
+Petrov and Klein (2007) 90.6 39.1 90.1 37.1
+This work w/o span features 89.7 39.6 89.2 37.2
+This work w/ span features 90.0 40.1 89.4 37.7
+ENGLISH-WSJ (reranked)
+Huang (2008) 92.3 46.2 91.7 43.5
+ENGLISH-BROWN
+Charniak et al. (2005) 84.5 34.8 82.9 31.7
+Petrov and Klein (2007) 84.9 34.5 83.7 31.2
+This work w/o span features 85.3 35.6 84.3 32.1
+This work w/ span features 85.6 35.8 84.5 32.3
+ENGLISH-BROWN (reranked)
+Charniak et al. (2005) 86.8 39.9 85.2 37.8
+FRENCH
+Arun and Keller (2005) 79.2 21.2 75.6 16.4
+This Paper 80.1 24.2 77.2 19.2
+GERMAN
+Petrov and Klein (2007) 80.8 40.8 80.1 39.1
+This Paper 81.5 45.2 80.7 43.9
+</table>
+<tableCaption confidence="0.993428">
+Table 2: Our final test set parsing accuracies compared to
+</tableCaption>
+<bodyText confidence="0.739344">
+the best previous work on English, French and German.
+</bodyText>
+<subsectionHeader confidence="0.956552">
+7.4 Final Results
+</subsectionHeader>
+<bodyText confidence="0.9995985">
+For each corpus we selected the grammar that gave
+the best performance on the development set to parse
+the final test set. Table 2 summarizes our final test
+set performance, showing that multi-scale grammars
+achieve state-of-the-art performance on most tasks.
+On WSJ-English, the discriminative grammars per-
+form on par with the generative grammars of Petrov
+et al. (2006), falling slightly short in terms of F1, but
+having a higher exact match score. When trained
+on WSJ-English but tested on the Brown corpus,
+the discriminative grammars clearly outperform the
+generative grammars, suggesting that the highly reg-
+ularized and extremely compact multi-scale gram-
+mars are less prone to overfitting. All those meth-
+ods fall short of reranking parsers like Charniak and
+Johnson (2005) and Huang (2008), which, however,
+have access to many additional features, that cannot
+be used in our dynamic program.
+When trained on the French and German tree-
+banks, our multi-scale grammars achieve the best
+figures we are aware of, without any language spe-
+cific modifications. This confirms that latent vari-
+able models are well suited for capturing the syn-
+tactic properties of a range of languages, and also
+shows that discriminative grammars are still effec-
+tive when trained on smaller corpora.
+</bodyText>
+<sectionHeader confidence="0.993594" genericHeader="method">
+8 Analysis
+</sectionHeader>
+<bodyText confidence="0.999753195121951">
+It can be illuminating to see the subcategories that
+are being learned by our discriminative multi-scale
+grammars and to compare them to generatively es-
+timated latent variable grammars. Compared to the
+generative case, the lexical categories in the discrim-
+inative grammars are substantially less refined. For
+example, in the generative case, the nominal cate-
+gories were fully refined, while in the discrimina-
+tive case, fewer nominal clusters were heavily used.
+One reason for this can be seen by inspecting the
+first two-way split in the NNP tag. The genera-
+tive model split into initial NNPs (San, Wall) and
+final NNPs (Francisco, Street). In contrast, the dis-
+criminative split was between organizational entities
+(Stock, Exchange) and other entity types (September,
+New, York). This constrast is unsurprising. Genera-
+tive likelihood is advantaged by explaining lexical
+choice New and York occur in very different slots.
+However, they convey the same information about
+the syntactic context above their base NP and are
+therefore treated the same, discriminatively, while
+the systematic attachment distinctions between tem-
+porals and named entities are more predictive.
+Analyzing the syntactic and semantic patterns
+learned by the grammars shows similar trends. In
+Table 3 we compare the number of subcategories
+in the generative split-and-merge grammars to the
+average number of features per unsplit production
+with that phrasal category as head in our multi-scale
+grammars after 5 split (and merge) rounds. These
+quantities are inherently different: the number of
+features should be roughly cubic in the number of
+subcategories. However, we observe that the num-
+bers are very close, indicating that, due to the spar-
+sity of our productions, and the efficient multi-scale
+encoding, the number of grammar parameters grows
+linearly in the number of subcategories. Further-
+more, while most categories have similar complex-
+ity in those two cases, the complexity of the two
+most refined phrasal categories are flipped. Gener-
+ative grammars split NPs most highly, discrimina-
+</bodyText>
+<page confidence="0.980422">
+874
+</page>
+<figure confidence="0.970565">
+\x0cNP
+VP
+PP
+S
+SBAR
+ADJP
+ADVP
+QP
+PRN
+Generative
+32 24 20 12 12 12 8 7 5
+subcategories
+Discriminative
+19 32 20 14 14 8 7 9 6
+production parameters
+</figure>
+<tableCaption confidence="0.99673">
+Table 3: Complexity of highly split phrasal categories in
+</tableCaption>
+<bodyText confidence="0.995413818181818">
+generative and discriminative grammars. Note that sub-
+categories are compared to production parameters, indi-
+cating that the number of parameters grows cubicly in the
+number of subcategories for generative grammars, while
+growing linearly for multi-scale grammars.
+tive grammars split the VP. This distinction seems
+to be because the complexity of VPs is more syntac-
+tic (e.g. complex subcategorization), while that of
+NPs is more lexical (noun choice is generally higher
+entropy than verb choice).
+It is also interesting to examine the automatically
+learned word class features. Table 4 shows the suf-
+fixes with the highest weight for a few different cat-
+egories across the three languages that we experi-
+mented with. The learning algorithm has selected
+discriminative suffixes that are typical derviational
+or inflectional morphemes in their respective lan-
+guages. Note that the highest weighted suffixes will
+typically not correspond to the most common suffix
+in the word class, but to the most discriminative.
+Finally, the span features also exhibit clear pat-
+terns. The highest scoring span features encourage
+the words between the last two punctuation marks
+to form a constituent (excluding the punctuation
+marks), for example ,[x+]. and :[x+]. Words
+between quotation marks are also encouraged to
+form constituents: [x+] and x[x+]x.
+Span features can also discourage grouping words
+into constituents. The features with the highest neg-
+ative weight involve single commas: x[x,x+],
+and x[x+,x+]x and so on (indeed, such spans
+were structurally disallowed by the Collins (1999)
+parser).
+</bodyText>
+<sectionHeader confidence="0.997123" genericHeader="conclusions">
+9 Conclusions
+</sectionHeader>
+<bodyText confidence="0.9861725">
+Discriminatively trained multi-scale grammars give
+state-of-the-art parsing performance on a variety of
+languages and corpora. Grammar size is dramati-
+cally reduced compared to the baseline, as well as to
+</bodyText>
+<sectionHeader confidence="0.735532" genericHeader="acknowledgments">
+ENGLISH GERMAN FRENCH
+</sectionHeader>
+<figure confidence="0.990662846153846">
+Adjectives
+-ous -los -ien
+-ble -bar -ble
+-nth -ig -ive
+Nouns
+-ion -tat -te
+-en -ung -eur
+-cle -rei -ges
+Verbs
+-ed -st -ees
+-s -eht -e
+Adverbs -ly -mal -ent
+Numbers -ty -zig
+</figure>
+<tableCaption confidence="0.988704">
+Table 4: Automatically learned suffixes with the highest
+</tableCaption>
+<bodyText confidence="0.989361714285714">
+weights for different languages and part-of-speech tags.
+methods like split-and-merge (Petrov et al., 2006).
+Because fewer parameters are estimated, multi-scale
+grammars may also be less prone to overfitting, as
+suggested by a cross-corpus evaluation experiment.
+Furthermore, the discriminative framework enables
+the seamless integration of additional, overlapping
+features, such as span features and unknown word
+features. Such features further improve parsing per-
+formance and make the latent variable grammars
+very language independent.
+Our parser, along with trained grammars
+for a variety of languages, is available at
+http://nlp.cs.berkeley.edu.
+</bodyText>
+<sectionHeader confidence="0.985076" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.999642583333333">
+A. Abeille, L. Clement, and A. Kinyon. 2000. Building a
+treebank for French. In 2nd International Conference
+on Language Resources and Evaluation.
+G. Andrew and J. Gao. 2007. Scalable training of L1-
+regularized log-linear models. In ICML 07.
+A. Arun and F. Keller. 2005. Lexicalization in crosslin-
+guistic probabilistic parsing: the case of french. In
+ACL 05.
+E. Charniak and M. Johnson. 2005. Coarse-to-Fine N-
+Best Parsing and MaxEnt Discriminative Reranking.
+In ACL05.
+E. Charniak, S. Goldwater, and M. Johnson. 1998. Edge-
+based best-first chart parsing. 6th
+Workshop on Very
+Large Corpora.
+E. Charniak, M. Johnson, D. McClosky, et al. 2006.
+Multi-level coarse-to-fine PCFG Parsing. In HLT-
+NAACL 06.
+E. Charniak. 2000. A maximumentropyinspired
+parser. In NAACL 00.
+S. Clark and J. R. Curran. 2004. Parsing the WSJ using
+CCG and log-linear models. In ACL 04.
+M. Collins. 1999. Head-Driven Statistical Models for
+Natural Language Parsing. Ph.D. thesis, UPenn.
+</reference>
+<page confidence="0.956535">
+875
+</page>
+<reference confidence="0.994237701754386">
+\x0cJ. Finkel, A. Kleeman, and C. Manning. 2008. Effi-
+cient, feature-based, conditional random field parsing.
+In ACL 08.
+W. N. Francis and H. Kucera. 2002. Manual of infor-
+mation to accompany a standard corpus of present-day
+edited american english. In TR, Brown University.
+D. Gildea. 2001. Corpus variation and parser perfor-
+mance. EMNLP 01.
+J. Henderson. 2004. Discriminative training of a neural
+network statistical parser. In ACL 04.
+L. Huang. 2008. Forest reranking: Discriminative pars-
+ing with non-local features. In ACL 08.
+M. Johnson. 1998. PCFG models of linguistic tree rep-
+resentations. Computational Linguistics, 24:613632.
+M. Johnson. 2001. Joint and conditional estimation of
+tagging and parsing models. In ACL 01.
+D. Klein and C. Manning. 2003. Accurate unlexicalized
+parsing. In ACL 03, pages 423430.
+T. Koo and M. Collins. 2005. Hidden-variable models
+for discriminative reranking. In EMNLP 05.
+J. Lafferty, A. McCallum, and F. Pereira. 2001. Con-
+ditional Random Fields: Probabilistic models for seg-
+menting and labeling sequence data. In ICML 01.
+K. Lari and S. Young. 1990. The estimation of stochas-
+tic context-free grammars using the inside-outside al-
+gorithm. Computer Speech and Language.
+P. Liang, S. Petrov, M. I. Jordan, and D. Klein. 2007. The
+infinite PCFG using hierarchical Dirichlet processes.
+In EMNLP 07.
+M. Marcus, B. Santorini, and M. Marcinkiewicz. 1993.
+Building a large annotated corpus of English: The
+Penn Treebank. In Computational Linguistics.
+T. Matsuzaki, Y. Miyao, and J. Tsujii. 2005. Probabilis-
+tic CFG with latent annotations. In ACL 05.
+M. Mohri and B. Roark. 2006. Probabilistic context-free
+grammar induction based on structural zeros. In HLT-
+NAACL 06.
+J. Nocedal and S. J. Wright. 1999. Numerical Optimiza-
+tion. Springer.
+S. Petrov and D. Klein. 2007. Improved inference for
+unlexicalized parsing. In HLT-NAACL 07.
+S. Petrov and D. Klein. 2008. Discriminative log-linear
+grammars with latent variables. In NIPS 08.
+S. Petrov, L. Barrett, R. Thibaux, and D. Klein. 2006.
+Learning accurate, compact, and interpretable tree an-
+notation. In ACL 06.
+W. Skut, B. Krenn, T. Brants, and H. Uszkoreit. 1997.
+An annotation scheme for free word order languages.
+In Conf. on Applied Natural Language Processing.
+N. A. Smith and M. Johnson. 2007. Weighted and prob-
+abilistic context-free grammars are equally expressive.
+Computational Lingusitics.
+B. Taskar, D. Klein, M. Collins, D. Koller, and C. Man-
+ning. 2004. Max-margin parsing. In EMNLP 04.
+J. Turian, B. Wellington, and I. D. Melamed. 2007. Scal-
+able discriminative learning for natural language pars-
+ing and translation. In NIPS 07.
+</reference>
+<page confidence="0.990774">
+876
+</page>
+<figure confidence="0.246393">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.860923">
+<note confidence="0.951500666666667">b&apos;Proceedings of the 2008 Conference on Empirical Methods in Natural Language Processing, pages 867876, Honolulu, October 2008. c 2008 Association for Computational Linguistics</note>
+<title confidence="0.996126">Sparse Multi-Scale Grammars for Discriminative Latent Variable Parsing</title>
+<author confidence="0.999699">Slav Petrov</author>
+<author confidence="0.999699">Dan Klein</author>
+<affiliation confidence="0.9999565">Computer Science Division, EECS Department University of California at Berkeley</affiliation>
+<address confidence="0.999924">Berkeley, CA 94720</address>
+<email confidence="0.998902">petrov@eecs.berkeley.edu</email>
+<email confidence="0.998902">klein@eecs.berkeley.edu</email>
+<abstract confidence="0.9984957">We present a discriminative, latent variable approach to syntactic parsing in which rules exist at multiple scales of refinement. The model is formally a latent variable CRF grammar over trees, learned by iteratively splitting grammar productions (not categories). Different regions of the grammar are refined to different degrees, yielding grammars which are three orders of magnitude smaller than the single-scale baseline and 20 times smaller than the split-and-merge grammars of Petrov et al. (2006). In addition, our discriminative approach integrally admits features beyond local tree configurations. We present a multiscale training method along with an efficient CKY-style dynamic program. On a variety of domains and languages, this method produces the best published parsing accuracies with the smallest reported grammars.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>A Abeille</author>
+<author>L Clement</author>
+<author>A Kinyon</author>
+</authors>
+<title>Building a treebank for French.</title>
+<date>2000</date>
+<booktitle>In 2nd International Conference on Language Resources and Evaluation.</booktitle>
+<contexts>
+<context position="23770" citStr="Abeille et al., 2000" startWordPosition="4166" endWordPosition="4169"> treebank grammar and proceeding to our most refined grammars took three days in a parallel implementation using 8 CPUs. At testing time we marginalize out the hidden structure and extract the tree with the highest number of expected correct productions, as in Petrov and Klein (2007). 5 Synthetic constituents are nodes that are introduced during binarization. 872 \x0cTraining Set Dev. Set Test Set ENGLISH-WSJ Sections Section 22 Section 23 (Marcus et al., 1993) 2-21 ENGLISH-BROWN see 10% of 10% of the (Francis et al. 2002) ENGLISH-WSJ the data6 the data6 FRENCH7 Sentences Sentences Sentences (Abeille et al., 2000) 1-18,609 18,610-19,609 19,609-20,610 GERMAN Sentences Sentences Sentences (Skut et al., 1997) 1-18,602 18,603-19,602 19,603-20,602 Table 1: Corpora and standard experimental setups. We compare to a baseline of discriminatively trained latent variable grammars (Petrov and Klein, 2008). We also compare our discriminative multiscale grammars to their generative split-and-merge cousins, which have been shown to produce the state-of-the-art figures in terms of accuracy and efficiency on many corpora. For those comparisons we use the grammars from Petrov and Klein (2007). 7.1 Sparsity One of the ma</context>
+</contexts>
+<marker>Abeille, Clement, Kinyon, 2000</marker>
+<rawString>A. Abeille, L. Clement, and A. Kinyon. 2000. Building a treebank for French. In 2nd International Conference on Language Resources and Evaluation.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>G Andrew</author>
+<author>J Gao</author>
+</authors>
+<title>Scalable training of L1-regularized log-linear models.</title>
+<date>2007</date>
+<booktitle>In ICML 07.</booktitle>
+<contexts>
+<context position="14698" citStr="Andrew and Gao (2007)" startWordPosition="2610" endWordPosition="2613">an iterative fashion (see Figure 1). As in Petrov et al. (2006), we start with a simple X-bar grammar from an input treebank. The parameters of the grammar (production log-weights for now) are estimated in a log-linear framework by maximizing the penalized log conditional likelihood Lcond R(), where: Lcond() = log Y i P(Ti|wi) R() = X r |r| We directly optimize this non-convex objective function using a numerical gradient based method (LBFGS (Nocedal and Wright, 1999) in our implementation). To handle the non-diferentiability of the L1-regularization term R() we use the orthant-wise method of Andrew and Gao (2007). Fitting the loglinear model involves the following derivatives: Lcond() r = X i \x12 E [fr(t)|Ti] E[fr(t)|wi] \x13 where the first term is the expected count fr of a production r in derivations corresponding to the correct parse tree Ti and the second term is the expected count of the production in all derivations of the sentence wi. Note that r may be of any scale. As we will show below, these expectations can be computed exactly using marginals from the chart of the inside/outside algorithm (Lari and Young, 1990). Once the base grammar has been estimated, all categories are split in two, m</context>
+</contexts>
+<marker>Andrew, Gao, 2007</marker>
+<rawString>G. Andrew and J. Gao. 2007. Scalable training of L1-regularized log-linear models. In ICML 07.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Arun</author>
+<author>F Keller</author>
+</authors>
+<title>Lexicalization in crosslinguistic probabilistic parsing: the case of french.</title>
+<date>2005</date>
+<booktitle>In ACL 05.</booktitle>
+<contexts>
+<context position="25582" citStr="Arun and Keller, 2005" startWordPosition="4438" endWordPosition="4441">4 shows development set results for English. In terms of parsing accuracy, multi-scale grammars significantly outperform discriminatively trained single-scale latent variable grammars and perform on par with the generative split-and-merge grammars. The graph also shows that the unknown word and span features each add about 0.5% in final parsing accuracy. Note that the span features improve the performance of the unsplit baseline grammar by 8%, but not surprisingly their contribution 6 See Gildea (2001) for the exact setup. 7 This setup contains only sentences without annotation errors, as in (Arun and Keller, 2005). 90 85 80 75 1000000 100000 10000 Parsing accuracy (F1) Number of grammar productions Discriminative Multi-Scale Grammars + Lexical Features + Span Features Generative Split-Merge Grammars Flat Discriminative Grammars Figure 4: Discriminative multi-scale grammars give similar parsing accuracies as generative split-merge grammars, while using an order of magnitude fewer rules. gets smaller when the grammars get more refined. Section 8 contains an analysis of some of the learned features, as well as a comparison between discriminatively and generatively trained grammars. 7.3 Efficiency Petrov a</context>
+<context position="27964" citStr="Arun and Keller (2005)" startWordPosition="4819" endWordPosition="4822">0c 40 words all Parser F1 EX F1 EX ENGLISH-WSJ Petrov and Klein (2008) 88.8 35.7 88.3 33.1 Charniak et al. (2005) 90.3 39.6 89.7 37.2 Petrov and Klein (2007) 90.6 39.1 90.1 37.1 This work w/o span features 89.7 39.6 89.2 37.2 This work w/ span features 90.0 40.1 89.4 37.7 ENGLISH-WSJ (reranked) Huang (2008) 92.3 46.2 91.7 43.5 ENGLISH-BROWN Charniak et al. (2005) 84.5 34.8 82.9 31.7 Petrov and Klein (2007) 84.9 34.5 83.7 31.2 This work w/o span features 85.3 35.6 84.3 32.1 This work w/ span features 85.6 35.8 84.5 32.3 ENGLISH-BROWN (reranked) Charniak et al. (2005) 86.8 39.9 85.2 37.8 FRENCH Arun and Keller (2005) 79.2 21.2 75.6 16.4 This Paper 80.1 24.2 77.2 19.2 GERMAN Petrov and Klein (2007) 80.8 40.8 80.1 39.1 This Paper 81.5 45.2 80.7 43.9 Table 2: Our final test set parsing accuracies compared to the best previous work on English, French and German. 7.4 Final Results For each corpus we selected the grammar that gave the best performance on the development set to parse the final test set. Table 2 summarizes our final test set performance, showing that multi-scale grammars achieve state-of-the-art performance on most tasks. On WSJ-English, the discriminative grammars perform on par with the generat</context>
+</contexts>
+<marker>Arun, Keller, 2005</marker>
+<rawString>A. Arun and F. Keller. 2005. Lexicalization in crosslinguistic probabilistic parsing: the case of french. In ACL 05.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Charniak</author>
+<author>M Johnson</author>
+</authors>
+<title>Coarse-to-Fine NBest Parsing and MaxEnt Discriminative Reranking.</title>
+<date>2005</date>
+<booktitle>In ACL05.</booktitle>
+<contexts>
+<context position="4248" citStr="Charniak and Johnson, 2005" startWordPosition="641" endWordPosition="644"> best parsing numbers on several metrics, for several domains and languages. Discriminative parsing has been investigated before, such as in Johnson (2001), Clark and Curran (2004), Henderson (2004), Koo and Collins (2005), Turian et al. (2007), Finkel et al. (2008), and, most similarly, in Petrov and Klein (2008). However, in all of these cases, the final parsing performance fell short of the best generative models by several percentage points or only short sentences were used. Only in combination with a generative model was a discriminative component able to produce high parsing accuracies (Charniak and Johnson, 2005; Huang, 2008). Multi-scale grammars, in contrast, give higher accuracies using smaller grammars than previous work in this direction, outperforming top generative models in grammar size and in parsing accuracy. 2 Latent Variable Parsing Treebanks are typically not annotated with fully detailed syntactic structure. Rather, they present only a coarse trace of the true underlying processes. As a result, learning a grammar for parsing requires the estimation of a more highly articulated model than the naive CFG embodied by such treebanks. A manual approach might take the category NP and subdivide</context>
+<context position="21093" citStr="Charniak and Johnson (2005)" startWordPosition="3721" endWordPosition="3724">raining a parser on a new language. It is therefore beneficial to automatically learn what the discriminating word shape features for a language are. The discriminative framework allows us to do that with ease. In our experiments we extract prefixes and suffixes of length 3 and add those features to words that occur 25 times or less in the training set. These unknown word features make the latent variable grammar learning process more language independent than in previous work. 6.2 Span Features There are many features beyond local tree configurations which can enhance parsing discrimination; Charniak and Johnson (2005) presents a varied list. In reranking, one can incorporate any such features, of course, but even in our dynamic programming approach it is possible to include features that decompose along the dynamic program structure, as shown by Taskar et al. (2004). We use non-local span features, which condition on properties of input spans (Taskar et al., 2004). We illustrate our span features with the following example and the span h1, 4i: 0 1 [ Yes 2 3 , ] 4 he 5 said 6 . 7 We first added the following lexical features: the first (Yes), last (comma), preceding () and following (he) words, the word pai</context>
+<context position="29007" citStr="Charniak and Johnson (2005)" startWordPosition="4987" endWordPosition="4990"> test set performance, showing that multi-scale grammars achieve state-of-the-art performance on most tasks. On WSJ-English, the discriminative grammars perform on par with the generative grammars of Petrov et al. (2006), falling slightly short in terms of F1, but having a higher exact match score. When trained on WSJ-English but tested on the Brown corpus, the discriminative grammars clearly outperform the generative grammars, suggesting that the highly regularized and extremely compact multi-scale grammars are less prone to overfitting. All those methods fall short of reranking parsers like Charniak and Johnson (2005) and Huang (2008), which, however, have access to many additional features, that cannot be used in our dynamic program. When trained on the French and German treebanks, our multi-scale grammars achieve the best figures we are aware of, without any language specific modifications. This confirms that latent variable models are well suited for capturing the syntactic properties of a range of languages, and also shows that discriminative grammars are still effective when trained on smaller corpora. 8 Analysis It can be illuminating to see the subcategories that are being learned by our discriminat</context>
+</contexts>
+<marker>Charniak, Johnson, 2005</marker>
+<rawString>E. Charniak and M. Johnson. 2005. Coarse-to-Fine NBest Parsing and MaxEnt Discriminative Reranking. In ACL05.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Charniak</author>
+<author>S Goldwater</author>
+<author>M Johnson</author>
+</authors>
+<date>1998</date>
+<booktitle>Edgebased best-first chart parsing. 6th Workshop on Very Large Corpora.</booktitle>
+<contexts>
+<context position="18957" citStr="Charniak et al., 1998" startWordPosition="3388" endWordPosition="3391">e quantities are computed repeatedly in the above equation and can be cached in order to obtain further efficiency gains. Due to space constraints we omit these details, and also the computation of the outside score, as well as the handling of unary productions. 5.3 Feature Count Approximations Estimating discriminative grammars is challenging, as it requires repeatedly taking expectations over all parses of all sentences in the training set. To make this computation practical on large data sets, we use the same approach as Petrov and Klein (2008). Therein, the idea of coarse-to-fine parsing (Charniak et al., 1998) is extended to handle the repeated parsing of the same sentences. Rather than computing the entire coarse-to-fine history in every round of training, the pruning history is cached between training iterations, effectively avoiding the repeated calculation of similar quantities and allowing the efficient approximation of feature count expectations. 871 \x0c6 Additional Features The discriminative framework gives us a convenient way of incorporating additional, overlapping features. We investigate two types of features: unknown word features (for predicting the part-ofspeech tags of unknown or r</context>
+<context position="26272" citStr="Charniak et al., 1998" startWordPosition="4538" endWordPosition="4541">ammar productions Discriminative Multi-Scale Grammars + Lexical Features + Span Features Generative Split-Merge Grammars Flat Discriminative Grammars Figure 4: Discriminative multi-scale grammars give similar parsing accuracies as generative split-merge grammars, while using an order of magnitude fewer rules. gets smaller when the grammars get more refined. Section 8 contains an analysis of some of the learned features, as well as a comparison between discriminatively and generatively trained grammars. 7.3 Efficiency Petrov and Klein (2007) demonstrates how the idea of coarse-to-fine parsing (Charniak et al., 1998; Charniak et al., 2006) can be used in the context of latent variable models. In coarse-to-fine parsing the sentence is rapidly pre-parsed with increasingly refined grammars, pruning away unlikely chart items in each pass. In their work the grammar is projected onto coarser versions, which are then used for pruning. Multi-scale grammars, in contrast, do not require projections. The refinement hierarchy is built in and can be used directly for coarse-to-fine pruning. Each production in the grammar is associated with a set of hierarchical features. To obtain a coarser version of a multi-scale g</context>
+</contexts>
+<marker>Charniak, Goldwater, Johnson, 1998</marker>
+<rawString>E. Charniak, S. Goldwater, and M. Johnson. 1998. Edgebased best-first chart parsing. 6th Workshop on Very Large Corpora.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Charniak</author>
+<author>M Johnson</author>
+<author>D McClosky</author>
+</authors>
+<title>Multi-level coarse-to-fine PCFG Parsing.</title>
+<date>2006</date>
+<booktitle>In HLTNAACL 06.</booktitle>
+<contexts>
+<context position="26296" citStr="Charniak et al., 2006" startWordPosition="4542" endWordPosition="4545">iminative Multi-Scale Grammars + Lexical Features + Span Features Generative Split-Merge Grammars Flat Discriminative Grammars Figure 4: Discriminative multi-scale grammars give similar parsing accuracies as generative split-merge grammars, while using an order of magnitude fewer rules. gets smaller when the grammars get more refined. Section 8 contains an analysis of some of the learned features, as well as a comparison between discriminatively and generatively trained grammars. 7.3 Efficiency Petrov and Klein (2007) demonstrates how the idea of coarse-to-fine parsing (Charniak et al., 1998; Charniak et al., 2006) can be used in the context of latent variable models. In coarse-to-fine parsing the sentence is rapidly pre-parsed with increasingly refined grammars, pruning away unlikely chart items in each pass. In their work the grammar is projected onto coarser versions, which are then used for pruning. Multi-scale grammars, in contrast, do not require projections. The refinement hierarchy is built in and can be used directly for coarse-to-fine pruning. Each production in the grammar is associated with a set of hierarchical features. To obtain a coarser version of a multi-scale grammar, one therefore si</context>
+</contexts>
+<marker>Charniak, Johnson, McClosky, 2006</marker>
+<rawString>E. Charniak, M. Johnson, D. McClosky, et al. 2006. Multi-level coarse-to-fine PCFG Parsing. In HLTNAACL 06.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Charniak</author>
+</authors>
+<title>A maximumentropyinspired parser.</title>
+<date>2000</date>
+<booktitle>In NAACL 00.</booktitle>
+<contexts>
+<context position="1808" citStr="Charniak, 2000" startWordPosition="263" endWordPosition="264">parsing accuracies with the smallest reported grammars. 1 Introduction In latent variable approaches to parsing (Matsuzaki et al., 2005; Petrov et al., 2006), one models an observed treebank of coarse parse trees using a grammar over more refined, but unobserved, derivation trees. The parse trees represent the desired output of the system, while the derivation trees represent the typically much more complex underlying syntactic processes. In recent years, latent variable methods have been shown to produce grammars which are as good as, or even better than, earlier parsing work (Collins, 1999; Charniak, 2000). In particular, in Petrov et al. (2006) we exhibited a very accurate category-splitting approach, in which a coarse initial grammar is refined by iteratively splitting each grammar category into two subcategories using the EM algorithm. Of course, each time the number of grammar categories is doubled, the number of binary productions is increased by a factor of eight. As a result, while our final grammars used few categories, the number of total active (non-zero) productions was still substantial (see Section 7). In addition, it is reasonable to assume that some generatively learned splits ha</context>
+</contexts>
+<marker>Charniak, 2000</marker>
+<rawString>E. Charniak. 2000. A maximumentropyinspired parser. In NAACL 00.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Clark</author>
+<author>J R Curran</author>
+</authors>
+<title>Parsing the WSJ using CCG and log-linear models.</title>
+<date>2004</date>
+<booktitle>In ACL 04.</booktitle>
+<contexts>
+<context position="3802" citStr="Clark and Curran (2004)" startWordPosition="570" endWordPosition="573">lity of the discriminative framework both to improve the treatment of unknown words as well as to include span features (Taskar et al., 2004), giving the benefit of some input features integrally in our dynamic program. Our multi-scale grammars are 3 orders of magnitude smaller than the fully-split baseline grammar and 20 times smaller than the generative split-and-merge grammars of Petrov et al. (2006). 867 \x0cIn addition, we exhibit the best parsing numbers on several metrics, for several domains and languages. Discriminative parsing has been investigated before, such as in Johnson (2001), Clark and Curran (2004), Henderson (2004), Koo and Collins (2005), Turian et al. (2007), Finkel et al. (2008), and, most similarly, in Petrov and Klein (2008). However, in all of these cases, the final parsing performance fell short of the best generative models by several percentage points or only short sentences were used. Only in combination with a generative model was a discriminative component able to produce high parsing accuracies (Charniak and Johnson, 2005; Huang, 2008). Multi-scale grammars, in contrast, give higher accuracies using smaller grammars than previous work in this direction, outperforming top g</context>
+</contexts>
+<marker>Clark, Curran, 2004</marker>
+<rawString>S. Clark and J. R. Curran. 2004. Parsing the WSJ using CCG and log-linear models. In ACL 04.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+</authors>
+<title>Head-Driven Statistical Models for Natural Language Parsing.</title>
+<date>1999</date>
+<tech>Ph.D. thesis, UPenn.</tech>
+<contexts>
+<context position="1791" citStr="Collins, 1999" startWordPosition="261" endWordPosition="262">best published parsing accuracies with the smallest reported grammars. 1 Introduction In latent variable approaches to parsing (Matsuzaki et al., 2005; Petrov et al., 2006), one models an observed treebank of coarse parse trees using a grammar over more refined, but unobserved, derivation trees. The parse trees represent the desired output of the system, while the derivation trees represent the typically much more complex underlying syntactic processes. In recent years, latent variable methods have been shown to produce grammars which are as good as, or even better than, earlier parsing work (Collins, 1999; Charniak, 2000). In particular, in Petrov et al. (2006) we exhibited a very accurate category-splitting approach, in which a coarse initial grammar is refined by iteratively splitting each grammar category into two subcategories using the EM algorithm. Of course, each time the number of grammar categories is doubled, the number of binary productions is increased by a factor of eight. As a result, while our final grammars used few categories, the number of total active (non-zero) productions was still substantial (see Section 7). In addition, it is reasonable to assume that some generatively </context>
+<context position="19899" citStr="Collins, 1999" startWordPosition="3531" endWordPosition="3532">e count expectations. 871 \x0c6 Additional Features The discriminative framework gives us a convenient way of incorporating additional, overlapping features. We investigate two types of features: unknown word features (for predicting the part-ofspeech tags of unknown or rare words) and span features (for determining constituent boundaries based on individual words and the overall sentence shape). 6.1 Unknown Word Features Building a parser that can process arbitrary sentences requires the handling of previously unseen words. Typically, a classification of rare words into word classes is used (Collins, 1999). In such an approach, the word classes need to be manually defined a priori, for example based on discriminating word shape features (suffixes, prefixes, digits, etc.). While this component of the parsing system is rarely talked about, its importance should not be underestimated: when using only one unknown word class, final parsing performance drops several percentage points. Some unknown word features are universal (e.g. digits, dashes), but most of them will be highly language dependent (prefixes, suffixes), making additional human expertise necessary for training a parser on a new languag</context>
+<context position="33359" citStr="Collins (1999)" startWordPosition="5669" endWordPosition="5670"> the word class, but to the most discriminative. Finally, the span features also exhibit clear patterns. The highest scoring span features encourage the words between the last two punctuation marks to form a constituent (excluding the punctuation marks), for example ,[x+]. and :[x+]. Words between quotation marks are also encouraged to form constituents: [x+] and x[x+]x. Span features can also discourage grouping words into constituents. The features with the highest negative weight involve single commas: x[x,x+], and x[x+,x+]x and so on (indeed, such spans were structurally disallowed by the Collins (1999) parser). 9 Conclusions Discriminatively trained multi-scale grammars give state-of-the-art parsing performance on a variety of languages and corpora. Grammar size is dramatically reduced compared to the baseline, as well as to ENGLISH GERMAN FRENCH Adjectives -ous -los -ien -ble -bar -ble -nth -ig -ive Nouns -ion -tat -te -en -ung -eur -cle -rei -ges Verbs -ed -st -ees -s -eht -e Adverbs -ly -mal -ent Numbers -ty -zig Table 4: Automatically learned suffixes with the highest weights for different languages and part-of-speech tags. methods like split-and-merge (Petrov et al., 2006). Because few</context>
+</contexts>
+<marker>Collins, 1999</marker>
+<rawString>M. Collins. 1999. Head-Driven Statistical Models for Natural Language Parsing. Ph.D. thesis, UPenn.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Kleeman Finkel</author>
+<author>C Manning</author>
+</authors>
+<title>Efficient, feature-based, conditional random field parsing.</title>
+<date>2008</date>
+<booktitle>In ACL 08.</booktitle>
+<marker>Finkel, Manning, 2008</marker>
+<rawString>\x0cJ. Finkel, A. Kleeman, and C. Manning. 2008. Efficient, feature-based, conditional random field parsing. In ACL 08.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W N Francis</author>
+<author>H Kucera</author>
+</authors>
+<title>Manual of information to accompany a standard corpus of present-day edited american english. In TR,</title>
+<date>2002</date>
+<institution>Brown University.</institution>
+<marker>Francis, Kucera, 2002</marker>
+<rawString>W. N. Francis and H. Kucera. 2002. Manual of information to accompany a standard corpus of present-day edited american english. In TR, Brown University.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Gildea</author>
+</authors>
+<title>Corpus variation and parser performance.</title>
+<date>2001</date>
+<journal>EMNLP</journal>
+<volume>01</volume>
+<contexts>
+<context position="25467" citStr="Gildea (2001)" startWordPosition="4420" endWordPosition="4421">sity, as the single-scale discriminative grammars are two orders of magnitude larger. 7.2 Accuracy Figure 4 shows development set results for English. In terms of parsing accuracy, multi-scale grammars significantly outperform discriminatively trained single-scale latent variable grammars and perform on par with the generative split-and-merge grammars. The graph also shows that the unknown word and span features each add about 0.5% in final parsing accuracy. Note that the span features improve the performance of the unsplit baseline grammar by 8%, but not surprisingly their contribution 6 See Gildea (2001) for the exact setup. 7 This setup contains only sentences without annotation errors, as in (Arun and Keller, 2005). 90 85 80 75 1000000 100000 10000 Parsing accuracy (F1) Number of grammar productions Discriminative Multi-Scale Grammars + Lexical Features + Span Features Generative Split-Merge Grammars Flat Discriminative Grammars Figure 4: Discriminative multi-scale grammars give similar parsing accuracies as generative split-merge grammars, while using an order of magnitude fewer rules. gets smaller when the grammars get more refined. Section 8 contains an analysis of some of the learned fe</context>
+</contexts>
+<marker>Gildea, 2001</marker>
+<rawString>D. Gildea. 2001. Corpus variation and parser performance. EMNLP 01.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Henderson</author>
+</authors>
+<title>Discriminative training of a neural network statistical parser.</title>
+<date>2004</date>
+<booktitle>In ACL 04.</booktitle>
+<contexts>
+<context position="3820" citStr="Henderson (2004)" startWordPosition="574" endWordPosition="575">e framework both to improve the treatment of unknown words as well as to include span features (Taskar et al., 2004), giving the benefit of some input features integrally in our dynamic program. Our multi-scale grammars are 3 orders of magnitude smaller than the fully-split baseline grammar and 20 times smaller than the generative split-and-merge grammars of Petrov et al. (2006). 867 \x0cIn addition, we exhibit the best parsing numbers on several metrics, for several domains and languages. Discriminative parsing has been investigated before, such as in Johnson (2001), Clark and Curran (2004), Henderson (2004), Koo and Collins (2005), Turian et al. (2007), Finkel et al. (2008), and, most similarly, in Petrov and Klein (2008). However, in all of these cases, the final parsing performance fell short of the best generative models by several percentage points or only short sentences were used. Only in combination with a generative model was a discriminative component able to produce high parsing accuracies (Charniak and Johnson, 2005; Huang, 2008). Multi-scale grammars, in contrast, give higher accuracies using smaller grammars than previous work in this direction, outperforming top generative models i</context>
+</contexts>
+<marker>Henderson, 2004</marker>
+<rawString>J. Henderson. 2004. Discriminative training of a neural network statistical parser. In ACL 04.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Huang</author>
+</authors>
+<title>Forest reranking: Discriminative parsing with non-local features.</title>
+<date>2008</date>
+<booktitle>In ACL 08.</booktitle>
+<contexts>
+<context position="4262" citStr="Huang, 2008" startWordPosition="645" endWordPosition="646">eral metrics, for several domains and languages. Discriminative parsing has been investigated before, such as in Johnson (2001), Clark and Curran (2004), Henderson (2004), Koo and Collins (2005), Turian et al. (2007), Finkel et al. (2008), and, most similarly, in Petrov and Klein (2008). However, in all of these cases, the final parsing performance fell short of the best generative models by several percentage points or only short sentences were used. Only in combination with a generative model was a discriminative component able to produce high parsing accuracies (Charniak and Johnson, 2005; Huang, 2008). Multi-scale grammars, in contrast, give higher accuracies using smaller grammars than previous work in this direction, outperforming top generative models in grammar size and in parsing accuracy. 2 Latent Variable Parsing Treebanks are typically not annotated with fully detailed syntactic structure. Rather, they present only a coarse trace of the true underlying processes. As a result, learning a grammar for parsing requires the estimation of a more highly articulated model than the naive CFG embodied by such treebanks. A manual approach might take the category NP and subdivide it into one s</context>
+<context position="27650" citStr="Huang (2008)" startWordPosition="4767" endWordPosition="4768">allow an additional level of refinement at each stage of the pre-parsing. Compared to the generative parser of Petrov and Klein (2007), parsing with multi-scale grammars requires the evaluation of 29% fewer productions, decreasing the average parsing time per sentence by 36% to 0.36 sec/sentence. 873 \x0c 40 words all Parser F1 EX F1 EX ENGLISH-WSJ Petrov and Klein (2008) 88.8 35.7 88.3 33.1 Charniak et al. (2005) 90.3 39.6 89.7 37.2 Petrov and Klein (2007) 90.6 39.1 90.1 37.1 This work w/o span features 89.7 39.6 89.2 37.2 This work w/ span features 90.0 40.1 89.4 37.7 ENGLISH-WSJ (reranked) Huang (2008) 92.3 46.2 91.7 43.5 ENGLISH-BROWN Charniak et al. (2005) 84.5 34.8 82.9 31.7 Petrov and Klein (2007) 84.9 34.5 83.7 31.2 This work w/o span features 85.3 35.6 84.3 32.1 This work w/ span features 85.6 35.8 84.5 32.3 ENGLISH-BROWN (reranked) Charniak et al. (2005) 86.8 39.9 85.2 37.8 FRENCH Arun and Keller (2005) 79.2 21.2 75.6 16.4 This Paper 80.1 24.2 77.2 19.2 GERMAN Petrov and Klein (2007) 80.8 40.8 80.1 39.1 This Paper 81.5 45.2 80.7 43.9 Table 2: Our final test set parsing accuracies compared to the best previous work on English, French and German. 7.4 Final Results For each corpus we se</context>
+<context position="29024" citStr="Huang (2008)" startWordPosition="4992" endWordPosition="4993">hat multi-scale grammars achieve state-of-the-art performance on most tasks. On WSJ-English, the discriminative grammars perform on par with the generative grammars of Petrov et al. (2006), falling slightly short in terms of F1, but having a higher exact match score. When trained on WSJ-English but tested on the Brown corpus, the discriminative grammars clearly outperform the generative grammars, suggesting that the highly regularized and extremely compact multi-scale grammars are less prone to overfitting. All those methods fall short of reranking parsers like Charniak and Johnson (2005) and Huang (2008), which, however, have access to many additional features, that cannot be used in our dynamic program. When trained on the French and German treebanks, our multi-scale grammars achieve the best figures we are aware of, without any language specific modifications. This confirms that latent variable models are well suited for capturing the syntactic properties of a range of languages, and also shows that discriminative grammars are still effective when trained on smaller corpora. 8 Analysis It can be illuminating to see the subcategories that are being learned by our discriminative multi-scale g</context>
+</contexts>
+<marker>Huang, 2008</marker>
+<rawString>L. Huang. 2008. Forest reranking: Discriminative parsing with non-local features. In ACL 08.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Johnson</author>
+</authors>
+<title>PCFG models of linguistic tree representations.</title>
+<date>1998</date>
+<journal>Computational Linguistics,</journal>
+<pages>24--613632</pages>
+<contexts>
+<context position="4945" citStr="Johnson, 1998" startWordPosition="749" endWordPosition="751">ler grammars than previous work in this direction, outperforming top generative models in grammar size and in parsing accuracy. 2 Latent Variable Parsing Treebanks are typically not annotated with fully detailed syntactic structure. Rather, they present only a coarse trace of the true underlying processes. As a result, learning a grammar for parsing requires the estimation of a more highly articulated model than the naive CFG embodied by such treebanks. A manual approach might take the category NP and subdivide it into one subcategory NPS for subjects and another subcategory NPVP for objects (Johnson, 1998; Klein and Manning, 2003). However, rather than devising linguistically motivated features or splits, latent variable parsing takes a fully automated approach, in which each symbol is split into unconstrained subcategories. 2.1 Latent Variable Grammars Latent variable grammars augment the treebank trees with latent variables at each node. This creates a set of (exponentially many) derivations over split categories for each of the original parse trees over unsplit categories. For each observed category A we now have a set of latent subcategories Ax. For example, NP might be split into NP1 thro</context>
+</contexts>
+<marker>Johnson, 1998</marker>
+<rawString>M. Johnson. 1998. PCFG models of linguistic tree representations. Computational Linguistics, 24:613632.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Johnson</author>
+</authors>
+<title>Joint and conditional estimation of tagging and parsing models.</title>
+<date>2001</date>
+<booktitle>In ACL 01.</booktitle>
+<contexts>
+<context position="3777" citStr="Johnson (2001)" startWordPosition="568" endWordPosition="569">loit the flexibility of the discriminative framework both to improve the treatment of unknown words as well as to include span features (Taskar et al., 2004), giving the benefit of some input features integrally in our dynamic program. Our multi-scale grammars are 3 orders of magnitude smaller than the fully-split baseline grammar and 20 times smaller than the generative split-and-merge grammars of Petrov et al. (2006). 867 \x0cIn addition, we exhibit the best parsing numbers on several metrics, for several domains and languages. Discriminative parsing has been investigated before, such as in Johnson (2001), Clark and Curran (2004), Henderson (2004), Koo and Collins (2005), Turian et al. (2007), Finkel et al. (2008), and, most similarly, in Petrov and Klein (2008). However, in all of these cases, the final parsing performance fell short of the best generative models by several percentage points or only short sentences were used. Only in combination with a generative model was a discriminative component able to produce high parsing accuracies (Charniak and Johnson, 2005; Huang, 2008). Multi-scale grammars, in contrast, give higher accuracies using smaller grammars than previous work in this direc</context>
+<context position="6192" citStr="Johnson, 2001" startWordPosition="954" endWordPosition="955">ined productions Ax By Cz, where Ax is a subcategory of A, By of B, and Cz of C, can then be estimated in various ways; past work has included both generative (Matsuzaki et al., 2005; Liang et al., 2007) and discriminative approaches (Petrov and Klein, 2008). We take the discriminative log-linear approach here. Note that the comparison is only between estimation methods, as Smith and Johnson (2007) show that the model classes are the same. 2.2 Log-Linear Latent Variable Grammars In a log-linear latent variable grammar, each production r = Ax By Cz is associated with a multiplicative weight r (Johnson, 2001; Petrov and Klein, 2008) (sometimes we will use the log-weight r when convenient). The probability of a derivation t of a sentence w is proportional to the product of the weights of its productions r: P(t|w) Y rt r The score of a parse T is then the sum of the scores of its derivations: P(T|w) = X tT P(t|w) 3 Hierarchical Refinement Grammar refinement becomes challenging when the number of subcategories is large. If each category is split into k subcategories, each (binary) production will be split into k3. The resulting memory limitations alone can prevent the practical learning of highly sp</context>
+</contexts>
+<marker>Johnson, 2001</marker>
+<rawString>M. Johnson. 2001. Joint and conditional estimation of tagging and parsing models. In ACL 01.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Klein</author>
+<author>C Manning</author>
+</authors>
+<title>Accurate unlexicalized parsing.</title>
+<date>2003</date>
+<booktitle>In ACL 03,</booktitle>
+<pages>423430</pages>
+<contexts>
+<context position="4971" citStr="Klein and Manning, 2003" startWordPosition="752" endWordPosition="755">an previous work in this direction, outperforming top generative models in grammar size and in parsing accuracy. 2 Latent Variable Parsing Treebanks are typically not annotated with fully detailed syntactic structure. Rather, they present only a coarse trace of the true underlying processes. As a result, learning a grammar for parsing requires the estimation of a more highly articulated model than the naive CFG embodied by such treebanks. A manual approach might take the category NP and subdivide it into one subcategory NPS for subjects and another subcategory NPVP for objects (Johnson, 1998; Klein and Manning, 2003). However, rather than devising linguistically motivated features or splits, latent variable parsing takes a fully automated approach, in which each symbol is split into unconstrained subcategories. 2.1 Latent Variable Grammars Latent variable grammars augment the treebank trees with latent variables at each node. This creates a set of (exponentially many) derivations over split categories for each of the original parse trees over unsplit categories. For each observed category A we now have a set of latent subcategories Ax. For example, NP might be split into NP1 through NP8. The parameters of</context>
+</contexts>
+<marker>Klein, Manning, 2003</marker>
+<rawString>D. Klein and C. Manning. 2003. Accurate unlexicalized parsing. In ACL 03, pages 423430.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Koo</author>
+<author>M Collins</author>
+</authors>
+<title>Hidden-variable models for discriminative reranking.</title>
+<date>2005</date>
+<booktitle>In EMNLP 05.</booktitle>
+<contexts>
+<context position="2781" citStr="Koo and Collins, 2005" startWordPosition="414" endWordPosition="417">y a factor of eight. As a result, while our final grammars used few categories, the number of total active (non-zero) productions was still substantial (see Section 7). In addition, it is reasonable to assume that some generatively learned splits have little discriminative utility. In this paper, we present a discriminative approach which addresses both of these limitations. We introduce multi-scale grammars, in which some productions reference fine categories, while others reference coarse categories (see Figure 2). We use the general framework of hidden variable CRFs (Lafferty et al., 2001; Koo and Collins, 2005), where gradient-based optimization maximizes the likelihood of the observed variables, here parse trees, summing over log-linearly scored derivations. With multi-scale grammars, it is natural to refine productions rather than categories. As a result, a category such as NP can be complex in some regions of the grammar while remaining simpler in other regions. Additionally, we exploit the flexibility of the discriminative framework both to improve the treatment of unknown words as well as to include span features (Taskar et al., 2004), giving the benefit of some input features integrally in our</context>
+</contexts>
+<marker>Koo, Collins, 2005</marker>
+<rawString>T. Koo and M. Collins. 2005. Hidden-variable models for discriminative reranking. In EMNLP 05.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Lafferty</author>
+<author>A McCallum</author>
+<author>F Pereira</author>
+</authors>
+<title>Conditional Random Fields: Probabilistic models for segmenting and labeling sequence data. In</title>
+<date>2001</date>
+<booktitle>ICML 01.</booktitle>
+<contexts>
+<context position="2757" citStr="Lafferty et al., 2001" startWordPosition="410" endWordPosition="413">ductions is increased by a factor of eight. As a result, while our final grammars used few categories, the number of total active (non-zero) productions was still substantial (see Section 7). In addition, it is reasonable to assume that some generatively learned splits have little discriminative utility. In this paper, we present a discriminative approach which addresses both of these limitations. We introduce multi-scale grammars, in which some productions reference fine categories, while others reference coarse categories (see Figure 2). We use the general framework of hidden variable CRFs (Lafferty et al., 2001; Koo and Collins, 2005), where gradient-based optimization maximizes the likelihood of the observed variables, here parse trees, summing over log-linearly scored derivations. With multi-scale grammars, it is natural to refine productions rather than categories. As a result, a category such as NP can be complex in some regions of the grammar while remaining simpler in other regions. Additionally, we exploit the flexibility of the discriminative framework both to improve the treatment of unknown words as well as to include span features (Taskar et al., 2004), giving the benefit of some input fe</context>
+</contexts>
+<marker>Lafferty, McCallum, Pereira, 2001</marker>
+<rawString>J. Lafferty, A. McCallum, and F. Pereira. 2001. Conditional Random Fields: Probabilistic models for segmenting and labeling sequence data. In ICML 01.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K Lari</author>
+<author>S Young</author>
+</authors>
+<title>The estimation of stochastic context-free grammars using the inside-outside algorithm. Computer Speech and Language.</title>
+<date>1990</date>
+<contexts>
+<context position="15220" citStr="Lari and Young, 1990" startWordPosition="2704" endWordPosition="2707">tiability of the L1-regularization term R() we use the orthant-wise method of Andrew and Gao (2007). Fitting the loglinear model involves the following derivatives: Lcond() r = X i \x12 E [fr(t)|Ti] E[fr(t)|wi] \x13 where the first term is the expected count fr of a production r in derivations corresponding to the correct parse tree Ti and the second term is the expected count of the production in all derivations of the sentence wi. Note that r may be of any scale. As we will show below, these expectations can be computed exactly using marginals from the chart of the inside/outside algorithm (Lari and Young, 1990). Once the base grammar has been estimated, all categories are split in two, meaning that all binary productions are split in eight. When splitting an already refined grammar, we only split productions whose log-weight in the previous grammar deviates from zero.3 This creates a refinement hierarchy over productions. Each newly split production r is given a unique feature, as well as inheriting the features of its parent productions r r: r = exp \x10 X rr r \x11 The parent productions r are then removed from the grammar and the new features are fit as described 3 L1-regularization drives more t</context>
+<context position="16634" citStr="Lari and Young, 1990" startWordPosition="2960" endWordPosition="2963">to efficiently compute inside/outside scores using productions of varying specificity. above. We detect that we have split a production too far when all child production features are driven to zero under L1 regularization. In such cases, the children are collapsed to their parent production, which forms an entry in the multi-scale grammar. 5.2 Efficient Multi-Scale Inference In order to compute the expected counts needed for training, we need to parse the training set, score all derivations and compute posteriors for all subcategories in the refinement hierarchy. The inside/outside algorithm (Lari and Young, 1990) is an efficient dynamic program for summing over derivations under a context-free grammar. It is fairly straightforward to adapt this algorithm to multiscale grammars, allowing us to sum over an exponential number of derivations without explicitly reconstructing the underlying fully split grammar. For single-scale latent variable grammars, the inside score I(Ax, i, j) of a fully refined category Ax spanning hi, ji is computed by summing over all possible productions r = Ax By Cz with weight r, spanning hi, ki and hk, ji respectively:4 I(Ax, i, j) = X r r X k I(By, i, k)I(Cz, k, j) Note that t</context>
+</contexts>
+<marker>Lari, Young, 1990</marker>
+<rawString>K. Lari and S. Young. 1990. The estimation of stochastic context-free grammars using the inside-outside algorithm. Computer Speech and Language.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P Liang</author>
+<author>S Petrov</author>
+<author>M I Jordan</author>
+<author>D Klein</author>
+</authors>
+<title>The infinite PCFG using hierarchical Dirichlet processes.</title>
+<date>2007</date>
+<booktitle>In EMNLP 07.</booktitle>
+<contexts>
+<context position="5782" citStr="Liang et al., 2007" startWordPosition="887" endWordPosition="890">ories. 2.1 Latent Variable Grammars Latent variable grammars augment the treebank trees with latent variables at each node. This creates a set of (exponentially many) derivations over split categories for each of the original parse trees over unsplit categories. For each observed category A we now have a set of latent subcategories Ax. For example, NP might be split into NP1 through NP8. The parameters of the refined productions Ax By Cz, where Ax is a subcategory of A, By of B, and Cz of C, can then be estimated in various ways; past work has included both generative (Matsuzaki et al., 2005; Liang et al., 2007) and discriminative approaches (Petrov and Klein, 2008). We take the discriminative log-linear approach here. Note that the comparison is only between estimation methods, as Smith and Johnson (2007) show that the model classes are the same. 2.2 Log-Linear Latent Variable Grammars In a log-linear latent variable grammar, each production r = Ax By Cz is associated with a multiplicative weight r (Johnson, 2001; Petrov and Klein, 2008) (sometimes we will use the log-weight r when convenient). The probability of a derivation t of a sentence w is proportional to the product of the weights of its pro</context>
+</contexts>
+<marker>Liang, Petrov, Jordan, Klein, 2007</marker>
+<rawString>P. Liang, S. Petrov, M. I. Jordan, and D. Klein. 2007. The infinite PCFG using hierarchical Dirichlet processes. In EMNLP 07.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Marcus</author>
+<author>B Santorini</author>
+<author>M Marcinkiewicz</author>
+</authors>
+<title>Building a large annotated corpus of English: The Penn Treebank. In Computational Linguistics.</title>
+<date>1993</date>
+<contexts>
+<context position="23614" citStr="Marcus et al., 1993" startWordPosition="4141" endWordPosition="4144">escribed in Section 5, directly incorporating the additional features from Section 6 into the training procedure. Hierarchical training starting from a raw treebank grammar and proceeding to our most refined grammars took three days in a parallel implementation using 8 CPUs. At testing time we marginalize out the hidden structure and extract the tree with the highest number of expected correct productions, as in Petrov and Klein (2007). 5 Synthetic constituents are nodes that are introduced during binarization. 872 \x0cTraining Set Dev. Set Test Set ENGLISH-WSJ Sections Section 22 Section 23 (Marcus et al., 1993) 2-21 ENGLISH-BROWN see 10% of 10% of the (Francis et al. 2002) ENGLISH-WSJ the data6 the data6 FRENCH7 Sentences Sentences Sentences (Abeille et al., 2000) 1-18,609 18,610-19,609 19,609-20,610 GERMAN Sentences Sentences Sentences (Skut et al., 1997) 1-18,602 18,603-19,602 19,603-20,602 Table 1: Corpora and standard experimental setups. We compare to a baseline of discriminatively trained latent variable grammars (Petrov and Klein, 2008). We also compare our discriminative multiscale grammars to their generative split-and-merge cousins, which have been shown to produce the state-of-the-art fig</context>
+</contexts>
+<marker>Marcus, Santorini, Marcinkiewicz, 1993</marker>
+<rawString>M. Marcus, B. Santorini, and M. Marcinkiewicz. 1993. Building a large annotated corpus of English: The Penn Treebank. In Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Matsuzaki</author>
+<author>Y Miyao</author>
+<author>J Tsujii</author>
+</authors>
+<title>Probabilistic CFG with latent annotations.</title>
+<date>2005</date>
+<booktitle>In ACL 05.</booktitle>
+<contexts>
+<context position="1328" citStr="Matsuzaki et al., 2005" startWordPosition="183" endWordPosition="186">grammar are refined to different degrees, yielding grammars which are three orders of magnitude smaller than the single-scale baseline and 20 times smaller than the split-and-merge grammars of Petrov et al. (2006). In addition, our discriminative approach integrally admits features beyond local tree configurations. We present a multiscale training method along with an efficient CKY-style dynamic program. On a variety of domains and languages, this method produces the best published parsing accuracies with the smallest reported grammars. 1 Introduction In latent variable approaches to parsing (Matsuzaki et al., 2005; Petrov et al., 2006), one models an observed treebank of coarse parse trees using a grammar over more refined, but unobserved, derivation trees. The parse trees represent the desired output of the system, while the derivation trees represent the typically much more complex underlying syntactic processes. In recent years, latent variable methods have been shown to produce grammars which are as good as, or even better than, earlier parsing work (Collins, 1999; Charniak, 2000). In particular, in Petrov et al. (2006) we exhibited a very accurate category-splitting approach, in which a coarse ini</context>
+<context position="5761" citStr="Matsuzaki et al., 2005" startWordPosition="883" endWordPosition="886">o unconstrained subcategories. 2.1 Latent Variable Grammars Latent variable grammars augment the treebank trees with latent variables at each node. This creates a set of (exponentially many) derivations over split categories for each of the original parse trees over unsplit categories. For each observed category A we now have a set of latent subcategories Ax. For example, NP might be split into NP1 through NP8. The parameters of the refined productions Ax By Cz, where Ax is a subcategory of A, By of B, and Cz of C, can then be estimated in various ways; past work has included both generative (Matsuzaki et al., 2005; Liang et al., 2007) and discriminative approaches (Petrov and Klein, 2008). We take the discriminative log-linear approach here. Note that the comparison is only between estimation methods, as Smith and Johnson (2007) show that the model classes are the same. 2.2 Log-Linear Latent Variable Grammars In a log-linear latent variable grammar, each production r = Ax By Cz is associated with a multiplicative weight r (Johnson, 2001; Petrov and Klein, 2008) (sometimes we will use the log-weight r when convenient). The probability of a derivation t of a sentence w is proportional to the product of t</context>
+</contexts>
+<marker>Matsuzaki, Miyao, Tsujii, 2005</marker>
+<rawString>T. Matsuzaki, Y. Miyao, and J. Tsujii. 2005. Probabilistic CFG with latent annotations. In ACL 05.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Mohri</author>
+<author>B Roark</author>
+</authors>
+<title>Probabilistic context-free grammar induction based on structural zeros.</title>
+<date>2006</date>
+<booktitle>In HLTNAACL 06.</booktitle>
+<contexts>
+<context position="13849" citStr="Mohri and Roark, 2006" startWordPosition="2480" endWordPosition="2483"> not appeal to the underlying single scale grammar. However, in the present work, we use our multiscale grammars only to compute expectations of the underlying grammars in an efficient, implicit way. 5 Learning Sparse Multi-Scale Grammars We now consider how to discriminatively learn multi-scale grammars by iterative splitting productions. There are two main concerns. First, because multi-scale grammars are most effective when many productions share the same weight, sparsity is very desirable. In the present work, we exploit L1-regularization, though other techniques such as structural zeros (Mohri and Roark, 2006) could also potentially be used. Second, training requires repeated parsing, so we use coarse-to-fine chart caching to greatly accelerate each iteration. 5.1 Hierarchical Training We learn discriminative multi-scale grammars in an iterative fashion (see Figure 1). As in Petrov et al. (2006), we start with a simple X-bar grammar from an input treebank. The parameters of the grammar (production log-weights for now) are estimated in a log-linear framework by maximizing the penalized log conditional likelihood Lcond R(), where: Lcond() = log Y i P(Ti|wi) R() = X r |r| We directly optimize this non</context>
+</contexts>
+<marker>Mohri, Roark, 2006</marker>
+<rawString>M. Mohri and B. Roark. 2006. Probabilistic context-free grammar induction based on structural zeros. In HLTNAACL 06.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Nocedal</author>
+<author>S J Wright</author>
+</authors>
+<title>Numerical Optimization.</title>
+<date>1999</date>
+<publisher>Springer.</publisher>
+<contexts>
+<context position="14549" citStr="Nocedal and Wright, 1999" startWordPosition="2587" endWordPosition="2590">, so we use coarse-to-fine chart caching to greatly accelerate each iteration. 5.1 Hierarchical Training We learn discriminative multi-scale grammars in an iterative fashion (see Figure 1). As in Petrov et al. (2006), we start with a simple X-bar grammar from an input treebank. The parameters of the grammar (production log-weights for now) are estimated in a log-linear framework by maximizing the penalized log conditional likelihood Lcond R(), where: Lcond() = log Y i P(Ti|wi) R() = X r |r| We directly optimize this non-convex objective function using a numerical gradient based method (LBFGS (Nocedal and Wright, 1999) in our implementation). To handle the non-diferentiability of the L1-regularization term R() we use the orthant-wise method of Andrew and Gao (2007). Fitting the loglinear model involves the following derivatives: Lcond() r = X i \x12 E [fr(t)|Ti] E[fr(t)|wi] \x13 where the first term is the expected count fr of a production r in derivations corresponding to the correct parse tree Ti and the second term is the expected count of the production in all derivations of the sentence wi. Note that r may be of any scale. As we will show below, these expectations can be computed exactly using marginal</context>
+</contexts>
+<marker>Nocedal, Wright, 1999</marker>
+<rawString>J. Nocedal and S. J. Wright. 1999. Numerical Optimization. Springer.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Petrov</author>
+<author>D Klein</author>
+</authors>
+<title>Improved inference for unlexicalized parsing.</title>
+<date>2007</date>
+<booktitle>In HLT-NAACL 07.</booktitle>
+<contexts>
+<context position="7684" citStr="Petrov and Klein (2007)" startWordPosition="1218" endWordPosition="1221">vel, they are still dense at the production level, which we address here. As in Petrov et al. (2006), we arrange our subcategories into a hierarchy, as shown in Figure 1. In practice, the construction of the hierarchy is tightly coupled to a split-based learning process (see Section 5). We use the naming convention that an original category A becomes A0 and A1 in the first round; A0 then becoming A00 and A01 in the second round, and so on. We will use x x to indicate that the subscript or subcategory x is a refinement of x.1 We 1 Conversely, x is a coarser version of x, or, in the language of Petrov and Klein (2007), x is a projection of x. 868 \x0c+ 7 . 3 + 5 . 0 + 7 . 3 + 1 2 + 2 . 1 S i n g l e \x12 s c a l e p r o d u c t i o n s + 5 . 0 + 5 . 0 + 7 . 3 + 2 . 1 + 2 . 1 + 2 . 1 + 2 . 1 M u l t i \x12 s c a l e p r o d u c t i o n s + 2 . 1 + 1 2 + 5 . 0 0 0 1 0 1 0 0 1 1 + 5 . 0 + 5 . 0 + 7 . 3 + 1 2 0 0 0 1 0 0 1 0 1 1 1 0 1 1 1 0 0 1 0 1 0 0 1 1 + 2 . 1 + 2 . 1 + 2 . 1 + 2 . 1 r r 0 0 0 * 1 1 0 0 1 1 1 0 * 0 1 D T 0 0 0 t h e D T 0 0 1 t h e D T 0 1 0 t h e D T 0 1 1 t h e D T 1 0 0 t h e D T 1 0 1 t h e D T 1 1 0 t h e D T 1 1 1 t h e D T 0 0 t h e D T 0 1 0 t h e D T 0 1 1 t h e D T 1 t h e } } + </context>
+<context position="23433" citStr="Petrov and Klein (2007)" startWordPosition="4114" endWordPosition="4117">pletely unannotated X-bar grammar, obtained from the raw treebank by a simple rightbranching binarization scheme. We then train multiscale grammars of increasing latent complexity as described in Section 5, directly incorporating the additional features from Section 6 into the training procedure. Hierarchical training starting from a raw treebank grammar and proceeding to our most refined grammars took three days in a parallel implementation using 8 CPUs. At testing time we marginalize out the hidden structure and extract the tree with the highest number of expected correct productions, as in Petrov and Klein (2007). 5 Synthetic constituents are nodes that are introduced during binarization. 872 \x0cTraining Set Dev. Set Test Set ENGLISH-WSJ Sections Section 22 Section 23 (Marcus et al., 1993) 2-21 ENGLISH-BROWN see 10% of 10% of the (Francis et al. 2002) ENGLISH-WSJ the data6 the data6 FRENCH7 Sentences Sentences Sentences (Abeille et al., 2000) 1-18,609 18,610-19,609 19,609-20,610 GERMAN Sentences Sentences Sentences (Skut et al., 1997) 1-18,602 18,603-19,602 19,603-20,602 Table 1: Corpora and standard experimental setups. We compare to a baseline of discriminatively trained latent variable grammars (P</context>
+<context position="26197" citStr="Petrov and Klein (2007)" startWordPosition="4527" endWordPosition="4530">r, 2005). 90 85 80 75 1000000 100000 10000 Parsing accuracy (F1) Number of grammar productions Discriminative Multi-Scale Grammars + Lexical Features + Span Features Generative Split-Merge Grammars Flat Discriminative Grammars Figure 4: Discriminative multi-scale grammars give similar parsing accuracies as generative split-merge grammars, while using an order of magnitude fewer rules. gets smaller when the grammars get more refined. Section 8 contains an analysis of some of the learned features, as well as a comparison between discriminatively and generatively trained grammars. 7.3 Efficiency Petrov and Klein (2007) demonstrates how the idea of coarse-to-fine parsing (Charniak et al., 1998; Charniak et al., 2006) can be used in the context of latent variable models. In coarse-to-fine parsing the sentence is rapidly pre-parsed with increasingly refined grammars, pruning away unlikely chart items in each pass. In their work the grammar is projected onto coarser versions, which are then used for pruning. Multi-scale grammars, in contrast, do not require projections. The refinement hierarchy is built in and can be used directly for coarse-to-fine pruning. Each production in the grammar is associated with a s</context>
+<context position="27499" citStr="Petrov and Klein (2007)" startWordPosition="4739" endWordPosition="4742">ar, one therefore simply limits which features in the refinement hierarchy can be accessed. In our experiments, we start by parsing with our coarsest grammar and allow an additional level of refinement at each stage of the pre-parsing. Compared to the generative parser of Petrov and Klein (2007), parsing with multi-scale grammars requires the evaluation of 29% fewer productions, decreasing the average parsing time per sentence by 36% to 0.36 sec/sentence. 873 \x0c 40 words all Parser F1 EX F1 EX ENGLISH-WSJ Petrov and Klein (2008) 88.8 35.7 88.3 33.1 Charniak et al. (2005) 90.3 39.6 89.7 37.2 Petrov and Klein (2007) 90.6 39.1 90.1 37.1 This work w/o span features 89.7 39.6 89.2 37.2 This work w/ span features 90.0 40.1 89.4 37.7 ENGLISH-WSJ (reranked) Huang (2008) 92.3 46.2 91.7 43.5 ENGLISH-BROWN Charniak et al. (2005) 84.5 34.8 82.9 31.7 Petrov and Klein (2007) 84.9 34.5 83.7 31.2 This work w/o span features 85.3 35.6 84.3 32.1 This work w/ span features 85.6 35.8 84.5 32.3 ENGLISH-BROWN (reranked) Charniak et al. (2005) 86.8 39.9 85.2 37.8 FRENCH Arun and Keller (2005) 79.2 21.2 75.6 16.4 This Paper 80.1 24.2 77.2 19.2 GERMAN Petrov and Klein (2007) 80.8 40.8 80.1 39.1 This Paper 81.5 45.2 80.7 43.9 T</context>
+</contexts>
+<marker>Petrov, Klein, 2007</marker>
+<rawString>S. Petrov and D. Klein. 2007. Improved inference for unlexicalized parsing. In HLT-NAACL 07.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Petrov</author>
+<author>D Klein</author>
+</authors>
+<title>Discriminative log-linear grammars with latent variables.</title>
+<date>2008</date>
+<booktitle>In NIPS 08.</booktitle>
+<contexts>
+<context position="3937" citStr="Petrov and Klein (2008)" startWordPosition="592" endWordPosition="595"> 2004), giving the benefit of some input features integrally in our dynamic program. Our multi-scale grammars are 3 orders of magnitude smaller than the fully-split baseline grammar and 20 times smaller than the generative split-and-merge grammars of Petrov et al. (2006). 867 \x0cIn addition, we exhibit the best parsing numbers on several metrics, for several domains and languages. Discriminative parsing has been investigated before, such as in Johnson (2001), Clark and Curran (2004), Henderson (2004), Koo and Collins (2005), Turian et al. (2007), Finkel et al. (2008), and, most similarly, in Petrov and Klein (2008). However, in all of these cases, the final parsing performance fell short of the best generative models by several percentage points or only short sentences were used. Only in combination with a generative model was a discriminative component able to produce high parsing accuracies (Charniak and Johnson, 2005; Huang, 2008). Multi-scale grammars, in contrast, give higher accuracies using smaller grammars than previous work in this direction, outperforming top generative models in grammar size and in parsing accuracy. 2 Latent Variable Parsing Treebanks are typically not annotated with fully de</context>
+<context position="5837" citStr="Petrov and Klein, 2008" startWordPosition="895" endWordPosition="898"> grammars augment the treebank trees with latent variables at each node. This creates a set of (exponentially many) derivations over split categories for each of the original parse trees over unsplit categories. For each observed category A we now have a set of latent subcategories Ax. For example, NP might be split into NP1 through NP8. The parameters of the refined productions Ax By Cz, where Ax is a subcategory of A, By of B, and Cz of C, can then be estimated in various ways; past work has included both generative (Matsuzaki et al., 2005; Liang et al., 2007) and discriminative approaches (Petrov and Klein, 2008). We take the discriminative log-linear approach here. Note that the comparison is only between estimation methods, as Smith and Johnson (2007) show that the model classes are the same. 2.2 Log-Linear Latent Variable Grammars In a log-linear latent variable grammar, each production r = Ax By Cz is associated with a multiplicative weight r (Johnson, 2001; Petrov and Klein, 2008) (sometimes we will use the log-weight r when convenient). The probability of a derivation t of a sentence w is proportional to the product of the weights of its productions r: P(t|w) Y rt r The score of a parse T is the</context>
+<context position="17665" citStr="Petrov and Klein, 2008" startWordPosition="3138" endWordPosition="3141">ing hi, ji is computed by summing over all possible productions r = Ax By Cz with weight r, spanning hi, ki and hk, ji respectively:4 I(Ax, i, j) = X r r X k I(By, i, k)I(Cz, k, j) Note that this involves summing over all relevant fully refined grammar productions. The key quantities we will need are marginals of the form I(Ax, i, j), the sum of the scores of all fully refined derivations rooted at any Ax dominated by Ax and spanning hi, ji. We define these marginals 4 These scores lack any probabilistic interpretation, but can be normalized to compute the necessary expectations for training (Petrov and Klein, 2008). in terms of the standard inside scores of the most refined subcategories Ax: I(Ax, i, j) = X xx I(Ax, i, j) When working with multi-scale grammars, we expand the standard three-dimensional chart over spans and grammar categories to store the scores of all subcategories of the refinement hierarchy, as illustrated in Figure 3. This allows us to compute the scores more efficiently by summing only over rules r = Ax By Cz r: I(Ax, i, j) = X r X rr r X k I(By, i, k)I(Cz, k, j) = X r r X rr X k I(By, i, k)I(Cz, k, j) = X r r X yy X zz X k I(By, i, k)I(Cz, k, j) = X r r X k X yy I(By, i, k) X zz I(C</context>
+<context position="18888" citStr="Petrov and Klein (2008)" startWordPosition="3378" endWordPosition="3381">z, k, j) = X r r X k I(By, i, k)I(Cz, k, j) Of course, some of the same quantities are computed repeatedly in the above equation and can be cached in order to obtain further efficiency gains. Due to space constraints we omit these details, and also the computation of the outside score, as well as the handling of unary productions. 5.3 Feature Count Approximations Estimating discriminative grammars is challenging, as it requires repeatedly taking expectations over all parses of all sentences in the training set. To make this computation practical on large data sets, we use the same approach as Petrov and Klein (2008). Therein, the idea of coarse-to-fine parsing (Charniak et al., 1998) is extended to handle the repeated parsing of the same sentences. Rather than computing the entire coarse-to-fine history in every round of training, the pruning history is cached between training iterations, effectively avoiding the repeated calculation of similar quantities and allowing the efficient approximation of feature count expectations. 871 \x0c6 Additional Features The discriminative framework gives us a convenient way of incorporating additional, overlapping features. We investigate two types of features: unknown</context>
+<context position="24055" citStr="Petrov and Klein, 2008" startWordPosition="4202" endWordPosition="4205">). 5 Synthetic constituents are nodes that are introduced during binarization. 872 \x0cTraining Set Dev. Set Test Set ENGLISH-WSJ Sections Section 22 Section 23 (Marcus et al., 1993) 2-21 ENGLISH-BROWN see 10% of 10% of the (Francis et al. 2002) ENGLISH-WSJ the data6 the data6 FRENCH7 Sentences Sentences Sentences (Abeille et al., 2000) 1-18,609 18,610-19,609 19,609-20,610 GERMAN Sentences Sentences Sentences (Skut et al., 1997) 1-18,602 18,603-19,602 19,603-20,602 Table 1: Corpora and standard experimental setups. We compare to a baseline of discriminatively trained latent variable grammars (Petrov and Klein, 2008). We also compare our discriminative multiscale grammars to their generative split-and-merge cousins, which have been shown to produce the state-of-the-art figures in terms of accuracy and efficiency on many corpora. For those comparisons we use the grammars from Petrov and Klein (2007). 7.1 Sparsity One of the main motivations behind multi-scale grammars was to create compact grammars. Figure 4 shows parsing accuracies vs. grammar sizes. Focusing on the grammar size for now, we see that multi-scale grammars are extremely compact - even our most refined grammars have less than 50,000 active pr</context>
+<context position="27412" citStr="Petrov and Klein (2008)" startWordPosition="4723" endWordPosition="4726">with a set of hierarchical features. To obtain a coarser version of a multi-scale grammar, one therefore simply limits which features in the refinement hierarchy can be accessed. In our experiments, we start by parsing with our coarsest grammar and allow an additional level of refinement at each stage of the pre-parsing. Compared to the generative parser of Petrov and Klein (2007), parsing with multi-scale grammars requires the evaluation of 29% fewer productions, decreasing the average parsing time per sentence by 36% to 0.36 sec/sentence. 873 \x0c 40 words all Parser F1 EX F1 EX ENGLISH-WSJ Petrov and Klein (2008) 88.8 35.7 88.3 33.1 Charniak et al. (2005) 90.3 39.6 89.7 37.2 Petrov and Klein (2007) 90.6 39.1 90.1 37.1 This work w/o span features 89.7 39.6 89.2 37.2 This work w/ span features 90.0 40.1 89.4 37.7 ENGLISH-WSJ (reranked) Huang (2008) 92.3 46.2 91.7 43.5 ENGLISH-BROWN Charniak et al. (2005) 84.5 34.8 82.9 31.7 Petrov and Klein (2007) 84.9 34.5 83.7 31.2 This work w/o span features 85.3 35.6 84.3 32.1 This work w/ span features 85.6 35.8 84.5 32.3 ENGLISH-BROWN (reranked) Charniak et al. (2005) 86.8 39.9 85.2 37.8 FRENCH Arun and Keller (2005) 79.2 21.2 75.6 16.4 This Paper 80.1 24.2 77.2 1</context>
+</contexts>
+<marker>Petrov, Klein, 2008</marker>
+<rawString>S. Petrov and D. Klein. 2008. Discriminative log-linear grammars with latent variables. In NIPS 08.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Petrov</author>
+<author>L Barrett</author>
+<author>R Thibaux</author>
+<author>D Klein</author>
+</authors>
+<title>Learning accurate, compact, and interpretable tree annotation.</title>
+<date>2006</date>
+<booktitle>In ACL 06.</booktitle>
+<contexts>
+<context position="919" citStr="Petrov et al. (2006)" startWordPosition="124" endWordPosition="127">, EECS Department University of California at Berkeley Berkeley, CA 94720 {petrov, klein}@eecs.berkeley.edu Abstract We present a discriminative, latent variable approach to syntactic parsing in which rules exist at multiple scales of refinement. The model is formally a latent variable CRF grammar over trees, learned by iteratively splitting grammar productions (not categories). Different regions of the grammar are refined to different degrees, yielding grammars which are three orders of magnitude smaller than the single-scale baseline and 20 times smaller than the split-and-merge grammars of Petrov et al. (2006). In addition, our discriminative approach integrally admits features beyond local tree configurations. We present a multiscale training method along with an efficient CKY-style dynamic program. On a variety of domains and languages, this method produces the best published parsing accuracies with the smallest reported grammars. 1 Introduction In latent variable approaches to parsing (Matsuzaki et al., 2005; Petrov et al., 2006), one models an observed treebank of coarse parse trees using a grammar over more refined, but unobserved, derivation trees. The parse trees represent the desired output</context>
+<context position="3585" citStr="Petrov et al. (2006)" startWordPosition="537" endWordPosition="540"> natural to refine productions rather than categories. As a result, a category such as NP can be complex in some regions of the grammar while remaining simpler in other regions. Additionally, we exploit the flexibility of the discriminative framework both to improve the treatment of unknown words as well as to include span features (Taskar et al., 2004), giving the benefit of some input features integrally in our dynamic program. Our multi-scale grammars are 3 orders of magnitude smaller than the fully-split baseline grammar and 20 times smaller than the generative split-and-merge grammars of Petrov et al. (2006). 867 \x0cIn addition, we exhibit the best parsing numbers on several metrics, for several domains and languages. Discriminative parsing has been investigated before, such as in Johnson (2001), Clark and Curran (2004), Henderson (2004), Koo and Collins (2005), Turian et al. (2007), Finkel et al. (2008), and, most similarly, in Petrov and Klein (2008). However, in all of these cases, the final parsing performance fell short of the best generative models by several percentage points or only short sentences were used. Only in combination with a generative model was a discriminative component able</context>
+<context position="6889" citStr="Petrov et al. (2006)" startWordPosition="1072" endWordPosition="1075">ient). The probability of a derivation t of a sentence w is proportional to the product of the weights of its productions r: P(t|w) Y rt r The score of a parse T is then the sum of the scores of its derivations: P(T|w) = X tT P(t|w) 3 Hierarchical Refinement Grammar refinement becomes challenging when the number of subcategories is large. If each category is split into k subcategories, each (binary) production will be split into k3. The resulting memory limitations alone can prevent the practical learning of highly split grammars (Matsuzaki et al., 2005). This issue was partially addressed in Petrov et al. (2006), where categories were repeatedly split and some splits were re-merged if the gains were too small. However, while the grammars are indeed compact at the (sub-)category level, they are still dense at the production level, which we address here. As in Petrov et al. (2006), we arrange our subcategories into a hierarchy, as shown in Figure 1. In practice, the construction of the hierarchy is tightly coupled to a split-based learning process (see Section 5). We use the naming convention that an original category A becomes A0 and A1 in the first round; A0 then becoming A00 and A01 in the second ro</context>
+<context position="14140" citStr="Petrov et al. (2006)" startWordPosition="2522" endWordPosition="2525">ale grammars by iterative splitting productions. There are two main concerns. First, because multi-scale grammars are most effective when many productions share the same weight, sparsity is very desirable. In the present work, we exploit L1-regularization, though other techniques such as structural zeros (Mohri and Roark, 2006) could also potentially be used. Second, training requires repeated parsing, so we use coarse-to-fine chart caching to greatly accelerate each iteration. 5.1 Hierarchical Training We learn discriminative multi-scale grammars in an iterative fashion (see Figure 1). As in Petrov et al. (2006), we start with a simple X-bar grammar from an input treebank. The parameters of the grammar (production log-weights for now) are estimated in a log-linear framework by maximizing the penalized log conditional likelihood Lcond R(), where: Lcond() = log Y i P(Ti|wi) R() = X r |r| We directly optimize this non-convex objective function using a numerical gradient based method (LBFGS (Nocedal and Wright, 1999) in our implementation). To handle the non-diferentiability of the L1-regularization term R() we use the orthant-wise method of Andrew and Gao (2007). Fitting the loglinear model involves the</context>
+<context position="28600" citStr="Petrov et al. (2006)" startWordPosition="4924" endWordPosition="4927">16.4 This Paper 80.1 24.2 77.2 19.2 GERMAN Petrov and Klein (2007) 80.8 40.8 80.1 39.1 This Paper 81.5 45.2 80.7 43.9 Table 2: Our final test set parsing accuracies compared to the best previous work on English, French and German. 7.4 Final Results For each corpus we selected the grammar that gave the best performance on the development set to parse the final test set. Table 2 summarizes our final test set performance, showing that multi-scale grammars achieve state-of-the-art performance on most tasks. On WSJ-English, the discriminative grammars perform on par with the generative grammars of Petrov et al. (2006), falling slightly short in terms of F1, but having a higher exact match score. When trained on WSJ-English but tested on the Brown corpus, the discriminative grammars clearly outperform the generative grammars, suggesting that the highly regularized and extremely compact multi-scale grammars are less prone to overfitting. All those methods fall short of reranking parsers like Charniak and Johnson (2005) and Huang (2008), which, however, have access to many additional features, that cannot be used in our dynamic program. When trained on the French and German treebanks, our multi-scale grammars</context>
+</contexts>
+<marker>Petrov, Barrett, Thibaux, Klein, 2006</marker>
+<rawString>S. Petrov, L. Barrett, R. Thibaux, and D. Klein. 2006. Learning accurate, compact, and interpretable tree annotation. In ACL 06.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W Skut</author>
+<author>B Krenn</author>
+<author>T Brants</author>
+<author>H Uszkoreit</author>
+</authors>
+<title>An annotation scheme for free word order languages.</title>
+<date>1997</date>
+<booktitle>In Conf. on Applied Natural Language Processing.</booktitle>
+<contexts>
+<context position="23864" citStr="Skut et al., 1997" startWordPosition="4177" endWordPosition="4180">mentation using 8 CPUs. At testing time we marginalize out the hidden structure and extract the tree with the highest number of expected correct productions, as in Petrov and Klein (2007). 5 Synthetic constituents are nodes that are introduced during binarization. 872 \x0cTraining Set Dev. Set Test Set ENGLISH-WSJ Sections Section 22 Section 23 (Marcus et al., 1993) 2-21 ENGLISH-BROWN see 10% of 10% of the (Francis et al. 2002) ENGLISH-WSJ the data6 the data6 FRENCH7 Sentences Sentences Sentences (Abeille et al., 2000) 1-18,609 18,610-19,609 19,609-20,610 GERMAN Sentences Sentences Sentences (Skut et al., 1997) 1-18,602 18,603-19,602 19,603-20,602 Table 1: Corpora and standard experimental setups. We compare to a baseline of discriminatively trained latent variable grammars (Petrov and Klein, 2008). We also compare our discriminative multiscale grammars to their generative split-and-merge cousins, which have been shown to produce the state-of-the-art figures in terms of accuracy and efficiency on many corpora. For those comparisons we use the grammars from Petrov and Klein (2007). 7.1 Sparsity One of the main motivations behind multi-scale grammars was to create compact grammars. Figure 4 shows pars</context>
+</contexts>
+<marker>Skut, Krenn, Brants, Uszkoreit, 1997</marker>
+<rawString>W. Skut, B. Krenn, T. Brants, and H. Uszkoreit. 1997. An annotation scheme for free word order languages. In Conf. on Applied Natural Language Processing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N A Smith</author>
+<author>M Johnson</author>
+</authors>
+<title>Weighted and probabilistic context-free grammars are equally expressive. Computational Lingusitics.</title>
+<date>2007</date>
+<contexts>
+<context position="5980" citStr="Smith and Johnson (2007)" startWordPosition="916" endWordPosition="919">egories for each of the original parse trees over unsplit categories. For each observed category A we now have a set of latent subcategories Ax. For example, NP might be split into NP1 through NP8. The parameters of the refined productions Ax By Cz, where Ax is a subcategory of A, By of B, and Cz of C, can then be estimated in various ways; past work has included both generative (Matsuzaki et al., 2005; Liang et al., 2007) and discriminative approaches (Petrov and Klein, 2008). We take the discriminative log-linear approach here. Note that the comparison is only between estimation methods, as Smith and Johnson (2007) show that the model classes are the same. 2.2 Log-Linear Latent Variable Grammars In a log-linear latent variable grammar, each production r = Ax By Cz is associated with a multiplicative weight r (Johnson, 2001; Petrov and Klein, 2008) (sometimes we will use the log-weight r when convenient). The probability of a derivation t of a sentence w is proportional to the product of the weights of its productions r: P(t|w) Y rt r The score of a parse T is then the sum of the scores of its derivations: P(T|w) = X tT P(t|w) 3 Hierarchical Refinement Grammar refinement becomes challenging when the numb</context>
+</contexts>
+<marker>Smith, Johnson, 2007</marker>
+<rawString>N. A. Smith and M. Johnson. 2007. Weighted and probabilistic context-free grammars are equally expressive. Computational Lingusitics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>B Taskar</author>
+<author>D Klein</author>
+<author>M Collins</author>
+<author>D Koller</author>
+<author>C Manning</author>
+</authors>
+<title>Max-margin parsing.</title>
+<date>2004</date>
+<booktitle>In EMNLP 04.</booktitle>
+<contexts>
+<context position="3320" citStr="Taskar et al., 2004" startWordPosition="496" endWordPosition="499"> framework of hidden variable CRFs (Lafferty et al., 2001; Koo and Collins, 2005), where gradient-based optimization maximizes the likelihood of the observed variables, here parse trees, summing over log-linearly scored derivations. With multi-scale grammars, it is natural to refine productions rather than categories. As a result, a category such as NP can be complex in some regions of the grammar while remaining simpler in other regions. Additionally, we exploit the flexibility of the discriminative framework both to improve the treatment of unknown words as well as to include span features (Taskar et al., 2004), giving the benefit of some input features integrally in our dynamic program. Our multi-scale grammars are 3 orders of magnitude smaller than the fully-split baseline grammar and 20 times smaller than the generative split-and-merge grammars of Petrov et al. (2006). 867 \x0cIn addition, we exhibit the best parsing numbers on several metrics, for several domains and languages. Discriminative parsing has been investigated before, such as in Johnson (2001), Clark and Curran (2004), Henderson (2004), Koo and Collins (2005), Turian et al. (2007), Finkel et al. (2008), and, most similarly, in Petrov</context>
+<context position="21346" citStr="Taskar et al. (2004)" startWordPosition="3764" endWordPosition="3767">es of length 3 and add those features to words that occur 25 times or less in the training set. These unknown word features make the latent variable grammar learning process more language independent than in previous work. 6.2 Span Features There are many features beyond local tree configurations which can enhance parsing discrimination; Charniak and Johnson (2005) presents a varied list. In reranking, one can incorporate any such features, of course, but even in our dynamic programming approach it is possible to include features that decompose along the dynamic program structure, as shown by Taskar et al. (2004). We use non-local span features, which condition on properties of input spans (Taskar et al., 2004). We illustrate our span features with the following example and the span h1, 4i: 0 1 [ Yes 2 3 , ] 4 he 5 said 6 . 7 We first added the following lexical features: the first (Yes), last (comma), preceding () and following (he) words, the word pairs at the left edge h,Yesi, right edge hcomma,hei, inside border hYes,commai and outside border h,hei. Lexical features were added for each span of length three or more. We used two groups of span features, one for natural constituents and one for synth</context>
+</contexts>
+<marker>Taskar, Klein, Collins, Koller, Manning, 2004</marker>
+<rawString>B. Taskar, D. Klein, M. Collins, D. Koller, and C. Manning. 2004. Max-margin parsing. In EMNLP 04.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Turian</author>
+<author>B Wellington</author>
+<author>I D Melamed</author>
+</authors>
+<title>Scalable discriminative learning for natural language parsing and translation.</title>
+<date>2007</date>
+<booktitle>In NIPS 07.</booktitle>
+<contexts>
+<context position="3866" citStr="Turian et al. (2007)" startWordPosition="580" endWordPosition="583">of unknown words as well as to include span features (Taskar et al., 2004), giving the benefit of some input features integrally in our dynamic program. Our multi-scale grammars are 3 orders of magnitude smaller than the fully-split baseline grammar and 20 times smaller than the generative split-and-merge grammars of Petrov et al. (2006). 867 \x0cIn addition, we exhibit the best parsing numbers on several metrics, for several domains and languages. Discriminative parsing has been investigated before, such as in Johnson (2001), Clark and Curran (2004), Henderson (2004), Koo and Collins (2005), Turian et al. (2007), Finkel et al. (2008), and, most similarly, in Petrov and Klein (2008). However, in all of these cases, the final parsing performance fell short of the best generative models by several percentage points or only short sentences were used. Only in combination with a generative model was a discriminative component able to produce high parsing accuracies (Charniak and Johnson, 2005; Huang, 2008). Multi-scale grammars, in contrast, give higher accuracies using smaller grammars than previous work in this direction, outperforming top generative models in grammar size and in parsing accuracy. 2 Late</context>
+</contexts>
+<marker>Turian, Wellington, Melamed, 2007</marker>
+<rawString>J. Turian, B. Wellington, and I. D. Melamed. 2007. Scalable discriminative learning for natural language parsing and translation. In NIPS 07.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

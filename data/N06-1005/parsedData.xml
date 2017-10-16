@@ -1,0 +1,1296 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.514633">
+b&amp;apos;Proceedings of the Human Language Technology Conference of the North American Chapter of the ACL, pages 3340,
+New York, June 2006. c
+</bodyText>
+<sectionHeader confidence="0.390138" genericHeader="abstract">
+2006 Association for Computational Linguistics
+</sectionHeader>
+<title confidence="0.959664">
+Effectively Using Syntax for Recognizing False Entailment
+</title>
+<author confidence="0.971126">
+Rion Snow
+</author>
+<affiliation confidence="0.977101">
+Computer Science Department
+Stanford University
+</affiliation>
+<address confidence="0.960021">
+Stanford, CA 94305
+</address>
+<email confidence="0.985789">
+rion@cs.stanford.edu
+</email>
+<author confidence="0.679699">
+Lucy Vanderwende and Arul Menezes
+</author>
+<affiliation confidence="0.765434">
+Microsoft Research
+</affiliation>
+<address confidence="0.891989">
+One Microsoft Way
+Redmond, WA 98027
+</address>
+<email confidence="0.997417">
+{lucyv,arulm}@microsoft.com
+</email>
+<sectionHeader confidence="0.990789" genericHeader="keywords">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.9995835">
+Recognizing textual entailment is a chal-
+lenging problem and a fundamental com-
+ponent of many applications in natural
+language processing. We present a novel
+framework for recognizing textual entail-
+ment that focuses on the use of syntactic
+heuristics to recognize false entailment.
+We give a thorough analysis of our sys-
+tem, which demonstrates state-of-the-art
+performance on a widely-used test set.
+</bodyText>
+<sectionHeader confidence="0.99821" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.9013938125">
+Recognizing the semantic equivalence of two frag-
+ments of text is a fundamental component of many
+applications in natural language processing. Recog-
+nizing textual entailment, as formulated in the recent
+PASCAL Challenge 1, is the problem of determining
+whether some text sentence T entails some hypothe-
+sis sentence H.
+The motivation for this formulation was to iso-
+late and evaluate the application-independent com-
+ponent of semantic inference shared across many ap-
+plication areas, reflected in the division of the PAS-
+CAL RTE dataset into seven distinct tasks: Informa-
+tion Extraction (IE), Comparable Documents (CD),
+Reading Comprehension (RC), Machine Translation
+(MT), Information Retrieval (IR), Question Answer-
+ing (QA), and Paraphrase Acquisition (PP).
+</bodyText>
+<page confidence="0.870556">
+1
+</page>
+<bodyText confidence="0.996125324324325">
+http://www.pascal-network.org/Challenges/RTE. The ex-
+amples given throughout this paper are from the first PASCAL
+RTE dataset, described in Section 6.
+The RTE problem as presented in the PASCAL
+RTE dataset is particularly attractive in that it is a
+reasonably simple task for human annotators with
+high inter-annotator agreement (95.1% in one inde-
+pendent labeling (Bos and Markert, 2005)), but an
+extremely challenging task for automated systems.
+The highest accuracy systems on the RTE test set
+are still much closer in performance to a random
+baseline accuracy of 50% than to the inter-annotator
+agreement. For example, two high-accuracy systems
+are those described in (Tatu and Moldovan, 2005),
+achieving 60.4% accuracy with no task-specific in-
+formation, and (Bos and Markert, 2005), which
+achieves 61.2% task-dependent accuracy, i.e. when
+able to use the specific task labels as input.
+Previous systems for RTE have attempted a wide
+variety of strategies. Many previous approaches
+have used a logical form representation of the text
+and hypothesis sentences, focusing on deriving a
+proof by which one can infer the hypothesis logical
+form from the text logical form (Bayer et al., 2005;
+Bos and Markert, 2005; Raina et al., 2005; Tatu and
+Moldovan, 2005). These papers often cite that a ma-
+jor obstacle to accurate theorem proving for the task
+of textual entailment is the lack of world knowledge,
+which is frequently difficult and costly to obtain and
+encode. Attempts have been made to remedy this
+deficit through various techniques, including model-
+building (Bos and Markert, 2005) and the addition
+of semantic axioms (Tatu and Moldovan, 2005).
+Our system diverges from previous approaches
+most strongly by focusing upon false entailments;
+rather than assuming that a given entailment is false
+until proven true, we make the opposite assump-
+</bodyText>
+<page confidence="0.998824">
+33
+</page>
+<bodyText confidence="0.997448">
+\x0ction, and instead focus on applying knowledge-free
+heuristics that can act locally on a subgraph of syn-
+tactic dependencies to determine with high confi-
+dence that the entailment is false. Our approach is
+inspired by an analysis of the RTE dataset that sug-
+gested a syntax-based approach should be approxi-
+mately twice as effective at predicting false entail-
+ment as true entailment (Vanderwende and Dolan,
+2006). The analysis implied that a great deal of syn-
+tactic information remained unexploited by existing
+systems, but gave few explicit suggestions on how
+syntactic information should be applied; this paper
+provides a starting point for creating the heuristics
+capable of obtaining the bound they suggest2.
+</bodyText>
+<sectionHeader confidence="0.974956" genericHeader="method">
+2 System Description
+</sectionHeader>
+<bodyText confidence="0.986568454545454">
+Similar to most other syntax-based approaches to
+recognizing textual entailment, we begin by rep-
+resenting each text and hypothesis sentence pair
+in logical forms. These logical forms are gener-
+ated using NLPWIN3, a robust system for natural
+language parsing and generation (Heidorn, 2000).
+Our logical form representation may be consid-
+ered equivalently as a set of triples of the form
+RELATION(nodei, nodej), or as a graph of syntac-
+tic dependencies; we use both terminologies inter-
+changeably. Our algorithm proceeds as follows:
+</bodyText>
+<listItem confidence="0.98106">
+1. Parse each sentence with the NLPWIN parser,
+resulting in syntactic dependency graphs for the
+text and hypothesis sentences.
+2. Attempt an alignment of each content node in
+</listItem>
+<bodyText confidence="0.956906125">
+the dependency graph of the hypothesis sen-
+tence to some node in the graph of the text sen-
+tence, using a set of heuristics for alignment
+(described in Section 3).
+3. Using the alignment, apply a set of syntactic
+heuristics for recognizing false entailment (de-
+scribed in Section 4); if any match, predict that
+the entailment is false.
+</bodyText>
+<page confidence="0.978438">
+2
+</page>
+<bodyText confidence="0.9906866">
+(Vanderwende and Dolan, 2006) suggest that the truth or
+falsehood of 48% of the entailment examples in the RTE test set
+could be correctly identified via syntax and a thesaurus alone;
+thus by random guessing on the rest of the examples one might
+hope for an accuracy level of 0.48 + 0.52
+</bodyText>
+<page confidence="0.948671">
+2
+</page>
+<bodyText confidence="0.733926">
+= 74%.
+</bodyText>
+<page confidence="0.988725">
+3
+</page>
+<bodyText confidence="0.969886666666667">
+To aid in the replicability of our experiments, we have
+published the NLPWIN logical forms for all sentences from
+the development and test sets in the PASCAL RTE dataset at
+</bodyText>
+<figure confidence="0.95355975">
+http://research.microsoft.com/nlp/Projects/RTE.aspx.
+lemma: free
+pos: Verb
+features: Past,Pass,
+T1,Proposition
+lemma: _X
+pos: Pron
+Tsub
+lemma: hostage
+pos: Noun
+features: Plur,Humn,
+Count,Anim,
+Conc,Humn_sr
+Tobj
+lemma: six
+pos: Adj
+features: Quant,Plur,
+Num,Value 6
+Lops
+lemma: Iraq
+pos: Noun
+features: Sing,PrprN,
+Pers3,Cntry
+Locn_in
+</figure>
+<figureCaption confidence="0.998964">
+Figure 1: Logical form produced by NLPWIN for
+</figureCaption>
+<listItem confidence="0.542898">
+the sentence Six hostages in Iraq were freed.
+4. If no syntactic heuristic matches, back off to
+</listItem>
+<bodyText confidence="0.987007666666667">
+a lexical similarity model (described in section
+5.1), with an attempt to align detected para-
+phrases (described in section 5.2).
+In addition to the typical syntactic information pro-
+vided by a dependency parser, the NLPWIN parser
+provides an extensive number of semantic features
+obtained from various linguistic resources, creating
+a rich environment for feature engineering. For ex-
+ample, Figure 1 (from Dev Ex. #616) illustrates the
+dependency graph representation we use, demon-
+strating the stemming, part-of-speech tagging, syn-
+tactic relationship identification, and semantic fea-
+ture tagging capabilities of NLPWIN.
+We define a content node to be any node whose
+lemma is not on a small stoplist of common stop
+words. In addition to content vs. non-content nodes,
+among content nodes we distinguish between en-
+tities and nonentities: an entity node is any node
+classified by the NLPWIN parser as being a proper
+noun, quantity, or time.
+Each of the features of our system were developed
+from inspection of sentence pairs from the RTE de-
+velopment data set, and used in the final system only
+if they improved the systems accuracy on the de-
+velopment set (or improved F-score if accuracy was
+unchanged); sentence pairs in the RTE test set were
+left uninspected and used for testing purposes only.
+3 Linguistic cues for node alignment
+Our syntactic heuristics for recognizing false entail-
+ment rely heavily on the correct alignment of words
+and multiword units between the text and hypothesis
+logical forms. In the notation below, we will con-
+sider h and t to be nodes in the hypothesis H and
+</bodyText>
+<page confidence="0.997877">
+34
+</page>
+<bodyText confidence="0.9395975">
+\x0cHypothesis: Hepburn, who won four Oscars...
+Text: Hepburn, a four-time Academy Award winner...
+</bodyText>
+<figure confidence="0.998385466666666">
+Hepburn
+Noun
+win
+Verb
+Tsub
+Hepburn
+Noun
+String
+match
+Oscar
+Noun
+Tobj
+winner
+Noun
+Derivational
+form match
+four
+Adj
+Lops
+Academy_Award
+Noun
+Synonym
+match
+four-time
+Adj
+Value
+match
+Appostn
+Attrib
+Mod
+</figure>
+<figureCaption confidence="0.999905">
+Figure 2: Example of synonym, value, and deriva-
+</figureCaption>
+<bodyText confidence="0.92598275">
+tional form alignment heuristics, Dev Ex. #767
+text T logical forms, respectively. To accomplish
+the task of node alignment we rely on the following
+heuristics:
+</bodyText>
+<subsectionHeader confidence="0.996054">
+3.1 WordNet synonym match
+</subsectionHeader>
+<bodyText confidence="0.999558125">
+As in (Herrera et al., 2005) and others, we align
+a node h H to any node t T that has both
+the same part of speech and belongs to the same
+synset in WordNet. Our alignment considers mul-
+tiword units, including compound nouns (e.g., we
+align Oscar to Academy Award as in Figure 2),
+as well as verb-particle constructions such as set
+off (aligned to trigger in Test Ex. #1983).
+</bodyText>
+<subsectionHeader confidence="0.989752">
+3.2 Numeric value match
+</subsectionHeader>
+<bodyText confidence="0.954848">
+The NLPWIN parser assigns a normalized numeric
+value feature to each piece of text inferred to cor-
+respond to a numeric value; this allows us to align
+6th to sixth in Test Ex. #1175. and to align a
+dozen to twelve in Test Ex. #1231.
+</bodyText>
+<subsectionHeader confidence="0.998276">
+3.3 Acronym match
+</subsectionHeader>
+<bodyText confidence="0.935058076923077">
+Many acronyms are recognized using the syn-
+onym match described above; nonetheless, many
+acronyms are not yet in WordNet. For these cases we
+have a specialized acronym match heuristic which
+aligns pairs of nodes with the following properties:
+if the lemma for some node h consists only of cap-
+italized letters (with possible interceding periods),
+and the letters correspond to the first characters of
+some multiword lemma for some t T, then we
+consider h and t to be aligned. This heuristic allows
+us to align UNDP to United Nations Develop-
+ment Programme in Dev Ex. #357 and ANC to
+African National Congress in Test Ex. #1300.
+</bodyText>
+<subsectionHeader confidence="0.879411">
+3.4 Derivational form match
+</subsectionHeader>
+<bodyText confidence="0.954121863636364">
+We would like to align words which have the same
+root form (or have a synonym with the same root
+form) and which possess similar semantic meaning,
+but which may belong to different syntactic cate-
+gories. We perform this by using a combination of
+the synonym and derivationally-related form infor-
+mation contained within WordNet. Explicitly our
+procedure for constructing the set of derivationally-
+related forms for a node h is to take the union of all
+derivationally-related forms of all the synonyms of
+h (including h itself), i.e.:
+DERIV(h) = sWN-SYN(h)WN-DERIV(s)
+In addition to the noun/verb derivationally-related
+forms, we detect adjective/adverb derivationally-
+related forms that differ only by the suffix ly.
+Unlike the previous alignment heuristics, we do
+not expect that two nodes aligned via derivationally-
+related forms will play the same syntactic role in
+their respective sentences. Thus we consider two
+nodes aligned in this way to be soft-aligned, and we
+do not attempt to apply our false entailment recog-
+nition heuristics to nodes aligned in this way.
+</bodyText>
+<subsectionHeader confidence="0.838027">
+3.5 Country adjectival form / demonym match
+</subsectionHeader>
+<bodyText confidence="0.98010975">
+As a special case of derivational form match, we
+soft-align matches from an explicit list of place
+names, adjectival forms, and demonyms4; e.g.,
+Sweden and Swedish in Test Ex. #1576.
+</bodyText>
+<subsectionHeader confidence="0.969575">
+3.6 Other heuristics for alignment
+</subsectionHeader>
+<bodyText confidence="0.995903285714286">
+In addition to these heuristics, we implemented a hy-
+ponym match heuristic similar to that discussed in
+(Herrera et al., 2005), and a heuristic based on the
+string-edit distance of two lemmas; however, these
+heuristics yielded a decrease in our systems accu-
+racy on the development set and were thus left out
+of our final system.
+</bodyText>
+<sectionHeader confidence="0.886469" genericHeader="method">
+4 Recognizing false entailment
+</sectionHeader>
+<bodyText confidence="0.999397">
+The bulk of our system focuses on heuristics for
+recognizing false entailment. For purposes of no-
+tation, we define binary functions for the existence
+</bodyText>
+<page confidence="0.945836">
+4
+</page>
+<table confidence="0.93711175">
+List of adjectival forms and demonyms based on the list at:
+http://en.wikipedia.org/wiki/List of demonyms
+35
+\x0cUnaligned Entity: ENTITY(h) t.ALIGN(h, t) False.
+Negation Mismatch: ALIGN(h, t) NEG(t) 6= NEG(h) False.
+Modal Mismatch: ALIGN(h, t) MOD(t) MOD(h) False.
+Antonym Match: ALIGN(h1, t1) REL(h0, h1) REL(t0, t1) LEMMA(t0) ANTONYMS(h0) False
+Argument Movement: ALIGN(h1, t1) ALIGN(h2, t2) REL(h1, h2) REL(t1, t2) REL {SUBJ, OBJ, IND} False
+Superlative Mismatch: (SUPR(h1) (ALIGN(h1, t1) ALIGN(h2, t2) REL1(h2, h1) REL1(t2, t1)
+t3.(REL2(t2, t3) REL2 {MOD,POSSR,LOCN} REL2(h2, h3) ALIGN(h3, t3))) False
+Conditional Mismatch: ALIGN(h1, t1) ALIGN(h2, t2) COND PATH(t1, t2) COND /
+PATH(h1, h2) False
+</table>
+<tableCaption confidence="0.998716">
+Table 1: Summary of heuristics for recognizing false entailment
+</tableCaption>
+<bodyText confidence="0.961195363636364">
+of each semantic node feature recognized by NLP-
+WIN; e.g., if h is negated, we state that NEG(h) =
+TRUE. Similarly we assign binary functions for
+the existence of each syntactic relation defined over
+pairs of nodes. Finally, we define the function
+ALIGN(h, t) to be true if and only if the node h H
+has been hard-aligned to the node t T using one
+of the heuristics in Section 3. Other notation is de-
+fined in the text as it is used. Table 1 summarizes all
+heuristics used in our final system to recognize false
+entailment.
+</bodyText>
+<subsectionHeader confidence="0.997386">
+4.1 Unaligned entity
+</subsectionHeader>
+<bodyText confidence="0.996349666666667">
+If some node h has been recognized as an entity (i.e.,
+as a proper noun, quantity, or time) but has not been
+aligned to any node t, we predict that the entailment
+is false. For example, we predict that Test Ex. #1863
+is false because the entities Suwariya, 20 miles,
+and 35 in H are unaligned.
+</bodyText>
+<subsectionHeader confidence="0.993865">
+4.2 Negation mismatch
+</subsectionHeader>
+<bodyText confidence="0.999251571428571">
+If any two nodes (h, t) are aligned, and one (and
+only one) of them is negated, we predict that the en-
+tailment is false. Negation is conveyed by the NEG
+feature in NLPWIN. This heuristic allows us to pre-
+dict false entailment in the example Pertussis is not
+very contagious and ...pertussis, is a highly conta-
+gious bacterial infection in Test Ex. #1144.
+</bodyText>
+<subsectionHeader confidence="0.994113">
+4.3 Modal auxiliary verb mismatch
+</subsectionHeader>
+<bodyText confidence="0.998673666666667">
+If any two nodes (h, t) are aligned, and t is modified
+by a modal auxiliary verb (e.g, can, might, should,
+etc.) but h is not similarly modified, we predict that
+the entailment is false. Modification by a modal aux-
+iliary verb is conveyed by the MOD feature in NLP-
+WIN. This heuristic allows us to predict false en-
+tailment between the text phrase would constitute
+a threat to democracy, and the hypothesis phrase
+constitutes a democratic threat in Test Ex. #1203.
+</bodyText>
+<subsectionHeader confidence="0.997527">
+4.4 Antonym match
+</subsectionHeader>
+<bodyText confidence="0.996025">
+If two aligned noun nodes (h1, t1) are both subjects
+or both objects of verb nodes (h0, t0) in their re-
+spective sentences, i.e., REL(h0, h1) REL(t0, t1)
+REL {SUBJ,OBJ}, then we check for a verb
+antonym match between (h0, t0). We construct
+the set of verb antonyms using WordNet; we con-
+sider the antonyms of h0 to be the union of the
+antonyms of the first three senses of LEMMA(h0),
+or of the nearest antonym-possessing hypernyms if
+those senses do not themselves have antonyms in
+WordNet. Explicitly our procedure for constructing
+the antonym set of a node h0 is as follows:
+</bodyText>
+<figure confidence="0.6328845">
+1. ANTONYMS(h0) = {}
+2. For each of the first three listed senses s of
+LEMMA(h0) in WordNet:
+(a) While |WN-ANTONYMS(s) |= 0
+i. s WN-HYPERNYM(s)
+(b) ANTONYMS(h0) ANTONYMS(h0)
+WN-ANTONYMS(s)
+3. return ANTONYMS(h0)
+</figure>
+<bodyText confidence="0.990926166666667">
+In addition to the verb antonyms in WordNet, we
+detect the prepositional antonym pairs (before/after,
+to/from, and over/under). This heuristic allows us to
+predict false entailment between Black holes can
+lose mass... and Black holes can regain some of
+their mass... in Test Ex. #1445.
+</bodyText>
+<subsectionHeader confidence="0.978816">
+4.5 Argument movement
+</subsectionHeader>
+<bodyText confidence="0.9931035">
+For any two aligned verb nodes (h1, t1), we con-
+sider each noun child h2 of h1 possessing any of
+</bodyText>
+<page confidence="0.76962">
+36
+</page>
+<figure confidence="0.998554193548387">
+\x0cHypothesis Text
+kill
+Verb
+Prime Minister
+Robert Malval
+Noun
+Tobj
+Aristide
+Noun
+Tsub
+kill
+Verb
+Prime Minister
+Robert Malval
+Noun
+Aristide
+Noun
+Tsub
+conference
+Noun
+Tobj
+call
+Verb
+Attrib
+conference
+Noun
+Tobj
+Tsub
+Port-au-Prince
+Noun
+Locn_in
+</figure>
+<figureCaption confidence="0.7721305">
+Figure 3: Example of object movement signaling
+false entailment
+</figureCaption>
+<bodyText confidence="0.9871286875">
+the subject, object, or indirect object relations to
+h1, i.e., there exists REL(h1, h2) such that REL
+{SUBJ, OBJ, IND}. If there is some node t2 such that
+ALIGN(h2, t2), but REL(t1, t2) 6= REL(h1, h2), then
+we predict that the entailment is false.
+As an example, consider Figure 3, representing
+subgraphs from Dev Ex. #1916:
+T: ...U.N. officials are also dismayed that Aristide killed a con-
+ference called by Prime Minister Robert Malval...
+H: Aristide kills Prime Minister Robert Malval.
+Here let (h1, t1) correspond to the aligned verbs
+with lemma kill, where the object of h1 has lemma
+Prime Minister Robert Malval, and the object of t1
+has lemma conference. Since h2 is aligned to some
+node t2 in the text graph, but OBJ(t1, t2), the sen-
+tence pair is rejected as a false entailment.
+</bodyText>
+<subsectionHeader confidence="0.987879">
+4.6 Superlative mismatch
+</subsectionHeader>
+<bodyText confidence="0.972838333333333">
+If some adjective node h1 in the hypothesis is iden-
+tified as a superlative, check that all of the following
+conditions are satisfied:
+</bodyText>
+<listItem confidence="0.9015435">
+1. h1 is aligned to some superlative t1 in the text
+sentence.
+2. The noun phrase h2 modified by h1 is aligned
+to the noun phrase t2 modified by t1.
+3. Any additional modifier t3 of the noun phrase
+t2 is aligned to some modifier h3 of h2 in the
+</listItem>
+<bodyText confidence="0.9963503">
+hypothesis sentence (reverse subset match).
+If any of these conditions are not satisfied, we pre-
+dict that the entailment is false. This heuristic allows
+us to predict false entailment in (Dev Ex. #908):
+T: Time Warner is the worlds largest media and Internet com-
+pany.
+H: Time Warner is the worlds largest company.
+Here largest media and Internet company in T
+fails the reverse subset match (condition 3) to
+largest company in H.
+</bodyText>
+<subsectionHeader confidence="0.998894">
+4.7 Conditional mismatch
+</subsectionHeader>
+<bodyText confidence="0.996754733333333">
+For any pair of aligned nodes (h1, t1), if there ex-
+ists a second pair of aligned nodes (h2, t2) such
+that the shortest path PATH(t1, t2) in the depen-
+dency graph T contains the conditional relation,
+then PATH(h1, h2) must also contain the conditional
+relation, or else we predict that the entailment is
+false. For example, consider the following false en-
+tailment (Dev Ex. #60):
+T: If a Mexican approaches the border, hes assumed to be try-
+ing to illegally cross.
+H: Mexicans continue to illegally cross border.
+Here, Mexican and cross are aligned, and the
+path between them in the text contains the condi-
+tional relation, but does not in the hypothesis; thus
+the entailment is predicted to be false.
+</bodyText>
+<subsectionHeader confidence="0.673473">
+4.8 Other heuristics for false entailment
+</subsectionHeader>
+<bodyText confidence="0.949077666666667">
+In addition to these heuristics, we additionally im-
+plemented an IS-A mismatch heuristic, which at-
+tempted to discover when an IS-A relation in the hy-
+</bodyText>
+<figureCaption confidence="0.479159833333333">
+pothesis sentence was not implied by a correspond-
+ing IS-A relation in the text; however, this heuristic
+yielded a loss in accuracy on the development set
+and was therefore not included in our final system.
+5 Lexical similarity and paraphrase
+detection
+</figureCaption>
+<subsectionHeader confidence="0.947636">
+5.1 Lexical similarity using MindNet
+</subsectionHeader>
+<bodyText confidence="0.997004">
+In case none of the preceding heuristics for rejec-
+tion are applicable, we back off to a lexical sim-
+ilarity model similar to that described in (Glick-
+man et al., 2005). For every content node h H
+</bodyText>
+<page confidence="0.994521">
+37
+</page>
+<bodyText confidence="0.991673">
+\x0cnot already aligned by one of the heuristics in Sec-
+tion 3, we obtain a similarity score MN(h, t) from a
+similarity database that is constructed automatically
+from the data contained in MindNet5 as described in
+(Richardson, 1997). Our similarity function is thus:
+</bodyText>
+<equation confidence="0.947377">
+sim(h, t) =
+1 if ANY-ALIGN(h, t)
+</equation>
+<bodyText confidence="0.8573085">
+MN(h, t) if MN(h, t) &amp;gt; min
+min otherwise
+Where the minimum score min is a parameter
+tuned for maximum accuracy on the development
+set; min = 0.00002 in our final system. We then
+compute the entailment score:
+</bodyText>
+<equation confidence="0.743714125">
+score(H, T) =
+1
+|H|
+Y
+hH
+max
+tT
+sim(h, t)
+</equation>
+<bodyText confidence="0.997154428571428">
+This approach is identical to that used in (Glick-
+man et al., 2005), except that we use alignment
+heuristics and MindNet similarity scores in place
+of their web-based estimation of lexical entailment
+probabilities, and we take as our score the geomet-
+ric mean of the component entailment scores rather
+than the unnormalized product of probabilities.
+</bodyText>
+<subsectionHeader confidence="0.977565">
+5.2 Measuring phrasal similarity using the web
+</subsectionHeader>
+<bodyText confidence="0.999743842105263">
+The methods discussed so far for alignment are lim-
+ited to aligning pairs of single words or multiple-
+word units constituting single syntactic categories;
+these are insufficient for the problem of detecting
+more complicated paraphrases. For example, con-
+sider the following true entailment (Dev Ex. #496):
+T: ...Muslims believe there is only one God.
+H: Muslims are monotheistic.
+Here we would like to align the hypothesis phrase
+are monotheistic to the text phrase believe there
+is only one God; unfortunately, single-node align-
+ment aligns only the nodes with lemma Muslim.
+In this section we describe the approach used in our
+system to approximate phrasal similarity via distrib-
+utional information obtained using the MSN Search
+search engine.
+We propose a metric for measuring phrasal simi-
+larity based on a phrasal version of the distributional
+hypothesis: we propose that a phrase template Ph
+</bodyText>
+<page confidence="0.952821">
+5
+</page>
+<bodyText confidence="0.941618652173913">
+http://research.microsoft.com/mnex
+(e.g. xh are monotheistic) has high semantic simi-
+larity to a template Pt (e.g. xt believe there is only
+one God), with possible slot-fillers xh and xt, re-
+spectively, if the overlap of the sets of observed slot-
+fillers Xh Xt for those phrase templates is high in
+some sufficiently large corpus (e.g., the Web).
+To measure phrasal similarity we issue the sur-
+face text form of each candidate phrase template as
+a query to a web-based search engine, and parse the
+returned sentences in which the candidate phrase oc-
+curs to determine the appropriate slot-fillers. For ex-
+ample, in the above example, we observe the set of
+slot-fillers Xt = {Muslims, Christians, Jews, Saiv-
+ities, Sikhs, Caodaists, People}, and Xh Xt =
+{Muslims, Christians, Jews, Sikhs, People}.
+Explicitly, given the text and hypothesis logical
+forms, our algorithm proceeds as follows to compute
+the phrasal similarity between all phrase templates
+in H and T:
+1. For each pair of aligned single node and un-
+aligned leaf node (t1, tl) (or pair of aligned
+nodes (t1, t2)) in the text T:
+</bodyText>
+<listItem confidence="0.944772882352941">
+(a) Use NLPWIN to generate a surface text
+string S from the underlying logical form
+PATH(t1, t2).
+(b) Create the surface string template phrase
+Pt by removing from S the lemmas corre-
+sponding to t1 (and t2, if path is between
+aligned nodes).
+(c) Perform a web search for the string Pt.
+(d) Parse the resulting sentences containing
+Pt and extract all non-pronoun slot fillers
+xt Xt that satisfy the same syntactic
+roles as t1 in the original sentence.
+2. Similarly, extract the slot fillers Xh for each
+discovered phrase template Ph in H.
+3. Calculate paraphrase similarity as a function of
+the overlap between the slot-filler sets Xt and
+Xh, i.e: score(Ph, Pt) = |XhXt|
+</listItem>
+<equation confidence="0.494353">
+|Xt |.
+</equation>
+<bodyText confidence="0.98792225">
+We then incorporate paraphrase similarity within the
+lexical similarity model by allowing, for some un-
+aligned node h Ph, where t Pt:
+sim(h, t) = max(MN(h, t), score(Ph, Pt))
+</bodyText>
+<page confidence="0.988587">
+38
+</page>
+<bodyText confidence="0.999509545454545">
+\x0cOur approach to paraphrase detection is most similar
+to the TE/ASE algorithm (Szpektor et al., 2004), and
+bears similarity to both DIRT (Lin and Pantel, 2001)
+and KnowItAll (Etzioni et al., 2004). The chief
+difference in our algorithm is that we generate the
+surface text search strings from the parsed logical
+forms using the generation capabilities of NLPWIN
+(Aikawa et al., 2001), and we verify that the syn-
+tactic relations in each discovered web snippet are
+isomorphic to those in the original candidate para-
+phrase template.
+</bodyText>
+<sectionHeader confidence="0.999886" genericHeader="evaluation">
+6 Results and Discussion
+</sectionHeader>
+<bodyText confidence="0.9990725">
+In this section we present the final results of our sys-
+tem on the PASCAL RTE-1 test set, and examine our
+features in an ablation study. The PASCAL RTE-1
+development and test sets consist of 567 and 800 ex-
+amples, respectively, with the test set split equally
+between true and false examples.
+</bodyText>
+<subsectionHeader confidence="0.758307">
+6.1 Results and Performance Comparison on
+</subsectionHeader>
+<bodyText confidence="0.993253181818182">
+the PASCAL RTE-1 Test Set
+Table 2 displays the accuracy and confidence-
+weighted score6 (CWS) of our final system on each
+of the tasks for both the development and test sets.
+Our overall test set accuracy of 62.50% rep-
+resents a 2.1% absolute improvement over the
+task-independent system described in (Tatu and
+Moldovan, 2005), and a 20.2% relative improve-
+ment in accuracy over their system with respect to
+an uninformed baseline accuracy of 50%.
+To compute confidence scores for our judgments,
+any entailment determined to be false by any heuris-
+tic was assigned maximum confidence; no attempts
+were made to distinguish between entailments re-
+jected by different heuristics. The confidence of
+all other predictions was calculated as the ab-
+solute value in the difference between the output
+score(H, T) of the lexical similarity model and the
+threshold t = 0.1285 as tuned for highest accu-
+racy on our development set. We would expect a
+higher CWS to result from learning a more appro-
+priate confidence function; nonetheless our overall
+</bodyText>
+<page confidence="0.969985">
+6
+</page>
+<bodyText confidence="0.953566333333333">
+As in (Dagan et al., 2005) we compute the confidence-
+weighted score (or average precision) over n examples
+{c1, c2, ..., cn} ranked in order of decreasing confidence as
+</bodyText>
+<equation confidence="0.979163166666667">
+cws = 1
+n
+Pn
+i=1
+(#correct-up-to-rank-i)
+i
+</equation>
+<table confidence="0.9885396">
+Dev Set Test Set
+Task acc cws acc cws
+CD 0.8061 0.8357 0.7867 0.8261
+RC 0.5534 0.5885 0.6429 0.6476
+IR 0.6857 0.6954 0.6000 0.6571
+MT 0.7037 0.7145 0.6000 0.6350
+IE 0.5857 0.6008 0.5917 0.6275
+QA 0.7111 0.7121 0.5308 0.5463
+PP 0.7683 0.7470 0.5200 0.5333
+All 0.6878 0.6888 0.6250 0.6534
+</table>
+<tableCaption confidence="0.757666">
+Table 2: Summary of accuracies and confidence-
+weighted scores, by task
+</tableCaption>
+<table confidence="0.999127866666667">
+Alignment Feature Dev Test
+Synonym Match 0.0106 0.0038
+Derivational Form 0.0053 0.0025
+Paraphrase 0.0053 0.0000
+Lexical Similarity 0.0053 0.0000
+Value Match 0.0017 0.0013
+Acronym Match 0.0017 0.0013
+Adjectival Form7 0.0000 0.0063
+False Entailment Feature Dev Test
+Negation Mismatch 0.0106 0.0025
+Argument Movement 0.0070 0.0250
+Conditional Mismatch 0.0053 0.0037
+Modal Mismatch 0.0035 0.0013
+Superlative Mismatch 0.0035 -0.0025
+Entity Mismatch 0.0018 0.0063
+</table>
+<tableCaption confidence="0.997294">
+Table 3: Feature ablation study; quantity is the ac-
+</tableCaption>
+<bodyText confidence="0.9377268">
+curacy loss obtained by removal of single feature
+test set CWS of 0.6534 is higher than previously-
+reported task-independent systems (however, the
+task-dependent system reported in (Raina et al.,
+2005) achieves a CWS of 0.686).
+</bodyText>
+<subsectionHeader confidence="0.958225">
+6.2 Feature analysis
+</subsectionHeader>
+<bodyText confidence="0.9994718">
+Table 3 displays the results of our feature ablation
+study, analyzing the individual effect of each feature.
+Of the seven heuristics used in our final system
+for node alignment (including lexical similarity and
+paraphrase detection), our ablation study showed
+</bodyText>
+<page confidence="0.98056">
+7
+</page>
+<bodyText confidence="0.983268666666667">
+As discussed in Section 2, features with no effect on devel-
+opment set accuracy were included in the system if and only if
+they improved the systems unweighted F-score.
+</bodyText>
+<page confidence="0.989403">
+39
+</page>
+<bodyText confidence="0.996168777777778">
+\x0cthat five were helpful in varying degrees on our test
+set, but that removal of either MindNet similarity
+scores or paraphrase detection resulted in no accu-
+racy loss on the test set.
+Of the six false entailment heuristics used in the
+final system, five resulted in an accuracy improve-
+ment on the test set (the most effective by far was
+the Argument Movement, resulting in a net gain
+of 20 correctly-classified false examples); inclusion
+of the Superlative Mismatch feature resulted in a
+small net loss of two examples.
+We note that our heuristics for false entailment,
+where applicable, were indeed significantly more ac-
+curate than our final system as a whole; on the set of
+examples predicted false by our heuristics we had
+71.3% accuracy on the training set (112 correct out
+of 157 predicted), and 72.9% accuracy on the test set
+(164 correct out of 225 predicted).
+</bodyText>
+<sectionHeader confidence="0.997899" genericHeader="conclusions">
+7 Conclusion
+</sectionHeader>
+<bodyText confidence="0.996691833333333">
+In this paper we have presented and analyzed a sys-
+tem for recognizing textual entailment focused pri-
+marily on the recognition of false entailment, and
+demonstrated higher performance than achieved by
+previous approaches on the widely-used PASCAL
+RTE test set. Our system achieves state-of-the-
+art performance despite not exploiting a wide ar-
+ray of sources of knowledge used by other high-
+performance systems; we submit that the perfor-
+mance of our system demonstrates the unexploited
+potential in features designed specifically for the
+recognition of false entailment.
+</bodyText>
+<sectionHeader confidence="0.978459" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.897666333333333">
+We thank Chris Brockett, Michael Gamon, Gary
+Kacmarick, and Chris Quirk for helpful discussion.
+Also, thanks to Robert Ragno for assistance with
+the MSN Search API. Rion Snow is supported by
+an NDSEG Fellowship sponsored by the DOD and
+AFOSR.
+</bodyText>
+<sectionHeader confidence="0.978802" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.999412888888889">
+Takako Aikawa, Maite Melero, Lee Schwartz, and Andi
+Wu. 2001. Multilingual Sentence Generation. In
+Proc. of 8th
+European Workshop on Natural Language
+Generation.
+Samuel Bayer, John Burger, Lisa Ferro, John Henderson,
+and Alexander Yeh. 2005. MITREs Submissions to
+the EU Pascal RTE Challenge. In Proc. of the PASCAL
+Challenges Workshop on RTE 2005.
+Johan Bos and Katja Markert. 2005. Recognizing Tex-
+tual Entailment with Logical Inference. In Proc. HLT-
+EMNLP 2005.
+Ido Dagan, Oren Glickman, and Bernardo Magnini.
+2005. The PASCAL Recognising Textual Entailment
+Challenge. In Proceedings of the PASCAL Challenges
+Workshop on RTE 2005.
+Oren Etzioni, Michael Cafarella, Doug Downey, Stanley
+Kok, Ana-Maria Popescu, Tal Shaked, Stephen Soder-
+land, Daniel S. Weld, and Alexander Yates. 2004.
+Web-scale information extraction in KnowItAll. In
+Proc. WWW 2004.
+Christiane Fellbaum, editor. 1998. WordNet: An Elec-
+tronic Lexical Database. MIT Press, Cambridge,
+Mass.
+Oren Glickman, Ido Dagan, and Moshe Koppel. 2005.
+Web Based Probabilistic Textual Entailment. In Proc.
+of the PASCAL Challenges Workshop on RTE 2005.
+George E. Heidorn. 2000. Intelligent Writing Assis-
+tance. In R. Dale, H. Moisl, and H. Somers (eds.),
+A Handbook of Natural Language Processing: Tech-
+niques and Applications for the Processing of Lan-
+guage as Text. Marcel Dekker, New York. 181-207.
+Jesus Herrera, Anselmo Penas, and Felisa Verdejo. 2005.
+Textual Entailment Recognision Based on Depen-
+dency Analysis and WordNet. In Proc. of the PASCAL
+Challenges Workshop on RTE 2005.
+Dekang Lin and Patrick Pantel. 2001. DIRT - Discovery
+of Inference Rules from Text. In Proc. KDD 2001.
+Rajat Raina, Andrew Y. Ng, and Christopher D. Man-
+ning. 2005. Robust textual inference via learning and
+abductive reasoning. In Proc. AAAI 2005.
+Stephen D. Richardson. 1997. Determining Similarity
+and Inferring Relations in a Lexical Knowledge Base.
+Ph.D. thesis, The City University of New York.
+Idan Szpektor, Hristo Tanev, Ido Dagan, and Bonaventura
+Coppola. 2004. Scaling Web-based Acquisition of
+Entailment Relations. In Proc. EMNLP 2004.
+Marta Tatu and Dan Moldovan. 2005. A Semantic Ap-
+proach to Recognizing Textual Entailment. In Proc.
+HLT-EMNLP 2005.
+Lucy Vanderwende and William B. Dolan. 2006. What
+Syntax Can Contribute in the Entailment Task. In
+MLCW 2005, LNAI 3944, pp. 205216. J. Quinonero-
+Candela et al. (eds.). Springer-Verlag.
+</reference>
+<figure confidence="0.3460875">
+40
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.739133">
+<note confidence="0.951584666666667">b&amp;apos;Proceedings of the Human Language Technology Conference of the North American Chapter of the ACL, pages 3340, New York, June 2006. c 2006 Association for Computational Linguistics</note>
+<title confidence="0.904655">Effectively Using Syntax for Recognizing False Entailment</title>
+<author confidence="0.997232">Rion Snow</author>
+<affiliation confidence="0.9998885">Computer Science Department Stanford University</affiliation>
+<address confidence="0.999765">Stanford, CA 94305</address>
+<email confidence="0.999087">rion@cs.stanford.edu</email>
+<author confidence="0.973497">Lucy Vanderwende</author>
+<author confidence="0.973497">Arul Menezes</author>
+<affiliation confidence="0.999776">Microsoft Research</affiliation>
+<address confidence="0.9944675">One Microsoft Way Redmond, WA 98027</address>
+<email confidence="0.99961">lucyv@microsoft.com</email>
+<email confidence="0.99961">arulm@microsoft.com</email>
+<abstract confidence="0.997348272727273">Recognizing textual entailment is a challenging problem and a fundamental component of many applications in natural language processing. We present a novel framework for recognizing textual entailment that focuses on the use of syntactic heuristics to recognize false entailment. We give a thorough analysis of our system, which demonstrates state-of-the-art performance on a widely-used test set.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>Takako Aikawa</author>
+<author>Maite Melero</author>
+<author>Lee Schwartz</author>
+<author>Andi Wu</author>
+</authors>
+<title>Multilingual Sentence Generation.</title>
+<date>2001</date>
+<booktitle>In Proc. of 8th European Workshop on Natural Language Generation.</booktitle>
+<contexts>
+<context position="22622" citStr="Aikawa et al., 2001" startWordPosition="3709" endWordPosition="3712">iller sets Xt and Xh, i.e: score(Ph, Pt) = |XhXt| |Xt |. We then incorporate paraphrase similarity within the lexical similarity model by allowing, for some unaligned node h Ph, where t Pt: sim(h, t) = max(MN(h, t), score(Ph, Pt)) 38 \x0cOur approach to paraphrase detection is most similar to the TE/ASE algorithm (Szpektor et al., 2004), and bears similarity to both DIRT (Lin and Pantel, 2001) and KnowItAll (Etzioni et al., 2004). The chief difference in our algorithm is that we generate the surface text search strings from the parsed logical forms using the generation capabilities of NLPWIN (Aikawa et al., 2001), and we verify that the syntactic relations in each discovered web snippet are isomorphic to those in the original candidate paraphrase template. 6 Results and Discussion In this section we present the final results of our system on the PASCAL RTE-1 test set, and examine our features in an ablation study. The PASCAL RTE-1 development and test sets consist of 567 and 800 examples, respectively, with the test set split equally between true and false examples. 6.1 Results and Performance Comparison on the PASCAL RTE-1 Test Set Table 2 displays the accuracy and confidenceweighted score6 (CWS) of </context>
+</contexts>
+<marker>Aikawa, Melero, Schwartz, Wu, 2001</marker>
+<rawString>Takako Aikawa, Maite Melero, Lee Schwartz, and Andi Wu. 2001. Multilingual Sentence Generation. In Proc. of 8th European Workshop on Natural Language Generation.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Samuel Bayer</author>
+<author>John Burger</author>
+<author>Lisa Ferro</author>
+<author>John Henderson</author>
+<author>Alexander Yeh</author>
+</authors>
+<title>MITREs Submissions to the EU Pascal RTE Challenge.</title>
+<date>2005</date>
+<booktitle>In Proc. of the PASCAL Challenges Workshop on RTE</booktitle>
+<contexts>
+<context position="2821" citStr="Bayer et al., 2005" startWordPosition="413" endWordPosition="416">han to the inter-annotator agreement. For example, two high-accuracy systems are those described in (Tatu and Moldovan, 2005), achieving 60.4% accuracy with no task-specific information, and (Bos and Markert, 2005), which achieves 61.2% task-dependent accuracy, i.e. when able to use the specific task labels as input. Previous systems for RTE have attempted a wide variety of strategies. Many previous approaches have used a logical form representation of the text and hypothesis sentences, focusing on deriving a proof by which one can infer the hypothesis logical form from the text logical form (Bayer et al., 2005; Bos and Markert, 2005; Raina et al., 2005; Tatu and Moldovan, 2005). These papers often cite that a major obstacle to accurate theorem proving for the task of textual entailment is the lack of world knowledge, which is frequently difficult and costly to obtain and encode. Attempts have been made to remedy this deficit through various techniques, including modelbuilding (Bos and Markert, 2005) and the addition of semantic axioms (Tatu and Moldovan, 2005). Our system diverges from previous approaches most strongly by focusing upon false entailments; rather than assuming that a given entailment</context>
+</contexts>
+<marker>Bayer, Burger, Ferro, Henderson, Yeh, 2005</marker>
+<rawString>Samuel Bayer, John Burger, Lisa Ferro, John Henderson, and Alexander Yeh. 2005. MITREs Submissions to the EU Pascal RTE Challenge. In Proc. of the PASCAL Challenges Workshop on RTE 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Johan Bos</author>
+<author>Katja Markert</author>
+</authors>
+<title>Recognizing Textual Entailment with Logical Inference.</title>
+<date>2005</date>
+<booktitle>In Proc. HLTEMNLP</booktitle>
+<contexts>
+<context position="2019" citStr="Bos and Markert, 2005" startWordPosition="287" endWordPosition="290">TE dataset into seven distinct tasks: Information Extraction (IE), Comparable Documents (CD), Reading Comprehension (RC), Machine Translation (MT), Information Retrieval (IR), Question Answering (QA), and Paraphrase Acquisition (PP). 1 http://www.pascal-network.org/Challenges/RTE. The examples given throughout this paper are from the first PASCAL RTE dataset, described in Section 6. The RTE problem as presented in the PASCAL RTE dataset is particularly attractive in that it is a reasonably simple task for human annotators with high inter-annotator agreement (95.1% in one independent labeling (Bos and Markert, 2005)), but an extremely challenging task for automated systems. The highest accuracy systems on the RTE test set are still much closer in performance to a random baseline accuracy of 50% than to the inter-annotator agreement. For example, two high-accuracy systems are those described in (Tatu and Moldovan, 2005), achieving 60.4% accuracy with no task-specific information, and (Bos and Markert, 2005), which achieves 61.2% task-dependent accuracy, i.e. when able to use the specific task labels as input. Previous systems for RTE have attempted a wide variety of strategies. Many previous approaches ha</context>
+</contexts>
+<marker>Bos, Markert, 2005</marker>
+<rawString>Johan Bos and Katja Markert. 2005. Recognizing Textual Entailment with Logical Inference. In Proc. HLTEMNLP 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Ido Dagan</author>
+<author>Oren Glickman</author>
+<author>Bernardo Magnini</author>
+</authors>
+<title>The PASCAL Recognising Textual Entailment Challenge.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the PASCAL Challenges Workshop on RTE</booktitle>
+<contexts>
+<context position="24184" citStr="Dagan et al., 2005" startWordPosition="3971" endWordPosition="3974"> 50%. To compute confidence scores for our judgments, any entailment determined to be false by any heuristic was assigned maximum confidence; no attempts were made to distinguish between entailments rejected by different heuristics. The confidence of all other predictions was calculated as the absolute value in the difference between the output score(H, T) of the lexical similarity model and the threshold t = 0.1285 as tuned for highest accuracy on our development set. We would expect a higher CWS to result from learning a more appropriate confidence function; nonetheless our overall 6 As in (Dagan et al., 2005) we compute the confidenceweighted score (or average precision) over n examples {c1, c2, ..., cn} ranked in order of decreasing confidence as cws = 1 n Pn i=1 (#correct-up-to-rank-i) i Dev Set Test Set Task acc cws acc cws CD 0.8061 0.8357 0.7867 0.8261 RC 0.5534 0.5885 0.6429 0.6476 IR 0.6857 0.6954 0.6000 0.6571 MT 0.7037 0.7145 0.6000 0.6350 IE 0.5857 0.6008 0.5917 0.6275 QA 0.7111 0.7121 0.5308 0.5463 PP 0.7683 0.7470 0.5200 0.5333 All 0.6878 0.6888 0.6250 0.6534 Table 2: Summary of accuracies and confidenceweighted scores, by task Alignment Feature Dev Test Synonym Match 0.0106 0.0038 Der</context>
+</contexts>
+<marker>Dagan, Glickman, Magnini, 2005</marker>
+<rawString>Ido Dagan, Oren Glickman, and Bernardo Magnini. 2005. The PASCAL Recognising Textual Entailment Challenge. In Proceedings of the PASCAL Challenges Workshop on RTE 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Oren Etzioni</author>
+<author>Michael Cafarella</author>
+<author>Doug Downey</author>
+<author>Stanley Kok</author>
+<author>Ana-Maria Popescu</author>
+<author>Tal Shaked</author>
+<author>Stephen Soderland</author>
+<author>Daniel S Weld</author>
+<author>Alexander Yates</author>
+</authors>
+<date>2004</date>
+<contexts>
+<context position="22435" citStr="Etzioni et al., 2004" startWordPosition="3679" endWordPosition="3682">original sentence. 2. Similarly, extract the slot fillers Xh for each discovered phrase template Ph in H. 3. Calculate paraphrase similarity as a function of the overlap between the slot-filler sets Xt and Xh, i.e: score(Ph, Pt) = |XhXt| |Xt |. We then incorporate paraphrase similarity within the lexical similarity model by allowing, for some unaligned node h Ph, where t Pt: sim(h, t) = max(MN(h, t), score(Ph, Pt)) 38 \x0cOur approach to paraphrase detection is most similar to the TE/ASE algorithm (Szpektor et al., 2004), and bears similarity to both DIRT (Lin and Pantel, 2001) and KnowItAll (Etzioni et al., 2004). The chief difference in our algorithm is that we generate the surface text search strings from the parsed logical forms using the generation capabilities of NLPWIN (Aikawa et al., 2001), and we verify that the syntactic relations in each discovered web snippet are isomorphic to those in the original candidate paraphrase template. 6 Results and Discussion In this section we present the final results of our system on the PASCAL RTE-1 test set, and examine our features in an ablation study. The PASCAL RTE-1 development and test sets consist of 567 and 800 examples, respectively, with the test s</context>
+</contexts>
+<marker>Etzioni, Cafarella, Downey, Kok, Popescu, Shaked, Soderland, Weld, Yates, 2004</marker>
+<rawString>Oren Etzioni, Michael Cafarella, Doug Downey, Stanley Kok, Ana-Maria Popescu, Tal Shaked, Stephen Soderland, Daniel S. Weld, and Alexander Yates. 2004.</rawString>
+</citation>
+<citation valid="true">
+<title>Web-scale information extraction in KnowItAll.</title>
+<date>2004</date>
+<booktitle>In Proc. WWW</booktitle>
+<marker>2004</marker>
+<rawString>Web-scale information extraction in KnowItAll. In Proc. WWW 2004.</rawString>
+</citation>
+<citation valid="true">
+<title>WordNet: An Electronic Lexical Database.</title>
+<date>1998</date>
+<editor>Christiane Fellbaum, editor.</editor>
+<publisher>MIT Press,</publisher>
+<location>Cambridge, Mass.</location>
+<marker>1998</marker>
+<rawString>Christiane Fellbaum, editor. 1998. WordNet: An Electronic Lexical Database. MIT Press, Cambridge, Mass.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Oren Glickman</author>
+<author>Ido Dagan</author>
+<author>Moshe Koppel</author>
+</authors>
+<title>Web Based Probabilistic Textual Entailment.</title>
+<date>2005</date>
+<booktitle>In Proc.</booktitle>
+<contexts>
+<context position="18431" citStr="Glickman et al., 2005" startWordPosition="3007" endWordPosition="3011">or false entailment In addition to these heuristics, we additionally implemented an IS-A mismatch heuristic, which attempted to discover when an IS-A relation in the hypothesis sentence was not implied by a corresponding IS-A relation in the text; however, this heuristic yielded a loss in accuracy on the development set and was therefore not included in our final system. 5 Lexical similarity and paraphrase detection 5.1 Lexical similarity using MindNet In case none of the preceding heuristics for rejection are applicable, we back off to a lexical similarity model similar to that described in (Glickman et al., 2005). For every content node h H 37 \x0cnot already aligned by one of the heuristics in Section 3, we obtain a similarity score MN(h, t) from a similarity database that is constructed automatically from the data contained in MindNet5 as described in (Richardson, 1997). Our similarity function is thus: sim(h, t) = 1 if ANY-ALIGN(h, t) MN(h, t) if MN(h, t) &amp;gt; min min otherwise Where the minimum score min is a parameter tuned for maximum accuracy on the development set; min = 0.00002 in our final system. We then compute the entailment score: score(H, T) = 1 |H| Y hH max tT sim(h, t) This approach is i</context>
+</contexts>
+<marker>Glickman, Dagan, Koppel, 2005</marker>
+<rawString>Oren Glickman, Ido Dagan, and Moshe Koppel. 2005. Web Based Probabilistic Textual Entailment. In Proc.</rawString>
+</citation>
+<citation valid="true">
+<date>2005</date>
+<booktitle>of the PASCAL Challenges Workshop on RTE</booktitle>
+<marker>2005</marker>
+<rawString>of the PASCAL Challenges Workshop on RTE 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>George E Heidorn</author>
+</authors>
+<title>Intelligent Writing Assistance. In</title>
+<date>2000</date>
+<booktitle>A Handbook of Natural Language Processing: Techniques and Applications for the Processing of Language as Text.</booktitle>
+<pages>181--207</pages>
+<editor>R. Dale, H. Moisl, and H. Somers (eds.),</editor>
+<publisher>Marcel Dekker,</publisher>
+<location>New York.</location>
+<contexts>
+<context position="4500" citStr="Heidorn, 2000" startWordPosition="678" endWordPosition="679">2006). The analysis implied that a great deal of syntactic information remained unexploited by existing systems, but gave few explicit suggestions on how syntactic information should be applied; this paper provides a starting point for creating the heuristics capable of obtaining the bound they suggest2. 2 System Description Similar to most other syntax-based approaches to recognizing textual entailment, we begin by representing each text and hypothesis sentence pair in logical forms. These logical forms are generated using NLPWIN3, a robust system for natural language parsing and generation (Heidorn, 2000). Our logical form representation may be considered equivalently as a set of triples of the form RELATION(nodei, nodej), or as a graph of syntactic dependencies; we use both terminologies interchangeably. Our algorithm proceeds as follows: 1. Parse each sentence with the NLPWIN parser, resulting in syntactic dependency graphs for the text and hypothesis sentences. 2. Attempt an alignment of each content node in the dependency graph of the hypothesis sentence to some node in the graph of the text sentence, using a set of heuristics for alignment (described in Section 3). 3. Using the alignment,</context>
+</contexts>
+<marker>Heidorn, 2000</marker>
+<rawString>George E. Heidorn. 2000. Intelligent Writing Assistance. In R. Dale, H. Moisl, and H. Somers (eds.), A Handbook of Natural Language Processing: Techniques and Applications for the Processing of Language as Text. Marcel Dekker, New York. 181-207.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jesus Herrera</author>
+<author>Anselmo Penas</author>
+<author>Felisa Verdejo</author>
+</authors>
+<date>2005</date>
+<contexts>
+<context position="8345" citStr="Herrera et al., 2005" startWordPosition="1298" endWordPosition="1301">e will consider h and t to be nodes in the hypothesis H and 34 \x0cHypothesis: Hepburn, who won four Oscars... Text: Hepburn, a four-time Academy Award winner... Hepburn Noun win Verb Tsub Hepburn Noun String match Oscar Noun Tobj winner Noun Derivational form match four Adj Lops Academy_Award Noun Synonym match four-time Adj Value match Appostn Attrib Mod Figure 2: Example of synonym, value, and derivational form alignment heuristics, Dev Ex. #767 text T logical forms, respectively. To accomplish the task of node alignment we rely on the following heuristics: 3.1 WordNet synonym match As in (Herrera et al., 2005) and others, we align a node h H to any node t T that has both the same part of speech and belongs to the same synset in WordNet. Our alignment considers multiword units, including compound nouns (e.g., we align Oscar to Academy Award as in Figure 2), as well as verb-particle constructions such as set off (aligned to trigger in Test Ex. #1983). 3.2 Numeric value match The NLPWIN parser assigns a normalized numeric value feature to each piece of text inferred to correspond to a numeric value; this allows us to align 6th to sixth in Test Ex. #1175. and to align a dozen to twelve in Test Ex. #123</context>
+<context position="11070" citStr="Herrera et al., 2005" startWordPosition="1758" endWordPosition="1761">l play the same syntactic role in their respective sentences. Thus we consider two nodes aligned in this way to be soft-aligned, and we do not attempt to apply our false entailment recognition heuristics to nodes aligned in this way. 3.5 Country adjectival form / demonym match As a special case of derivational form match, we soft-align matches from an explicit list of place names, adjectival forms, and demonyms4; e.g., Sweden and Swedish in Test Ex. #1576. 3.6 Other heuristics for alignment In addition to these heuristics, we implemented a hyponym match heuristic similar to that discussed in (Herrera et al., 2005), and a heuristic based on the string-edit distance of two lemmas; however, these heuristics yielded a decrease in our systems accuracy on the development set and were thus left out of our final system. 4 Recognizing false entailment The bulk of our system focuses on heuristics for recognizing false entailment. For purposes of notation, we define binary functions for the existence 4 List of adjectival forms and demonyms based on the list at: http://en.wikipedia.org/wiki/List of demonyms 35 \x0cUnaligned Entity: ENTITY(h) t.ALIGN(h, t) False. Negation Mismatch: ALIGN(h, t) NEG(t) 6= NEG(h) Fals</context>
+</contexts>
+<marker>Herrera, Penas, Verdejo, 2005</marker>
+<rawString>Jesus Herrera, Anselmo Penas, and Felisa Verdejo. 2005.</rawString>
+</citation>
+<citation valid="true">
+<title>Textual Entailment Recognision Based on Dependency Analysis and WordNet.</title>
+<date>2005</date>
+<booktitle>In Proc. of the PASCAL Challenges Workshop on RTE</booktitle>
+<marker>2005</marker>
+<rawString>Textual Entailment Recognision Based on Dependency Analysis and WordNet. In Proc. of the PASCAL Challenges Workshop on RTE 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Dekang Lin</author>
+<author>Patrick Pantel</author>
+</authors>
+<title>DIRT - Discovery of Inference Rules from Text.</title>
+<date>2001</date>
+<booktitle>In Proc. KDD</booktitle>
+<contexts>
+<context position="22398" citStr="Lin and Pantel, 2001" startWordPosition="3673" endWordPosition="3676">he same syntactic roles as t1 in the original sentence. 2. Similarly, extract the slot fillers Xh for each discovered phrase template Ph in H. 3. Calculate paraphrase similarity as a function of the overlap between the slot-filler sets Xt and Xh, i.e: score(Ph, Pt) = |XhXt| |Xt |. We then incorporate paraphrase similarity within the lexical similarity model by allowing, for some unaligned node h Ph, where t Pt: sim(h, t) = max(MN(h, t), score(Ph, Pt)) 38 \x0cOur approach to paraphrase detection is most similar to the TE/ASE algorithm (Szpektor et al., 2004), and bears similarity to both DIRT (Lin and Pantel, 2001) and KnowItAll (Etzioni et al., 2004). The chief difference in our algorithm is that we generate the surface text search strings from the parsed logical forms using the generation capabilities of NLPWIN (Aikawa et al., 2001), and we verify that the syntactic relations in each discovered web snippet are isomorphic to those in the original candidate paraphrase template. 6 Results and Discussion In this section we present the final results of our system on the PASCAL RTE-1 test set, and examine our features in an ablation study. The PASCAL RTE-1 development and test sets consist of 567 and 800 ex</context>
+</contexts>
+<marker>Lin, Pantel, 2001</marker>
+<rawString>Dekang Lin and Patrick Pantel. 2001. DIRT - Discovery of Inference Rules from Text. In Proc. KDD 2001.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Rajat Raina</author>
+<author>Andrew Y Ng</author>
+<author>Christopher D Manning</author>
+</authors>
+<title>Robust textual inference via learning and abductive reasoning.</title>
+<date>2005</date>
+<booktitle>In Proc. AAAI</booktitle>
+<contexts>
+<context position="2864" citStr="Raina et al., 2005" startWordPosition="421" endWordPosition="424">xample, two high-accuracy systems are those described in (Tatu and Moldovan, 2005), achieving 60.4% accuracy with no task-specific information, and (Bos and Markert, 2005), which achieves 61.2% task-dependent accuracy, i.e. when able to use the specific task labels as input. Previous systems for RTE have attempted a wide variety of strategies. Many previous approaches have used a logical form representation of the text and hypothesis sentences, focusing on deriving a proof by which one can infer the hypothesis logical form from the text logical form (Bayer et al., 2005; Bos and Markert, 2005; Raina et al., 2005; Tatu and Moldovan, 2005). These papers often cite that a major obstacle to accurate theorem proving for the task of textual entailment is the lack of world knowledge, which is frequently difficult and costly to obtain and encode. Attempts have been made to remedy this deficit through various techniques, including modelbuilding (Bos and Markert, 2005) and the addition of semantic axioms (Tatu and Moldovan, 2005). Our system diverges from previous approaches most strongly by focusing upon false entailments; rather than assuming that a given entailment is false until proven true, we make the op</context>
+<context position="25435" citStr="Raina et al., 2005" startWordPosition="4161" endWordPosition="4164">aphrase 0.0053 0.0000 Lexical Similarity 0.0053 0.0000 Value Match 0.0017 0.0013 Acronym Match 0.0017 0.0013 Adjectival Form7 0.0000 0.0063 False Entailment Feature Dev Test Negation Mismatch 0.0106 0.0025 Argument Movement 0.0070 0.0250 Conditional Mismatch 0.0053 0.0037 Modal Mismatch 0.0035 0.0013 Superlative Mismatch 0.0035 -0.0025 Entity Mismatch 0.0018 0.0063 Table 3: Feature ablation study; quantity is the accuracy loss obtained by removal of single feature test set CWS of 0.6534 is higher than previouslyreported task-independent systems (however, the task-dependent system reported in (Raina et al., 2005) achieves a CWS of 0.686). 6.2 Feature analysis Table 3 displays the results of our feature ablation study, analyzing the individual effect of each feature. Of the seven heuristics used in our final system for node alignment (including lexical similarity and paraphrase detection), our ablation study showed 7 As discussed in Section 2, features with no effect on development set accuracy were included in the system if and only if they improved the systems unweighted F-score. 39 \x0cthat five were helpful in varying degrees on our test set, but that removal of either MindNet similarity scores or </context>
+</contexts>
+<marker>Raina, Ng, Manning, 2005</marker>
+<rawString>Rajat Raina, Andrew Y. Ng, and Christopher D. Manning. 2005. Robust textual inference via learning and abductive reasoning. In Proc. AAAI 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Stephen D Richardson</author>
+</authors>
+<title>Determining Similarity and Inferring Relations in a Lexical Knowledge Base.</title>
+<date>1997</date>
+<tech>Ph.D. thesis,</tech>
+<institution>The City University of New York.</institution>
+<contexts>
+<context position="18695" citStr="Richardson, 1997" startWordPosition="3055" endWordPosition="3056">ic yielded a loss in accuracy on the development set and was therefore not included in our final system. 5 Lexical similarity and paraphrase detection 5.1 Lexical similarity using MindNet In case none of the preceding heuristics for rejection are applicable, we back off to a lexical similarity model similar to that described in (Glickman et al., 2005). For every content node h H 37 \x0cnot already aligned by one of the heuristics in Section 3, we obtain a similarity score MN(h, t) from a similarity database that is constructed automatically from the data contained in MindNet5 as described in (Richardson, 1997). Our similarity function is thus: sim(h, t) = 1 if ANY-ALIGN(h, t) MN(h, t) if MN(h, t) &amp;gt; min min otherwise Where the minimum score min is a parameter tuned for maximum accuracy on the development set; min = 0.00002 in our final system. We then compute the entailment score: score(H, T) = 1 |H| Y hH max tT sim(h, t) This approach is identical to that used in (Glickman et al., 2005), except that we use alignment heuristics and MindNet similarity scores in place of their web-based estimation of lexical entailment probabilities, and we take as our score the geometric mean of the component entailm</context>
+</contexts>
+<marker>Richardson, 1997</marker>
+<rawString>Stephen D. Richardson. 1997. Determining Similarity and Inferring Relations in a Lexical Knowledge Base. Ph.D. thesis, The City University of New York.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Idan Szpektor</author>
+<author>Hristo Tanev</author>
+<author>Ido Dagan</author>
+<author>Bonaventura Coppola</author>
+</authors>
+<title>Scaling Web-based Acquisition of Entailment Relations.</title>
+<date>2004</date>
+<booktitle>In Proc. EMNLP</booktitle>
+<contexts>
+<context position="22340" citStr="Szpektor et al., 2004" startWordPosition="3663" endWordPosition="3666">d extract all non-pronoun slot fillers xt Xt that satisfy the same syntactic roles as t1 in the original sentence. 2. Similarly, extract the slot fillers Xh for each discovered phrase template Ph in H. 3. Calculate paraphrase similarity as a function of the overlap between the slot-filler sets Xt and Xh, i.e: score(Ph, Pt) = |XhXt| |Xt |. We then incorporate paraphrase similarity within the lexical similarity model by allowing, for some unaligned node h Ph, where t Pt: sim(h, t) = max(MN(h, t), score(Ph, Pt)) 38 \x0cOur approach to paraphrase detection is most similar to the TE/ASE algorithm (Szpektor et al., 2004), and bears similarity to both DIRT (Lin and Pantel, 2001) and KnowItAll (Etzioni et al., 2004). The chief difference in our algorithm is that we generate the surface text search strings from the parsed logical forms using the generation capabilities of NLPWIN (Aikawa et al., 2001), and we verify that the syntactic relations in each discovered web snippet are isomorphic to those in the original candidate paraphrase template. 6 Results and Discussion In this section we present the final results of our system on the PASCAL RTE-1 test set, and examine our features in an ablation study. The PASCAL</context>
+</contexts>
+<marker>Szpektor, Tanev, Dagan, Coppola, 2004</marker>
+<rawString>Idan Szpektor, Hristo Tanev, Ido Dagan, and Bonaventura Coppola. 2004. Scaling Web-based Acquisition of Entailment Relations. In Proc. EMNLP 2004.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Marta Tatu</author>
+<author>Dan Moldovan</author>
+</authors>
+<title>A Semantic Approach to Recognizing Textual Entailment.</title>
+<date>2005</date>
+<booktitle>In Proc.</booktitle>
+<contexts>
+<context position="2328" citStr="Tatu and Moldovan, 2005" startWordPosition="335" endWordPosition="338">hout this paper are from the first PASCAL RTE dataset, described in Section 6. The RTE problem as presented in the PASCAL RTE dataset is particularly attractive in that it is a reasonably simple task for human annotators with high inter-annotator agreement (95.1% in one independent labeling (Bos and Markert, 2005)), but an extremely challenging task for automated systems. The highest accuracy systems on the RTE test set are still much closer in performance to a random baseline accuracy of 50% than to the inter-annotator agreement. For example, two high-accuracy systems are those described in (Tatu and Moldovan, 2005), achieving 60.4% accuracy with no task-specific information, and (Bos and Markert, 2005), which achieves 61.2% task-dependent accuracy, i.e. when able to use the specific task labels as input. Previous systems for RTE have attempted a wide variety of strategies. Many previous approaches have used a logical form representation of the text and hypothesis sentences, focusing on deriving a proof by which one can infer the hypothesis logical form from the text logical form (Bayer et al., 2005; Bos and Markert, 2005; Raina et al., 2005; Tatu and Moldovan, 2005). These papers often cite that a major</context>
+<context position="23450" citStr="Tatu and Moldovan, 2005" startWordPosition="3849" endWordPosition="3852">inal results of our system on the PASCAL RTE-1 test set, and examine our features in an ablation study. The PASCAL RTE-1 development and test sets consist of 567 and 800 examples, respectively, with the test set split equally between true and false examples. 6.1 Results and Performance Comparison on the PASCAL RTE-1 Test Set Table 2 displays the accuracy and confidenceweighted score6 (CWS) of our final system on each of the tasks for both the development and test sets. Our overall test set accuracy of 62.50% represents a 2.1% absolute improvement over the task-independent system described in (Tatu and Moldovan, 2005), and a 20.2% relative improvement in accuracy over their system with respect to an uninformed baseline accuracy of 50%. To compute confidence scores for our judgments, any entailment determined to be false by any heuristic was assigned maximum confidence; no attempts were made to distinguish between entailments rejected by different heuristics. The confidence of all other predictions was calculated as the absolute value in the difference between the output score(H, T) of the lexical similarity model and the threshold t = 0.1285 as tuned for highest accuracy on our development set. We would ex</context>
+</contexts>
+<marker>Tatu, Moldovan, 2005</marker>
+<rawString>Marta Tatu and Dan Moldovan. 2005. A Semantic Approach to Recognizing Textual Entailment. In Proc.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>HLT-EMNLP</author>
+</authors>
+<date>2005</date>
+<marker>HLT-EMNLP, 2005</marker>
+<rawString>HLT-EMNLP 2005.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Lucy Vanderwende</author>
+<author>William B Dolan</author>
+</authors>
+<title>What Syntax Can Contribute in the Entailment Task.</title>
+<date>2006</date>
+<booktitle>In MLCW 2005, LNAI 3944,</booktitle>
+<pages>205216</pages>
+<editor>J. QuinoneroCandela et al. (eds.).</editor>
+<publisher>Springer-Verlag.</publisher>
+<contexts>
+<context position="3891" citStr="Vanderwende and Dolan, 2006" startWordPosition="585" endWordPosition="588">d Moldovan, 2005). Our system diverges from previous approaches most strongly by focusing upon false entailments; rather than assuming that a given entailment is false until proven true, we make the opposite assump33 \x0ction, and instead focus on applying knowledge-free heuristics that can act locally on a subgraph of syntactic dependencies to determine with high confidence that the entailment is false. Our approach is inspired by an analysis of the RTE dataset that suggested a syntax-based approach should be approximately twice as effective at predicting false entailment as true entailment (Vanderwende and Dolan, 2006). The analysis implied that a great deal of syntactic information remained unexploited by existing systems, but gave few explicit suggestions on how syntactic information should be applied; this paper provides a starting point for creating the heuristics capable of obtaining the bound they suggest2. 2 System Description Similar to most other syntax-based approaches to recognizing textual entailment, we begin by representing each text and hypothesis sentence pair in logical forms. These logical forms are generated using NLPWIN3, a robust system for natural language parsing and generation (Heido</context>
+<context position="5279" citStr="Vanderwende and Dolan, 2006" startWordPosition="805" endWordPosition="808">endencies; we use both terminologies interchangeably. Our algorithm proceeds as follows: 1. Parse each sentence with the NLPWIN parser, resulting in syntactic dependency graphs for the text and hypothesis sentences. 2. Attempt an alignment of each content node in the dependency graph of the hypothesis sentence to some node in the graph of the text sentence, using a set of heuristics for alignment (described in Section 3). 3. Using the alignment, apply a set of syntactic heuristics for recognizing false entailment (described in Section 4); if any match, predict that the entailment is false. 2 (Vanderwende and Dolan, 2006) suggest that the truth or falsehood of 48% of the entailment examples in the RTE test set could be correctly identified via syntax and a thesaurus alone; thus by random guessing on the rest of the examples one might hope for an accuracy level of 0.48 + 0.52 2 = 74%. 3 To aid in the replicability of our experiments, we have published the NLPWIN logical forms for all sentences from the development and test sets in the PASCAL RTE dataset at http://research.microsoft.com/nlp/Projects/RTE.aspx. lemma: free pos: Verb features: Past,Pass, T1,Proposition lemma: _X pos: Pron Tsub lemma: hostage pos: N</context>
+</contexts>
+<marker>Vanderwende, Dolan, 2006</marker>
+<rawString>Lucy Vanderwende and William B. Dolan. 2006. What Syntax Can Contribute in the Entailment Task. In MLCW 2005, LNAI 3944, pp. 205216. J. QuinoneroCandela et al. (eds.). Springer-Verlag.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>

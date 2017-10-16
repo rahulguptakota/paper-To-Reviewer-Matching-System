@@ -1,0 +1,1880 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.677035">
+b&apos;Proceedings of the 50th Annual Meeting of the Association for Computational Linguistics, pages 526535,
+Jeju, Republic of Korea, 8-14 July 2012. c
+</bodyText>
+<figure confidence="0.645916285714286">
+2012 Association for Computational Linguistics
+Joint Inference of Named Entity Recognition and Normalization for Tweets
+Xiaohua Liu
+, Ming Zhou
+, Furu Wei
+, Zhongyang Fu
+, Xiangyang Zhou
+</figure>
+<affiliation confidence="0.883069571428571">
+School of Computer Science and Technology
+Harbin Institute of Technology, Harbin, 150001, China
+Department of Computer Science and Engineering
+Shanghai Jiao Tong University, Shanghai, 200240, China
+School of Computer Science and Technology
+Shandong University, Jinan, 250100, China
+Microsoft Research Asia
+</affiliation>
+<address confidence="0.968493">
+Beijing, 100190, China
+</address>
+<email confidence="0.959589">
+{xiaoliu, fuwei, mingzhou}@microsoft.com
+zhongyang.fu@gmail.com
+v-xzho@microsoft.com
+</email>
+<sectionHeader confidence="0.989361" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999068904761905">
+Tweets represent a critical source of fresh in-
+formation, in which named entities occur fre-
+quently with rich variations. We study the
+problem of named entity normalization (NEN)
+for tweets. Two main challenges are the er-
+rors propagated from named entity recogni-
+tion (NER) and the dearth of information in
+a single tweet. We propose a novel graphi-
+cal model to simultaneously conduct NER and
+NEN on multiple tweets to address these chal-
+lenges. Particularly, our model introduces a
+binary random variable for each pair of words
+with the same lemma across similar tweets,
+whose value indicates whether the two related
+words are mentions of the same entity. We
+evaluate our method on a manually annotated
+data set, and show that our method outper-
+forms the baseline that handles these two tasks
+separately, boosting the F1 from 80.2% to
+83.6% for NER, and the Accuracy from 79.4%
+to 82.6% for NEN, respectively.
+</bodyText>
+<sectionHeader confidence="0.998109" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.9965065">
+Tweets, short messages of less than 140 characters
+shared through the Twitter service 1, have become
+an important source of fresh information. As a re-
+sult, the task of named entity recognition (NER)
+for tweets, which aims to identify mentions of rigid
+designators from tweets belonging to named-entity
+types such as persons, organizations and locations
+(2007), has attracted increasing research interest.
+For example, Ritter et al. (2011) develop a sys-
+tem that exploits a CRF model to segment named
+</bodyText>
+<page confidence="0.674873">
+1
+</page>
+<email confidence="0.332626">
+http://www.twitter.com
+</email>
+<bodyText confidence="0.9985799375">
+entities and then uses a distantly supervised ap-
+proach based on LabeledLDA to classify named en-
+tities. Liu et al. (2011) combine a classifier based
+on the k-nearest neighbors algorithm with a CRF-
+based model to leverage cross tweets information,
+and adopt the semi-supervised learning to leverage
+unlabeled tweets.
+However, named entity normalization (NEN) for
+tweets, which transforms named entities mentioned
+in tweets to their unambiguous canonical forms, has
+not been well studied. Owing to the informal nature
+of tweets, there are rich variations of named enti-
+ties in them. According to our investigation on the
+data set provided by Liu et al. (2011), every named
+entity in tweets has an average of 3.3 variations 2.
+As an illustrative example, we show Anneke Gron-
+loh, which may occur as Mw.,Gronloh, Anneke
+Kronloh or Mevrouw G. We thus propose NEN
+for tweets, which plays an important role in entity
+retrieval, trend detection, and event and entity track-
+ing. For example, Khalid et al. (2008) show that
+even a simple normalization method leads to im-
+provements of early precision, for both document
+and passage retrieval, and better normalization re-
+sults in better retrieval performance.
+Traditionally, NEN is regarded as a septated task,
+which takes the output of NER as its input (Li et al.,
+2002; Cohen, 2005; Jijkoun et al., 2008; Dai et al.,
+2011). One limitation of this cascaded approach is
+that errors propagate from NER to NEN and there is
+no feedback from NEN to NER. As demonstrated by
+Khalid et al. (2008), most NEN errors are caused
+</bodyText>
+<page confidence="0.965734">
+2
+</page>
+<bodyText confidence="0.978982">
+This data set consists of 12,245 randomly sampled tweets
+within five days.
+</bodyText>
+<page confidence="0.995717">
+526
+</page>
+<bodyText confidence="0.988760884615385">
+\x0cby recognition errors. Another challenge of NEN
+is the dearth of information in a single tweet, due
+to the short and noise-prone nature of tweets. Re-
+portedly, the accuracy of a baseline NEN system
+based on Wikipedia drops considerably from 94%
+on edited news to 77% on news comments, a kind of
+user generated content (UGC) with similar style to
+tweets (Jijkoun et al., 2008).
+We propose jointly conducting NER and NEN
+on multiple tweets using a graphical model, to
+address these challenges. Intuitively, improving
+the performance of NER boosts the performance
+of NEN. For example, consider the following two
+tweets: Alexs jokes. Justins smartness. Maxs
+randomnes and Alex Russo was like the
+best character on Disney Channel . Identify-
+ing Alex and Alex Russo as PERSON will en-
+courage NEN systems to normalize Alex into
+Alex Russo. On the other hand, NEN can guide
+NER. For instance, consider the following two
+tweets: she knew Burger King when he was a
+Prince! and Im craving all sorts of food:
+mcdonalds, burger king, pizza, chinese . Sup-
+pose the NEN system believes that burger king
+cannot be mapped to Burger King since these two
+tweets are not similar in content. This will help NER
+to assign them different types of labels. Our method
+optimizes these two tasks simultaneously by en-
+abling them to interact with each other. This largely
+differentiates our method from existing work.
+Furthermore, considering multiple tweets simul-
+taneously allows us to exploit the redundancy in
+tweets, as suggested by Liu et al. (2011). For exam-
+ple, consider the following two tweets: Bobby
+Shaw you dont invite the wind and I own
+yah ! Loool bobby shaw . Recognizing Bobby
+Shaw in the first tweet as a PERSON is easy owing
+to its capitalization and the following word you,
+which in turn helps to identify bobby shaw in the
+second tweet as a PERSON.
+We adopt a factor graph as our graphical model,
+which is constructed in the following manner. We
+first introduce a random variable for each word in
+every tweet, which represents the BILOU (Begin-
+ning, the Inside and the Last tokens of multi-token
+entities as well as Unit-length entities) label of the
+corresponding word. Then we add a factor to con-
+nect two neighboring variables, forming a conven-
+tional linear chain CRFs. Hereafter, we use tm to
+denote the mth tweet ,ti
+m and yi
+m to denote the ith
+word of of tm and its BILOU label, respectively, and
+fi
+m to denote the factor related to yi1
+m and yi
+m. Next,
+for each word pair with the same lemma, denoted by
+ti
+m and tj
+n, we introduce a binary random variable,
+denoted by zij
+mn, whose value indicates whether ti
+m
+and tj
+n belong to two mentions of the same entity. Fi-
+nally, for any zij
+mn we add a factor, denoted by fij
+mn,
+to connect yi
+m, yj
+n and zij
+mn. Factors in the same
+group ({fij
+mn} or {fi
+m}) share the same set of fea-
+ture templates. Figure 1 illustrates an example of
+our factor graph for two tweets.
+</bodyText>
+<figureCaption confidence="0.991477">
+Figure 1: A factor graph that jointly conducts NER and
+</figureCaption>
+<bodyText confidence="0.959316444444444">
+NEN on multiple tweets. Blue and green circles rep-
+resent NE type (y-serials) and normalization variables
+(z-serials), respectively; filled circles indicate observed
+random variables; blue rectangles represent the factors
+connecting neighboring y-serial variables while red rect-
+angles stand for the factors connecting distant y-serial
+and z-serial variables.
+It is worth noting that our factor graph is differ-
+ent from the skip-chain CRFs (Galley, 2006) in the
+sense that any skip-chain factor of our model con-
+sists not only of two NE type variables (yi
+m and yj
+n),
+which is the case for skip-chain CRFs, but also a nor-
+malization variable (zij
+mn). It is these normalization
+variables that enable us to conduct NER and NEN
+jointly.
+We manually add normalization information to
+the data set shared by Liu et al. (2011), to eval-
+uate our method. Experimental results show that
+our method achieves 83.6% F1 for NER and 82.6%
+Accuracy for NEN, outperforming the baseline with
+80.2%F1 for NER and 79.4% Accuracy for NEN.
+We summarize our contributions as follows.
+1. We introduce the task of NEN for tweets, and
+propose jointly conducting NER and NEN for
+</bodyText>
+<page confidence="0.994339">
+527
+</page>
+<bodyText confidence="0.989982846153846">
+\x0cmultiple tweets using a factor graph, which
+leverages redundancy in tweets to make up for
+the dearth of information in a single tweet and
+allows these two tasks to inform each other.
+2. We evaluate our method on a human annotated
+data set, and show that our method compares
+favorably with the baseline, achieving better
+performance in both tasks.
+Our paper is organized as follows. In the next sec-
+tion, we introduce related work. In Section 3 and 4,
+we formally define the task and present our method.
+In Section 5, we evaluate our method. And finally
+we conclude our work in Section 6.
+</bodyText>
+<sectionHeader confidence="0.999579" genericHeader="related work">
+2 Related Work
+</sectionHeader>
+<bodyText confidence="0.8940155">
+Related work can be divided into two categories:
+NER and NEN.
+</bodyText>
+<subsectionHeader confidence="0.716255">
+2.1 NER
+</subsectionHeader>
+<bodyText confidence="0.998176964285714">
+NER has been well studied and its solutions can be
+divided into three categories: 1) Rule-based (Krupka
+and Hausman, 1998); 2) machine learning based
+(Finkel and Manning, 2009; Singh et al., 2010); and
+3) hybrid methods (Jansche and Abney, 2002). Ow-
+ing to the availability of annotated corpora, such as
+ACE05, Enron (Minkov et al., 2005) and CoNLL03
+(Tjong Kim Sang and De Meulder, 2003), data
+driven methods are now dominant.
+Current studies of NER mainly focus on formal
+text such as news articles (Mccallum and Li, 2003;
+Etzioni et al., 2005). A representative work is that
+of Ratinov and Roth (2009), in which they system-
+atically study the challenges of NER, compare sev-
+eral solutions, and show some interesting findings.
+For example, they show that the BILOU encoding
+scheme significantly outperforms the BIO schema
+(Beginning, the Inside and Outside of a chunk).
+A handful of work on other genres of texts exists.
+For example, Yoshida and Tsujii build a biomedi-
+cal NER system (2007) using lexical features, or-
+thographic features, semantic features and syntactic
+features, such as part-of-speech (POS) and shallow
+parsing; Downey et al. (2007) employ capitaliza-
+tion cues and n-gram statistics to locate names of a
+variety of classes in web text; Wang (2009) intro-
+duces NER to clinical notes. A linear CRF model
+is trained on a manually annotated data set, which
+achieves an F1 of 81.48% on the test data set; Chiti-
+cariu et al. (2010) design and implement a high-
+level language NERL which simplifies the process
+of building, understanding, and customizing com-
+plex rule-based named-entity annotators for differ-
+ent domains.
+Recently, NER for Tweets attracts growing inter-
+est. Finin et al. (2010) use Amazons Mechani-
+cal Turk service 3 and CrowdFlower 4 to annotate
+named entities in tweets and train a CRF model to
+evaluate the effectiveness of human labeling. Rit-
+ter et al. (2011) re-build the NLP pipeline for
+tweets beginning with POS tagging, through chunk-
+ing, to NER, which first exploits a CRF model to
+segment named entities and then uses a distantly su-
+pervised approach based on LabeledLDA to clas-
+sify named entities. Unlike this work, our work de-
+tects the boundary and type of a named entity si-
+multaneously using sequential labeling techniques.
+Liu et al. (2011) combine a classifier based on
+the k-nearest neighbors algorithm with a CRF-based
+model to leverage cross tweets information, and
+adopt the semi-supervised learning to leverage un-
+labeled tweets. Our method leverages redundance
+in similar tweets, using a factor graph rather than a
+two-stage labeling strategy. One advantage of our
+method is that local and global information can in-
+teract with each other.
+</bodyText>
+<subsectionHeader confidence="0.977044">
+2.2 NEN
+</subsectionHeader>
+<bodyText confidence="0.992365153846154">
+There is a large body of studies into normalizing
+various types of entities for formally written texts.
+For instance, Cohen (2005) normalizes gene/protein
+names using dictionaries automatically extracted
+from gene databases; Magdy et al. (2007) address
+cross-document Arabic name normalization using a
+machine learning approach, a dictionary of person
+names and frequency information for names in a
+collection; Cucerzan (2007) demostrates a large-
+scale system for the recognition and semantic dis-
+ambiguation of named entities based on informa-
+tion extracted from a large encyclopedic collection
+and Web search results; Dai et al. (2011) employ
+</bodyText>
+<figure confidence="0.6075694">
+a Markov logic network to model interweaved con-
+3
+https://www.mturk.com/mturk/
+4
+http://crowdflower.com/
+</figure>
+<page confidence="0.996082">
+528
+</page>
+<bodyText confidence="0.99896425">
+\x0cstraints in a setting of gene mention normalization.
+Jijkoun et al. (2008) study NEN for UGC. They
+report that the accuracy of a baseline NEN system
+based on Wikipedia drops considerably from 94%
+on edited news to 77% on UGC. They identify three
+main error sources, i.e., entity recognition errors,
+multiple ways of referring to the same entity and am-
+biguous references, and exploit hand-crafted rules to
+improve the baseline NEN system.
+We introduce the task of NEN for tweets, a new
+genre of texts with rich entity variations. In contrast
+to existing NEN systems, which take the output of
+NER systems as their input, our method conducts
+NER and NEN at the same time, allowing them to
+reinforce each other, as demonstrated by the experi-
+mental results.
+</bodyText>
+<sectionHeader confidence="0.990642" genericHeader="method">
+3 Task Definition
+</sectionHeader>
+<bodyText confidence="0.96026270967742">
+A tweet is a short text message with no more than
+140 characters. Here is an example of a tweet: my-
+craftingworld: #Win Microsoft Office 2010 Home
+and Student #Contest from @office http://bit.ly/
+, where mycraftingworld is the name of the user
+who published this tweet. Words beginning with
+# like #Win are hash tags; words starting
+with @ like @office represent user names; and
+http://bit.ly/ is a shortened link.
+Given a set of tweets, e.g., tweets within some pe-
+riod or related to some query, our task is: 1) To rec-
+ognize each mention of entities of predefined types
+for each tweet; and 2) to restore each entity mention
+into its unambiguous canonical form. Following Liu
+et al. (2011), we focus on four types of entities, i.e.,
+PERSON, ORGANIZATION, PRODUCT, and LO-
+CATION, and constrain our scope to English tweets.
+Note that the NEN sub-task can be transformed as
+follows. Given each pair of entity mentions, decide
+whether they denote the same entity. Once this is
+achieved, we can link all the mentions of the same
+entity, and choose a representative mention, e.g., the
+longest mention, as their canonical form.
+As an illustrative example, consider the following
+three tweets: Gagas Christmas dinner with her
+family. Awwwwn , Lady Gaaaaga with her
+family on Christmas and Buying a maga-
+zine just because Lady Gagas on the cover . It
+is expected that Gaga, Lady Gaaaaga and Lady
+Gaga are all labeled as PERSON, and can be re-
+stored as Lady Gaga.
+</bodyText>
+<sectionHeader confidence="0.985937" genericHeader="method">
+4 Our Method
+</sectionHeader>
+<bodyText confidence="0.99377725">
+In contrast to existing work, our method jointly
+conducts NER and NEN for multiple tweets. We
+first give an overview of our method, then detail its
+model and features.
+</bodyText>
+<subsectionHeader confidence="0.991157">
+4.1 Overview
+</subsectionHeader>
+<bodyText confidence="0.9976172">
+Given a set of tweets as input, our method recog-
+nizes predefined types of named entities and for each
+entity outputs its unambiguous canonical form.
+To resolve NER, we assign a label to each
+word in a tweet, indicating both the boundary
+and entity type. Following Ratinov and Roth
+(2009), we use the BILOU schema. For ex-
+ample, consider the tweet without you is
+like an iphone without apps; Lady gaga with-
+out her telephone , the labeled sequence us-
+</bodyText>
+<construct confidence="0.50869175">
+ing the BILOU schema is: withoutO youO
+isO likeO anO iphoneUPRODUCT withoutO appsO;
+LadyBPERSON gagaLPERSON withoutO herO
+telephoneO , where iphoneUPRODUCT indi-
+</construct>
+<bodyText confidence="0.9261842">
+cates that iphone is a product name of unit length;
+LadyBPERSON means Lady is the beginning
+of a person name while gagaLPERSON suggests
+that gaga is the last token of a person name.
+To resolve NEN, we assign a binary value label
+zij
+mn to each pair of words ti
+m and tj
+n which share the
+same lemma. zij
+mn = 1 or -1, indicating whether ti
+m
+and tj
+n belong to two mentions of the same entity 5.
+For example, consider the three tweets presented in
+</bodyText>
+<figure confidence="0.933626285714286">
+Section 3. Gaga1
+1 6 and Gaga1
+3 will be assigned
+a 1 label, since they are part of two mentions of the
+same entity Lady Gaga; similarly, Lady1
+2 and
+Lady1
+3 are connected with a 1 label. Note that
+there are no NEN labels for pairs like her1
+1 and
+her1
+2 or with1
+1 and with1
+2, since words like her
+</figure>
+<bodyText confidence="0.94960275">
+and with are stop words.
+With NE type and normalization labels obtained,
+we judge two mentions, denoted by ti1ik
+m and
+</bodyText>
+<page confidence="0.965628">
+5
+</page>
+<bodyText confidence="0.973921666666667">
+Stop words have no normalization labels. The stop words
+are mainly from http://www.textfixer.com/resources/common-
+english-words.txt.
+</bodyText>
+<page confidence="0.991501">
+6
+</page>
+<bodyText confidence="0.8867025">
+We use wi
+m to denote word ws ith
+appearance in the mth
+tweet. For example, Gaga1
+1 denotes the first occurance of
+Gaga in the first tweet.
+</bodyText>
+<page confidence="0.985431">
+529
+</page>
+<bodyText confidence="0.591156272727273">
+\x0ctj1jl
+n , respectively, refer to the same entity if and
+only if: 1) The two mentions share the same entity
+type; 2) ti1ik
+m is a sub-string of tj1jl
+n or vise versa;
+and 3) zij
+mn = 1, i = i1, , ik and j = j1, , jl,
+if zij
+mn exists. Still take the three tweets presented
+in Section 3 for example. Suppose Gaga1
+</bodyText>
+<figure confidence="0.939055">
+1 and
+Lady Gaga1
+3 are labeled as PERSON, and there
+is only one related NE normalization label, which
+is associated with Gaga1
+1 and Gaga1
+3 and has 1
+</figure>
+<bodyText confidence="0.758463333333333">
+as its value. We then consider that these two men-
+tions can be normalized into the same entity; in a
+similar way, we can align Lady1
+</bodyText>
+<figure confidence="0.91254125">
+2 Gaaaaga with
+Lady1
+3 Gaga. Combining these pieces informa-
+tion together, we can infer that Gaga1
+1, Lady1
+2
+Gaaaaga and Lady1
+3 Gaga are three mentions of
+</figure>
+<bodyText confidence="0.850112">
+the same entity. Finally, we can select Lady1
+</bodyText>
+<sectionHeader confidence="0.975169" genericHeader="method">
+3 Gaga
+</sectionHeader>
+<bodyText confidence="0.9986875">
+as the representative, and output Lady Gaga as
+their canonical form. We choose the mention with
+the maximum number of words as the representa-
+tive. In case of a tie, we prefer the mention with an
+Wikipedia entry 7.
+The central problem with our method is infer-
+ring all the NE type (y-serial) and normalization
+(z-serial) variables. To achieve this, we construct
+a factor graph according to the input tweets, which
+can evaluate the probability of every possible assign-
+ment of y-serials and z-serials, by checking the
+characteristics of the assignment. Each character-
+istic is called a feature. In this way, we can select
+the assignment with the highest probability. Next
+we will introduce our model in detail, including its
+training and inference procedure and features.
+</bodyText>
+<subsectionHeader confidence="0.961719">
+4.2 Model
+</subsectionHeader>
+<bodyText confidence="0.986390125">
+We adopt a factor graph as our model. One advan-
+tage of our model is that it allows y-serials and
+z-serials variables to interact with each other to
+jointly optimize NER and NEN.
+Given a set of tweets T = {tm}N
+m=1, we can build
+a factor graph G = (Y, Z, F, E), where: Y and Z
+denote y-serials and z-serials variables, respec-
+</bodyText>
+<equation confidence="0.936203538461538">
+tively; F represents factor vertices, consisting of
+{fi
+m} and {fij
+mn}, fi
+m = fi
+m(yi1
+m , yi
+m) and fij
+mn =
+fij
+mn(yi
+m, yj
+n, zij
+</equation>
+<bodyText confidence="0.9718005">
+mn); E stands for edges, which de-
+pends on F, and consists of edges between yi1
+</bodyText>
+<equation confidence="0.786932">
+m and
+yi
+</equation>
+<bodyText confidence="0.76761325">
+m, and those between yi
+m,yj
+n and fij
+mn.
+</bodyText>
+<page confidence="0.986257">
+7
+</page>
+<bodyText confidence="0.75587425">
+If it still ends up as a draw, we will randomly choose one
+from the best.
+G = (Y, Z, F, E) defines a probability distribu-
+tion according to Formula 1.
+</bodyText>
+<equation confidence="0.967498529411765">
+ln P(Y, Z|G, T)
+m,i
+ln fi
+m(yi1
+m , yi
+m)+
+m,n,i,j
+ij
+mn ln fij
+mn(yi
+m, yj
+n, zij
+mn)
+(1)
+where ij
+mn = 1 if and only if ti
+m and tj
+</equation>
+<bodyText confidence="0.97599075">
+n have the
+same lemma and are not stop words, otherwise zero.
+A factor factorizes according to a set of features, so
+that:
+</bodyText>
+<equation confidence="0.945790675">
+ln fi
+m(yi1
+m , yi
+m) =
+k
+(1)
+k
+(1)
+k (yi1
+m , yi
+m)
+ln fij
+mn(yi
+m, yj
+n, zij
+mn) =
+k
+(2)
+k
+(2)
+k (yi
+m, yj
+n, zij
+mn)
+(2)
+{
+(1)
+k }K1
+k=1 and {
+(2)
+k }K2
+k=1 are two feature sets. =
+{
+(1)
+k }K1
+k=1
+{
+(2)
+k }K2
+k=1 is called the feature weight
+</equation>
+<bodyText confidence="0.943456">
+set or parameter set of G. Each feature has a real
+value as its weight.
+Training is learnt from annotated tweets T, by
+maximizing the data likelihood, i.e.,
+</bodyText>
+<equation confidence="0.962492462962963">
+= arg max
+ln P(Y, Z|, T) (3)
+To solve this optimization problem, we first calcu-
+late its gradient:
+ln P(Y, Z|T; )
+1
+k
+=
+m,i
+(1)
+k (yi1
+m , yi
+m)
+m,i
+yi1
+m ,yi
+m
+p(yi1
+m , yi
+m|T; )
+(1)
+k (yi1
+m , yi
+m)
+(4)
+ln P(Y, Z|T; )
+2
+k
+=
+m,n,i,j
+ij
+mn
+(2)
+k (yi
+m, yj
+n, zij
+mn)
+m,n,i,j
+ij
+mn
+yi
+m,yj
+n,zij
+mn
+p(yi
+m, yj
+n, zij
+mn|T; )
+(2)
+k (yi
+m, yj
+n, zij
+mn)
+(5)
+</equation>
+<bodyText confidence="0.952233">
+Here, the two marginal probabilities
+</bodyText>
+<equation confidence="0.708551833333333">
+p(yi1
+m , yi
+m|T; ) and p(yi
+m, yj
+n, zij
+mn|T; ) are
+</equation>
+<bodyText confidence="0.999536">
+computed using loopy belief propagation (Murphy
+et al., 1999). Once we have computed the gradient,
+can be worked out by standard techniques such
+as steepest descent, conjugate gradient and the
+</bodyText>
+<page confidence="0.962829">
+530
+</page>
+<bodyText confidence="0.958172875">
+\x0climited-memory BFGS algorithm (L-BFGS). We
+choose L-BFGS because it is particularly well suited
+for optimization problems with a large number of
+variables.
+Inference Supposing the parameters have been
+set to , the inference problem is: Given a set
+of testing tweets T, output the most probable
+assignment of Y and Z, i.e.,
+</bodyText>
+<equation confidence="0.9882342">
+(Y, Z)
+= arg max
+(Y,Z)
+ln P(Y, Z|
+, T) (6)
+</equation>
+<bodyText confidence="0.962052944444445">
+We adopt the max-product algorithm to solve this
+inference problem. The max-product algorithm is
+nearly identical to the loopy belief propagation al-
+gorithm, with the sums replaced by maxima in the
+definitions. Note that in both the training and test-
+ing stage, the factor graph is constructed in the same
+way as described in Section 1.
+Efficiency We take several actions to improve our
+models efficiency. Firstly, we manually compile a
+comprehensive named entity dictionary from vari-
+ous sources including Wikipedia, Freebase 8, news
+articles and the gazetteers shared by Ratinov and
+Roth (2009). In total this dictionary contains 350
+million entries 9. By looking up this dictionary 10,
+we generate the possible BILOU labels, denoted by
+Y i
+m hereafter, for each word ti
+m. For instance, con-
+</bodyText>
+<footnote confidence="0.737578428571428">
+sider Good Morning new1
+1 york1
+1 . Suppose
+New York City and New York Times are in
+our dictionary, then new1
+1 york1
+1 is the matched
+</footnote>
+<figureCaption confidence="0.776086333333333">
+string with two corresponding entities. As a re-
+sult, B-LOCATION and B-ORGANIZATION
+will be added to Ynew1
+</figureCaption>
+<figure confidence="0.87981675">
+1
+, and I-LOCATION and
+I-ORGANIZATION will be added to Yyork1
+1
+</figure>
+<equation confidence="0.8649462">
+. If
+Y i
+m = , we enforce the constraint for training and
+testing that yi
+m Y i
+</equation>
+<bodyText confidence="0.8924651">
+m , to reduce the search space.
+Secondly, in the testing phase, we introduce three
+rules related to zij
+mn: 1) zij
+mm = 1, which says two
+words sharing the same lemma in the same tweet
+denote the same entity; 2) set zij
+mn to 1, if the sim-
+ilarity between tm and tn is above a threshold (0.8
+in our work), or tm and tn share one hash tag; and
+</bodyText>
+<equation confidence="0.48469">
+3)zmnij = 1, if the similarity between tm and
+tn is below a threshold (0.3 in work). To compute
+8
+http://freebase.com/view/military
+</equation>
+<page confidence="0.785919">
+9
+</page>
+<bodyText confidence="0.895278">
+One phrase refereing to L entities has L entries.
+</bodyText>
+<page confidence="0.992372">
+10
+</page>
+<bodyText confidence="0.987627285714286">
+We use case-insensitive leftmost longest match.
+the similarity, each tweet is represented as a bag-of-
+words vector with the stop words removed, and the
+cosine similarity is adopted, as defined in Formula
+7. These rules pre-label a significant part of z-serial
+variables (accounting for 22.5%), with an accuracy
+of 93.5%.
+</bodyText>
+<equation confidence="0.996007428571429">
+sim(tm, tn) =
+tm
+tn
+|
+tm||
+tn|
+(7)
+</equation>
+<bodyText confidence="0.98952625">
+Note that in our experiments, these measures reduce
+the training and testing time by 36.2% and 62.8%,
+respectively, while no obvious performance drop is
+observed.
+</bodyText>
+<subsectionHeader confidence="0.968443">
+4.3 Features
+</subsectionHeader>
+<bodyText confidence="0.834143">
+A feature in {
+</bodyText>
+<equation confidence="0.9313255">
+(1)
+k }K1
+</equation>
+<bodyText confidence="0.951365666666667">
+k=1 involves a pair of neighbor-
+ing NE-type labels, i.e., yi1
+m and yi
+m, while a fea-
+ture in {
+(2)
+k }K2
+k=1 concerns a pair of distant NE-type
+labels and its associated normalization label, i.e.,
+</bodyText>
+<equation confidence="0.744482">
+yi
+m,yj
+</equation>
+<bodyText confidence="0.82554">
+n and zij
+mn. Details are given below.
+</bodyText>
+<subsubsectionHeader confidence="0.809341">
+4.3.1 Feature Set One: {
+</subsubsectionHeader>
+<equation confidence="0.957458333333333">
+(1)
+k }K1
+k=1
+</equation>
+<bodyText confidence="0.8756075">
+We adopts features similar to Wang (2009), and
+Ratinov and Roth (2009), i.e., orthographic features,
+lexical features and gazetteer-related features. These
+features are defined on the observation. Combining
+them with yi1
+m and yi
+</bodyText>
+<equation confidence="0.82794">
+m constitutes {
+(1)
+k }K1
+k=1.
+</equation>
+<bodyText confidence="0.96229256">
+Orthographic features: Whether ti
+m is capitalized
+or upper case; whether it is alphanumeric or contains
+any slashes; wether it is a stop word; word prefixes
+and suffixes.
+Lexical features: Lemma of ti
+m, ti1
+m and ti+1
+m ,
+respectively; whether ti
+m is an out-of-vocabulary
+(OOV) word 11; POS of ti
+m, ti1
+m and ti+1
+m , respec-
+tively; whether ti
+m is a hash tag, a link, or a user
+account.
+Gazetteer-related features: Whether Y i
+m is empty;
+the dominating label/entity type in Y i
+m. Which one
+is dominant is decided by majority voting of the en-
+tities in our dictionary. In case of a tie, we randomly
+choose one from the best.
+</bodyText>
+<subsubsectionHeader confidence="0.790129">
+4.3.2 Feature Set Two: {
+</subsubsectionHeader>
+<bodyText confidence="0.296367">
+(2)
+</bodyText>
+<equation confidence="0.5406345">
+k }K2
+k=1
+</equation>
+<bodyText confidence="0.836265666666667">
+Similarly, we define orthographic, lexical features
+and gazetteer-related features on the observation, yi
+m
+</bodyText>
+<page confidence="0.998416">
+11
+</page>
+<bodyText confidence="0.9996295">
+We first conduct a simple dictionary-lookup based normal-
+ization with the incorrect/correct word pair list provided by Han
+et al. (2011) to correct common ill-formed words. Then we call
+an online dictionary service to judge whether a word is OOV.
+</bodyText>
+<page confidence="0.979095">
+531
+</page>
+<listItem confidence="0.312375">
+\x0cand yj
+n; and then we combine these features with
+zij
+mn, forming {
+(2)
+</listItem>
+<equation confidence="0.792644">
+k }K2
+k=1.
+Orthographic features: Whether ti
+m / tj
+n is capital-
+ized or upper case; whether ti
+m / tj
+</equation>
+<bodyText confidence="0.693640285714286">
+n is alphanumeric
+or contains any slashes; prefixes and suffixes of ti
+m.
+Lexical features: Lemma of ti
+m; whether ti
+m is
+OOV; whether ti
+</bodyText>
+<equation confidence="0.950691666666667">
+m / ti+1
+m / ti1
+m and tj
+n / tj+1
+n / tj1
+n
+</equation>
+<bodyText confidence="0.93679">
+have the same POS; whether yi
+m and yj
+n have the
+same label/entity type.
+Gazetteer-related features: Whether Y i
+</bodyText>
+<equation confidence="0.988827111111111">
+m
+Y j
+n /
+Y i+1
+m
+Y j+1
+n / Y i1
+m
+Y j1
+</equation>
+<bodyText confidence="0.9604936">
+n is empty; whether the
+dominating label/entity type in Y i
+m is the same as
+that in Y j
+n .
+</bodyText>
+<sectionHeader confidence="0.998847" genericHeader="method">
+5 Experiments
+</sectionHeader>
+<bodyText confidence="0.9686785">
+We manually annotate a data set to evaluate our
+method. We show that our method outperforms the
+baseline, a cascaded system that conducts NER and
+NEN individually.
+</bodyText>
+<subsectionHeader confidence="0.986469">
+5.1 Data Preparation
+</subsectionHeader>
+<bodyText confidence="0.9988805">
+We use the data set provided by Liu et al. (2011),
+which consists of 12,245 tweets with four types of
+entities annotated: PERSON, LOCATION, ORGA-
+NIZATION and PRODUCT. We enrich this data set
+by adding entity normalization information. Two
+annotators 12 are involved. For any entity mention,
+two annotators independently annotate its canonical
+form. The inter-rater agreement measured by kappa
+is 0.72. Any inconsistent case is discussed by the
+two annotators till a consensus is reached. 2, 245
+tweets are used for development, and the remainder
+are used for 5-fold cross validation.
+</bodyText>
+<subsectionHeader confidence="0.999106">
+5.2 Evaluation Metrics
+</subsectionHeader>
+<bodyText confidence="0.996305555555555">
+We adopt the widely-used Precision, Recall and F1
+to measure the performance of NER for a partic-
+ular type of entity, and the average Precision, Re-
+call and F1 to measure the overall performance of
+NER (Liu et al., 2011; Ritter et al., 2011). As for
+NEN, we adopt the widely-used Accuracy, i.e., to
+what percentage the outputted canonical forms are
+correct (Jijkoun et al., 2008; Cucerzan, 2007; Li et
+al., 2002).
+</bodyText>
+<page confidence="0.977184">
+12
+</page>
+<bodyText confidence="0.530369">
+Two native English speakers.
+</bodyText>
+<subsectionHeader confidence="0.743059">
+5.3 Baseline
+</subsectionHeader>
+<bodyText confidence="0.999524">
+We develop a cascaded system as the baseline,
+which conducts NER and NEN sequentially. Its
+NER module, denoted by SBR, is based on the state-
+of-the-art method introduced by Liu et al. (2011);
+and its NEN model , denoted by SBN , follows
+the NEN system for user-generated news comments
+proposed by Jijkoun et al. (2008), which uses
+handcrafted rules to improve a typical NEN system
+that normalizes surface forms to Wikipedia page ti-
+tles. We use the POS tagger developed by Ritter et
+al. (2011) to extract POS related features, and the
+OpenNLP toolkit to get lemma related features.
+</bodyText>
+<sectionHeader confidence="0.909823" genericHeader="evaluation">
+5.4 Results
+</sectionHeader>
+<bodyText confidence="0.933249">
+Tables 1- 2 show the overall performance of the
+baseline and ours (denoted by SRN ). It can be
+seen that, our method yields a significantly higher
+F1 (with p &amp;lt; 0.01) than SBR, and a moderate im-
+provement of accuracy as compared with SBN (with
+p &amp;lt; 0.05). As a case study, we show that our system
+successfully identified jaxon1
+</bodyText>
+<footnote confidence="0.559420642857143">
+1 as a PERSON in the
+tweet come to see jaxon1
+1 someday , which
+is mistakenly labeled as a LOCATION by SBR.
+This is largely owing to the fact that our system
+aligns jaxon1
+1 with Jaxson1
+2 in the tweet I
+love Jaxson1
+2,Hes like my little brother , in which
+Jaxson1
+2 is identified as a PERSON. As a result,
+this encourages our system to consider jaxon1
+1 as
+</footnote>
+<bodyText confidence="0.564933">
+a PERSON. We also find cases where our system
+works but SBN fails. For example, Goldman1
+</bodyText>
+<page confidence="0.640412">
+1
+</page>
+<bodyText confidence="0.963056333333333">
+in the tweet Goldman sees massive upside risk
+in oil prices is normalized into Albert Gold-
+man by SBR, because it is mistakenly identified as
+</bodyText>
+<figure confidence="0.495054375">
+a PERSON by SBS; in contrast, our system recog-
+nizes Goldman1
+2 Sachs as an ORGANIZATION,
+and successfully links Goldman1
+2 to Goldman1
+1,
+resulting that Goldman1
+1 is identified as an ORGA-
+</figure>
+<bodyText confidence="0.979335333333333">
+NIZATION and normalized into Goldman Sachs.
+Table 3 reports the NER performance of our
+method for each entity type, from which we see that
+our system consistently yields better F1 on all entity
+types than SBR. We also see that our system boosts
+the F1 for ORGANIZATION most significantly, re-
+flecting the fact that a large number of organizations
+that are incorrectly labeled as PERSON by SBR, are
+now correctly recognized by our method.
+</bodyText>
+<page confidence="0.994196">
+532
+</page>
+<table confidence="0.997169666666667">
+\x0cSystem Pre Rec F1
+SRN 84.7 82.5 83.6
+SBR 81.6 78.8 80.2
+</table>
+<tableCaption confidence="0.966756">
+Table 1: Overall performance (%) of NER.
+</tableCaption>
+<table confidence="0.883990538461538">
+System Accuracy
+SRN 82.6
+SBN 79.4
+Table 2: Overall Accuracy (%) of NEN .
+System PER PRO LOC ORG
+SRN 84.2 80.5 82.1 85.2
+SBR 83.9 78.7 81.3 79.8
+Table 3: F1 (%) of NER on different entity types.
+Features NER (F1) NEN (Accuracy)
+Fo 59.2 61.3
+Fo + Fl 65.8 68.7
+Fo + Fg 80.1 77.2
+Fo + Fl + Fg 83.6 82.6
+</table>
+<tableCaption confidence="0.996386">
+Table 4: Overall F1 (%) of NER and Accuracy (%) of
+</tableCaption>
+<bodyText confidence="0.993853111111111">
+NEN with different feature sets.
+Table 4 shows the overall performance of our
+method with various feature set combinations,
+where Fo, Fl and Fg denote the orthographic fea-
+tures, the lexical features, and the gazetteer-related
+features, respectively. From Table 4 we see that
+gazetteer-related features significantly boost the F1
+for NER and Accuracy for NEN, suggesting the im-
+portance of external knowledge for this task.
+</bodyText>
+<subsectionHeader confidence="0.858049">
+5.5 Discussion
+</subsectionHeader>
+<bodyText confidence="0.985449">
+One main error source for NER and NEN, which
+accounts for more than half of all the errors, is
+slang expressions and informal abbreviations. For
+instance, our method recognizes California1
+</bodyText>
+<figure confidence="0.866569777777778">
+1 in
+the tweet And Now, He Lives All The Way In
+California1
+1 as a LOCATION, however, it mis-
+takenly identifies Cali1
+2 in the tweet i love
+Cali so much as a PERSON. One reason is our
+system does not generate any z-serial variable for
+California1
+1 and Cali1
+2 since they have differ-
+ent lemmas. A more complicated case is BS1
+1 in
+the tweet I, bobby shaw, am gonna put BS1
+1 on
+everything , in which BS1
+1 is the abbreviation
+of bobby shaw. Our method fails to recognize
+</figure>
+<page confidence="0.269895">
+BS1
+</page>
+<bodyText confidence="0.956876909090909">
+1 as an entity. There are two possible ways to
+fix these errors: 1) Extending the scope of z-serial
+variables to each word pairs with a common prefix;
+and 2) developing advanced normalization compo-
+nents to restore such slang expressions and informal
+abbreviations into their canonical forms.
+Our method does not directly exploit Wikipedia
+for NEN. This explains the cases where our system
+correctly links multiple entity mentions but fails to
+generate canonical forms. Take the following two
+tweets for example: nitip link win71
+</bodyText>
+<figure confidence="0.798250142857143">
+1 sp1
+and Hit the 3TB wall on SRT installing fresh
+Win71
+2 . Our system recognizes win71
+1 and
+Win71
+2 as two mentions of the same product, but
+</figure>
+<bodyText confidence="0.90253975">
+cannot output their canonical forms Windows 7.
+One possible solution is to exploit Wikipedia to
+compile a dictionary consisting of entities and their
+variations.
+</bodyText>
+<sectionHeader confidence="0.996493" genericHeader="conclusions">
+6 Conclusions and Future work
+</sectionHeader>
+<bodyText confidence="0.9996762">
+We study the task of NEN for tweets, a new genre
+of texts that are short and prone to noise. Two chal-
+lenges of this task are the dearth of information in
+a single tweet and errors propagated from the NER
+component. We propose jointly conducting NER
+and NEN for multiple tweets using a factor graph, to
+address these challenges. One unique characteristic
+of our model is that a NE normalization variable is
+introduced to indicate whether a word pair belongs
+to the mentions of the same entity. We evaluate our
+method on a manually annotated data set. Experi-
+mental results show our method yields better F1 for
+NER and Accuracy for NEN than the state-of-the-art
+baseline that conducts two tasks sequentially.
+In the future, we plan to explore two directions to
+improve our method. First, we are going to develop
+advanced tweet normalization technologies to re-
+solve slang expressions and informal abbreviations.
+Second, we are interested in incorporating knowl-
+edge mined from Wikipedia into our factor graph.
+</bodyText>
+<sectionHeader confidence="0.978366" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.999286666666667">
+We thank Yunbo Cao, Dongdong Zhang, and Mu Li
+for helpful discussions, and the anonymous review-
+ers for their valuable comments.
+</bodyText>
+<page confidence="0.998003">
+533
+</page>
+<reference confidence="0.996993317757009">
+\x0cReferences
+Laura Chiticariu, Rajasekar Krishnamurthy, Yunyao
+Li, Frederick Reiss, and Shivakumar Vaithyanathan.
+2010. Domain adaptation of rule-based annotators
+for named-entity recognition tasks. In EMNLP, pages
+10021012.
+Aaron Cohen. 2005. Unsupervised gene/protein named
+entity normalization using automatically extracted dic-
+tionaries. In Proceedings of the ACL-ISMB Work-
+shop on Linking Biological Literature, Ontologies and
+Databases: Mining Biological Semantics, pages 17
+24, Detroit, June. Association for Computational Lin-
+guistics.
+Silviu Cucerzan. 2007. Large-scale named entity disam-
+biguation based on wikipedia data. In In Proc. 2007
+Joint Conference on EMNLP and CNLL, pages 708
+716.
+Hong-Jie Dai, Richard Tzong-Han Tsai, and Wen-Lian
+Hsu. 2011. Entity disambiguation using a markov-
+logic network. In Proceedings of 5th International
+Joint Conference on Natural Language Processing,
+pages 846855, Chiang Mai, Thailand, November.
+Asian Federation of Natural Language Processing.
+Doug Downey, Matthew Broadhead, and Oren Etzioni.
+2007. Locating Complex Named Entities in Web Text.
+In IJCAI.
+Oren Etzioni, Michael Cafarella, Doug Downey, Ana-
+Maria Popescu, Tal Shaked, Stephen Soderland,
+Daniel S. Weld, and Alexander Yates. 2005. Unsu-
+pervised named-entity extraction from the web: an ex-
+perimental study. Artif. Intell., 165(1):91134.
+Tim Finin, Will Murnane, Anand Karandikar, Nicholas
+Keller, Justin Martineau, and Mark Dredze. 2010.
+Annotating named entities in twitter data with crowd-
+sourcing. In CSLDAMT, pages 8088.
+Jenny Rose Finkel and Christopher D. Manning. 2009.
+Nested named entity recognition. In EMNLP, pages
+141150.
+Michel Galley. 2006. A skip-chain conditional random
+field for ranking meeting utterances by importance.
+In Association for Computational Linguistics, pages
+364372.
+Bo Han and Timothy Baldwin. 2011. Lexical normalisa-
+tion of short text messages: Makn sens a #twitter. In
+ACL HLT.
+Martin Jansche and Steven P. Abney. 2002. Informa-
+tion extraction from voicemail transcripts. In EMNLP,
+pages 320327.
+Valentin Jijkoun, Mahboob Alam Khalid, Maarten Marx,
+and Maarten de Rijke. 2008. Named entity normal-
+ization in user generated content. In Proceedings of
+the second workshop on Analytics for noisy unstruc-
+tured text data, AND 08, pages 2330, New York,
+NY, USA. ACM.
+Mahboob Khalid, Valentin Jijkoun, and Maarten de Ri-
+jke. 2008. The impact of named entity normaliza-
+tion on information retrieval for question answering.
+In Craig Macdonald, Iadh Ounis, Vassilis Plachouras,
+Ian Ruthven, and Ryen White, editors, Advances in In-
+formation Retrieval, volume 4956 of Lecture Notes in
+Computer Science, pages 705710. Springer Berlin /
+Heidelberg.
+George R. Krupka and Kevin Hausman. 1998. Isoquest:
+Description of the netowlT M
+extractor system as used
+in muc-7. In MUC-7.
+Huifeng Li, Rohini K. Srihari, Cheng Niu, and Wei Li.
+2002. Location normalization for information extrac-
+tion. In COLING.
+Xiaohua Liu, Shaodian Zhang, Furu Wei, and Ming
+Zhou. 2011. Recognizing named entities in tweets.
+In ACL.
+Walid Magdy, Kareem Darwish, Ossama Emam, and
+Hany Hassan. 2007. Arabic cross-document person
+name normalization. In In CASL Workshop 07, pages
+2532.
+Andrew Mccallum and Wei Li. 2003. Early results
+for named entity recognition with conditional random
+fields, feature induction and web-enhanced lexicons.
+In HLT-NAACL, pages 188191.
+Einat Minkov, Richard C. Wang, and William W. Cohen.
+2005. Extracting personal names from email: apply-
+ing named entity recognition to informal text. In HLT,
+pages 443450.
+Kevin P. Murphy, Yair Weiss, and Michael I. Jordan.
+1999. Loopy belief propagation for approximate in-
+ference: An empirical study. In In Proceedings of Un-
+certainty in AI, pages 467475.
+David Nadeau and Satoshi Sekine. 2007. A survey of
+named entity recognition and classification. Linguisti-
+cae Investigationes, 30:326.
+Lev Ratinov and Dan Roth. 2009. Design challenges
+and misconceptions in named entity recognition. In
+CoNLL, pages 147155.
+Alan Ritter, Sam Clark, Mausam, and Oren Etzioni.
+2011. Named entity recognition in tweets: An ex-
+perimental study. In Proceedings of the 2011 Confer-
+ence on Empirical Methods in Natural Language Pro-
+cessing, pages 15241534, Edinburgh, Scotland, UK.,
+July. Association for Computational Linguistics.
+Sameer Singh, Dustin Hillard, and Chris Leggetter. 2010.
+Minimally-supervised extraction of entities from text
+advertisements. In HLT-NAACL, pages 7381.
+Erik F. Tjong Kim Sang and Fien De Meulder. 2003. In-
+troduction to the CoNLL-2003 shared task: language-
+independent named entity recognition. In HLT-
+NAACL, pages 142147.
+</reference>
+<page confidence="0.980171">
+534
+</page>
+<reference confidence="0.927303166666667">
+\x0cYefeng Wang. 2009. Annotating and recognising named
+entities in clinical notes. In ACL-IJCNLP, pages 18
+26.
+Kazuhiro Yoshida and Junichi Tsujii. 2007. Reranking
+for biomedical named-entity recognition. In BioNLP,
+pages 209216.
+</reference>
+<page confidence="0.973873">
+535
+</page>
+<figure confidence="0.253956">
+\x0c&apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.081457">
+<note confidence="0.968768666666667">b&apos;Proceedings of the 50th Annual Meeting of the Association for Computational Linguistics, pages 526535, Jeju, Republic of Korea, 8-14 July 2012. c 2012 Association for Computational Linguistics</note>
+<title confidence="0.980768">Joint Inference of Named Entity Recognition and Normalization for Tweets</title>
+<author confidence="0.749907">Furu Wei</author>
+<affiliation confidence="0.890773">School of Computer Science and Technology Harbin Institute of Technology, Harbin, 150001, China Department of Computer Science and Engineering</affiliation>
+<address confidence="0.980882">Shanghai Jiao Tong University, Shanghai, 200240, China</address>
+<affiliation confidence="0.996788">School of Computer Science and Technology</affiliation>
+<address confidence="0.605078">Shandong University, Jinan, 250100, China</address>
+<affiliation confidence="0.994883">Microsoft Research Asia</affiliation>
+<address confidence="0.999814">Beijing, 100190, China</address>
+<email confidence="0.997402666666667">xiaoliu@microsoft.comzhongyang.fu@gmail.comv-xzho@microsoft.com</email>
+<email confidence="0.997402666666667">fuwei@microsoft.comzhongyang.fu@gmail.comv-xzho@microsoft.com</email>
+<email confidence="0.997402666666667">mingzhou@microsoft.comzhongyang.fu@gmail.comv-xzho@microsoft.com</email>
+<abstract confidence="0.974543727272727">Tweets represent a critical source of fresh information, in which named entities occur frequently with rich variations. We study the problem of named entity normalization (NEN) for tweets. Two main challenges are the errors propagated from named entity recognition (NER) and the dearth of information in a single tweet. We propose a novel graphical model to simultaneously conduct NER and NEN on multiple tweets to address these challenges. Particularly, our model introduces a binary random variable for each pair of words with the same lemma across similar tweets, whose value indicates whether the two related words are mentions of the same entity. We evaluate our method on a manually annotated data set, and show that our method outperforms the baseline that handles these two tasks separately, boosting the F1 from 80.2% to 83.6% for NER, and the Accuracy from 79.4% to 82.6% for NEN, respectively.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>\x0cReferences Laura Chiticariu</author>
+<author>Rajasekar Krishnamurthy</author>
+<author>Yunyao Li</author>
+<author>Frederick Reiss</author>
+<author>Shivakumar Vaithyanathan</author>
+</authors>
+<title>Domain adaptation of rule-based annotators for named-entity recognition tasks.</title>
+<date>2010</date>
+<booktitle>In EMNLP,</booktitle>
+<pages>10021012</pages>
+<contexts>
+<context position="10068" citStr="Chiticariu et al. (2010)" startWordPosition="1685" endWordPosition="1689">schema (Beginning, the Inside and Outside of a chunk). A handful of work on other genres of texts exists. For example, Yoshida and Tsujii build a biomedical NER system (2007) using lexical features, orthographic features, semantic features and syntactic features, such as part-of-speech (POS) and shallow parsing; Downey et al. (2007) employ capitalization cues and n-gram statistics to locate names of a variety of classes in web text; Wang (2009) introduces NER to clinical notes. A linear CRF model is trained on a manually annotated data set, which achieves an F1 of 81.48% on the test data set; Chiticariu et al. (2010) design and implement a highlevel language NERL which simplifies the process of building, understanding, and customizing complex rule-based named-entity annotators for different domains. Recently, NER for Tweets attracts growing interest. Finin et al. (2010) use Amazons Mechanical Turk service 3 and CrowdFlower 4 to annotate named entities in tweets and train a CRF model to evaluate the effectiveness of human labeling. Ritter et al. (2011) re-build the NLP pipeline for tweets beginning with POS tagging, through chunking, to NER, which first exploits a CRF model to segment named entities and th</context>
+</contexts>
+<marker>Chiticariu, Krishnamurthy, Li, Reiss, Vaithyanathan, 2010</marker>
+<rawString>\x0cReferences Laura Chiticariu, Rajasekar Krishnamurthy, Yunyao Li, Frederick Reiss, and Shivakumar Vaithyanathan. 2010. Domain adaptation of rule-based annotators for named-entity recognition tasks. In EMNLP, pages 10021012.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Aaron Cohen</author>
+</authors>
+<title>Unsupervised gene/protein named entity normalization using automatically extracted dictionaries.</title>
+<date>2005</date>
+<booktitle>In Proceedings of the ACL-ISMB Workshop on Linking Biological Literature, Ontologies and Databases: Mining Biological Semantics,</booktitle>
+<pages>17--24</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Detroit,</location>
+<contexts>
+<context position="3518" citStr="Cohen, 2005" startWordPosition="548" endWordPosition="549">3 variations 2. As an illustrative example, we show Anneke Gronloh, which may occur as Mw.,Gronloh, Anneke Kronloh or Mevrouw G. We thus propose NEN for tweets, which plays an important role in entity retrieval, trend detection, and event and entity tracking. For example, Khalid et al. (2008) show that even a simple normalization method leads to improvements of early precision, for both document and passage retrieval, and better normalization results in better retrieval performance. Traditionally, NEN is regarded as a septated task, which takes the output of NER as its input (Li et al., 2002; Cohen, 2005; Jijkoun et al., 2008; Dai et al., 2011). One limitation of this cascaded approach is that errors propagate from NER to NEN and there is no feedback from NEN to NER. As demonstrated by Khalid et al. (2008), most NEN errors are caused 2 This data set consists of 12,245 randomly sampled tweets within five days. 526 \x0cby recognition errors. Another challenge of NEN is the dearth of information in a single tweet, due to the short and noise-prone nature of tweets. Reportedly, the accuracy of a baseline NEN system based on Wikipedia drops considerably from 94% on edited news to 77% on news commen</context>
+<context position="11444" citStr="Cohen (2005)" startWordPosition="1910" endWordPosition="1911">imultaneously using sequential labeling techniques. Liu et al. (2011) combine a classifier based on the k-nearest neighbors algorithm with a CRF-based model to leverage cross tweets information, and adopt the semi-supervised learning to leverage unlabeled tweets. Our method leverages redundance in similar tweets, using a factor graph rather than a two-stage labeling strategy. One advantage of our method is that local and global information can interact with each other. 2.2 NEN There is a large body of studies into normalizing various types of entities for formally written texts. For instance, Cohen (2005) normalizes gene/protein names using dictionaries automatically extracted from gene databases; Magdy et al. (2007) address cross-document Arabic name normalization using a machine learning approach, a dictionary of person names and frequency information for names in a collection; Cucerzan (2007) demostrates a largescale system for the recognition and semantic disambiguation of named entities based on information extracted from a large encyclopedic collection and Web search results; Dai et al. (2011) employ a Markov logic network to model interweaved con3 https://www.mturk.com/mturk/ 4 http://c</context>
+</contexts>
+<marker>Cohen, 2005</marker>
+<rawString>Aaron Cohen. 2005. Unsupervised gene/protein named entity normalization using automatically extracted dictionaries. In Proceedings of the ACL-ISMB Workshop on Linking Biological Literature, Ontologies and Databases: Mining Biological Semantics, pages 17 24, Detroit, June. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Silviu Cucerzan</author>
+</authors>
+<title>Large-scale named entity disambiguation based on wikipedia data. In</title>
+<date>2007</date>
+<booktitle>In Proc. 2007 Joint Conference on EMNLP and CNLL,</booktitle>
+<pages>708--716</pages>
+<contexts>
+<context position="11740" citStr="Cucerzan (2007)" startWordPosition="1949" endWordPosition="1950">ce in similar tweets, using a factor graph rather than a two-stage labeling strategy. One advantage of our method is that local and global information can interact with each other. 2.2 NEN There is a large body of studies into normalizing various types of entities for formally written texts. For instance, Cohen (2005) normalizes gene/protein names using dictionaries automatically extracted from gene databases; Magdy et al. (2007) address cross-document Arabic name normalization using a machine learning approach, a dictionary of person names and frequency information for names in a collection; Cucerzan (2007) demostrates a largescale system for the recognition and semantic disambiguation of named entities based on information extracted from a large encyclopedic collection and Web search results; Dai et al. (2011) employ a Markov logic network to model interweaved con3 https://www.mturk.com/mturk/ 4 http://crowdflower.com/ 528 \x0cstraints in a setting of gene mention normalization. Jijkoun et al. (2008) study NEN for UGC. They report that the accuracy of a baseline NEN system based on Wikipedia drops considerably from 94% on edited news to 77% on UGC. They identify three main error sources, i.e., </context>
+<context position="25873" citStr="Cucerzan, 2007" startWordPosition="4565" endWordPosition="4566">y kappa is 0.72. Any inconsistent case is discussed by the two annotators till a consensus is reached. 2, 245 tweets are used for development, and the remainder are used for 5-fold cross validation. 5.2 Evaluation Metrics We adopt the widely-used Precision, Recall and F1 to measure the performance of NER for a particular type of entity, and the average Precision, Recall and F1 to measure the overall performance of NER (Liu et al., 2011; Ritter et al., 2011). As for NEN, we adopt the widely-used Accuracy, i.e., to what percentage the outputted canonical forms are correct (Jijkoun et al., 2008; Cucerzan, 2007; Li et al., 2002). 12 Two native English speakers. 5.3 Baseline We develop a cascaded system as the baseline, which conducts NER and NEN sequentially. Its NER module, denoted by SBR, is based on the stateof-the-art method introduced by Liu et al. (2011); and its NEN model , denoted by SBN , follows the NEN system for user-generated news comments proposed by Jijkoun et al. (2008), which uses handcrafted rules to improve a typical NEN system that normalizes surface forms to Wikipedia page titles. We use the POS tagger developed by Ritter et al. (2011) to extract POS related features, and the Op</context>
+</contexts>
+<marker>Cucerzan, 2007</marker>
+<rawString>Silviu Cucerzan. 2007. Large-scale named entity disambiguation based on wikipedia data. In In Proc. 2007 Joint Conference on EMNLP and CNLL, pages 708 716.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Hong-Jie Dai</author>
+<author>Richard Tzong-Han Tsai</author>
+<author>Wen-Lian Hsu</author>
+</authors>
+<title>Entity disambiguation using a markovlogic network. In</title>
+<date>2011</date>
+<journal>Asian Federation of Natural Language Processing.</journal>
+<booktitle>Proceedings of 5th International Joint Conference on Natural Language Processing,</booktitle>
+<pages>846855</pages>
+<location>Chiang Mai, Thailand,</location>
+<contexts>
+<context position="3559" citStr="Dai et al., 2011" startWordPosition="554" endWordPosition="557">example, we show Anneke Gronloh, which may occur as Mw.,Gronloh, Anneke Kronloh or Mevrouw G. We thus propose NEN for tweets, which plays an important role in entity retrieval, trend detection, and event and entity tracking. For example, Khalid et al. (2008) show that even a simple normalization method leads to improvements of early precision, for both document and passage retrieval, and better normalization results in better retrieval performance. Traditionally, NEN is regarded as a septated task, which takes the output of NER as its input (Li et al., 2002; Cohen, 2005; Jijkoun et al., 2008; Dai et al., 2011). One limitation of this cascaded approach is that errors propagate from NER to NEN and there is no feedback from NEN to NER. As demonstrated by Khalid et al. (2008), most NEN errors are caused 2 This data set consists of 12,245 randomly sampled tweets within five days. 526 \x0cby recognition errors. Another challenge of NEN is the dearth of information in a single tweet, due to the short and noise-prone nature of tweets. Reportedly, the accuracy of a baseline NEN system based on Wikipedia drops considerably from 94% on edited news to 77% on news comments, a kind of user generated content (UGC</context>
+<context position="11948" citStr="Dai et al. (2011)" startWordPosition="1980" endWordPosition="1983">body of studies into normalizing various types of entities for formally written texts. For instance, Cohen (2005) normalizes gene/protein names using dictionaries automatically extracted from gene databases; Magdy et al. (2007) address cross-document Arabic name normalization using a machine learning approach, a dictionary of person names and frequency information for names in a collection; Cucerzan (2007) demostrates a largescale system for the recognition and semantic disambiguation of named entities based on information extracted from a large encyclopedic collection and Web search results; Dai et al. (2011) employ a Markov logic network to model interweaved con3 https://www.mturk.com/mturk/ 4 http://crowdflower.com/ 528 \x0cstraints in a setting of gene mention normalization. Jijkoun et al. (2008) study NEN for UGC. They report that the accuracy of a baseline NEN system based on Wikipedia drops considerably from 94% on edited news to 77% on UGC. They identify three main error sources, i.e., entity recognition errors, multiple ways of referring to the same entity and ambiguous references, and exploit hand-crafted rules to improve the baseline NEN system. We introduce the task of NEN for tweets, a</context>
+</contexts>
+<marker>Dai, Tsai, Hsu, 2011</marker>
+<rawString>Hong-Jie Dai, Richard Tzong-Han Tsai, and Wen-Lian Hsu. 2011. Entity disambiguation using a markovlogic network. In Proceedings of 5th International Joint Conference on Natural Language Processing, pages 846855, Chiang Mai, Thailand, November. Asian Federation of Natural Language Processing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Doug Downey</author>
+<author>Matthew Broadhead</author>
+<author>Oren Etzioni</author>
+</authors>
+<title>Locating Complex Named Entities in Web Text.</title>
+<date>2007</date>
+<booktitle>In IJCAI.</booktitle>
+<contexts>
+<context position="9778" citStr="Downey et al. (2007)" startWordPosition="1632" endWordPosition="1635">oni et al., 2005). A representative work is that of Ratinov and Roth (2009), in which they systematically study the challenges of NER, compare several solutions, and show some interesting findings. For example, they show that the BILOU encoding scheme significantly outperforms the BIO schema (Beginning, the Inside and Outside of a chunk). A handful of work on other genres of texts exists. For example, Yoshida and Tsujii build a biomedical NER system (2007) using lexical features, orthographic features, semantic features and syntactic features, such as part-of-speech (POS) and shallow parsing; Downey et al. (2007) employ capitalization cues and n-gram statistics to locate names of a variety of classes in web text; Wang (2009) introduces NER to clinical notes. A linear CRF model is trained on a manually annotated data set, which achieves an F1 of 81.48% on the test data set; Chiticariu et al. (2010) design and implement a highlevel language NERL which simplifies the process of building, understanding, and customizing complex rule-based named-entity annotators for different domains. Recently, NER for Tweets attracts growing interest. Finin et al. (2010) use Amazons Mechanical Turk service 3 and CrowdFlow</context>
+</contexts>
+<marker>Downey, Broadhead, Etzioni, 2007</marker>
+<rawString>Doug Downey, Matthew Broadhead, and Oren Etzioni. 2007. Locating Complex Named Entities in Web Text. In IJCAI.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Oren Etzioni</author>
+<author>Michael Cafarella</author>
+<author>Doug Downey</author>
+<author>AnaMaria Popescu</author>
+<author>Tal Shaked</author>
+<author>Stephen Soderland</author>
+<author>Daniel S Weld</author>
+<author>Alexander Yates</author>
+</authors>
+<title>Unsupervised named-entity extraction from the web: an experimental study.</title>
+<date>2005</date>
+<journal>Artif. Intell.,</journal>
+<volume>165</volume>
+<issue>1</issue>
+<contexts>
+<context position="9175" citStr="Etzioni et al., 2005" startWordPosition="1537" endWordPosition="1540"> Work Related work can be divided into two categories: NER and NEN. 2.1 NER NER has been well studied and its solutions can be divided into three categories: 1) Rule-based (Krupka and Hausman, 1998); 2) machine learning based (Finkel and Manning, 2009; Singh et al., 2010); and 3) hybrid methods (Jansche and Abney, 2002). Owing to the availability of annotated corpora, such as ACE05, Enron (Minkov et al., 2005) and CoNLL03 (Tjong Kim Sang and De Meulder, 2003), data driven methods are now dominant. Current studies of NER mainly focus on formal text such as news articles (Mccallum and Li, 2003; Etzioni et al., 2005). A representative work is that of Ratinov and Roth (2009), in which they systematically study the challenges of NER, compare several solutions, and show some interesting findings. For example, they show that the BILOU encoding scheme significantly outperforms the BIO schema (Beginning, the Inside and Outside of a chunk). A handful of work on other genres of texts exists. For example, Yoshida and Tsujii build a biomedical NER system (2007) using lexical features, orthographic features, semantic features and syntactic features, such as part-of-speech (POS) and shallow parsing; Downey et al. (20</context>
+</contexts>
+<marker>Etzioni, Cafarella, Downey, Popescu, Shaked, Soderland, Weld, Yates, 2005</marker>
+<rawString>Oren Etzioni, Michael Cafarella, Doug Downey, AnaMaria Popescu, Tal Shaked, Stephen Soderland, Daniel S. Weld, and Alexander Yates. 2005. Unsupervised named-entity extraction from the web: an experimental study. Artif. Intell., 165(1):91134.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Tim Finin</author>
+<author>Will Murnane</author>
+<author>Anand Karandikar</author>
+<author>Nicholas Keller</author>
+<author>Justin Martineau</author>
+<author>Mark Dredze</author>
+</authors>
+<title>Annotating named entities in twitter data with crowdsourcing. In</title>
+<date>2010</date>
+<booktitle>CSLDAMT,</booktitle>
+<pages>8088</pages>
+<contexts>
+<context position="10326" citStr="Finin et al. (2010)" startWordPosition="1724" endWordPosition="1727"> such as part-of-speech (POS) and shallow parsing; Downey et al. (2007) employ capitalization cues and n-gram statistics to locate names of a variety of classes in web text; Wang (2009) introduces NER to clinical notes. A linear CRF model is trained on a manually annotated data set, which achieves an F1 of 81.48% on the test data set; Chiticariu et al. (2010) design and implement a highlevel language NERL which simplifies the process of building, understanding, and customizing complex rule-based named-entity annotators for different domains. Recently, NER for Tweets attracts growing interest. Finin et al. (2010) use Amazons Mechanical Turk service 3 and CrowdFlower 4 to annotate named entities in tweets and train a CRF model to evaluate the effectiveness of human labeling. Ritter et al. (2011) re-build the NLP pipeline for tweets beginning with POS tagging, through chunking, to NER, which first exploits a CRF model to segment named entities and then uses a distantly supervised approach based on LabeledLDA to classify named entities. Unlike this work, our work detects the boundary and type of a named entity simultaneously using sequential labeling techniques. Liu et al. (2011) combine a classifier bas</context>
+</contexts>
+<marker>Finin, Murnane, Karandikar, Keller, Martineau, Dredze, 2010</marker>
+<rawString>Tim Finin, Will Murnane, Anand Karandikar, Nicholas Keller, Justin Martineau, and Mark Dredze. 2010. Annotating named entities in twitter data with crowdsourcing. In CSLDAMT, pages 8088.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Jenny Rose Finkel</author>
+<author>Christopher D Manning</author>
+</authors>
+<title>Nested named entity recognition.</title>
+<date>2009</date>
+<booktitle>In EMNLP,</booktitle>
+<pages>141150</pages>
+<contexts>
+<context position="8805" citStr="Finkel and Manning, 2009" startWordPosition="1473" endWordPosition="1476">otated data set, and show that our method compares favorably with the baseline, achieving better performance in both tasks. Our paper is organized as follows. In the next section, we introduce related work. In Section 3 and 4, we formally define the task and present our method. In Section 5, we evaluate our method. And finally we conclude our work in Section 6. 2 Related Work Related work can be divided into two categories: NER and NEN. 2.1 NER NER has been well studied and its solutions can be divided into three categories: 1) Rule-based (Krupka and Hausman, 1998); 2) machine learning based (Finkel and Manning, 2009; Singh et al., 2010); and 3) hybrid methods (Jansche and Abney, 2002). Owing to the availability of annotated corpora, such as ACE05, Enron (Minkov et al., 2005) and CoNLL03 (Tjong Kim Sang and De Meulder, 2003), data driven methods are now dominant. Current studies of NER mainly focus on formal text such as news articles (Mccallum and Li, 2003; Etzioni et al., 2005). A representative work is that of Ratinov and Roth (2009), in which they systematically study the challenges of NER, compare several solutions, and show some interesting findings. For example, they show that the BILOU encoding sc</context>
+</contexts>
+<marker>Finkel, Manning, 2009</marker>
+<rawString>Jenny Rose Finkel and Christopher D. Manning. 2009. Nested named entity recognition. In EMNLP, pages 141150.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Michel Galley</author>
+</authors>
+<title>A skip-chain conditional random field for ranking meeting utterances by importance.</title>
+<date>2006</date>
+<booktitle>In Association for Computational Linguistics,</booktitle>
+<pages>364372</pages>
+<contexts>
+<context position="7253" citStr="Galley, 2006" startWordPosition="1202" endWordPosition="1203">are the same set of feature templates. Figure 1 illustrates an example of our factor graph for two tweets. Figure 1: A factor graph that jointly conducts NER and NEN on multiple tweets. Blue and green circles represent NE type (y-serials) and normalization variables (z-serials), respectively; filled circles indicate observed random variables; blue rectangles represent the factors connecting neighboring y-serial variables while red rectangles stand for the factors connecting distant y-serial and z-serial variables. It is worth noting that our factor graph is different from the skip-chain CRFs (Galley, 2006) in the sense that any skip-chain factor of our model consists not only of two NE type variables (yi m and yj n), which is the case for skip-chain CRFs, but also a normalization variable (zij mn). It is these normalization variables that enable us to conduct NER and NEN jointly. We manually add normalization information to the data set shared by Liu et al. (2011), to evaluate our method. Experimental results show that our method achieves 83.6% F1 for NER and 82.6% Accuracy for NEN, outperforming the baseline with 80.2%F1 for NER and 79.4% Accuracy for NEN. We summarize our contributions as fol</context>
+</contexts>
+<marker>Galley, 2006</marker>
+<rawString>Michel Galley. 2006. A skip-chain conditional random field for ranking meeting utterances by importance. In Association for Computational Linguistics, pages 364372.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Bo Han</author>
+<author>Timothy Baldwin</author>
+</authors>
+<title>Lexical normalisation of short text messages: Makn sens a #twitter.</title>
+<date>2011</date>
+<booktitle>In ACL HLT.</booktitle>
+<marker>Han, Baldwin, 2011</marker>
+<rawString>Bo Han and Timothy Baldwin. 2011. Lexical normalisation of short text messages: Makn sens a #twitter. In ACL HLT.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Martin Jansche</author>
+<author>Steven P Abney</author>
+</authors>
+<title>Information extraction from voicemail transcripts.</title>
+<date>2002</date>
+<booktitle>In EMNLP,</booktitle>
+<pages>320327</pages>
+<contexts>
+<context position="8875" citStr="Jansche and Abney, 2002" startWordPosition="1485" endWordPosition="1488">baseline, achieving better performance in both tasks. Our paper is organized as follows. In the next section, we introduce related work. In Section 3 and 4, we formally define the task and present our method. In Section 5, we evaluate our method. And finally we conclude our work in Section 6. 2 Related Work Related work can be divided into two categories: NER and NEN. 2.1 NER NER has been well studied and its solutions can be divided into three categories: 1) Rule-based (Krupka and Hausman, 1998); 2) machine learning based (Finkel and Manning, 2009; Singh et al., 2010); and 3) hybrid methods (Jansche and Abney, 2002). Owing to the availability of annotated corpora, such as ACE05, Enron (Minkov et al., 2005) and CoNLL03 (Tjong Kim Sang and De Meulder, 2003), data driven methods are now dominant. Current studies of NER mainly focus on formal text such as news articles (Mccallum and Li, 2003; Etzioni et al., 2005). A representative work is that of Ratinov and Roth (2009), in which they systematically study the challenges of NER, compare several solutions, and show some interesting findings. For example, they show that the BILOU encoding scheme significantly outperforms the BIO schema (Beginning, the Inside a</context>
+</contexts>
+<marker>Jansche, Abney, 2002</marker>
+<rawString>Martin Jansche and Steven P. Abney. 2002. Information extraction from voicemail transcripts. In EMNLP, pages 320327.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Valentin Jijkoun</author>
+<author>Mahboob Alam Khalid</author>
+<author>Maarten Marx</author>
+<author>Maarten de Rijke</author>
+</authors>
+<title>Named entity normalization in user generated content.</title>
+<date>2008</date>
+<booktitle>In Proceedings of the second workshop on Analytics for noisy unstructured text data, AND 08,</booktitle>
+<pages>2330</pages>
+<publisher>ACM.</publisher>
+<location>New York, NY, USA.</location>
+<marker>Jijkoun, Khalid, Marx, de Rijke, 2008</marker>
+<rawString>Valentin Jijkoun, Mahboob Alam Khalid, Maarten Marx, and Maarten de Rijke. 2008. Named entity normalization in user generated content. In Proceedings of the second workshop on Analytics for noisy unstructured text data, AND 08, pages 2330, New York, NY, USA. ACM.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Mahboob Khalid</author>
+<author>Valentin Jijkoun</author>
+<author>Maarten de Rijke</author>
+</authors>
+<title>The impact of named entity normalization on information retrieval for question answering. In</title>
+<date>2008</date>
+<booktitle>Advances in Information Retrieval,</booktitle>
+<volume>4956</volume>
+<pages>705710</pages>
+<editor>Craig Macdonald, Iadh Ounis, Vassilis Plachouras, Ian Ruthven, and Ryen White, editors,</editor>
+<publisher>Springer</publisher>
+<location>Berlin / Heidelberg.</location>
+<marker>Khalid, Jijkoun, de Rijke, 2008</marker>
+<rawString>Mahboob Khalid, Valentin Jijkoun, and Maarten de Rijke. 2008. The impact of named entity normalization on information retrieval for question answering. In Craig Macdonald, Iadh Ounis, Vassilis Plachouras, Ian Ruthven, and Ryen White, editors, Advances in Information Retrieval, volume 4956 of Lecture Notes in Computer Science, pages 705710. Springer Berlin / Heidelberg.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>George R Krupka</author>
+<author>Kevin Hausman</author>
+</authors>
+<title>Isoquest: Description of the netowlT M extractor system as used in muc-7.</title>
+<date>1998</date>
+<booktitle>In MUC-7.</booktitle>
+<contexts>
+<context position="8752" citStr="Krupka and Hausman, 1998" startWordPosition="1465" endWordPosition="1468">m each other. 2. We evaluate our method on a human annotated data set, and show that our method compares favorably with the baseline, achieving better performance in both tasks. Our paper is organized as follows. In the next section, we introduce related work. In Section 3 and 4, we formally define the task and present our method. In Section 5, we evaluate our method. And finally we conclude our work in Section 6. 2 Related Work Related work can be divided into two categories: NER and NEN. 2.1 NER NER has been well studied and its solutions can be divided into three categories: 1) Rule-based (Krupka and Hausman, 1998); 2) machine learning based (Finkel and Manning, 2009; Singh et al., 2010); and 3) hybrid methods (Jansche and Abney, 2002). Owing to the availability of annotated corpora, such as ACE05, Enron (Minkov et al., 2005) and CoNLL03 (Tjong Kim Sang and De Meulder, 2003), data driven methods are now dominant. Current studies of NER mainly focus on formal text such as news articles (Mccallum and Li, 2003; Etzioni et al., 2005). A representative work is that of Ratinov and Roth (2009), in which they systematically study the challenges of NER, compare several solutions, and show some interesting findin</context>
+</contexts>
+<marker>Krupka, Hausman, 1998</marker>
+<rawString>George R. Krupka and Kevin Hausman. 1998. Isoquest: Description of the netowlT M extractor system as used in muc-7. In MUC-7.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Huifeng Li</author>
+<author>Rohini K Srihari</author>
+<author>Cheng Niu</author>
+<author>Wei Li</author>
+</authors>
+<title>Location normalization for information extraction.</title>
+<date>2002</date>
+<booktitle>In COLING.</booktitle>
+<contexts>
+<context position="3505" citStr="Li et al., 2002" startWordPosition="544" endWordPosition="547"> an average of 3.3 variations 2. As an illustrative example, we show Anneke Gronloh, which may occur as Mw.,Gronloh, Anneke Kronloh or Mevrouw G. We thus propose NEN for tweets, which plays an important role in entity retrieval, trend detection, and event and entity tracking. For example, Khalid et al. (2008) show that even a simple normalization method leads to improvements of early precision, for both document and passage retrieval, and better normalization results in better retrieval performance. Traditionally, NEN is regarded as a septated task, which takes the output of NER as its input (Li et al., 2002; Cohen, 2005; Jijkoun et al., 2008; Dai et al., 2011). One limitation of this cascaded approach is that errors propagate from NER to NEN and there is no feedback from NEN to NER. As demonstrated by Khalid et al. (2008), most NEN errors are caused 2 This data set consists of 12,245 randomly sampled tweets within five days. 526 \x0cby recognition errors. Another challenge of NEN is the dearth of information in a single tweet, due to the short and noise-prone nature of tweets. Reportedly, the accuracy of a baseline NEN system based on Wikipedia drops considerably from 94% on edited news to 77% o</context>
+<context position="25891" citStr="Li et al., 2002" startWordPosition="4567" endWordPosition="4570"> Any inconsistent case is discussed by the two annotators till a consensus is reached. 2, 245 tweets are used for development, and the remainder are used for 5-fold cross validation. 5.2 Evaluation Metrics We adopt the widely-used Precision, Recall and F1 to measure the performance of NER for a particular type of entity, and the average Precision, Recall and F1 to measure the overall performance of NER (Liu et al., 2011; Ritter et al., 2011). As for NEN, we adopt the widely-used Accuracy, i.e., to what percentage the outputted canonical forms are correct (Jijkoun et al., 2008; Cucerzan, 2007; Li et al., 2002). 12 Two native English speakers. 5.3 Baseline We develop a cascaded system as the baseline, which conducts NER and NEN sequentially. Its NER module, denoted by SBR, is based on the stateof-the-art method introduced by Liu et al. (2011); and its NEN model , denoted by SBN , follows the NEN system for user-generated news comments proposed by Jijkoun et al. (2008), which uses handcrafted rules to improve a typical NEN system that normalizes surface forms to Wikipedia page titles. We use the POS tagger developed by Ritter et al. (2011) to extract POS related features, and the OpenNLP toolkit to g</context>
+</contexts>
+<marker>Li, Srihari, Niu, Li, 2002</marker>
+<rawString>Huifeng Li, Rohini K. Srihari, Cheng Niu, and Wei Li. 2002. Location normalization for information extraction. In COLING.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Xiaohua Liu</author>
+<author>Shaodian Zhang</author>
+<author>Furu Wei</author>
+<author>Ming Zhou</author>
+</authors>
+<title>Recognizing named entities in tweets.</title>
+<date>2011</date>
+<booktitle>In ACL.</booktitle>
+<contexts>
+<context position="2322" citStr="Liu et al. (2011)" startWordPosition="352" endWordPosition="355">ess than 140 characters shared through the Twitter service 1, have become an important source of fresh information. As a result, the task of named entity recognition (NER) for tweets, which aims to identify mentions of rigid designators from tweets belonging to named-entity types such as persons, organizations and locations (2007), has attracted increasing research interest. For example, Ritter et al. (2011) develop a system that exploits a CRF model to segment named 1 http://www.twitter.com entities and then uses a distantly supervised approach based on LabeledLDA to classify named entities. Liu et al. (2011) combine a classifier based on the k-nearest neighbors algorithm with a CRFbased model to leverage cross tweets information, and adopt the semi-supervised learning to leverage unlabeled tweets. However, named entity normalization (NEN) for tweets, which transforms named entities mentioned in tweets to their unambiguous canonical forms, has not been well studied. Owing to the informal nature of tweets, there are rich variations of named entities in them. According to our investigation on the data set provided by Liu et al. (2011), every named entity in tweets has an average of 3.3 variations 2.</context>
+<context position="5359" citStr="Liu et al. (2011)" startWordPosition="858" endWordPosition="861"> two tweets: she knew Burger King when he was a Prince! and Im craving all sorts of food: mcdonalds, burger king, pizza, chinese . Suppose the NEN system believes that burger king cannot be mapped to Burger King since these two tweets are not similar in content. This will help NER to assign them different types of labels. Our method optimizes these two tasks simultaneously by enabling them to interact with each other. This largely differentiates our method from existing work. Furthermore, considering multiple tweets simultaneously allows us to exploit the redundancy in tweets, as suggested by Liu et al. (2011). For example, consider the following two tweets: Bobby Shaw you dont invite the wind and I own yah ! Loool bobby shaw . Recognizing Bobby Shaw in the first tweet as a PERSON is easy owing to its capitalization and the following word you, which in turn helps to identify bobby shaw in the second tweet as a PERSON. We adopt a factor graph as our graphical model, which is constructed in the following manner. We first introduce a random variable for each word in every tweet, which represents the BILOU (Beginning, the Inside and the Last tokens of multi-token entities as well as Unit-length entitie</context>
+<context position="7618" citStr="Liu et al. (2011)" startWordPosition="1268" endWordPosition="1271">represent the factors connecting neighboring y-serial variables while red rectangles stand for the factors connecting distant y-serial and z-serial variables. It is worth noting that our factor graph is different from the skip-chain CRFs (Galley, 2006) in the sense that any skip-chain factor of our model consists not only of two NE type variables (yi m and yj n), which is the case for skip-chain CRFs, but also a normalization variable (zij mn). It is these normalization variables that enable us to conduct NER and NEN jointly. We manually add normalization information to the data set shared by Liu et al. (2011), to evaluate our method. Experimental results show that our method achieves 83.6% F1 for NER and 82.6% Accuracy for NEN, outperforming the baseline with 80.2%F1 for NER and 79.4% Accuracy for NEN. We summarize our contributions as follows. 1. We introduce the task of NEN for tweets, and propose jointly conducting NER and NEN for 527 \x0cmultiple tweets using a factor graph, which leverages redundancy in tweets to make up for the dearth of information in a single tweet and allows these two tasks to inform each other. 2. We evaluate our method on a human annotated data set, and show that our me</context>
+<context position="10901" citStr="Liu et al. (2011)" startWordPosition="1823" endWordPosition="1826">acts growing interest. Finin et al. (2010) use Amazons Mechanical Turk service 3 and CrowdFlower 4 to annotate named entities in tweets and train a CRF model to evaluate the effectiveness of human labeling. Ritter et al. (2011) re-build the NLP pipeline for tweets beginning with POS tagging, through chunking, to NER, which first exploits a CRF model to segment named entities and then uses a distantly supervised approach based on LabeledLDA to classify named entities. Unlike this work, our work detects the boundary and type of a named entity simultaneously using sequential labeling techniques. Liu et al. (2011) combine a classifier based on the k-nearest neighbors algorithm with a CRF-based model to leverage cross tweets information, and adopt the semi-supervised learning to leverage unlabeled tweets. Our method leverages redundance in similar tweets, using a factor graph rather than a two-stage labeling strategy. One advantage of our method is that local and global information can interact with each other. 2.2 NEN There is a large body of studies into normalizing various types of entities for formally written texts. For instance, Cohen (2005) normalizes gene/protein names using dictionaries automat</context>
+<context position="13526" citStr="Liu et al. (2011)" startWordPosition="2245" endWordPosition="2248"> is an example of a tweet: mycraftingworld: #Win Microsoft Office 2010 Home and Student #Contest from @office http://bit.ly/ , where mycraftingworld is the name of the user who published this tweet. Words beginning with # like #Win are hash tags; words starting with @ like @office represent user names; and http://bit.ly/ is a shortened link. Given a set of tweets, e.g., tweets within some period or related to some query, our task is: 1) To recognize each mention of entities of predefined types for each tweet; and 2) to restore each entity mention into its unambiguous canonical form. Following Liu et al. (2011), we focus on four types of entities, i.e., PERSON, ORGANIZATION, PRODUCT, and LOCATION, and constrain our scope to English tweets. Note that the NEN sub-task can be transformed as follows. Given each pair of entity mentions, decide whether they denote the same entity. Once this is achieved, we can link all the mentions of the same entity, and choose a representative mention, e.g., the longest mention, as their canonical form. As an illustrative example, consider the following three tweets: Gagas Christmas dinner with her family. Awwwwn , Lady Gaaaaga with her family on Christmas and Buying a </context>
+<context position="24924" citStr="Liu et al. (2011)" startWordPosition="4411" endWordPosition="4414">es of ti m. Lexical features: Lemma of ti m; whether ti m is OOV; whether ti m / ti+1 m / ti1 m and tj n / tj+1 n / tj1 n have the same POS; whether yi m and yj n have the same label/entity type. Gazetteer-related features: Whether Y i m Y j n / Y i+1 m Y j+1 n / Y i1 m Y j1 n is empty; whether the dominating label/entity type in Y i m is the same as that in Y j n . 5 Experiments We manually annotate a data set to evaluate our method. We show that our method outperforms the baseline, a cascaded system that conducts NER and NEN individually. 5.1 Data Preparation We use the data set provided by Liu et al. (2011), which consists of 12,245 tweets with four types of entities annotated: PERSON, LOCATION, ORGANIZATION and PRODUCT. We enrich this data set by adding entity normalization information. Two annotators 12 are involved. For any entity mention, two annotators independently annotate its canonical form. The inter-rater agreement measured by kappa is 0.72. Any inconsistent case is discussed by the two annotators till a consensus is reached. 2, 245 tweets are used for development, and the remainder are used for 5-fold cross validation. 5.2 Evaluation Metrics We adopt the widely-used Precision, Recall </context>
+</contexts>
+<marker>Liu, Zhang, Wei, Zhou, 2011</marker>
+<rawString>Xiaohua Liu, Shaodian Zhang, Furu Wei, and Ming Zhou. 2011. Recognizing named entities in tweets. In ACL.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Walid Magdy</author>
+<author>Kareem Darwish</author>
+<author>Ossama Emam</author>
+<author>Hany Hassan</author>
+</authors>
+<title>Arabic cross-document person name normalization.</title>
+<date>2007</date>
+<booktitle>In In CASL Workshop 07,</booktitle>
+<pages>2532</pages>
+<contexts>
+<context position="11558" citStr="Magdy et al. (2007)" startWordPosition="1922" endWordPosition="1925">earest neighbors algorithm with a CRF-based model to leverage cross tweets information, and adopt the semi-supervised learning to leverage unlabeled tweets. Our method leverages redundance in similar tweets, using a factor graph rather than a two-stage labeling strategy. One advantage of our method is that local and global information can interact with each other. 2.2 NEN There is a large body of studies into normalizing various types of entities for formally written texts. For instance, Cohen (2005) normalizes gene/protein names using dictionaries automatically extracted from gene databases; Magdy et al. (2007) address cross-document Arabic name normalization using a machine learning approach, a dictionary of person names and frequency information for names in a collection; Cucerzan (2007) demostrates a largescale system for the recognition and semantic disambiguation of named entities based on information extracted from a large encyclopedic collection and Web search results; Dai et al. (2011) employ a Markov logic network to model interweaved con3 https://www.mturk.com/mturk/ 4 http://crowdflower.com/ 528 \x0cstraints in a setting of gene mention normalization. Jijkoun et al. (2008) study NEN for U</context>
+</contexts>
+<marker>Magdy, Darwish, Emam, Hassan, 2007</marker>
+<rawString>Walid Magdy, Kareem Darwish, Ossama Emam, and Hany Hassan. 2007. Arabic cross-document person name normalization. In In CASL Workshop 07, pages 2532.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Andrew Mccallum</author>
+<author>Wei Li</author>
+</authors>
+<title>Early results for named entity recognition with conditional random fields, feature induction and web-enhanced lexicons.</title>
+<date>2003</date>
+<booktitle>In HLT-NAACL,</booktitle>
+<pages>188191</pages>
+<contexts>
+<context position="9152" citStr="Mccallum and Li, 2003" startWordPosition="1533" endWordPosition="1536">in Section 6. 2 Related Work Related work can be divided into two categories: NER and NEN. 2.1 NER NER has been well studied and its solutions can be divided into three categories: 1) Rule-based (Krupka and Hausman, 1998); 2) machine learning based (Finkel and Manning, 2009; Singh et al., 2010); and 3) hybrid methods (Jansche and Abney, 2002). Owing to the availability of annotated corpora, such as ACE05, Enron (Minkov et al., 2005) and CoNLL03 (Tjong Kim Sang and De Meulder, 2003), data driven methods are now dominant. Current studies of NER mainly focus on formal text such as news articles (Mccallum and Li, 2003; Etzioni et al., 2005). A representative work is that of Ratinov and Roth (2009), in which they systematically study the challenges of NER, compare several solutions, and show some interesting findings. For example, they show that the BILOU encoding scheme significantly outperforms the BIO schema (Beginning, the Inside and Outside of a chunk). A handful of work on other genres of texts exists. For example, Yoshida and Tsujii build a biomedical NER system (2007) using lexical features, orthographic features, semantic features and syntactic features, such as part-of-speech (POS) and shallow par</context>
+</contexts>
+<marker>Mccallum, Li, 2003</marker>
+<rawString>Andrew Mccallum and Wei Li. 2003. Early results for named entity recognition with conditional random fields, feature induction and web-enhanced lexicons. In HLT-NAACL, pages 188191.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Einat Minkov</author>
+<author>Richard C Wang</author>
+<author>William W Cohen</author>
+</authors>
+<title>Extracting personal names from email: applying named entity recognition to informal text.</title>
+<date>2005</date>
+<booktitle>In HLT,</booktitle>
+<pages>443450</pages>
+<contexts>
+<context position="8967" citStr="Minkov et al., 2005" startWordPosition="1501" endWordPosition="1504">next section, we introduce related work. In Section 3 and 4, we formally define the task and present our method. In Section 5, we evaluate our method. And finally we conclude our work in Section 6. 2 Related Work Related work can be divided into two categories: NER and NEN. 2.1 NER NER has been well studied and its solutions can be divided into three categories: 1) Rule-based (Krupka and Hausman, 1998); 2) machine learning based (Finkel and Manning, 2009; Singh et al., 2010); and 3) hybrid methods (Jansche and Abney, 2002). Owing to the availability of annotated corpora, such as ACE05, Enron (Minkov et al., 2005) and CoNLL03 (Tjong Kim Sang and De Meulder, 2003), data driven methods are now dominant. Current studies of NER mainly focus on formal text such as news articles (Mccallum and Li, 2003; Etzioni et al., 2005). A representative work is that of Ratinov and Roth (2009), in which they systematically study the challenges of NER, compare several solutions, and show some interesting findings. For example, they show that the BILOU encoding scheme significantly outperforms the BIO schema (Beginning, the Inside and Outside of a chunk). A handful of work on other genres of texts exists. For example, Yosh</context>
+</contexts>
+<marker>Minkov, Wang, Cohen, 2005</marker>
+<rawString>Einat Minkov, Richard C. Wang, and William W. Cohen. 2005. Extracting personal names from email: applying named entity recognition to informal text. In HLT, pages 443450.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kevin P Murphy</author>
+<author>Yair Weiss</author>
+<author>Michael I Jordan</author>
+</authors>
+<title>Loopy belief propagation for approximate inference: An empirical study.</title>
+<date>1999</date>
+<booktitle>In In Proceedings of Uncertainty in AI,</booktitle>
+<pages>467475</pages>
+<contexts>
+<context position="19729" citStr="Murphy et al., 1999" startWordPosition="3459" endWordPosition="3462">a real value as its weight. Training is learnt from annotated tweets T, by maximizing the data likelihood, i.e., = arg max ln P(Y, Z|, T) (3) To solve this optimization problem, we first calculate its gradient: ln P(Y, Z|T; ) 1 k = m,i (1) k (yi1 m , yi m) m,i yi1 m ,yi m p(yi1 m , yi m|T; ) (1) k (yi1 m , yi m) (4) ln P(Y, Z|T; ) 2 k = m,n,i,j ij mn (2) k (yi m, yj n, zij mn) m,n,i,j ij mn yi m,yj n,zij mn p(yi m, yj n, zij mn|T; ) (2) k (yi m, yj n, zij mn) (5) Here, the two marginal probabilities p(yi1 m , yi m|T; ) and p(yi m, yj n, zij mn|T; ) are computed using loopy belief propagation (Murphy et al., 1999). Once we have computed the gradient, can be worked out by standard techniques such as steepest descent, conjugate gradient and the 530 \x0climited-memory BFGS algorithm (L-BFGS). We choose L-BFGS because it is particularly well suited for optimization problems with a large number of variables. Inference Supposing the parameters have been set to , the inference problem is: Given a set of testing tweets T, output the most probable assignment of Y and Z, i.e., (Y, Z) = arg max (Y,Z) ln P(Y, Z| , T) (6) We adopt the max-product algorithm to solve this inference problem. The max-product algorithm </context>
+</contexts>
+<marker>Murphy, Weiss, Jordan, 1999</marker>
+<rawString>Kevin P. Murphy, Yair Weiss, and Michael I. Jordan. 1999. Loopy belief propagation for approximate inference: An empirical study. In In Proceedings of Uncertainty in AI, pages 467475.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>David Nadeau</author>
+<author>Satoshi Sekine</author>
+</authors>
+<title>A survey of named entity recognition and classification.</title>
+<date>2007</date>
+<booktitle>Linguisticae Investigationes,</booktitle>
+<pages>30--326</pages>
+<marker>Nadeau, Sekine, 2007</marker>
+<rawString>David Nadeau and Satoshi Sekine. 2007. A survey of named entity recognition and classification. Linguisticae Investigationes, 30:326.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Lev Ratinov</author>
+<author>Dan Roth</author>
+</authors>
+<title>Design challenges and misconceptions in named entity recognition.</title>
+<date>2009</date>
+<booktitle>In CoNLL,</booktitle>
+<pages>147155</pages>
+<contexts>
+<context position="9233" citStr="Ratinov and Roth (2009)" startWordPosition="1547" endWordPosition="1550">ER and NEN. 2.1 NER NER has been well studied and its solutions can be divided into three categories: 1) Rule-based (Krupka and Hausman, 1998); 2) machine learning based (Finkel and Manning, 2009; Singh et al., 2010); and 3) hybrid methods (Jansche and Abney, 2002). Owing to the availability of annotated corpora, such as ACE05, Enron (Minkov et al., 2005) and CoNLL03 (Tjong Kim Sang and De Meulder, 2003), data driven methods are now dominant. Current studies of NER mainly focus on formal text such as news articles (Mccallum and Li, 2003; Etzioni et al., 2005). A representative work is that of Ratinov and Roth (2009), in which they systematically study the challenges of NER, compare several solutions, and show some interesting findings. For example, they show that the BILOU encoding scheme significantly outperforms the BIO schema (Beginning, the Inside and Outside of a chunk). A handful of work on other genres of texts exists. For example, Yoshida and Tsujii build a biomedical NER system (2007) using lexical features, orthographic features, semantic features and syntactic features, such as part-of-speech (POS) and shallow parsing; Downey et al. (2007) employ capitalization cues and n-gram statistics to lo</context>
+<context position="14769" citStr="Ratinov and Roth (2009)" startWordPosition="2460" endWordPosition="2463">e Lady Gagas on the cover . It is expected that Gaga, Lady Gaaaaga and Lady Gaga are all labeled as PERSON, and can be restored as Lady Gaga. 4 Our Method In contrast to existing work, our method jointly conducts NER and NEN for multiple tweets. We first give an overview of our method, then detail its model and features. 4.1 Overview Given a set of tweets as input, our method recognizes predefined types of named entities and for each entity outputs its unambiguous canonical form. To resolve NER, we assign a label to each word in a tweet, indicating both the boundary and entity type. Following Ratinov and Roth (2009), we use the BILOU schema. For example, consider the tweet without you is like an iphone without apps; Lady gaga without her telephone , the labeled sequence using the BILOU schema is: withoutO youO isO likeO anO iphoneUPRODUCT withoutO appsO; LadyBPERSON gagaLPERSON withoutO herO telephoneO , where iphoneUPRODUCT indicates that iphone is a product name of unit length; LadyBPERSON means Lady is the beginning of a person name while gagaLPERSON suggests that gaga is the last token of a person name. To resolve NEN, we assign a binary value label zij mn to each pair of words ti m and tj n which sh</context>
+<context position="20828" citStr="Ratinov and Roth (2009)" startWordPosition="3639" endWordPosition="3642">max (Y,Z) ln P(Y, Z| , T) (6) We adopt the max-product algorithm to solve this inference problem. The max-product algorithm is nearly identical to the loopy belief propagation algorithm, with the sums replaced by maxima in the definitions. Note that in both the training and testing stage, the factor graph is constructed in the same way as described in Section 1. Efficiency We take several actions to improve our models efficiency. Firstly, we manually compile a comprehensive named entity dictionary from various sources including Wikipedia, Freebase 8, news articles and the gazetteers shared by Ratinov and Roth (2009). In total this dictionary contains 350 million entries 9. By looking up this dictionary 10, we generate the possible BILOU labels, denoted by Y i m hereafter, for each word ti m. For instance, consider Good Morning new1 1 york1 1 . Suppose New York City and New York Times are in our dictionary, then new1 1 york1 1 is the matched string with two corresponding entities. As a result, B-LOCATION and B-ORGANIZATION will be added to Ynew1 1 , and I-LOCATION and I-ORGANIZATION will be added to Yyork1 1 . If Y i m = , we enforce the constraint for training and testing that yi m Y i m , to reduce the </context>
+<context position="22847" citStr="Ratinov and Roth (2009)" startWordPosition="4017" endWordPosition="4020">22.5%), with an accuracy of 93.5%. sim(tm, tn) = tm tn | tm|| tn| (7) Note that in our experiments, these measures reduce the training and testing time by 36.2% and 62.8%, respectively, while no obvious performance drop is observed. 4.3 Features A feature in { (1) k }K1 k=1 involves a pair of neighboring NE-type labels, i.e., yi1 m and yi m, while a feature in { (2) k }K2 k=1 concerns a pair of distant NE-type labels and its associated normalization label, i.e., yi m,yj n and zij mn. Details are given below. 4.3.1 Feature Set One: { (1) k }K1 k=1 We adopts features similar to Wang (2009), and Ratinov and Roth (2009), i.e., orthographic features, lexical features and gazetteer-related features. These features are defined on the observation. Combining them with yi1 m and yi m constitutes { (1) k }K1 k=1. Orthographic features: Whether ti m is capitalized or upper case; whether it is alphanumeric or contains any slashes; wether it is a stop word; word prefixes and suffixes. Lexical features: Lemma of ti m, ti1 m and ti+1 m , respectively; whether ti m is an out-of-vocabulary (OOV) word 11; POS of ti m, ti1 m and ti+1 m , respectively; whether ti m is a hash tag, a link, or a user account. Gazetteer-related </context>
+</contexts>
+<marker>Ratinov, Roth, 2009</marker>
+<rawString>Lev Ratinov and Dan Roth. 2009. Design challenges and misconceptions in named entity recognition. In CoNLL, pages 147155.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Alan Ritter</author>
+<author>Sam Clark</author>
+<author>Mausam</author>
+<author>Oren Etzioni</author>
+</authors>
+<title>Named entity recognition in tweets: An experimental study.</title>
+<date>2011</date>
+<booktitle>In Proceedings of the 2011 Conference on Empirical Methods in Natural Language Processing,</booktitle>
+<pages>15241534</pages>
+<publisher>Association</publisher>
+<institution>for Computational Linguistics.</institution>
+<location>Edinburgh, Scotland, UK.,</location>
+<contexts>
+<context position="2116" citStr="Ritter et al. (2011)" startWordPosition="317" endWordPosition="320">erforms the baseline that handles these two tasks separately, boosting the F1 from 80.2% to 83.6% for NER, and the Accuracy from 79.4% to 82.6% for NEN, respectively. 1 Introduction Tweets, short messages of less than 140 characters shared through the Twitter service 1, have become an important source of fresh information. As a result, the task of named entity recognition (NER) for tweets, which aims to identify mentions of rigid designators from tweets belonging to named-entity types such as persons, organizations and locations (2007), has attracted increasing research interest. For example, Ritter et al. (2011) develop a system that exploits a CRF model to segment named 1 http://www.twitter.com entities and then uses a distantly supervised approach based on LabeledLDA to classify named entities. Liu et al. (2011) combine a classifier based on the k-nearest neighbors algorithm with a CRFbased model to leverage cross tweets information, and adopt the semi-supervised learning to leverage unlabeled tweets. However, named entity normalization (NEN) for tweets, which transforms named entities mentioned in tweets to their unambiguous canonical forms, has not been well studied. Owing to the informal nature </context>
+<context position="10511" citStr="Ritter et al. (2011)" startWordPosition="1756" endWordPosition="1760">) introduces NER to clinical notes. A linear CRF model is trained on a manually annotated data set, which achieves an F1 of 81.48% on the test data set; Chiticariu et al. (2010) design and implement a highlevel language NERL which simplifies the process of building, understanding, and customizing complex rule-based named-entity annotators for different domains. Recently, NER for Tweets attracts growing interest. Finin et al. (2010) use Amazons Mechanical Turk service 3 and CrowdFlower 4 to annotate named entities in tweets and train a CRF model to evaluate the effectiveness of human labeling. Ritter et al. (2011) re-build the NLP pipeline for tweets beginning with POS tagging, through chunking, to NER, which first exploits a CRF model to segment named entities and then uses a distantly supervised approach based on LabeledLDA to classify named entities. Unlike this work, our work detects the boundary and type of a named entity simultaneously using sequential labeling techniques. Liu et al. (2011) combine a classifier based on the k-nearest neighbors algorithm with a CRF-based model to leverage cross tweets information, and adopt the semi-supervised learning to leverage unlabeled tweets. Our method leve</context>
+<context position="25720" citStr="Ritter et al., 2011" startWordPosition="4539" endWordPosition="4542">rmation. Two annotators 12 are involved. For any entity mention, two annotators independently annotate its canonical form. The inter-rater agreement measured by kappa is 0.72. Any inconsistent case is discussed by the two annotators till a consensus is reached. 2, 245 tweets are used for development, and the remainder are used for 5-fold cross validation. 5.2 Evaluation Metrics We adopt the widely-used Precision, Recall and F1 to measure the performance of NER for a particular type of entity, and the average Precision, Recall and F1 to measure the overall performance of NER (Liu et al., 2011; Ritter et al., 2011). As for NEN, we adopt the widely-used Accuracy, i.e., to what percentage the outputted canonical forms are correct (Jijkoun et al., 2008; Cucerzan, 2007; Li et al., 2002). 12 Two native English speakers. 5.3 Baseline We develop a cascaded system as the baseline, which conducts NER and NEN sequentially. Its NER module, denoted by SBR, is based on the stateof-the-art method introduced by Liu et al. (2011); and its NEN model , denoted by SBN , follows the NEN system for user-generated news comments proposed by Jijkoun et al. (2008), which uses handcrafted rules to improve a typical NEN system th</context>
+</contexts>
+<marker>Ritter, Clark, Mausam, Etzioni, 2011</marker>
+<rawString>Alan Ritter, Sam Clark, Mausam, and Oren Etzioni. 2011. Named entity recognition in tweets: An experimental study. In Proceedings of the 2011 Conference on Empirical Methods in Natural Language Processing, pages 15241534, Edinburgh, Scotland, UK., July. Association for Computational Linguistics.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Sameer Singh</author>
+<author>Dustin Hillard</author>
+<author>Chris Leggetter</author>
+</authors>
+<title>Minimally-supervised extraction of entities from text advertisements.</title>
+<date>2010</date>
+<booktitle>In HLT-NAACL,</booktitle>
+<pages>7381</pages>
+<contexts>
+<context position="8826" citStr="Singh et al., 2010" startWordPosition="1477" endWordPosition="1480">that our method compares favorably with the baseline, achieving better performance in both tasks. Our paper is organized as follows. In the next section, we introduce related work. In Section 3 and 4, we formally define the task and present our method. In Section 5, we evaluate our method. And finally we conclude our work in Section 6. 2 Related Work Related work can be divided into two categories: NER and NEN. 2.1 NER NER has been well studied and its solutions can be divided into three categories: 1) Rule-based (Krupka and Hausman, 1998); 2) machine learning based (Finkel and Manning, 2009; Singh et al., 2010); and 3) hybrid methods (Jansche and Abney, 2002). Owing to the availability of annotated corpora, such as ACE05, Enron (Minkov et al., 2005) and CoNLL03 (Tjong Kim Sang and De Meulder, 2003), data driven methods are now dominant. Current studies of NER mainly focus on formal text such as news articles (Mccallum and Li, 2003; Etzioni et al., 2005). A representative work is that of Ratinov and Roth (2009), in which they systematically study the challenges of NER, compare several solutions, and show some interesting findings. For example, they show that the BILOU encoding scheme significantly ou</context>
+</contexts>
+<marker>Singh, Hillard, Leggetter, 2010</marker>
+<rawString>Sameer Singh, Dustin Hillard, and Chris Leggetter. 2010. Minimally-supervised extraction of entities from text advertisements. In HLT-NAACL, pages 7381.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Erik</author>
+</authors>
+<title>Tjong Kim Sang and Fien De Meulder.</title>
+<date>2003</date>
+<booktitle>In HLTNAACL,</booktitle>
+<pages>142147</pages>
+<marker>Erik, 2003</marker>
+<rawString>Erik F. Tjong Kim Sang and Fien De Meulder. 2003. Introduction to the CoNLL-2003 shared task: languageindependent named entity recognition. In HLTNAACL, pages 142147.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>\x0cYefeng Wang</author>
+</authors>
+<title>Annotating and recognising named entities in clinical notes.</title>
+<date>2009</date>
+<booktitle>In ACL-IJCNLP,</booktitle>
+<pages>18--26</pages>
+<contexts>
+<context position="9892" citStr="Wang (2009)" startWordPosition="1654" endWordPosition="1655">ges of NER, compare several solutions, and show some interesting findings. For example, they show that the BILOU encoding scheme significantly outperforms the BIO schema (Beginning, the Inside and Outside of a chunk). A handful of work on other genres of texts exists. For example, Yoshida and Tsujii build a biomedical NER system (2007) using lexical features, orthographic features, semantic features and syntactic features, such as part-of-speech (POS) and shallow parsing; Downey et al. (2007) employ capitalization cues and n-gram statistics to locate names of a variety of classes in web text; Wang (2009) introduces NER to clinical notes. A linear CRF model is trained on a manually annotated data set, which achieves an F1 of 81.48% on the test data set; Chiticariu et al. (2010) design and implement a highlevel language NERL which simplifies the process of building, understanding, and customizing complex rule-based named-entity annotators for different domains. Recently, NER for Tweets attracts growing interest. Finin et al. (2010) use Amazons Mechanical Turk service 3 and CrowdFlower 4 to annotate named entities in tweets and train a CRF model to evaluate the effectiveness of human labeling. R</context>
+<context position="22818" citStr="Wang (2009)" startWordPosition="4014" endWordPosition="4015"> (accounting for 22.5%), with an accuracy of 93.5%. sim(tm, tn) = tm tn | tm|| tn| (7) Note that in our experiments, these measures reduce the training and testing time by 36.2% and 62.8%, respectively, while no obvious performance drop is observed. 4.3 Features A feature in { (1) k }K1 k=1 involves a pair of neighboring NE-type labels, i.e., yi1 m and yi m, while a feature in { (2) k }K2 k=1 concerns a pair of distant NE-type labels and its associated normalization label, i.e., yi m,yj n and zij mn. Details are given below. 4.3.1 Feature Set One: { (1) k }K1 k=1 We adopts features similar to Wang (2009), and Ratinov and Roth (2009), i.e., orthographic features, lexical features and gazetteer-related features. These features are defined on the observation. Combining them with yi1 m and yi m constitutes { (1) k }K1 k=1. Orthographic features: Whether ti m is capitalized or upper case; whether it is alphanumeric or contains any slashes; wether it is a stop word; word prefixes and suffixes. Lexical features: Lemma of ti m, ti1 m and ti+1 m , respectively; whether ti m is an out-of-vocabulary (OOV) word 11; POS of ti m, ti1 m and ti+1 m , respectively; whether ti m is a hash tag, a link, or a use</context>
+</contexts>
+<marker>Wang, 2009</marker>
+<rawString>\x0cYefeng Wang. 2009. Annotating and recognising named entities in clinical notes. In ACL-IJCNLP, pages 18 26.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Kazuhiro Yoshida</author>
+<author>Junichi Tsujii</author>
+</authors>
+<title>Reranking for biomedical named-entity recognition. In BioNLP,</title>
+<date>2007</date>
+<pages>209216</pages>
+<marker>Yoshida, Tsujii, 2007</marker>
+<rawString>Kazuhiro Yoshida and Junichi Tsujii. 2007. Reranking for biomedical named-entity recognition. In BioNLP, pages 209216.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>
