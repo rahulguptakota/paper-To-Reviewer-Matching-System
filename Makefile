@@ -1,5 +1,8 @@
 SHELL = /bin/sh
 
-clean_1:
+clean.txt:
+	rm -rf data/*/*.txt
+	
+clean_1.txt:
 	rm -rf data/*/*_1.txt
 
