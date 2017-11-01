@@ -22,6 +22,9 @@ with open('index.csv', newline='') as csvfile:
 
 #f9 starts from here
 i = 0
+out_file = open('features_k9.txt','w')
+
+
 with open('index.csv', newline='') as csvfile:
 	spamreader = csv.reader(csvfile, delimiter=',', quotechar='|')
 	for row in spamreader:
@@ -31,7 +34,7 @@ with open('index.csv', newline='') as csvfile:
 		else:	
 			paper1 = join("data/",row[0]) + "/parsedData.xml"
 			paper2 = join("data/",row[1]) + "/parsedData.xml"
-			print(paper1,paper2)
+			# print(paper1,paper2)
 			tree1 = ET.parse(paper1)
 			root1 = tree1.getroot()
 			tree2 = ET.parse(paper2)
@@ -41,8 +44,11 @@ with open('index.csv', newline='') as csvfile:
 			variant2 = root2[1][0]
 			abstract1 = variant1.find('abstract')
 			abstract2 = variant2.find('abstract')
-			if abstract1 and abstract2:
-				tfidf = vect.fit_transform([abstract2.text,abstract1.text])
-				print((tfidf * tfidf.T).A)
+			if abstract1 is not None and abstract2 is not None:
+				if abstract1.text is not None and abstract2.text is not None: 
+					tfidf = vect.fit_transform([abstract2.text,abstract1.text])
+					out_file.write(row[0] +" "+row[1]+" "+ str((tfidf * tfidf.T).A[0][1])+"\n")
+				else:
+					out_file.write(row[0] +" "+row[1]+" 0"+"\n")	
+
 			i+=1
-			print(i)
