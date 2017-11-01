@@ -111,8 +111,15 @@ Gr = nx.DiGraph(g)
 pr = nx.pagerank(Gr, alpha=0.9)
 result = np.array(pr);
 print (pr[0])
-sys.exit()
 
+outputfile = open('features_k10.txt','w')
+
+for paper in edges:
+	#print (str(paper) + " " + str(edges[paper]) + "\n")
+	outputfile.write(str(paper) + " " + str(pr[edges[paper]]) + "\n")
+	
+sys.exit()
+	
 # for a,b in graph.items():
 # 	print(a,b)	
 

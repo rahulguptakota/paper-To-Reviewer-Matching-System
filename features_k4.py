@@ -15,7 +15,7 @@ for d in directories:
     files.append([join(d,f) for f in listdir(d) if isfile(join(d, f)) and f[-4:]==".xml"])
 
 for f in files:
-    print(f[0])
+    #print(f[0])
     foundauthor = 'False'
     paperauthors = []
     tree = ET.parse(f[0])
@@ -36,6 +36,15 @@ for f in files:
        			foundauthor = 'True'
        	#print (matching)
        	sameauthor_bool.append(foundauthor);
+    #print (foundauthor)
 print (len(sameauthor_bool))
 print (sameauthor_bool.count('False'))
+
+outputfile = open('features_k4.txt','w')
+i=0
+for d in directories:
+	#print (str(d[5:]) + " " + str(sameauthor_bool[i]) + "\n")
+	outputfile.write(str(d[5:]) + " " + str(sameauthor_bool[i]) + "\n")
+	i+=1
+#print (i)
 sys.exit()
