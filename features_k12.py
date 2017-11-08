@@ -1,3 +1,8 @@
+'''
+Taken help from - https://de.dariah.eu/tatom/topic_model_python.html to implement Topic Modelling using NMF in Python 
+'''
+
+
 import sys
 import os
 from os import listdir
@@ -49,44 +54,50 @@ directories =[join("data/",d) for d in listdir("data/")]
 
 for d in directories:
 	st = [join(d,f) for f in listdir(d) if isfile(join(d, f)) and f[-6:]=="_1.txt"]
-	files.append([join(d,f) for f in listdir(d) if isfile(join(d, f)) and f[-6:]=="_1.txt"])
 	dataset.append(str(st)[2:-2])
 
-print (len(files))
 #print (files[0])
 print (len(dataset))
-print (dataset[0])
+#print (dataset[0])
 #map(dataset,files)
 #print (dataset[0])
 
-vectorizer = texter.CountVectorizer(input='filename', stop_words='english', min_df=20)
-dtm = vectorizer.fit_transform(dataset).toarray()
-vocab = np.array(vectorizer.get_feature_names())
-print (dtm.shape)
-print (len(vocab))
+vect = texter.CountVectorizer(input='filename', stop_words='english', min_df=20)
+dtm = vect.fit_transform(dataset).toarray()
+vocab = np.array(vect.get_feature_names())
+#print (dtm.shape)
+#print (len(vocab))
 num_topics = 20
 num_top_words = 20
 clf = decomposition.NMF(n_components=num_topics, random_state=1)
-doctopic = clf.fit_transform(dtm)
+doctopics = clf.fit_transform(dtm)
 topic_words = []
 for topic in clf.components_:
 	word_idx = np.argsort(topic)[::-1][0:num_top_words]
 	topic_words.append([vocab[i] for i in word_idx])
-doctopic = doctopic / np.sum(doctopic, axis=1, keepdims=True)
-print (doctopic[0].sum())
-print (doctopic[0][0])
-print (doctopic.shape)
-result = np.array(doctopic)
-print (result.shape)
-print (result[0][0])
+doctopics = doctopics / np.sum(doctopics, axis=1, keepdims=True)
+#print (doctopic[0].sum())
+#print (doctopic[0][0])
+#print (doctopic.shape)
+result = np.array(doctopics)
+#print (result.shape)
+#print (result[0][0])
 
 
 temp = []
 
+i=0
+outputfile = open('features_k12.txt','w')
 
+for d in directories:
+	outputfile.write(str(d[5:]) + " " + str(doctopics[i]) + "\n")
+	i+=1
+
+#print (i)
 i=0
 #with open('eggs.csv', 'wb') as csvfile:
 #    spamwriter = csv.writer(csvfile, delimiter=' ',quotechar='|', quoting=csv.QUOTE_MINIMAL)
+'''
 with open('index.csv', newline='') as csvfile:
 	spamreader = csv.reader(csvfile, delimiter=',', quotechar='|')
 	for row in spamreader:
@@ -102,11 +113,17 @@ with open('index.csv', newline='') as csvfile:
 					idx1 = idx
 				if paper == paper2:
 					idx2 = idx
-			temp.append(np.dot(result[idx1],result[idx2]))
+			#temp.append(np.dot(result[idx1],result[idx2]))
 			#sys.exit()
 
 res_to_write = np.array(temp)
 np.savetxt("feature_k12.csv", res_to_write, delimiter=",")
+'''
+
+
+sys.exit()
+
+
 '''
 novel_names = []
 for fn in dataset:
@@ -124,4 +141,3 @@ doctopic = doctopic_grouped
 print (doctopic[0].sum())
 print (doctopic[0][0])
 '''
-sys.exit()
