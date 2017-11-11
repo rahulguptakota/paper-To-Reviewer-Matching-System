@@ -103,24 +103,13 @@ fd.close()
 
 i=0
 outputfile = open('features_k12.txt','w')
-
 xxx = {}
 for d in directories:
 	# outputfile.write(str(d[5:]) + " " + str(doctopics[i]) + "\n")
+	# outputfile.write(str(d[5:]) + " " + str(doctopics[i]) + "\n")
 	xxx[str(d[5:])] = np.array(doctopics[i])
 	i+=1
-print(topic_words)
-for tup in filenames:
-	for d in directories:
-		i = 0
-		if str(d[5:] in tup[0]):
-			for l in directories:
-				j = 0
-				if str(l[5:] in tup[1]):
-					outputfile.write(tup[0] + " " + tup[1] + " " + str(np.dot(np.array(doctopics[i]),np.array(doctopic[j]))) + "\n")
-				j+=1
-		i+=1
-
+  
 i=0
 with open('index.csv', newline='') as csvfile:
 	spamreader = csv.reader(csvfile, delimiter=',', quotechar='|')
@@ -131,8 +120,6 @@ with open('index.csv', newline='') as csvfile:
 			ans = np.dot(xxx[row[0]],xxx[row[1]])
 			outputfile.write(row[0] + " "+ row[1] +" " + str(ans) +"\n")
 			print(ans)
-
-
 #print (i)
 i=0
 #with open('eggs.csv', 'wb') as csvfile:
