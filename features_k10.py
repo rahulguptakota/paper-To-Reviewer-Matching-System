@@ -113,10 +113,27 @@ result = np.array(pr);
 print (pr[0])
 
 outputfile = open('features_k10.txt','w')
+filenames = []
+fd = open("db/MeaningfulCitationsDataset/ValenzuelaAnnotations.csv",'rb')
+t = fd.read()
+i = 0
+for line in t.decode().split("\n"):
+	line = line.split(",")
+	if i == 0:
+		i = i + 1
+	else:
+		try:
+			filenames.append((line[1],line[2]))
+		except:
+			pass
+			
+fd.close()
 
-for paper in edges:
-	#print (str(paper) + " " + str(edges[paper]) + "\n")
-	outputfile.write(str(paper) + " " + str(pr[edges[paper]]) + "\n")
+for tup in filenames:
+	outputfile.write(tup[0] + " " + tup[1] + " " + str(pr[edges[tup[0]]])+"\n") 
+# for paper in edges:
+# 	#print (str(paper) + " " + str(edges[paper]) + "\n")
+# 	outputfile.write(str(paper) + " " + str(pr[edges[paper]]) + "\n")
 	
 sys.exit()
 	
