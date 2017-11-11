@@ -85,6 +85,21 @@ result = np.array(doctopics)
 
 
 temp = []
+filenames = []
+fd = open("db/MeaningfulCitationsDataset/ValenzuelaAnnotations.csv",'rb')
+t = fd.read()
+i = 0
+for line in t.decode().split("\n"):
+	line = line.split(",")
+	if i == 0:
+		i = i + 1
+	else:
+		try:
+			filenames.append((line[1],line[2]))
+		except:
+			pass
+fd.close()
+
 
 i=0
 outputfile = open('features_k12.txt','w')
@@ -94,6 +109,17 @@ for d in directories:
 	# outputfile.write(str(d[5:]) + " " + str(doctopics[i]) + "\n")
 	xxx[str(d[5:])] = np.array(doctopics[i])
 	i+=1
+print(topic_words)
+for tup in filenames:
+	for d in directories:
+		i = 0
+		if str(d[5:] in tup[0]):
+			for l in directories:
+				j = 0
+				if str(l[5:] in tup[1]):
+					outputfile.write(tup[0] + " " + tup[1] + " " + str(np.dot(np.array(doctopics[i]),np.array(doctopic[j]))) + "\n")
+				j+=1
+		i+=1
 
 i=0
 with open('index.csv', newline='') as csvfile:
