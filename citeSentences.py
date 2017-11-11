@@ -2,6 +2,7 @@ import xml.etree.ElementTree as ET
 import re
 import time
 import os, csv
+from nltk.tokenize import sent_tokenize
 
 rootDir = './data'
 for dirName, subdirList, fileList in os.walk(rootDir, topdown=False):
@@ -55,12 +56,13 @@ for dirName, subdirList, fileList in os.walk(rootDir, topdown=False):
                     print(citationStr)                    
                     text = re.sub(r'\([ ,]*'+re.escape(citationStr)+'[ ,]*\)','CITATION', text)
                     text = text.replace(citationStr, 'CITATION')
-                sentences = text.split(".")
+                # sentences = text.split(". ")
+                sentences = sent_tokenize(text)
                 # print(sentences)
                 # time.sleep(1)
                 citeSentences += filter(lambda sent: "CITATION" in sent, sentences)
 
-    with open(dirName + "/citeSents.csv","w") as f:
+    with open(dirName + "/citeSents_nltk.csv","w") as f:
         wr = csv.writer(f, delimiter="\n")
         for ele in citeSentences:
             wr.writerow([ele+",,"])
