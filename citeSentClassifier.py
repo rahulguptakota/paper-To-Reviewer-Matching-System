@@ -15,6 +15,7 @@ rootDir = './data'
 for dirName, subdirList, fileList in os.walk(rootDir, topdown=False):
 	fo = open("/home/grahul/paper-To-Reviewer-Matching-System/data/A00-1019" + "/citeSents.csv", "r")
 	lines = fo.readlines()
+	lines = list(set(lines))
 	for line in lines:
 		print(line)
 		line = line.strip()
