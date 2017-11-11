@@ -1,4 +1,4 @@
-files = ["k7","k9"]
+files = ["k4","k7","k9","k10","k12"]
 # ,"features_k6.txt","features_k7.txt","features_k9.txt","features_k10.txt","features_k12.txt"]
 
 data = {}
