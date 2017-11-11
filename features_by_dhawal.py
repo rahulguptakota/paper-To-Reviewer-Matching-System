@@ -7,6 +7,10 @@ from collections import defaultdict
 import operator 
 from collections import defaultdict
 import string
+from nltk.stem import PorterStemmer
+from nltk.tokenize import sent_tokenize, word_tokenize
+
+ps = PorterStemmer()
 
 directories =[join("data/",d) for d in listdir("data/")]
 files = []
@@ -22,27 +26,33 @@ MaxSteps = 5
 totCit = 0
 title_to_id = defaultdict(str)
 allSections = set()
-debug_title = 'xxx'
+debug_title = 'W09-2501'
 #expreiment, intro, related work, discussion, conclusion, results, future work
 titleAbsent = set()
 
 for file in files:
-	tree = ET.parse(file[0])
-	root = tree.getroot()
-	paperTitle = root[1][0].find('title')
-	if paperTitle==None:
+	try:
+		tree = ET.parse(file[0])
+		root = tree.getroot()
+		paperTitle = root[1][0].find('title')
+		if paperTitle==None:
+			pass
+			# print "Title not found:",file[0]
+		else:
+			paperTitle = paperTitle.text.lower().lstrip().rstrip().translate(str.maketrans(string.punctuation, ' '*len(string.punctuation))).lstrip().rstrip()
+			stemmed = [ps.stem(word) for word in paperTitle.split()]
+			paperTitle = " ".join(stemmed)
+			paperTitle = paperTitle.replace(" ", "")
+		
+
+			# print paperTitle
+			title_to_id[paperTitle] = file[0][5:13]
+
+		if paperTitle==None:
+			titleAbsent.add(file[0][5:13])
+		if file[0][5:13] == debug_title: print (paperTitle)
+	except:
 		pass
-		# print "Title not found:",file[0]
-	else:
-		paperTitle = paperTitle.text.lower().lstrip().rstrip().translate(None, string.punctuation)
-		if paperTitle[:2] == 'b\'': paperTitle = paperTitle[2:]
-		# print paperTitle
-		title_to_id[paperTitle] = file[0][5:13]
-
-	if paperTitle==None:
-		titleAbsent.add(file[0][5:13])
-	if file[0][5:13] == debug_title: print paperTitle
-
 
 fp = open('db/MeaningfulCitationsDataset/ValenzuelaAnnotations.csv', 'r')
 
@@ -84,101 +94,112 @@ def addSection(paperID, citationID, section):
 
 for file in files:
 	# if steps > MaxSteps: break	#comment this
-	tree = ET.parse(file[0])
-	root = tree.getroot()
-	paperTitle = root[1][0].find('title')
-	if paperTitle == None: paperTitle = ""
-	else:
-		paperTitle = paperTitle.text.lower().lstrip().rstrip().translate(None, string.punctuation)
-		if paperTitle[:2] == 'b\'': paperTitle = paperTitle[2:]
-
-
-	# print file[0]
-	tree = ET.parse(file[0])
-	root = tree.getroot()
-	citationList = next(root.iter('citationList'))
-	totCit += len(citationList)
-	if title_to_id[paperTitle] == debug_title:
-		print "starting"
-
-	i=0
-	for citation in citationList:
-
-
-		
-		title = citation.find('title')
-		booktitle = citation.find('booktitle')
-		journal = citation.find('journal')
-		if title != None: Onetitle = title.text
-		elif booktitle!=None: Onetitle = booktitle.text
-		elif journal!=None: Onetitle = journal.text
-		else: Onetitle = ""
-		Onetitle = Onetitle.lstrip().rstrip().lower().translate(None, string.punctuation)
-
-		paperID = None
-		citationID = None
-		for xx in title_to_id:
-			if paperTitle in xx:
-				paperID = title_to_id[xx]
-
-		for xx in title_to_id:
-			if Onetitle in xx:
-				citationID = title_to_id[xx]
-
-
-		if paperID == debug_title:
-			print Onetitle, citationID
-
-
-		if citationID and paperID:
-			x+=1
-			# print title_to_id[paperTitle], paperTitle, '#', title_to_id[Onetitle], Onetitle
-			
-		if citationID not in citedPapers: #no need to look at this citation
-			continue 
-		elif (citationID, paperID) in dataset:
-			y+=1
-			dataset.remove((citationID, paperID))
-			# print title_to_id[paperTitle], paperTitle, '#', title_to_id[Onetitle], Onetitle
-
-
-
-
-		contexts = citation.find('contexts')
-		if contexts==None: 
-			# totalCitations[citationID] += 1
-			# feature1[(citationID, paperID)] += 1
-			pass
-			# print "Reference without context:", Onetitle
+	try:
+		tree = ET.parse(file[0])
+		root = tree.getroot()
+		paperTitle = root[1][0].find('title')
+		if paperTitle == None: paperTitle = ""
 		else:
-			totalCitations[citationID] += len(contexts.findall('context'))
-			feature1[(citationID, paperID)] += len(contexts.findall('context'))
-			# print Onetitle, len(contexts.findall('context')), totalCitations[Onetitle]
-			for context in contexts.findall('context'):
-				steps += 1
-				SectLabel = root[0][0]	#0 is SectLabel, variant 0
-				curSection = ""
-				ans = ""
-				alltext = ""
-				for child in SectLabel:
-					if child.text!=None: alltext+=child.text
-					if child.tag == 'sectionHeader': 
-						curSection = child.text
-						allSections.add(curSection.rstrip().lstrip().lower() + " : " + file[0] )
-					# elif child.tag == 'bodyText':
-					# 	# if child.get('confidence')=='0.953295307692308': print re.sub(r'[- \n\s]*','',alltext), "\nOVER\n", re.sub(r'[- \n\s]*','',context.text)
-					# 	if re.sub(r'[- \n\s\t]*','',alltext).lower().find(re.sub(r'[- \n\s\t]*','',context.text).lower())!=-1:
-					# 		#print Onetitle, curSection
-					# 		curSection = curSection.rstrip().lstrip()
-					# 		result = ''.join(i for i in curSection if not i.isdigit())
-					# 		result.lstrip().rstrip()
-					# 		addSection(paperID, citationID, result)
-					# 		ans = result
-					# 		allSections.add(result)
-					# 		break
+			paperTitle = paperTitle.text.lower().lstrip().rstrip().translate(str.maketrans(string.punctuation, ' '*len(string.punctuation))).lstrip().rstrip()
+			stemmed = [ps.stem(word) for word in paperTitle.split()]
+			paperTitle = " ".join(stemmed)
+			paperTitle = paperTitle.replace(" ", "")
+	
 
-				#if ans == "": print "Not found", Onetitle
+			# if paperTitle[:2] == 'b\'': paperTitle = paperTitle[2:]
 
+
+		# print file[0]
+		tree = ET.parse(file[0])
+		root = tree.getroot()
+		citationList = next(root.iter('citationList'))
+		totCit += len(citationList)
+		if title_to_id[paperTitle] == debug_title:
+			print ("starting")
+
+		i=0
+		for citation in citationList:
+
+
+			
+			title = citation.find('title')
+			booktitle = citation.find('booktitle')
+			journal = citation.find('journal')
+			if title != None: Onetitle = title.text
+			elif booktitle!=None: Onetitle = booktitle.text
+			elif journal!=None: Onetitle = journal.text
+			else: Onetitle = ""
+			Onetitle = Onetitle.lstrip().rstrip().lower().translate(str.maketrans(string.punctuation, ' '*len(string.punctuation))).lstrip().rstrip()
+			stemmed = [ps.stem(word) for word in Onetitle.split()]
+			Onetitle = " ".join(stemmed)
+			Onetitle = Onetitle.replace(" ", "")
+		
+
+			paperID = None
+			citationID = None
+			for xx in title_to_id:
+				if ((paperTitle in xx) or (xx in paperTitle)) and (xx != '') and (paperTitle != ''):
+					paperID = title_to_id[xx]
+
+			for xx in title_to_id:
+				if ((Onetitle in xx) or (xx in Onetitle)) and (Onetitle != '') and (xx != ''):
+					citationID = title_to_id[xx]
+
+
+			if paperID == debug_title:
+				print ((Onetitle, citationID))
+
+
+			if citationID and paperID:
+				pass
+				# print title_to_id[paperTitle], paperTitle, '#', title_to_id[Onetitle], Onetitle
+				
+			# if citationID not in citedPapers: #no need to look at this citation
+			# 	continue 
+			if (citationID, paperID) in dataset:
+				y+=1
+				dataset.remove((citationID, paperID))
+				# print title_to_id[paperTitle], paperTitle, '#', title_to_id[Onetitle], Onetitle
+
+
+
+
+			contexts = citation.find('contexts')
+			if contexts==None: 
+				# totalCitations[citationID] += 1
+				# feature1[(citationID, paperID)] += 1
+				pass
+				# print "Reference without context:", Onetitle
+			else:
+				totalCitations[citationID] += len(contexts.findall('context'))
+				feature1[(citationID, paperID)] += len(contexts.findall('context'))
+				# print Onetitle, len(contexts.findall('context')), totalCitations[Onetitle]
+				for context in contexts.findall('context'):
+					steps += 1
+					SectLabel = root[0][0]	#0 is SectLabel, variant 0
+					curSection = ""
+					ans = ""
+					alltext = ""
+					for child in SectLabel:
+						if child.text!=None: alltext+=child.text
+						if child.tag == 'sectionHeader': 
+							curSection = child.text
+							allSections.add(curSection.rstrip().lstrip().lower() + " : " + file[0] )
+						# elif child.tag == 'bodyText':
+						# 	# if child.get('confidence')=='0.953295307692308': print re.sub(r'[- \n\s]*','',alltext), "\nOVER\n", re.sub(r'[- \n\s]*','',context.text)
+						# 	if re.sub(r'[- \n\s\t]*','',alltext).lower().find(re.sub(r'[- \n\s\t]*','',context.text).lower())!=-1:
+						# 		#print Onetitle, curSection
+						# 		curSection = curSection.rstrip().lstrip()
+						# 		result = ''.join(i for i in curSection if not i.isdigit())
+						# 		result.lstrip().rstrip()
+						# 		addSection(paperID, citationID, result)
+						# 		ans = result
+						# 		allSections.add(result)
+						# 		break
+
+					#if ans == "": print "Not found", Onetitle
+	except:
+		pass
 # print "citaion, cited by, # direct citations, experiment, introduction, related work, discussion, conclusion, results, future work, other, f8"
 # for xx in dataset2:
 # 	print xx[0], ',', xx[1], ','
@@ -197,8 +218,8 @@ for file in files:
 # for xx in dataset.copy():
 # 	if xx[0] in titleAbsent or xx[1] in titleAbsent:
 # 		dataset.remove(xx)
-print len(dataset), dataset
-print x,y
+# print (dataset)
+print ((x,y))
 
 # f1 = open("allSections.txt", "wb")
 # for x in allSections: 
