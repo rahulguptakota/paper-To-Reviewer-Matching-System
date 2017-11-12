@@ -89,9 +89,23 @@ temp = []
 i=0
 outputfile = open('features_k12.txt','w')
 
+xxx = {}
 for d in directories:
-	outputfile.write(str(d[5:]) + " " + str(doctopics[i]) + "\n")
+	# outputfile.write(str(d[5:]) + " " + str(doctopics[i]) + "\n")
+	xxx[str(d[5:])] = np.array(doctopics[i])
 	i+=1
+
+i=0
+with open('index.csv', newline='') as csvfile:
+	spamreader = csv.reader(csvfile, delimiter=',', quotechar='|')
+	for row in spamreader:
+		if i==0:
+			i=1
+		else:
+			ans = np.dot(xxx[row[0]],xxx[row[1]])
+			outputfile.write(row[0] + " "+ row[1] +" " + str(ans) +"\n")
+			print(ans)
+
 
 #print (i)
 i=0
