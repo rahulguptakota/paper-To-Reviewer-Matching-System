@@ -205,6 +205,7 @@ for file in files:
 outf = open("output.csv", 'w')
 outf.write("citaion, cited by, # direct citations, experiment, introduction, related work, discussion, conclusion, results, future work, other, f8\n")
 for xx in dataset:
+	if xx in dataset2: continue
 	outf.write(str(xx[0])+ ','+str(xx[1])+ ',')
 	outf.write(str(feature1[xx])+ ',')
 	for sec in sectionList: outf.write(str(sectionCount[xx][sec])+ ',')
