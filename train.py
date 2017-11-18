@@ -92,7 +92,7 @@ clf1 = DecisionTreeClassifier(max_depth=4)
 clf2 = KNeighborsClassifier(n_neighbors=7)
 clf3 = SVC(kernel='rbf', probability=True)
 
-eclf = VotingClassifier(estimators=[('dt', clf1), ('knn', clf2), ('svc', clf3)], voting='soft', weights=[2,1,2])
+eclf = VotingClassifier(estimators=[('dt', clf1), ('knn', clf2), ('svc', clf3)])
 # clf1 = clf1.fit(X_train,y_train)
 # clf2 = clf2.fit(X_train,y_train)
 # clf3 = clf3.fit(X_train,y_train)
