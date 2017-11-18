@@ -30,22 +30,24 @@ debug_title = 'xxx'
 titleAbsent = set()
 
 for file in files:
-	tree = ET.parse(file[0])
-	root = tree.getroot()
-	paperTitle = root[1][0].find('title')
-	if paperTitle==None:
+	try:
+		tree = ET.parse(file[0])
+		root = tree.getroot()
+		paperTitle = root[1][0].find('title')
+		if paperTitle==None:
+			pass
+			# print "Title not found:",file[0]
+		else:
+			paperTitle = paperTitle.text.lower().translate(str.maketrans(string.punctuation, ' '*len(string.punctuation))).lstrip().rstrip().replace(" ", "")
+			# print paperTitle
+			title_to_id[paperTitle] = file[0][5:13]
+
+		if paperTitle==None:
+			titleAbsent.add(file[0][5:13])
+		if file[0][5:13] == debug_title or file[0][5:13] == 'xxx': 
+			print (paperTitle)
+	except:
 		pass
-		# print "Title not found:",file[0]
-	else:
-		paperTitle = paperTitle.text.lower().translate(str.maketrans(string.punctuation, ' '*len(string.punctuation))).lstrip().rstrip().replace(" ", "")
-		# print paperTitle
-		title_to_id[paperTitle] = file[0][5:13]
-
-	if paperTitle==None:
-		titleAbsent.add(file[0][5:13])
-	if file[0][5:13] == debug_title or file[0][5:13] == 'xxx': 
-		print (paperTitle)
-
 
 fp = open('db/MeaningfulCitationsDataset/ValenzuelaAnnotations.csv', 'r')
 
@@ -96,107 +98,108 @@ for file in files:
 	# if steps > MaxSteps: break	#comment this
 	steps+=1
 	if steps%10==0: print (steps)
-
-	tree = ET.parse(file[0])
-	root = tree.getroot()
-	paperTitle = root[1][0].find('title')
-	if paperTitle == None: paperTitle = ""
-	else:
-		paperTitle = paperTitle.text.lower().translate(str.maketrans(string.punctuation, ' '*len(string.punctuation))).lstrip().rstrip().replace(" ", "")
-		# if paperTitle[:2] == 'b\'': paperTitle = paperTitle[2:]
-
-
-	# print file[0]
-	tree = ET.parse(file[0])
-	root = tree.getroot()
-	citationList = next(root.iter('citationList'))
-	totCit += len(citationList)
-	if title_to_id[paperTitle] == debug_title:
-		print ("starting")
-		print(file)
-
-
-	for citation in citationList:
-
-
-		
-		title = citation.find('title')
-		booktitle = citation.find('booktitle')
-		journal = citation.find('journal')
-		if title != None: Onetitle = title.text
-		elif booktitle!=None: Onetitle = booktitle.text
-		elif journal!=None: Onetitle = journal.text
-		else: Onetitle = ""	
-		Onetitle = Onetitle.lstrip().rstrip().lower().translate(str.maketrans(string.punctuation, ' '*len(string.punctuation))).lstrip().rstrip().replace(" ", "")
-
-		paperID = None
-		citationID = None
-		for xx in title_to_id:
-			if (paperTitle in xx) :
-				paperID = title_to_id[xx]
-				if paperID == debug_title:
-					print("found")
-					print(xx)
-					print(file)
-
-		for xx in title_to_id:
-			if ((Onetitle in xx) or (xx in Onetitle)) and (Onetitle != '') and (xx != ''):
-				citationID = title_to_id[xx]
-
-
-		if paperID == debug_title:
-			print ((Onetitle, citationID))
-
-
-		if citationID and paperID:
-			pass
-			# print title_to_id[paperTitle], paperTitle, '#', title_to_id[Onetitle], Onetitle
-			
-		# if paperID not in citingPapers: #no need to look at this pair
-		# 	continue 
-
-		if (citationID, paperID) in dataset:
-			y+=1
-			dataset2.remove((citationID, paperID))
-			# print title_to_id[paperTitle], paperTitle, '#', title_to_id[Onetitle], Onetitle
-
-
-
-
-		contexts = citation.find('contexts')
-		if contexts==None: 
-			# totalCitations[citationID] += 1
-			# feature1[(citationID, paperID)] += 1
-			pass
-			# print "Reference without context:", Onetitle
+	try:
+		tree = ET.parse(file[0])
+		root = tree.getroot()
+		paperTitle = root[1][0].find('title')
+		if paperTitle == None: paperTitle = ""
 		else:
-			totalCitations[paperID] += len(contexts.findall('context'))
-			if (citationID, paperID) not in dataset: continue
-			feature1[(citationID, paperID)] += len(contexts.findall('context'))
-			# print Onetitle, len(contexts.findall('context')), totalCitations[Onetitle]
-			for context in contexts.findall('context'):
-				steps += 1
-				SectLabel = root[0][0]	#0 is SectLabel, variant 0
-				curSection = ""
-				ans = ""
-				alltext = ""
-				for child in SectLabel:
-					if child.text!=None: alltext+=child.text
-					if child.tag == 'sectionHeader': 
-						curSection = child.text
-						allSections.add(curSection.rstrip().lstrip().lower() + " : " + file[0] )
-					elif child.tag == 'bodyText':
-						# if child.get('confidence')=='0.953295307692308': print re.sub(r'[- \n\s]*','',alltext), "\nOVER\n", re.sub(r'[- \n\s]*','',context.text)
-						if re.sub(r'[- \n\s\t]*','',alltext).lower().find(re.sub(r'[- \n\s\t]*','',context.text).lower())!=-1:
-							# print ((Onetitle, curSection))
-							curSection = curSection.rstrip().lstrip()
-							# result = ''.join(i for i in curSection if not i.isdigit())
-							result = curSection
-							addSection(paperID, citationID, curSection)
-							ans = result
-							allSections.add(result)
-							break
+			paperTitle = paperTitle.text.lower().translate(str.maketrans(string.punctuation, ' '*len(string.punctuation))).lstrip().rstrip().replace(" ", "")
+			# if paperTitle[:2] == 'b\'': paperTitle = paperTitle[2:]
 
+
+		# print file[0]
+		tree = ET.parse(file[0])
+		root = tree.getroot()
+		citationList = next(root.iter('citationList'))
+		totCit += len(citationList)
+		if title_to_id[paperTitle] == debug_title:
+			print ("starting")
+			print(file)
+
+
+		for citation in citationList:
+
+
+			
+			title = citation.find('title')
+			booktitle = citation.find('booktitle')
+			journal = citation.find('journal')
+			if title != None: Onetitle = title.text
+			elif booktitle!=None: Onetitle = booktitle.text
+			elif journal!=None: Onetitle = journal.text
+			else: Onetitle = ""	
+			Onetitle = Onetitle.lstrip().rstrip().lower().translate(str.maketrans(string.punctuation, ' '*len(string.punctuation))).lstrip().rstrip().replace(" ", "")
+
+			paperID = None
+			citationID = None
+			for xx in title_to_id:
+				if (paperTitle in xx) :
+					paperID = title_to_id[xx]
+					if paperID == debug_title:
+						print("found")
+						print(xx)
+						print(file)
+
+			for xx in title_to_id:
+				if ((Onetitle in xx) or (xx in Onetitle)) and (Onetitle != '') and (xx != ''):
+					citationID = title_to_id[xx]
+
+
+			if paperID == debug_title:
+				print ((Onetitle, citationID))
+
+
+			if citationID and paperID:
+				pass
+				# print title_to_id[paperTitle], paperTitle, '#', title_to_id[Onetitle], Onetitle
+				
+			# if paperID not in citingPapers: #no need to look at this pair
+			# 	continue 
+
+			if (citationID, paperID) in dataset:
+				y+=1
+				dataset2.remove((citationID, paperID))
+				# print title_to_id[paperTitle], paperTitle, '#', title_to_id[Onetitle], Onetitle
+
+
+
+
+			contexts = citation.find('contexts')
+			if contexts==None: 
+				# totalCitations[citationID] += 1
+				# feature1[(citationID, paperID)] += 1
+				pass
+				# print "Reference without context:", Onetitle
+			else:
+				totalCitations[paperID] += len(contexts.findall('context'))
+				if (citationID, paperID) not in dataset: continue
+				feature1[(citationID, paperID)] += len(contexts.findall('context'))
+				# print Onetitle, len(contexts.findall('context')), totalCitations[Onetitle]
+				for context in contexts.findall('context'):
+					steps += 1
+					SectLabel = root[0][0]	#0 is SectLabel, variant 0
+					curSection = ""
+					ans = ""
+					alltext = ""
+					for child in SectLabel:
+						if child.text!=None: alltext+=child.text
+						if child.tag == 'sectionHeader': 
+							curSection = child.text
+							allSections.add(curSection.rstrip().lstrip().lower() + " : " + file[0] )
+						elif child.tag == 'bodyText':
+							# if child.get('confidence')=='0.953295307692308': print re.sub(r'[- \n\s]*','',alltext), "\nOVER\n", re.sub(r'[- \n\s]*','',context.text)
+							if re.sub(r'[- \n\s\t]*','',alltext).lower().find(re.sub(r'[- \n\s\t]*','',context.text).lower())!=-1:
+								# print ((Onetitle, curSection))
+								curSection = curSection.rstrip().lstrip()
+								# result = ''.join(i for i in curSection if not i.isdigit())
+								result = curSection
+								addSection(paperID, citationID, curSection)
+								ans = result
+								allSections.add(result)
+								break
+	except:
+		pass
 				#if ans == "": print "Not found", Onetitle
 
 outf = open("output.csv", 'w')

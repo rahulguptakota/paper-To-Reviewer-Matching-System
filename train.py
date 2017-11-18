@@ -1,9 +1,21 @@
-files = ["k4","k7","k9","k10"]
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+import numpy as np
+from sklearn.ensemble import VotingClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import AdaBoostClassifier
+
+files = ["k4","k7","k9","k10","k12"]
 # ,"features_k6.txt","features_k7.txt","features_k9.txt","features_k10.txt","features_k12.txt"]
+
+
 
 data = {}
 
-fd = open("db/MeaningfulCitationsDataset/ValenzuelaAnnotations.csv",'rb')
+fd = open("db/MeaningfulCitationsDataset/ValenzuelaAnnotations1.csv",'rb')
 t = fd.read()
 i=0
 for line in t.decode().split("\n"):
@@ -30,4 +42,53 @@ for f in files:
         # print(line)
         i = i + 1
     fd.close()
-print(data)
+# print(data)
+
+X = []
+Y = []
+for key in data.keys():
+    temp = []
+    for f in files:
+        temp.append(data[key][f])
+    X.append(temp)
+    Y.append(data[key]['test'])
+# print(X[1])
+# print(Y)
+
+X_train, X_test, y_train, y_test = train_test_split(X, Y, random_state = 0)
+print("The size of X_train, X_test, y_train, y_test is {}, {}, {}, {}".format(np.shape(X_train),np.shape(X_test),np.shape(y_train),np.shape(y_test)))
+# svm_model_linear = SVC(kernel = 'rbf', gamma=5).fit(X_train, y_train)
+# svm_predictions = svm_model_linear.predict(X_test)
+# # model accuracy for X_test  
+# accuracy = svm_model_linear.score(X_test, y_test)
+# # creating a confusion matrix
+# cm = confusion_matrix(y_test, svm_predictions)
+# print("The accuracy for SVM is ", accuracy)
+# print("The confusion matrix for SVM is\n",cm)
+# # training a KNN classifier
+# knn = KNeighborsClassifier(n_neighbors = 7).fit(X_train, y_train)
+
+clf1 = DecisionTreeClassifier(max_depth=4)
+clf2 = KNeighborsClassifier(n_neighbors=7)
+clf3 = SVC(kernel='rbf', probability=True)
+
+eclf = VotingClassifier(estimators=[('dt', clf1), ('knn', clf2), ('svc', clf3)], voting='soft', weights=[2,1,2])
+clf1 = clf1.fit(X_train[0:114],y_train[0:114])
+clf2 = clf2.fit(X_train[114:228],y_train[114:228])
+clf3 = clf3.fit(X_train[228:],y_train[228:])
+eclf = eclf.fit(X_train,y_train)
+eclf_accuracy = eclf.score(X_test,y_test)
+prediction = eclf.predict(X_test)
+cm = confusion_matrix(y_test, prediction)
+print("The accracy for Voting classifier is ",eclf_accuracy)
+print("The cm for Voting classifier is \n",cm)
+
+# adaclf = AdaBoostClassifier(base_estimator=SVC(kernel='linear', probability=True),n_estimators=100)
+# # accracy = cross_val_score(adaclf, X_test, y_test)
+# # accuracy = cross_val_score(adaclf, X, Y)
+# adaclf = adaclf.fit(X_train,y_train)
+# adaclf_accuracy = adaclf.score(X_test,y_test)
+# prediction = adaclf.predict(X_test)
+# cm = confusion_matrix(y_test, prediction)
+# print("Accuracy is ",adaclf_accuracy)
+# print("The confusion matrix is:\n",cm)
