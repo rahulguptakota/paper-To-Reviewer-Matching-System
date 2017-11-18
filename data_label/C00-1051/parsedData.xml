@@ -1,0 +1,1311 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<title confidence="0.7563995">
+b&amp;apos;Committee-based Decision Making
+in Probabilistic Partial Parsing
+</title>
+<sectionHeader confidence="0.5290385" genericHeader="abstract">
+INUI Takashi3 and INUI Kentaro3y
+3 Department of Arti\x0ccial Intelligence, Kyushu Institute of Technology
+</sectionHeader>
+<bodyText confidence="0.1722215">
+y PRESTO, Japan Science and Technology Corporation
+ft inui,inuig@pluto.ai.kyutech.ac.jp
+</bodyText>
+<sectionHeader confidence="0.968649" genericHeader="introduction">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999703285714286">
+This paper explores two directions for the
+next step beyond the state of the art of statis-
+tical parsing: probabilistic partial parsing and
+committee-based decision making. Probabilis-
+tic partial parsing is a probabilistic extension of
+the existing notion of partial parsing, which en-
+ables \x0cne-grained arbitrary choice on the trade-
+o\x0b between accuracy and coverage. Committee-
+based decision making is to combine the out-
+puts from di\x0berent systems to make a better
+decision. While various committee-based tech-
+niques for NLP have recently been investigated,
+they would need to be further extended so as
+to be applicable to probabilistic partial pars-
+ing. Aiming at this coupling, this paper gives
+a general framework to committee-based deci-
+sion making, which consists of a set of weight-
+ing functions and a combination function, and
+discusses how it can be coupled with probabilis-
+tic partial parsing. Our experiments have so far
+been producing promising results.
+</bodyText>
+<sectionHeader confidence="0.99834" genericHeader="method">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.995893074626866">
+There have been a number of attempts to use
+statistical techniques to improve parsing perfor-
+mance. While this goal has been achieved to a
+certain degree given the increasing availability
+of large tree banks, the remaining room for the
+improvement appears to be getting saturated
+as long as only statistical techniques are taken
+into account. This paper explores two directions
+for the next step beyond the state of the art of
+statistical parsing: probabilistic partial parsing
+and committee-based decision making.
+Probabilistic partial parsing is a probabilistic
+extension of the existing notion of partial pars-
+ing ( e.g. (Jensen et al., 1993)) where a parser
+selects as its output only a part of the parse tree
+that are probabilistically highly reliable. This
+decision-making scheme enables a \x0cne-grained
+arbitrary choice on the trade-o\x0b between ac-
+curacy and coverage. Such trade-o\x0b is impor-
+tant since there are various applications that re-
+quire reasonably high accuracy even sacri\x0ccing
+coverage. A typical example is the paraphras-
+ing task embedded in summarization, sentence
+simpli\x0ccation (e.g. (Carroll et al., 1998)), etc.
+Enabling such trade-o\x0b choice will make state-
+of-the-art parsers of wider application. Partial
+parsing has also been proven useful for boot-
+strapping learning.
+One may suspect that the realization of par-
+tial parsing is a trivial matter in probabilistic
+parsing just because a probabilistic parser in-
+herently has the notion of \\reliability&amp;quot; and thus
+has the trade-o\x0b between accuracy and cover-
+age. However, there has so far been surpris-
+ingly little research focusing on this matter and
+almost no work that evaluates statistical parsers
+according to their coverage-accuracy (or recall-
+precision) curves. Taking the signi\x0ccance of
+partial parsing into account, therefore in this
+paper, we evaluate parsing performance accord-
+ing to coverage-accuracy curves.
+Committee-based decision making is to com-
+bine the outputs from several di\x0berent systems
+(e.g. parsers) to make a better decision. Re-
+cently, there have been various attempts to ap-
+ply committee-based techniques to NLP tasks
+such as POS tagging (Halteren et al., 1998;
+Brill et al., 1998), parsing (Henderson and
+Brill, 1999), word sense disambiguation (Peder-
+sen, 2000), machine translation (Frederking and
+Nirenburg, 1994), and speech recognition (Fis-
+cus, 1997). Those works empirically demon-
+strated that combining di\x0berent systems often
+achieved signi\x0ccant improvements over the pre-
+vious best system.
+In order to couple those committee-based
+\x0cschemes with probabilistic partial parsing, how-
+ever, one would still need to make a further ex-
+tension. Aiming at this coupling, in this paper,
+we consider a general framework of committee-
+based decision making that consists of a set
+of weighting functions and a combination func-
+tion, and discuss how that framework enables
+the coupling with probabilistic partial parsing.
+To demonstrate how it works, we report the re-
+sults of our parsing experiments on a Japanese
+tree bank.
+</bodyText>
+<sectionHeader confidence="0.406134" genericHeader="method">
+2 Probabilistic partial parsing
+</sectionHeader>
+<subsectionHeader confidence="0.965872">
+2.1 Dependency probability
+</subsectionHeader>
+<bodyText confidence="0.997221411764706">
+In this paper, we consider the task of decid-
+ing the dependency structure of a Japanese in-
+put sentence. Note that, while we restrict our
+discussion to analysis of Japanese sentences in
+this paper, what we present below should also
+be straightforwardly applicable to more wide-
+ranged tasks such as English dependency anal-
+ysis just like the problem setting considered by
+Collins (1996).
+Given an input sentence s as a sequence of
+Bunsetsu-phrases (BPs)1, b1 b2 ::: bn, our task
+is to identify their inter-BP dependency struc-
+ture R = fr(bi;bj)ji = 1;:::;ng, where r(bi;bj)
+denotes that bi depends on (or modi\x0ces) bj.
+Let us consider a dependency probability (DP),
+P(r(bi;bj)js), a probability that r(bi;bj) holds
+in a given sentence s: 8i:
+</bodyText>
+<equation confidence="0.9846625">
+P
+j P(r(bi;bj)js) = 1.
+</equation>
+<subsectionHeader confidence="0.997849">
+2.2 Estimation of DPs
+</subsectionHeader>
+<bodyText confidence="0.999183307692308">
+Some of the state-of-the-art probabilistic lan-
+guage models such as the bottomup models
+P(Rjs) proposed by Collins (1996) and Fujio
+et al. (1998) directly estimate DPs for a given
+input, whereas other models such as PCFG-
+based topdown generation models P(R;s) do
+not (Charniak, 1997; Collins, 1997; Shirai et al.,
+1998). If the latter type of models were totally
+excluded from any committee, our committee-
+based framework would not work well in prac-
+tice. Fortunately, however, even for such a
+model, one can still estimate DPs in the follow-
+ing way if the model provides the n-best depen-
+</bodyText>
+<page confidence="0.937121">
+1
+</page>
+<bodyText confidence="0.961352363636364">
+A bunsetsu phrase (BP) is a chunk of words con-
+sisting of a content word (noun, verb, adjective, etc.)
+accompanied by some functional word(s) (particle, aux-
+iliary, etc.). A Japanese sentence can be analyzed as a
+sequence of BPs, which constitutes an inter-BP depen-
+dency structure
+dency structure candidates coupled with prob-
+abilistic scores.
+Let Ri be the i-th best dependency structure
+(i = 1;:::;n) of a given input s according to a
+given model, and let RH be a set of Ri. Then,
+</bodyText>
+<equation confidence="0.896749571428571">
+P(r(bi;bj)js) can be estimated by the following
+approximation equation:
+P(r(bi;bj)js) \x19
+Pr
+RH
+PRH
+(1)
+</equation>
+<bodyText confidence="0.7843098">
+where PRH is the probability mass of R 2 RH,
+and Pr
+RH is the probability mass of R 2 RH
+that supports r(bi;bj). The approximation er-
+ror \x0f is given by \x0f \x14
+</bodyText>
+<equation confidence="0.809713">
+PR0PRH
+</equation>
+<bodyText confidence="0.943963285714286">
+PR , where PR is the
+probability mass of all the dependency struc-
+ture candidates for s (see (Poole, 1993) for the
+proof). This means that the approximation er-
+ror is negligible if PRH is su\x0eciently close to
+PR, which holds for a reasonably small number
+n in most cases in practical statistical parsing.
+</bodyText>
+<subsectionHeader confidence="0.991315">
+2.3 Coverage-accuracy curves
+</subsectionHeader>
+<bodyText confidence="0.999705625">
+We then consider the task of selecting depen-
+dency relations whose estimated probability is
+higher than a certain threshold \x1b (0 &amp;lt; \x1b \x14 1).
+When \x1b is set to be higher (closer to 1.0), the
+accuracy is expected to become higher, while
+the coverage is expected to become lower, and
+vice versa. Here, coverage C and accuracy A
+are de\x0cned as follows:
+</bodyText>
+<figure confidence="0.516836125">
+C =
+# of the decided relations
+# of all the relations in the test set
+(2)
+A =
+# of the correctly decided relations
+# of the decided relations
+(3)
+</figure>
+<bodyText confidence="0.990898625">
+Moving the threshold \x1b from 1.0 down to-
+ward 0.0, one can obtain a coverage-accuracy
+curve (C-A curve). In probabilistic partial pars-
+ing, we evaluate the performance of a model
+according to its C-A curve. A few examples
+are shown in Figure 1, which were obtained
+in our experiment (see Section 4). Obviously,
+Figure 1 shows that model A outperformed the
+other two. To summarize a C-A curve, we use
+the 11-point average of accuracy (11-point ac-
+curacy, hereafter), where the eleven points are
+C = 0:5; 0:55;:::; 1:0. The accuracy of total
+parsing corresponds to the accuracy of the point
+in a C-A curve where C = 1:0. We call it total
+accuracy to distinguish it from 11-point accu-
+racy. Note that two models with equal achieve-
+</bodyText>
+<figure confidence="0.991767615384615">
+\x0caccuracy
+A
+D
+C
+A
+D
+C
+0.8
+0.85
+0.9
+0.95
+1
+0 0.2 0.4 0.6 0.8 1
+0.8
+0.85
+0.9
+0.95
+1
+0 0.2 0.4 0.6 0.8 1
+0.8
+0.85
+0.9
+0.95
+1
+0 0.2 0.4 0.6 0.8 1
+coverage
+</figure>
+<figureCaption confidence="0.999747">
+Figure 1: C-A curves
+</figureCaption>
+<bodyText confidence="0.9368596">
+ments in total accuracy may be di\x0berent in 11-
+point accuracy. In fact, we found such cases in
+our experiments reported below. Plotting C-A
+curves enable us to make a more \x0cne-grained
+performance evaluation of a model.
+</bodyText>
+<sectionHeader confidence="0.992589" genericHeader="method">
+3 Committee-based probabilis-
+</sectionHeader>
+<bodyText confidence="0.998392157894737">
+tic partial parsing
+We consider a general scheme of committee-
+based probabilistic partial parsing as illustrated
+in Figure 2. Here we assume that each commit-
+tee member Mk (k = 1;:::;m) provides a DP
+matrix PMk(r(bi;bj)js) (bi; bj 2 s) for each in-
+put s. Those matrices are called input matrices,
+and are given to the committee as its input.
+A committee consists of a set of weighting
+functions and a combination function. The role
+assigned to weighting functions is to standardize
+input matrices. The weighting function associ-
+ated with model Mk transforms an input ma-
+trix given by Mk to a weight matrix WMk. The
+majority function then combines all the given
+weight matrices to produce an output matrix O,
+which represents the \x0cnal decision of the com-
+mittee. One can consider various options for
+both functions.
+</bodyText>
+<subsectionHeader confidence="0.998866">
+3.1 Weighting functions
+</subsectionHeader>
+<bodyText confidence="0.963036333333333">
+We have so far considered the following three
+options.
+Simple The simplest option is to do nothing:
+</bodyText>
+<equation confidence="0.979101">
+wMk
+ij = PMk(r(bi;bj)js) (4)
+</equation>
+<bodyText confidence="0.973003166666667">
+where wMk
+ij is the (i;j) element of WMk.
+Normal A bare DP may not be a precise es-
+timation of the actual accuracy. One can see
+this by plotting probability-accuracy curves (P-
+A curves) as shown in Figure 3. Figure 3 shows
+</bodyText>
+<figure confidence="0.895963744680851">
+that model A tends to overestimate DPs, while
+Mk
+M1
+Mm
+PMk
+PM1
+PMm
+WM1
+WMk
+WMm
+O
+input
+matrices
+weight matrices
+output
+matrix
+committee- based decision making
+CF
+WFMk
+WFM1
+WFMm
+WF: Weighting Function
+CF: Combination Function
+models
+Mk
+M1
+Mm
+PMk
+PM1
+PMm
+WM1
+WMk
+WMm
+O
+input
+matrices
+weight matrices
+output
+matrix
+committee- based decision making
+CF
+WFMk
+WFM1
+WFMm
+WF: Weighting Function
+CF: Combination Function
+models
+</figure>
+<figureCaption confidence="0.946977">
+Figure 2: Committee-based probabilistic partial
+</figureCaption>
+<figure confidence="0.9904994">
+parsing
+D
+C
+A
+D
+C
+A
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+0.5 0.6 0.7 0.8 0.9 1
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+0.5 0.6 0.7 0.8 0.9 1
+dependency probability
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+0.5 0.6 0.7 0.8 0.9 1
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+0.5 0.6 0.7 0.8 0.9 1
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+0.5 0.6 0.7 0.8 0.9 1
+dependency probability
+accuracy
+</figure>
+<figureCaption confidence="0.999298">
+Figure 3: P-A curves
+</figureCaption>
+<bodyText confidence="0.975670285714286">
+model C tends to underestimate DPs. This
+means that if A and C give di\x0berent answers
+with the same DP, C\&amp;apos;s answer is more likely
+to be correct. Thus, it is not necessarily a
+good strategy to simply use given bare DPs in
+weighted majority. To avoid this problem, we
+consider the following weighting function:
+</bodyText>
+<equation confidence="0.991816">
+wMk
+ij = \x0bMk
+i AMk(PMk(r(bi;bj)js)) (5)
+</equation>
+<bodyText confidence="0.966489789473684">
+where AMk(p) is the function that returns the
+expected accuracy of Mk\&amp;apos;s vote with its depen-
+dency probability p, and \x0bMk
+i is a normalization
+factor. Such a function can be trained by plot-
+ting a P-A curve for training data. Note that
+training data should be shared by all the com-
+mittee members. In practice, for training a P-A
+curve, some smoothing technique should be ap-
+plied to avoid over\x0ctting.
+Class The standardization process in the
+above option Normal can also be seen as an
+e\x0bort for reducing the averaged cross entropy
+of the model on test data. Since P-A curves
+tend to defer not only between di\x0berent mod-
+els but also between di\x0berent problem classes,
+if one incorporates some problem classi\x0ccation
+into (5), the averaged cross entropy is expected
+\x0cto be reduced further:
+</bodyText>
+<equation confidence="0.993226">
+wMk
+ij = \x0cMk
+i AMkCbi(PMk(r(bi;bj)js)) (6)
+</equation>
+<bodyText confidence="0.992858">
+where AMkCbi(p) is the P-A curve of model Mk
+only for the problems of class Cbi in training
+data, and \x0cMk
+i is a normalization factor. For
+problem classi\x0ccation, syntactic/lexical features
+of bi may be useful.
+</bodyText>
+<subsectionHeader confidence="0.998358">
+3.2 Combining functions
+</subsectionHeader>
+<bodyText confidence="0.999397333333333">
+For combination functions, we have so far con-
+sidered only simple weighted voting, which av-
+erages the given weight matrices:
+</bodyText>
+<equation confidence="0.993175777777778">
+oMk
+ij =
+1
+m
+m
+X
+k=1
+wMk
+ij (7)
+</equation>
+<bodyText confidence="0.904998142857143">
+where oMk
+ij is the (i;j) element of O.
+Note that the committee-based partial pars-
+ing framework presented here can be seen as
+a generalization of the previously proposed
+voting-based techniques in the following re-
+spects:
+</bodyText>
+<listItem confidence="0.911688818181818">
+(a) A committee accepts probabilistically para-
+meterized votes as its input.
+(d) A committee accepts multiple voting (i.e. it
+allow a committee member to vote not only
+to the best-scored candidate but also to all
+other potential candidates).
+(c) A committee provides a means for standard-
+izing original votes.
+(b) A committee outputs a probabilistic distri-
+bution representing a \x0cnal decision, which
+constitutes a C-A curve.
+</listItem>
+<bodyText confidence="0.994029272727273">
+For example, none of simple voting techniques
+for word class tagging proposed by van Hal-
+teren et al. (1998) does not accepts multiple
+voting. Henderson and Brill (1999) examined
+constituent voting and naive Bayes classi\x0cca-
+tion for parsing, obtaining positive results for
+each. Simple constituent voting, however, does
+not accept parametric votes. While Naive Bayes
+seems to partly accept parametric multiple vot-
+ing, it does not consider either standardization
+or coverage/accuracy trade-o\x0b.
+</bodyText>
+<sectionHeader confidence="0.998137" genericHeader="method">
+4 Experiments
+</sectionHeader>
+<subsectionHeader confidence="0.979056">
+4.1 Settings
+</subsectionHeader>
+<bodyText confidence="0.95485">
+We conducted experiments using the follow-
+</bodyText>
+<tableCaption confidence="0.776057">
+ing \x0cve statistical parsers:
+Table 1: The total / 11-point accuracy achieved
+</tableCaption>
+<table confidence="0.9849125">
+by each individual model
+total 11-point
+A 0.8974 0.9607
+B 0.8551 0.9281
+C 0.8586 0.9291
+D 0.8470 0.9266
+E 0.7885 0.8567
+\x0f KANA (Ehara, 1998): a bottom-up model
+</table>
+<bodyText confidence="0.968656333333333">
+based on maximum entropy estimation.
+Since dependency score matrices given by
+KANA have no probabilistic semantics, we
+normalized them for each row using a cer-
+tain function manually tuned for this parser.
+\x0f CHAGAKE (Fujio et al., 1998): an exten-
+sion of the bottom-up model proposed by
+Collins (Collins, 1996).
+\x0f Kanayama\&amp;apos;s parser (Kanayama et al., 1999):
+a bottom-up model coupled with an HPSG.
+\x0f Shirai\&amp;apos;s parser (Shirai et al., 1998): a top-
+down model incorporating lexical collocation
+statistics. Equation (1) was used for estimat-
+ing DPs.
+\x0f Peach Pie Parser (Uchimoto et al., 1999):
+a bottom-up model based on maximum en-
+tropy estimation.
+Note that these models were developed fully
+independently of each other, and have signi\x0c-
+cantly di\x0berent characters (for a comparison of
+their performance, see Table 1). In what fol-
+lows, these models are referred to anonymously.
+For the source of the training/test set, we
+used the Kyoto corpus (ver.2.0) (Kurohashi et
+al., 1997), which is a collection of Japanese
+newspaper articles annotated in terms of word
+boundaries, POS tags, BP boundaries, and
+inter-BP dependency relations. The corpus
+originally contained 19,956 sentences. To make
+the training/test sets, we \x0crst removed all the
+sentences that were rejected by any of the above
+\x0cve parsers (3,146 sentences). For the remain-
+ing 16,810 sentences, we next checked the con-
+sistency of the BP boundaries given by the
+parsers since they had slightly di\x0berent crite-
+ria for BP segmentation from each other. In
+this process, we tried to recover as many in-
+consistent boundaries as possible. For example,
+we found there were quite a few cases where
+a parser recognized a certain word sequence as
+a single BP, whereas some other parser recog-
+nized the same sequence as two BPs. In such
+</bodyText>
+<figure confidence="0.999032361111111">
+\x0c0.95
+0.955
+0.96
+0.965
+0.97
+A
+B
+A
+C
+A
+D
+A
+E
+A
+B
+C
+A
+C
+D
+A
+C
+E
+A
+D
+E
+A
+B
+C
+D
+A
+B
+C
+D
+E
+Simple Normal Class
+A : 0.9607
+</figure>
+<figureCaption confidence="0.987548">
+Figure 4: 11-point accuracy: A included
+</figureCaption>
+<figure confidence="0.996985">
+0.92
+0.93
+0.94
+0.95
+0.96
+B
+C
+B
+D
+B
+E
+B
+C
+D
+B
+D
+E
+B
+C
+D
+E
+C
+D
+C
+E
+C
+D
+E
+Simple Normal Class
+B : 0.9281
+C : 0.9291
+</figure>
+<figureCaption confidence="0.999761">
+Figure 5: 11-point accuracy: B/C included
+</figureCaption>
+<bodyText confidence="0.9932005">
+a case, we regarded that sequence as a single
+BP under a certain condition. As a result, we
+obtained 13,990 sentences that can be accepted
+by all the parsers with all the BP boundaries
+consistent 2. We used this set for training and
+evaluation.
+For closed tests, we used 11,192 sentences
+(66,536 BPs3) for both training and tests.
+For open tests, we conducted \x0cve-fold cross-
+validation on the whole sentence set.
+</bodyText>
+<page confidence="0.965314">
+2
+</page>
+<bodyText confidence="0.9882928">
+In the BP concatenation process described here,
+quite a few trivial dependency relations between neigh-
+boring BPs were removed from the test set. This made
+our test set slightly more di\x0ecult than what it should
+have been.
+</bodyText>
+<page confidence="0.985473">
+3
+</page>
+<bodyText confidence="0.967702714285714">
+This is the total number of BPs excluding the right-
+most two BPs for each sentence. Since, in Japanese, a
+BP always depends on a BP following it, the right-most
+BP of a sentence does not depend on any other BP, and
+the second right-most BP always depends on the right-
+most BP. Therefore, they were not seen as subjects of
+evaluation.
+</bodyText>
+<figure confidence="0.996965020833333">
+0.955
+0.96
+0.965
+0.97
+0.975
+A
+B
+F
+A
+C
+F
+A
+D
+F
+A
+E
+F
+A
+B
+C
+F
+A
+C
+D
+F
+A
+C
+E
+F
+A
+D
+E
+F
+A
+B
+C
+D
+F
+A
+B
+C
+D
+E
+F
+Simple Normal Class
+A : 0.9607
+A : 0.9607
+A : 0.9607
+</figure>
+<figureCaption confidence="0.999876">
+Figure 6: 11-point accuracy: +KNP
+</figureCaption>
+<bodyText confidence="0.896156">
+For the classi\x0ccation of problems, we man-
+ually established the following twelve classes,
+each of which is de\x0cned in terms of a certain
+morphological pattern of depending BPs:
+</bodyText>
+<listItem confidence="0.9987555">
+1. nominal BP with a case marker \\wa (topic)&amp;quot;
+2. nominal BP with a case marker \
+o (POS)&amp;quot;
+3. nominal BP with a case marker \\ga (NOM)&amp;quot;
+4. nominal BP with a case marker \\o (ACC)&amp;quot;
+5. nominal BP with a case marker \
+i (DAT)&amp;quot;
+6. nominal BP with a case marker \\de (LOC/: : :)&amp;quot;
+7. nominal BP (residue)
+8. adnominal verbal BP
+9. verbal BP (residue)
+10. adverb
+11. adjective
+12. residue
+</listItem>
+<sectionHeader confidence="0.493365" genericHeader="evaluation">
+4.2 Results and discussion
+</sectionHeader>
+<bodyText confidence="0.998223842105263">
+Table 1 shows the total/11-point accuracy of
+each individual model. The performance of each
+model widely ranged from 0.96 down to 0.86
+in 11-point accuracy. Remember that A is the
+optimal model, and there are two second-best
+models, B and C, which are closely comparable.
+In what follows, we use these achievements as
+the baseline for evaluating the error reduction
+achieved by organizing a committee.
+The performance of various committees is
+shown in Figure 4 and 5. Our primary inter-
+est here is whether the weighting functions pre-
+sented above e\x0bectively contribute to error re-
+duction. According to those two \x0cgures, al-
+though the contribution of the function Nor-
+mal were nor very visible, the function Class
+consistently improved the accuracy. These re-
+sults can be a good evidence for the important
+role of weighting functions in combining parsers.
+</bodyText>
+<figure confidence="0.993211470588235">
+\x0c0.92
+0.94
+0.96
+A
+B
+A
+C
+A
+D
+A
+E
+A
+B
+C
+A
+C
+D
+A
+C
+E
+A
+D
+E
+A
+B
+C
+D
+A
+B
+C
+D
+E
+multiple voting
+single voting
+</figure>
+<figureCaption confidence="0.99996">
+Figure 7: Single voting vs. Multiple voting
+</figureCaption>
+<bodyText confidence="0.9690457">
+While we manually built the problem classi\x0cca-
+tion in our experiment, automatic classi\x0ccation
+techniques will also be obviously worth consid-
+ering.
+We then conducted another experiment to ex-
+amine the e\x0bects of multiple voting. One can
+straightforwardly simulate a single-voting com-
+mittee by replacing wij in equation (7) with w0
+ij
+given by:
+</bodyText>
+<equation confidence="0.989697">
+w0
+ij =
+\x1a
+wij (if j = arg maxk wik)
+0 (otherwise)
+(8)
+</equation>
+<bodyText confidence="0.995708086956522">
+The results are shown in Figure 7, which
+compares the original multi-voting committees
+and the simulated single-voting committees.
+Clearly, in our settings, multiple voting signif-
+icantly outperformed single voting particularly
+when the size of a committee is small.
+The next issues are whether a committee al-
+ways outperform its individual members, and if
+not, what should be considered in organizing a
+committee. Figure 4 and 5 show that commit-
+tees not including the optimal model A achieved
+extensive improvements, whereas the merit of
+organizing committees including A is not very
+visible. This can be partly attributed to the
+fact that the competence of the individual mem-
+bers widely diversed, and A signi\x0ccantly outper-
+forms the other models.
+Given the good error reduction achieved
+by committees containing comparable members
+such as BC, BD and BCD, however, it should be
+reasonable to expect that a committee includ-
+ing A would achieve a signi\x0ccant improvement if
+another nearly optimal model was also incorpo-
+</bodyText>
+<figure confidence="0.982149545454545">
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+0.5 0.6 0.7 0.8 0.9 1
+CF
+DF
+dependency probability
+accuracy
+</figure>
+<figureCaption confidence="0.999843">
+Figure 8: P-A curves: +KNP
+</figureCaption>
+<bodyText confidence="0.996107071428571">
+rated. To empirically prove this assumption, we
+conducted another experiment, where we add
+another parser KNP (Kurohashi et al., 1994) to
+each committee that appears in Figure 4. KNP
+is much closer to model A in total accuracy
+than the other models (0.8725 in total accu-
+racy). However, it does not provide DP ma-
+trices since it is designed in a rule-based fash-
+ion  |the current version of KNP provides only
+the best-preferred parse tree for each input sen-
+tence without any scoring annotation. We thus
+let KNP to simply vote its total accuracy. The
+results are shown in Figure 6. This time all the
+committees achieved signi\x0ccant improvements,
+with the maximum error reduction rate up to
+31%.
+As suggested by the results of this experiment
+with KNP, our scheme allows a rule-based non-
+parametric parser to play in a committee pre-
+serving its ability to output parametric DP ma-
+trices. To push the argument further, suppose
+a plausible situation where we have an optimal
+but non-parametric rule-based parser and sev-
+eral suboptimal statistical parsers. In such a
+case, our committee-based scheme may be able
+to organize a committee that can provide DP
+matrices while preserving the original total ac-
+curacy of the rule-based parser. To see this, we
+conducted another small experiment, where we
+combined KNP with each of C and D, both of
+which are less competent than KNP. The result-
+ing committees successfully provided reasonable
+P-A curves as shown in Figure 8, while even
+further improving the original total accuracy of
+KNP (0.8725 to 0.8868 for CF and 0.8860 for
+DF). Furthermore, the committees also gained
+the 11-point accuracy over C and D (0.9291 to
+\x0c0.9600 for CF and 0.9266 to 0.9561 for DF).
+These results suggest that our committee-based
+scheme does work even if the most competent
+member of a committee is rule-based and thus
+non-parametric.
+</bodyText>
+<sectionHeader confidence="0.998998" genericHeader="conclusions">
+5 Conclusion
+</sectionHeader>
+<bodyText confidence="0.9998279">
+This paper presented a general committee-
+based framework that can be coupled with prob-
+abilistic partial parsing. In this framework, a
+committee accepts parametric multiple votes,
+and then standardizes them, and \x0cnally pro-
+vides a probabilistic distribution. We presented
+a general method for producing probabilistic
+multiple votes (i.e. DP matrices), which al-
+lows most of the existing probabilistic models
+for parsing to join a committee. Our experi-
+ments revealed that (a) if more than two compa-
+rably competent models are available, it is likely
+to be worthwhile to combine them, (b) both
+multiple voting and vote standardization e\x0bec-
+tively work in committee-based partial parsing,
+(c) our scheme also allows a non-parametric
+rule-based parser to make a good contribution.
+While our experiments have so far been produc-
+ing promising results, there seems to be much
+room left for investigation and improvement.
+</bodyText>
+<sectionHeader confidence="0.978349" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.9998422">
+We would like to express our special thanks to
+all the creators of the parsers used here for en-
+abling all of this research by providing us their
+systems. We would also like to thank the re-
+viewers for their suggestive comments.
+</bodyText>
+<sectionHeader confidence="0.992127" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.998717970588235">
+Brill, E. and J. Wu. Classi\x0cer Combination for Im-
+proved Lexical Disambiguation. In Proc. of the
+17th COLING, pp.191{195, 1998.
+Carroll, J. ,G. Minnen, Y. Canning, S. Devlin and
+J. Tait. Practical Simpli\x0ccation of English News-
+paper Text to Assist Aphasic Readers. In Proc. of
+AAAI-98 Workshop on Integrating Arti\x0ccial In-
+telligence and Assistive Technology,1998.
+Charniak, E. Statistical parsing with a context-
+free grammar and word statistics. In Proc. of the
+AAAI, pp.598{603, 1997.
+Collins, M. J. A new statistical parser based on bi-
+gram lexical dependencies. In Proc. of the 34th
+ACL, pp.184{191, 1996.
+Collins, M. J. Three generative, lexicalised models
+for statistical parsing. In Proc. of the 35th ACL,
+pp.16{23, 1997.
+Ehara, T. Estimating the consistency of Japanese
+dependency relations based on the maximam en-
+tropy modeling. In Proc. of the 4th Annual Meet-
+ing of The Association of Natural Language Pro-
+cessing, pp.382{385, 1998. (In Japanese)
+Fiscus, J. G. A post-processing system to yield re-
+duced word error rates: Recognizer output voting
+error reduction (ROVER). In EuroSpeech, 1997.
+Frederking, R. and S. Nirenburg. Three heads are
+better than one. In Proc. of the 4th ANLP, 1994.
+Fujio, M. and Y. Matsumoto. Japanese dependency
+structure analysis based on lexicalized statistics.
+In Proc. of the 3rd EMNLP, pp.87{96, 1998.
+Henderson, J. C. and E. Brill. Exploiting Diver-
+sity in Natural Language Processing: Combining
+Parsers. In Proc. of the 1999 Joint SIGDAT Con-
+ference on EMNLP and VLC, pp.187{194.
+Jensen, K., G. E. Heidorn, and S. D. Richardson,
+editors. natural language processing: The PLNLP
+Approach. Kluwer Academic Publishers, 1993.
+Kanayama, H., K. Torisawa, Y. Mitsuisi, and
+J. Tsujii. Statistical Dependency Analysis with
+an HPSG-based Japanese Grammar. In Proc. of
+the NLPRS, pp.138{143, 1999.
+Kurohashi, S. and M. Nagao. Building a Japanese
+parsed corpus while improving the parsing system.
+In Proc. of NLPRS, pp.151{156, 1997.
+Kurohashi, S. and M. Nagao. KN Parser : Japanese
+Dependency/Case Structure Analyzer. In Proc. of
+The International Workshop on Sharable Natural
+Language Resources, pp.48-55, 1994.
+Poole, D. Average-case analysis of a search algo-
+rithm for estimating prior and posterior probabil-
+ities in Bayesian networks with extreme probabil-
+ities. the 13th IJCAI, pp.606{612, 1993.
+Pedersen, T. A Simple Approach to Building En-
+sembles of Naive Bayesian Classi\x0cers for Word
+Sense Disambiguation In Proc. of the NAACL,
+pp.63-69, 2000.
+Shirai, K., K. Inui, T. Tokunaga and H. Tanaka
+An empirical evaluation on statistical parsing
+of Japanese sentences using a lexical association
+statistics. the 3rd EMNLP, pp.80-87, 1998.
+Uchimoto, K., S. Sekine, and H. Isahara. Japanese
+dependency structure analysis based on maxi-
+mum entopy models. In Proc. of the 13th EACL,
+pp.196-203, 1999.
+van Halteren, H., J. Zavrel, and W. Daelemans. Im-
+proving data driven wordclass tagging by system
+combination. In Proc. of the 17th COLING, 1998.
+\x0c&amp;apos;
+</reference>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.278698">
+<title confidence="0.996291">b&amp;apos;Committee-based Decision Making in Probabilistic Partial Parsing</title>
+<address confidence="0.60172">INUI Takashi3 and INUI Kentaro3y</address>
+<affiliation confidence="0.9194055">3 Department of Arti\x0ccial Intelligence, Kyushu Institute of Technology y PRESTO, Japan Science and Technology Corporation</affiliation>
+<email confidence="0.550962">ftinui,inuig@pluto.ai.kyutech.ac.jp</email>
+<abstract confidence="0.999816681818182">This paper explores two directions for the next step beyond the state of the art of statistical parsing: probabilistic partial parsing and committee-based decision making. Probabilistic partial parsing is a probabilistic extension of the existing notion of partial parsing, which enables \x0cne-grained arbitrary choice on the tradeo\x0b between accuracy and coverage. Committeebased decision making is to combine the outputs from di\x0berent systems to make a better decision. While various committee-based techniques for NLP have recently been investigated, they would need to be further extended so as to be applicable to probabilistic partial parsing. Aiming at this coupling, this paper gives a general framework to committee-based decision making, which consists of a set of weighting functions and a combination function, and discusses how it can be coupled with probabilistic partial parsing. Our experiments have so far been producing promising results.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>E Brill</author>
+<author>J Wu</author>
+</authors>
+<title>Classi\x0cer Combination for Improved Lexical Disambiguation.</title>
+<date>1998</date>
+<booktitle>In Proc. of the 17th COLING, pp.191{195,</booktitle>
+<marker>Brill, Wu, 1998</marker>
+<rawString>Brill, E. and J. Wu. Classi\x0cer Combination for Improved Lexical Disambiguation. In Proc. of the 17th COLING, pp.191{195, 1998.</rawString>
+</citation>
+<citation valid="false">
+<authors>
+<author>G Minnen</author>
+<author>Y Canning</author>
+<author>S Devlin</author>
+<author>J Tait</author>
+</authors>
+<title>Practical Simpli\x0ccation of English Newspaper Text to Assist Aphasic Readers.</title>
+<booktitle>In Proc. of AAAI-98 Workshop on Integrating Arti\x0ccial Intelligence and Assistive Technology,1998.</booktitle>
+<marker>Minnen, Canning, Devlin, Tait, </marker>
+<rawString>Carroll, J. ,G. Minnen, Y. Canning, S. Devlin and J. Tait. Practical Simpli\x0ccation of English Newspaper Text to Assist Aphasic Readers. In Proc. of AAAI-98 Workshop on Integrating Arti\x0ccial Intelligence and Assistive Technology,1998.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E Charniak</author>
+</authors>
+<title>Statistical parsing with a contextfree grammar and word statistics.</title>
+<date>1997</date>
+<booktitle>In Proc. of the AAAI, pp.598{603,</booktitle>
+<contexts>
+<context position="5402" citStr="Charniak, 1997" startWordPosition="824" endWordPosition="825">, b1 b2 ::: bn, our task is to identify their inter-BP dependency structure R = fr(bi;bj)ji = 1;:::;ng, where r(bi;bj) denotes that bi depends on (or modi\x0ces) bj. Let us consider a dependency probability (DP), P(r(bi;bj)js), a probability that r(bi;bj) holds in a given sentence s: 8i: P j P(r(bi;bj)js) = 1. 2.2 Estimation of DPs Some of the state-of-the-art probabilistic language models such as the bottomup models P(Rjs) proposed by Collins (1996) and Fujio et al. (1998) directly estimate DPs for a given input, whereas other models such as PCFGbased topdown generation models P(R;s) do not (Charniak, 1997; Collins, 1997; Shirai et al., 1998). If the latter type of models were totally excluded from any committee, our committeebased framework would not work well in practice. Fortunately, however, even for such a model, one can still estimate DPs in the following way if the model provides the n-best depen1 A bunsetsu phrase (BP) is a chunk of words consisting of a content word (noun, verb, adjective, etc.) accompanied by some functional word(s) (particle, auxiliary, etc.). A Japanese sentence can be analyzed as a sequence of BPs, which constitutes an inter-BP dependency structure dency structure </context>
+</contexts>
+<marker>Charniak, 1997</marker>
+<rawString>Charniak, E. Statistical parsing with a contextfree grammar and word statistics. In Proc. of the AAAI, pp.598{603, 1997.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M J Collins</author>
+</authors>
+<title>A new statistical parser based on bigram lexical dependencies.</title>
+<date>1996</date>
+<booktitle>In Proc. of the 34th ACL, pp.184{191,</booktitle>
+<contexts>
+<context position="4720" citStr="Collins (1996)" startWordPosition="711" endWordPosition="712">hat framework enables the coupling with probabilistic partial parsing. To demonstrate how it works, we report the results of our parsing experiments on a Japanese tree bank. 2 Probabilistic partial parsing 2.1 Dependency probability In this paper, we consider the task of deciding the dependency structure of a Japanese input sentence. Note that, while we restrict our discussion to analysis of Japanese sentences in this paper, what we present below should also be straightforwardly applicable to more wideranged tasks such as English dependency analysis just like the problem setting considered by Collins (1996). Given an input sentence s as a sequence of Bunsetsu-phrases (BPs)1, b1 b2 ::: bn, our task is to identify their inter-BP dependency structure R = fr(bi;bj)ji = 1;:::;ng, where r(bi;bj) denotes that bi depends on (or modi\x0ces) bj. Let us consider a dependency probability (DP), P(r(bi;bj)js), a probability that r(bi;bj) holds in a given sentence s: 8i: P j P(r(bi;bj)js) = 1. 2.2 Estimation of DPs Some of the state-of-the-art probabilistic language models such as the bottomup models P(Rjs) proposed by Collins (1996) and Fujio et al. (1998) directly estimate DPs for a given input, whereas othe</context>
+<context position="13788" citStr="Collins, 1996" startWordPosition="2281" endWordPosition="2282">ments 4.1 Settings We conducted experiments using the following \x0cve statistical parsers: Table 1: The total / 11-point accuracy achieved by each individual model total 11-point A 0.8974 0.9607 B 0.8551 0.9281 C 0.8586 0.9291 D 0.8470 0.9266 E 0.7885 0.8567 \x0f KANA (Ehara, 1998): a bottom-up model based on maximum entropy estimation. Since dependency score matrices given by KANA have no probabilistic semantics, we normalized them for each row using a certain function manually tuned for this parser. \x0f CHAGAKE (Fujio et al., 1998): an extension of the bottom-up model proposed by Collins (Collins, 1996). \x0f Kanayama\&amp;apos;s parser (Kanayama et al., 1999): a bottom-up model coupled with an HPSG. \x0f Shirai\&amp;apos;s parser (Shirai et al., 1998): a topdown model incorporating lexical collocation statistics. Equation (1) was used for estimating DPs. \x0f Peach Pie Parser (Uchimoto et al., 1999): a bottom-up model based on maximum entropy estimation. Note that these models were developed fully independently of each other, and have signi\x0ccantly di\x0berent characters (for a comparison of their performance, see Table 1). In what follows, these models are referred to anonymously. For the source of the tr</context>
+</contexts>
+<marker>Collins, 1996</marker>
+<rawString>Collins, M. J. A new statistical parser based on bigram lexical dependencies. In Proc. of the 34th ACL, pp.184{191, 1996.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M J Collins</author>
+</authors>
+<title>Three generative, lexicalised models for statistical parsing.</title>
+<date>1997</date>
+<booktitle>In Proc. of the 35th ACL, pp.16{23,</booktitle>
+<contexts>
+<context position="5417" citStr="Collins, 1997" startWordPosition="826" endWordPosition="827">our task is to identify their inter-BP dependency structure R = fr(bi;bj)ji = 1;:::;ng, where r(bi;bj) denotes that bi depends on (or modi\x0ces) bj. Let us consider a dependency probability (DP), P(r(bi;bj)js), a probability that r(bi;bj) holds in a given sentence s: 8i: P j P(r(bi;bj)js) = 1. 2.2 Estimation of DPs Some of the state-of-the-art probabilistic language models such as the bottomup models P(Rjs) proposed by Collins (1996) and Fujio et al. (1998) directly estimate DPs for a given input, whereas other models such as PCFGbased topdown generation models P(R;s) do not (Charniak, 1997; Collins, 1997; Shirai et al., 1998). If the latter type of models were totally excluded from any committee, our committeebased framework would not work well in practice. Fortunately, however, even for such a model, one can still estimate DPs in the following way if the model provides the n-best depen1 A bunsetsu phrase (BP) is a chunk of words consisting of a content word (noun, verb, adjective, etc.) accompanied by some functional word(s) (particle, auxiliary, etc.). A Japanese sentence can be analyzed as a sequence of BPs, which constitutes an inter-BP dependency structure dency structure candidates coup</context>
+</contexts>
+<marker>Collins, 1997</marker>
+<rawString>Collins, M. J. Three generative, lexicalised models for statistical parsing. In Proc. of the 35th ACL, pp.16{23, 1997.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Ehara</author>
+</authors>
+<title>Estimating the consistency of Japanese dependency relations based on the maximam entropy modeling.</title>
+<date>1998</date>
+<journal>(In Japanese) Fiscus, J. G. A</journal>
+<booktitle>In Proc. of the 4th Annual Meeting of The Association of Natural Language Processing, pp.382{385,</booktitle>
+<contexts>
+<context position="13457" citStr="Ehara, 1998" startWordPosition="2228" endWordPosition="2229">d constituent voting and naive Bayes classi\x0ccation for parsing, obtaining positive results for each. Simple constituent voting, however, does not accept parametric votes. While Naive Bayes seems to partly accept parametric multiple voting, it does not consider either standardization or coverage/accuracy trade-o\x0b. 4 Experiments 4.1 Settings We conducted experiments using the following \x0cve statistical parsers: Table 1: The total / 11-point accuracy achieved by each individual model total 11-point A 0.8974 0.9607 B 0.8551 0.9281 C 0.8586 0.9291 D 0.8470 0.9266 E 0.7885 0.8567 \x0f KANA (Ehara, 1998): a bottom-up model based on maximum entropy estimation. Since dependency score matrices given by KANA have no probabilistic semantics, we normalized them for each row using a certain function manually tuned for this parser. \x0f CHAGAKE (Fujio et al., 1998): an extension of the bottom-up model proposed by Collins (Collins, 1996). \x0f Kanayama\&amp;apos;s parser (Kanayama et al., 1999): a bottom-up model coupled with an HPSG. \x0f Shirai\&amp;apos;s parser (Shirai et al., 1998): a topdown model incorporating lexical collocation statistics. Equation (1) was used for estimating DPs. \x0f Peach Pie Parser (Uchimo</context>
+</contexts>
+<marker>Ehara, 1998</marker>
+<rawString>Ehara, T. Estimating the consistency of Japanese dependency relations based on the maximam entropy modeling. In Proc. of the 4th Annual Meeting of The Association of Natural Language Processing, pp.382{385, 1998. (In Japanese) Fiscus, J. G. A post-processing system to yield reduced word error rates: Recognizer output voting error reduction (ROVER). In EuroSpeech, 1997.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Frederking</author>
+<author>S Nirenburg</author>
+</authors>
+<title>Three heads are better than one.</title>
+<date>1994</date>
+<booktitle>In Proc. of the 4th ANLP,</booktitle>
+<contexts>
+<context position="3575" citStr="Frederking and Nirenburg, 1994" startWordPosition="530" endWordPosition="533">their coverage-accuracy (or recallprecision) curves. Taking the signi\x0ccance of partial parsing into account, therefore in this paper, we evaluate parsing performance according to coverage-accuracy curves. Committee-based decision making is to combine the outputs from several di\x0berent systems (e.g. parsers) to make a better decision. Recently, there have been various attempts to apply committee-based techniques to NLP tasks such as POS tagging (Halteren et al., 1998; Brill et al., 1998), parsing (Henderson and Brill, 1999), word sense disambiguation (Pedersen, 2000), machine translation (Frederking and Nirenburg, 1994), and speech recognition (Fiscus, 1997). Those works empirically demonstrated that combining di\x0berent systems often achieved signi\x0ccant improvements over the previous best system. In order to couple those committee-based \x0cschemes with probabilistic partial parsing, however, one would still need to make a further extension. Aiming at this coupling, in this paper, we consider a general framework of committeebased decision making that consists of a set of weighting functions and a combination function, and discuss how that framework enables the coupling with probabilistic partial parsing</context>
+</contexts>
+<marker>Frederking, Nirenburg, 1994</marker>
+<rawString>Frederking, R. and S. Nirenburg. Three heads are better than one. In Proc. of the 4th ANLP, 1994. Fujio, M. and Y. Matsumoto. Japanese dependency structure analysis based on lexicalized statistics.</rawString>
+</citation>
+<citation valid="true">
+<date>1998</date>
+<booktitle>In Proc. of the 3rd EMNLP, pp.87{96,</booktitle>
+<contexts>
+<context position="5266" citStr="(1998)" startWordPosition="803" endWordPosition="803">s just like the problem setting considered by Collins (1996). Given an input sentence s as a sequence of Bunsetsu-phrases (BPs)1, b1 b2 ::: bn, our task is to identify their inter-BP dependency structure R = fr(bi;bj)ji = 1;:::;ng, where r(bi;bj) denotes that bi depends on (or modi\x0ces) bj. Let us consider a dependency probability (DP), P(r(bi;bj)js), a probability that r(bi;bj) holds in a given sentence s: 8i: P j P(r(bi;bj)js) = 1. 2.2 Estimation of DPs Some of the state-of-the-art probabilistic language models such as the bottomup models P(Rjs) proposed by Collins (1996) and Fujio et al. (1998) directly estimate DPs for a given input, whereas other models such as PCFGbased topdown generation models P(R;s) do not (Charniak, 1997; Collins, 1997; Shirai et al., 1998). If the latter type of models were totally excluded from any committee, our committeebased framework would not work well in practice. Fortunately, however, even for such a model, one can still estimate DPs in the following way if the model provides the n-best depen1 A bunsetsu phrase (BP) is a chunk of words consisting of a content word (noun, verb, adjective, etc.) accompanied by some functional word(s) (particle, auxilia</context>
+<context position="12776" citStr="(1998)" startWordPosition="2129" endWordPosition="2129">he previously proposed voting-based techniques in the following respects: (a) A committee accepts probabilistically parameterized votes as its input. (d) A committee accepts multiple voting (i.e. it allow a committee member to vote not only to the best-scored candidate but also to all other potential candidates). (c) A committee provides a means for standardizing original votes. (b) A committee outputs a probabilistic distribution representing a \x0cnal decision, which constitutes a C-A curve. For example, none of simple voting techniques for word class tagging proposed by van Halteren et al. (1998) does not accepts multiple voting. Henderson and Brill (1999) examined constituent voting and naive Bayes classi\x0ccation for parsing, obtaining positive results for each. Simple constituent voting, however, does not accept parametric votes. While Naive Bayes seems to partly accept parametric multiple voting, it does not consider either standardization or coverage/accuracy trade-o\x0b. 4 Experiments 4.1 Settings We conducted experiments using the following \x0cve statistical parsers: Table 1: The total / 11-point accuracy achieved by each individual model total 11-point A 0.8974 0.9607 B 0.85</context>
+</contexts>
+<marker>1998</marker>
+<rawString>In Proc. of the 3rd EMNLP, pp.87{96, 1998.</rawString>
+</citation>
+<citation valid="false">
+<authors>
+<author>J C Henderson</author>
+<author>E Brill</author>
+</authors>
+<title>Exploiting Diversity in Natural Language Processing: Combining Parsers.</title>
+<booktitle>In Proc. of the 1999 Joint SIGDAT Conference on EMNLP and VLC,</booktitle>
+<pages>187--194</pages>
+<marker>Henderson, Brill, </marker>
+<rawString>Henderson, J. C. and E. Brill. Exploiting Diversity in Natural Language Processing: Combining Parsers. In Proc. of the 1999 Joint SIGDAT Conference on EMNLP and VLC, pp.187{194.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K Jensen</author>
+<author>G E Heidorn</author>
+<author>S D Richardson</author>
+</authors>
+<title>editors. natural language processing: The PLNLP Approach.</title>
+<date>1993</date>
+<publisher>Kluwer Academic Publishers,</publisher>
+<contexts>
+<context position="1892" citStr="Jensen et al., 1993" startWordPosition="280" endWordPosition="283">r of attempts to use statistical techniques to improve parsing performance. While this goal has been achieved to a certain degree given the increasing availability of large tree banks, the remaining room for the improvement appears to be getting saturated as long as only statistical techniques are taken into account. This paper explores two directions for the next step beyond the state of the art of statistical parsing: probabilistic partial parsing and committee-based decision making. Probabilistic partial parsing is a probabilistic extension of the existing notion of partial parsing ( e.g. (Jensen et al., 1993)) where a parser selects as its output only a part of the parse tree that are probabilistically highly reliable. This decision-making scheme enables a \x0cne-grained arbitrary choice on the trade-o\x0b between accuracy and coverage. Such trade-o\x0b is important since there are various applications that require reasonably high accuracy even sacri\x0ccing coverage. A typical example is the paraphrasing task embedded in summarization, sentence simpli\x0ccation (e.g. (Carroll et al., 1998)), etc. Enabling such trade-o\x0b choice will make stateof-the-art parsers of wider application. Partial pars</context>
+</contexts>
+<marker>Jensen, Heidorn, Richardson, 1993</marker>
+<rawString>Jensen, K., G. E. Heidorn, and S. D. Richardson, editors. natural language processing: The PLNLP Approach. Kluwer Academic Publishers, 1993.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H Kanayama</author>
+<author>K Torisawa</author>
+<author>Y Mitsuisi</author>
+<author>J Tsujii</author>
+</authors>
+<title>Statistical Dependency Analysis with an HPSG-based Japanese Grammar.</title>
+<date>1999</date>
+<booktitle>In Proc. of the NLPRS, pp.138{143,</booktitle>
+<contexts>
+<context position="13837" citStr="Kanayama et al., 1999" startWordPosition="2286" endWordPosition="2289">ts using the following \x0cve statistical parsers: Table 1: The total / 11-point accuracy achieved by each individual model total 11-point A 0.8974 0.9607 B 0.8551 0.9281 C 0.8586 0.9291 D 0.8470 0.9266 E 0.7885 0.8567 \x0f KANA (Ehara, 1998): a bottom-up model based on maximum entropy estimation. Since dependency score matrices given by KANA have no probabilistic semantics, we normalized them for each row using a certain function manually tuned for this parser. \x0f CHAGAKE (Fujio et al., 1998): an extension of the bottom-up model proposed by Collins (Collins, 1996). \x0f Kanayama\&amp;apos;s parser (Kanayama et al., 1999): a bottom-up model coupled with an HPSG. \x0f Shirai\&amp;apos;s parser (Shirai et al., 1998): a topdown model incorporating lexical collocation statistics. Equation (1) was used for estimating DPs. \x0f Peach Pie Parser (Uchimoto et al., 1999): a bottom-up model based on maximum entropy estimation. Note that these models were developed fully independently of each other, and have signi\x0ccantly di\x0berent characters (for a comparison of their performance, see Table 1). In what follows, these models are referred to anonymously. For the source of the training/test set, we used the Kyoto corpus (ver.2.</context>
+</contexts>
+<marker>Kanayama, Torisawa, Mitsuisi, Tsujii, 1999</marker>
+<rawString>Kanayama, H., K. Torisawa, Y. Mitsuisi, and J. Tsujii. Statistical Dependency Analysis with an HPSG-based Japanese Grammar. In Proc. of the NLPRS, pp.138{143, 1999. Kurohashi, S. and M. Nagao. Building a Japanese parsed corpus while improving the parsing system.</rawString>
+</citation>
+<citation valid="true">
+<date>1997</date>
+<booktitle>In Proc. of NLPRS, pp.151{156,</booktitle>
+<marker>1997</marker>
+<rawString>In Proc. of NLPRS, pp.151{156, 1997.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Kurohashi</author>
+<author>M Nagao</author>
+</authors>
+<title>KN Parser : Japanese Dependency/Case Structure Analyzer.</title>
+<date>1994</date>
+<booktitle>In Proc. of The International Workshop on Sharable Natural Language Resources,</booktitle>
+<pages>48--55</pages>
+<marker>Kurohashi, Nagao, 1994</marker>
+<rawString>Kurohashi, S. and M. Nagao. KN Parser : Japanese Dependency/Case Structure Analyzer. In Proc. of The International Workshop on Sharable Natural Language Resources, pp.48-55, 1994.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Poole</author>
+</authors>
+<title>Average-case analysis of a search algorithm for estimating prior and posterior probabilities</title>
+<date>1993</date>
+<booktitle>in Bayesian networks with extreme probabilities. the 13th IJCAI, pp.606{612,</booktitle>
+<contexts>
+<context position="6568" citStr="Poole, 1993" startWordPosition="1032" endWordPosition="1033">inter-BP dependency structure dency structure candidates coupled with probabilistic scores. Let Ri be the i-th best dependency structure (i = 1;:::;n) of a given input s according to a given model, and let RH be a set of Ri. Then, P(r(bi;bj)js) can be estimated by the following approximation equation: P(r(bi;bj)js) \x19 Pr RH PRH (1) where PRH is the probability mass of R 2 RH, and Pr RH is the probability mass of R 2 RH that supports r(bi;bj). The approximation error \x0f is given by \x0f \x14 PR0PRH PR , where PR is the probability mass of all the dependency structure candidates for s (see (Poole, 1993) for the proof). This means that the approximation error is negligible if PRH is su\x0eciently close to PR, which holds for a reasonably small number n in most cases in practical statistical parsing. 2.3 Coverage-accuracy curves We then consider the task of selecting dependency relations whose estimated probability is higher than a certain threshold \x1b (0 &amp;lt; \x1b \x14 1). When \x1b is set to be higher (closer to 1.0), the accuracy is expected to become higher, while the coverage is expected to become lower, and vice versa. Here, coverage C and accuracy A are de\x0cned as follows: C = # of the</context>
+</contexts>
+<marker>Poole, 1993</marker>
+<rawString>Poole, D. Average-case analysis of a search algorithm for estimating prior and posterior probabilities in Bayesian networks with extreme probabilities. the 13th IJCAI, pp.606{612, 1993.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Pedersen</author>
+</authors>
+<title>A Simple Approach to Building Ensembles of Naive Bayesian Classi\x0cers for Word Sense Disambiguation</title>
+<date>2000</date>
+<booktitle>In Proc. of the NAACL,</booktitle>
+<pages>63--69</pages>
+<contexts>
+<context position="3521" citStr="Pedersen, 2000" startWordPosition="525" endWordPosition="527">ates statistical parsers according to their coverage-accuracy (or recallprecision) curves. Taking the signi\x0ccance of partial parsing into account, therefore in this paper, we evaluate parsing performance according to coverage-accuracy curves. Committee-based decision making is to combine the outputs from several di\x0berent systems (e.g. parsers) to make a better decision. Recently, there have been various attempts to apply committee-based techniques to NLP tasks such as POS tagging (Halteren et al., 1998; Brill et al., 1998), parsing (Henderson and Brill, 1999), word sense disambiguation (Pedersen, 2000), machine translation (Frederking and Nirenburg, 1994), and speech recognition (Fiscus, 1997). Those works empirically demonstrated that combining di\x0berent systems often achieved signi\x0ccant improvements over the previous best system. In order to couple those committee-based \x0cschemes with probabilistic partial parsing, however, one would still need to make a further extension. Aiming at this coupling, in this paper, we consider a general framework of committeebased decision making that consists of a set of weighting functions and a combination function, and discuss how that framework e</context>
+</contexts>
+<marker>Pedersen, 2000</marker>
+<rawString>Pedersen, T. A Simple Approach to Building Ensembles of Naive Bayesian Classi\x0cers for Word Sense Disambiguation In Proc. of the NAACL, pp.63-69, 2000.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K Shirai</author>
+<author>K Inui</author>
+<author>T Tokunaga</author>
+<author>H Tanaka</author>
+</authors>
+<title>An empirical evaluation on statistical parsing of Japanese sentences using a lexical association statistics. the 3rd EMNLP,</title>
+<date>1998</date>
+<pages>80--87</pages>
+<contexts>
+<context position="5439" citStr="Shirai et al., 1998" startWordPosition="828" endWordPosition="831">identify their inter-BP dependency structure R = fr(bi;bj)ji = 1;:::;ng, where r(bi;bj) denotes that bi depends on (or modi\x0ces) bj. Let us consider a dependency probability (DP), P(r(bi;bj)js), a probability that r(bi;bj) holds in a given sentence s: 8i: P j P(r(bi;bj)js) = 1. 2.2 Estimation of DPs Some of the state-of-the-art probabilistic language models such as the bottomup models P(Rjs) proposed by Collins (1996) and Fujio et al. (1998) directly estimate DPs for a given input, whereas other models such as PCFGbased topdown generation models P(R;s) do not (Charniak, 1997; Collins, 1997; Shirai et al., 1998). If the latter type of models were totally excluded from any committee, our committeebased framework would not work well in practice. Fortunately, however, even for such a model, one can still estimate DPs in the following way if the model provides the n-best depen1 A bunsetsu phrase (BP) is a chunk of words consisting of a content word (noun, verb, adjective, etc.) accompanied by some functional word(s) (particle, auxiliary, etc.). A Japanese sentence can be analyzed as a sequence of BPs, which constitutes an inter-BP dependency structure dency structure candidates coupled with probabilistic</context>
+<context position="13922" citStr="Shirai et al., 1998" startWordPosition="2300" endWordPosition="2303">cy achieved by each individual model total 11-point A 0.8974 0.9607 B 0.8551 0.9281 C 0.8586 0.9291 D 0.8470 0.9266 E 0.7885 0.8567 \x0f KANA (Ehara, 1998): a bottom-up model based on maximum entropy estimation. Since dependency score matrices given by KANA have no probabilistic semantics, we normalized them for each row using a certain function manually tuned for this parser. \x0f CHAGAKE (Fujio et al., 1998): an extension of the bottom-up model proposed by Collins (Collins, 1996). \x0f Kanayama\&amp;apos;s parser (Kanayama et al., 1999): a bottom-up model coupled with an HPSG. \x0f Shirai\&amp;apos;s parser (Shirai et al., 1998): a topdown model incorporating lexical collocation statistics. Equation (1) was used for estimating DPs. \x0f Peach Pie Parser (Uchimoto et al., 1999): a bottom-up model based on maximum entropy estimation. Note that these models were developed fully independently of each other, and have signi\x0ccantly di\x0berent characters (for a comparison of their performance, see Table 1). In what follows, these models are referred to anonymously. For the source of the training/test set, we used the Kyoto corpus (ver.2.0) (Kurohashi et al., 1997), which is a collection of Japanese newspaper articles ann</context>
+</contexts>
+<marker>Shirai, Inui, Tokunaga, Tanaka, 1998</marker>
+<rawString>Shirai, K., K. Inui, T. Tokunaga and H. Tanaka An empirical evaluation on statistical parsing of Japanese sentences using a lexical association statistics. the 3rd EMNLP, pp.80-87, 1998.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>K Uchimoto</author>
+<author>S Sekine</author>
+<author>H Isahara</author>
+</authors>
+<title>Japanese dependency structure analysis based on maximum entopy models.</title>
+<date>1999</date>
+<booktitle>In Proc. of the 13th EACL,</booktitle>
+<pages>196--203</pages>
+<contexts>
+<context position="14073" citStr="Uchimoto et al., 1999" startWordPosition="2324" endWordPosition="2327"> 1998): a bottom-up model based on maximum entropy estimation. Since dependency score matrices given by KANA have no probabilistic semantics, we normalized them for each row using a certain function manually tuned for this parser. \x0f CHAGAKE (Fujio et al., 1998): an extension of the bottom-up model proposed by Collins (Collins, 1996). \x0f Kanayama\&amp;apos;s parser (Kanayama et al., 1999): a bottom-up model coupled with an HPSG. \x0f Shirai\&amp;apos;s parser (Shirai et al., 1998): a topdown model incorporating lexical collocation statistics. Equation (1) was used for estimating DPs. \x0f Peach Pie Parser (Uchimoto et al., 1999): a bottom-up model based on maximum entropy estimation. Note that these models were developed fully independently of each other, and have signi\x0ccantly di\x0berent characters (for a comparison of their performance, see Table 1). In what follows, these models are referred to anonymously. For the source of the training/test set, we used the Kyoto corpus (ver.2.0) (Kurohashi et al., 1997), which is a collection of Japanese newspaper articles annotated in terms of word boundaries, POS tags, BP boundaries, and inter-BP dependency relations. The corpus originally contained 19,956 sentences. To ma</context>
+</contexts>
+<marker>Uchimoto, Sekine, Isahara, 1999</marker>
+<rawString>Uchimoto, K., S. Sekine, and H. Isahara. Japanese dependency structure analysis based on maximum entopy models. In Proc. of the 13th EACL, pp.196-203, 1999.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H van Halteren</author>
+<author>J Zavrel</author>
+<author>W Daelemans</author>
+</authors>
+<title>Improving data driven wordclass tagging by system combination.</title>
+<date>1998</date>
+<booktitle>In Proc. of the 17th COLING,</booktitle>
+<pages>0</pages>
+<marker>van Halteren, Zavrel, Daelemans, 1998</marker>
+<rawString>van Halteren, H., J. Zavrel, and W. Daelemans. Improving data driven wordclass tagging by system combination. In Proc. of the 17th COLING, 1998. \x0c&amp;apos;</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>
