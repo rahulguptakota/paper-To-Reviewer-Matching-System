@@ -1,0 +1,1225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<title confidence="0.865057">
+b&amp;apos;Chinese Segmentation and New Word Detection
+using Conditional Random Fields
+</title>
+<author confidence="0.990928">
+Fuchun Peng, Fangfang Feng, Andrew McCallum
+</author>
+<affiliation confidence="0.999326">
+Computer Science Department, University of Massachusetts Amherst
+</affiliation>
+<address confidence="0.935779">
+140 Governors Drive, Amherst, MA, U.S.A. 01003
+</address>
+<email confidence="0.978744">
+{fuchun, feng, mccallum}@cs.umass.edu
+</email>
+<sectionHeader confidence="0.990524" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.9981582">
+Chinese word segmentation is a difficult, im-
+portant and widely-studied sequence modeling
+problem. This paper demonstrates the abil-
+ity of linear-chain conditional random fields
+(CRFs) to perform robust and accurate Chi-
+nese word segmentation by providing a prin-
+cipled framework that easily supports the in-
+tegration of domain knowledge in the form of
+multiple lexicons of characters and words. We
+also present a probabilistic new word detection
+method, which further improves performance.
+Our system is evaluated on four datasets used
+in a recent comprehensive Chinese word seg-
+mentation competition. State-of-the-art perfor-
+mance is obtained.
+</bodyText>
+<sectionHeader confidence="0.997973" genericHeader="introduction">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.999515345132743">
+Unlike English and other western languages, many
+Asian languages such as Chinese, Japanese, and
+Thai, do not delimit words by white-space. Word
+segmentation is therefore a key precursor for lan-
+guage processing tasks in these languages. For Chi-
+nese, there has been significant research on find-
+ing word boundaries in unsegmented sequences
+(see (Sproat and Shih, 2002) for a review). Un-
+fortunately, building a Chinese word segmentation
+system is complicated by the fact that there is no
+standard definition of word boundaries in Chinese.
+Approaches to Chinese segmentation fall roughly
+into two categories: heuristic dictionary-based
+methods and statistical machine learning methods.
+In dictionary-based methods, a predefined dictio-
+nary is used along with hand-generated rules for
+segmenting input sequence (Wu, 1999). However
+these approaches have been limited by the impos-
+sibility of creating a lexicon that includes all pos-
+sible Chinese words and by the lack of robust sta-
+tistical inference in the rules. Machine learning ap-
+proaches are more desirable and have been success-
+ful in both unsupervised learning (Peng and Schuur-
+mans, 2001) and supervised learning (Teahan et al.,
+2000).
+Many current approaches suffer from either lack
+of exact inference over sequences or difficulty in in-
+corporating domain knowledge effectively into seg-
+mentation. Domain knowledge is either not used,
+used in a limited way, or used in a complicated way
+spread across different components. For example,
+the N-gram generative language modeling based ap-
+proach of Teahan et al (2000) does not use domain
+knowledge. Gao et al (2003) uses class-based lan-
+guage for word segmentation where some word cat-
+egory information can be incorporated. Zhang et
+al (2003) use a hierarchical hidden Markov Model
+to incorporate lexical knowledge. A recent advance
+in this area is Xue (2003), in which the author uses
+a sliding-window maximum entropy classifier to tag
+Chinese characters into one of four position tags,
+and then covert these tags into a segmentation using
+rules. Maximum entropy models give tremendous
+flexibility to incorporate arbitrary features. How-
+ever, a traditional maximum entropy tagger, as used
+in Xue (2003), labels characters without considering
+dependencies among the predicted segmentation la-
+bels that is inherent in the state transitions of finite-
+state sequence models.
+Linear-chain conditional random fields (CRFs)
+(Lafferty et al., 2001) are models that address
+both issues above. Unlike heuristic methods, they
+are principled probabilistic finite state models on
+which exact inference over sequences can be ef-
+ficiently performed. Unlike generative N-gram or
+hidden Markov models, they have the ability to
+straightforwardly combine rich domain knowledge,
+for example in this paper, in the form of multiple
+readily-available lexicons. Furthermore, they are
+discriminatively-trained, and are often more accu-
+rate than generative models, even with the same fea-
+tures. In their most general form, CRFs are arbitrary
+undirected graphical models trained to maximize
+the conditional probability of the desired outputs
+given the corresponding inputs. In the linear-chain
+special case we use here, they can be roughly un-
+derstood as discriminatively-trained hidden Markov
+models with next-state transition functions repre-
+sented by exponential models (as in maximum en-
+\x0ctropy classifiers), and with great flexibility to view
+the observation sequence in terms of arbitrary, over-
+lapping features, with long-range dependencies, and
+at multiple levels of granularity. These beneficial
+properties suggests that CRFs are a promising ap-
+proach for Chinese word segmentation.
+New word detection is one of the most impor-
+tant problems in Chinese information processing.
+Many machine learning approaches have been pro-
+posed (Chen and Bai, 1998; Wu and Jiang, 2000;
+Nie et al., 1995). New word detection is normally
+considered as a separate process from segmentation.
+However, integrating them would benefit both seg-
+mentation and new word detection. CRFs provide a
+convenient framework for doing this. They can pro-
+duce not only a segmentation, but also confidence
+in local segmentation decisions, which can be used
+to find new, unfamiliar character sequences sur-
+rounded by high-confidence segmentations. Thus,
+our new word detection is not a stand-alone process,
+but an integral part of segmentation. Newly detected
+words are re-incorporated into our word lexicon,
+and used to improve segmentation. Improved seg-
+mentation can then be further used to improve new
+word detection.
+Comparing Chinese word segmentation accuracy
+across systems can be difficult because many re-
+search papers use different data sets and different
+ground-rules. Some published results claim 98% or
+99% segmentation precision and recall, but these ei-
+ther count only the words that occur in the lexicon,
+or use unrealistically simple data, lexicons that have
+extremely small (or artificially non-existant) out-
+of-vocabulary rates, short sentences or many num-
+bers. A recent Chinese word segmentation competi-
+tion (Sproat and Emerson, 2003) has made compar-
+isons easier. The competition provided four datasets
+with significantly different segmentation guidelines,
+and consistent train-test splits. The performance of
+participating system varies significantly across dif-
+ferent datasets. Our system achieves top perfor-
+mance in two of the runs, and a state-of-the-art per-
+formance on average. This indicates that CRFs are a
+viable model for robust Chinese word segmentation.
+</bodyText>
+<sectionHeader confidence="0.983471" genericHeader="method">
+2 Conditional Random Fields
+</sectionHeader>
+<bodyText confidence="0.979804">
+Conditional random fields (CRFs) are undirected
+graphical models trained to maximize a conditional
+probability (Lafferty et al., 2001). A common
+special-case graph structure is a linear chain, which
+corresponds to a finite state machine, and is suitable
+for sequence labeling. A linear-chain CRF with pa-
+rameters = {1, ...} defines a conditional proba-
+bility for a state (label) sequence y = y1...yT (for
+example, labels indicating where words start or have
+their interior) given an input sequence x = x1...xT
+(for example, the characters of a Chinese sentence)
+to be
+</bodyText>
+<equation confidence="0.978629846153846">
+P(y|x) =
+1
+Zx
+exp
+A T
+X
+t=1
+X
+k
+kfk(yt1, yt, x, t)
+!
+,
+(1)
+</equation>
+<bodyText confidence="0.998174666666667">
+where Zx is the per-input normalization that makes
+the probability of all state sequences sum to one;
+fk(yt1, yt, x, t) is a feature function which is of-
+ten binary-valued, but can be real-valued, and k is
+a learned weight associated with feature fk. The
+feature functions can measure any aspect of a state
+transition, yt1 yt, and the entire observation se-
+quence, x, centered at the current time step, t. For
+example, one feature function might have value 1
+when yt1 is the state START, yt is the state NOT-
+START, and xt is a word appearing in a lexicon of
+peoples first names. Large positive values for k
+indicate a preference for such an event; large nega-
+tive values make the event unlikely.
+The most probable label sequence for an input x,
+</bodyText>
+<equation confidence="0.969473">
+y
+= arg max
+y
+P(y|x),
+</equation>
+<bodyText confidence="0.9954977">
+can be efficiently determined using the Viterbi al-
+gorithm (Rabiner, 1990). An N-best list of label-
+ing sequences can also be obtained using modi-
+fied Viterbi algorithm and A* search (Schwartz and
+Chow, 1990).
+The parameters can be estimated by maximum
+likelihoodmaximizing the conditional probability
+of a set of label sequences, each given their cor-
+responding input sequences. The log-likelihood of
+training set {(xi, yi) : i = 1, ...M} is written
+</bodyText>
+<equation confidence="0.994917066666667">
+L =
+X
+i
+log P(yi|xi)
+=
+X
+i
+A T
+X
+t=1
+X
+k
+kfk(yt1, yt, x, t) log Zxi
+!
+.
+</equation>
+<bodyText confidence="0.997393142857143">
+Traditional maximum entropy learning algorithms,
+such as GIS and IIS (della Pietra et al., 1995), can
+be used to train CRFs. However, our implemen-
+tation uses a quasi-Newton gradient-climber BFGS
+for optimization, which has been shown to converge
+much faster (Malouf, 2002; Sha and Pereira, 2003).
+The gradient of the likelihood is P(y|x)/k =
+</bodyText>
+<equation confidence="0.998879272727273">
+X
+i,t
+fk(yt1, y
+(i)
+t , x(i)
+, t)
+X
+i,y,t
+P(y|x(i)
+)fk(yt1, yt, x(i)
+, t)
+</equation>
+<bodyText confidence="0.9962814">
+\x0cCRFs share many of the advantageous properties
+of standard maximum entropy classifiers, including
+their convex likelihood function, which guarantees
+that the learning procedure converges to the global
+maximum.
+</bodyText>
+<subsectionHeader confidence="0.979197">
+2.1 Regularization in CRFs
+</subsectionHeader>
+<bodyText confidence="0.9982358">
+To avoid over-fitting, log-likelihood is usually pe-
+nalized by some prior distribution over the parame-
+ters. A commonly used prior is a zero-mean Gaus-
+sian. With a Gaussian prior, log-likelihood is penal-
+ized as follows.
+</bodyText>
+<equation confidence="0.9133229">
+L =
+X
+i
+log P(yi|xi)
+X
+k
+2
+k
+22
+k
+</equation>
+<bodyText confidence="0.968821333333333">
+(2)
+where 2
+k is the variance for feature dimension k.
+The variance can be feature dependent. However
+for simplicity, constant variance is often used for
+all features. We experiment an alternate version of
+Gaussian prior in which the variance is feature de-
+pendent. We bin features by frequency in the train-
+ing set, and let the features in the same bin share
+the same variance. The discounted value is set to be
+k
+dck/Me2 where ck is the count of features, M is
+the bin size set by held out validation, and dae is the
+ceiling function. See Peng and McCallum (2004)
+for more details and further experiments.
+</bodyText>
+<subsectionHeader confidence="0.993019">
+2.2 State transition features
+</subsectionHeader>
+<bodyText confidence="0.969027636363636">
+Varying state-transition structures with different
+Markov order can be specified by different CRF
+feature functions, as determined by the number of
+output labels y examined together in a feature func-
+tion. We define four different state transition feature
+functions corresponding to different Markov orders.
+Higher-order features capture more long-range de-
+pendencies, but also cause more data sparseness
+problems and require more memory for training.
+The best Markov order for a particular application
+can be selected by held-out cross-validation.
+</bodyText>
+<listItem confidence="0.807906">
+1. First-order: Here the inputs are examined in
+</listItem>
+<bodyText confidence="0.8867135">
+the context of the current state only. The
+feature functions are represented as f(yt, x).
+There are no separate parameters for state tran-
+sitions.
+</bodyText>
+<listItem confidence="0.68098">
+2. First-order+transitions: Here we add parame-
+ters corresponding to state transitions. The fea-
+ture functions used are f(yt, x), f(yt1, yt).
+3. Second-order: Here inputs are examined in the
+context of the current and previous states. Fea-
+ture function are represented as f(yt1, yt, x).
+4. Third-order: Here inputs are examined in
+</listItem>
+<bodyText confidence="0.873313">
+the context of the current, and two previous
+states. Feature function are represented as
+f(yt2, yt1, yt, x).
+</bodyText>
+<sectionHeader confidence="0.977474" genericHeader="method">
+3 CRFs for Word Segmentation
+</sectionHeader>
+<bodyText confidence="0.998489307692308">
+We cast the segmentation problem as one of se-
+quence tagging: Chinese characters that begin a new
+word are given the START tag, and characters in
+the middle and at the end of words are given the
+NONSTART tag. The task of segmenting new, un-
+segmented test data becomes a matter of assigning
+a sequence of tags (labels) to the input sequence of
+Chinese characters.
+Conditional random fields are configured as a
+linear-chain (finite state machine) for this purpose,
+and tagging is performed using the Viterbi algo-
+rithm to efficiently find the most likely label se-
+quence for a given character sequence.
+</bodyText>
+<subsectionHeader confidence="0.982762">
+3.1 Lexicon features as domain knowledge
+</subsectionHeader>
+<bodyText confidence="0.998919153846154">
+One advantage of CRFs (as well as traditional max-
+imum entropy models) is its flexibility in using ar-
+bitrary features of the input. To explore this advan-
+tage, as well as the importance of domain knowl-
+edge, we use many open features from external re-
+sources. To specifically evaluate the importance of
+domain knowledge beyond the training data, we di-
+vide our features into two categories: closed fea-
+tures and open features, (i.e., features allowed in the
+competitions closed test and open test respec-
+tively). The open features include a large word list
+(containing single and multiple-character words), a
+character list, and additional topic or part-of-speech
+character lexicons obtained from various sources.
+The closed features are obtained from training data
+alone, by intersecting the character list obtained
+from training data with corresponding open lexi-
+cons.
+Many lexicons of Chinese words and characters
+are available from the Internet and other sources.
+Besides the word list and character list, our lexicons
+include 24 lists of Chinese words and characters ob-
+tained from several Internet sites1 cleaned and aug-
+mented by a local native Chinese speaker indepen-
+dently of the competition data. The list of lexicons
+used in our experiments is shown in Figure 1.
+</bodyText>
+<subsectionHeader confidence="0.989767">
+3.2 Feature conjunctions
+</subsectionHeader>
+<bodyText confidence="0.916736333333333">
+Since CRFs are log-linear models, feature conjunc-
+tions are required to form complex, non-linear de-
+cision boundaries in the original feature space. We
+</bodyText>
+<equation confidence="0.91295125">
+1
+http://www.mandarintools.com,
+ftp://xcin.linux.org.tw/pub/xcin/libtabe,
+http://www.geocities.com/hao510/wordlist
+\x0cnoun (e.g., , ) verb (e.g., u)
+adjective (e.g., u, ) adverb (e.g., !, 1)
+auxiliary (e.g., \x15, O) preposition (e.g., o)
+number (e.g., \x18, \x13) negative (e.g., X, :)
+</equation>
+<bodyText confidence="0.887233125">
+determiner (e.g., C, , Y) function (e.g. N, ?)
+letter (English character) punctuation (e.g., # $)
+last name (e.g., K) foreign name (e.g., )
+maybe last-name (e.g., , [) plural character (e.g., E, )
+pronoun (e.g., \x1c, , ) unit character (e.g., G, C)
+country name (e.g., , ) Chinese place name (e.g., )
+organization name title suffix (e.g., , E)
+title prefix (e.g., \x0f, ) date (e.g., #, U, )
+</bodyText>
+<figureCaption confidence="0.946947">
+Figure 1: Lexicons used in our experiments
+</figureCaption>
+<footnote confidence="0.513725">
+C2: second previous character in lexicon
+C1: previous character in lexicon
+C1: next character in lexicon
+C2: second next character in lexicon
+C0C1: current and next character in lexicon
+C1C0: current and previous character in lexicon
+C2C1: previous two characters in lexicon
+C1C0C1: previous, current, and next character in the lexicon
+</footnote>
+<figureCaption confidence="0.898762">
+Figure 2: Feature conjunctions used in experiments
+</figureCaption>
+<bodyText confidence="0.948265">
+use feature conjunctions in both the open and closed
+tests, as listed Figure 2.
+</bodyText>
+<sectionHeader confidence="0.974485" genericHeader="method">
+4 Probabilistic New Word Identification
+</sectionHeader>
+<bodyText confidence="0.9270321">
+Since no vocabulary list could ever be complete,
+new word (unknown word) identification is an im-
+portant issue in Chinese segmentation. Unknown
+words cause segmentation errors in that these out-
+of-vocabulary words in input text are often in-
+correctly segmented into single-character or other
+overly-short words (Chen and Bai, 1998). Tradi-
+tionally, new word detection has been considered as
+a standalone process. We consider here new word
+detection as an integral part of segmentation, aiming
+to improve both segmentation and new word detec-
+tion: detected new words are added to the word list
+lexicon in order to improve segmentation; improved
+segmentation can potentially further improve new
+word detection. We measure the performance of
+new word detection by its improvements on seg-
+mentation.
+Given a word segmentation proposed by the CRF,
+we can compute a confidence in each segment. We
+detect as new words those that are not in the existing
+word list, yet are either highly confident segments,
+or low confident segments that are surrounded by
+high confident words. A confidence threshold of 0.9
+is determined by cross-validation.
+Segment confidence is estimated using con-
+strained forward-backward (Culotta and McCal-
+lum, 2004). The standard forward-backward algo-
+rithm (Rabiner, 1990) calculates Zx, the total like-
+lihood of all label sequences y given a sequence x.
+Constrained forward-backward algorithm calculates
+</bodyText>
+<equation confidence="0.385189">
+Z
+0
+</equation>
+<bodyText confidence="0.9716348">
+x, total likelihood of all paths passing through
+a constrained segment (in our case, a sequence of
+characters starting with a START tag followed by a
+few NONSTART tags before the next START tag).
+The confidence in this segment is then Z
+</bodyText>
+<equation confidence="0.60304225">
+0
+x
+Zx
+, a real
+</equation>
+<bodyText confidence="0.999190235294118">
+number between 0 and 1.
+In order to increase recall of new words, we con-
+sider not only the most likely (Viterbi) segmen-
+tation, but the segmentations in the top N most
+likely segmentations (an N-best list), and detect
+new words according to the above criteria in all N
+segmentations.
+Many errors can be corrected by new word de-
+tection. For example, person name C hap-
+pens four times. In the first pass of segmentation,
+two of them are segmented correctly and the other
+two are mistakenly segmented as C (they
+are segmented differently because Viterbi algorithm
+decodes based on context.). However, C
+is identified as a new word and added to the word
+list lexicon. In the second pass of segmentation, the
+other two mistakes are corrected.
+</bodyText>
+<sectionHeader confidence="0.988117" genericHeader="evaluation">
+5 Experiments and Analysis
+</sectionHeader>
+<bodyText confidence="0.97141125">
+To make a comprehensive evaluation, we use all
+four of the datasets from a recent Chinese word seg-
+mentation bake-off competition (Sproat and Emer-
+son, 2003). These datasets represent four different
+segmentation standards. A summary of the datasets
+is shown in Table 1. The standard bake-off scoring
+program is used to calculate precision, recall, F1,
+and OOV word recall.
+</bodyText>
+<subsectionHeader confidence="0.947124">
+5.1 Experimental design
+</subsectionHeader>
+<bodyText confidence="0.954873631578947">
+Since CTB and PK are provided in the GB encod-
+ing while AS and HK use the Big5 encoding, we
+convert AS and HK datasets to GB in order to make
+cross-training-and-testing possible. Note that this
+conversion could potentially worsen performance
+slightly due to a few conversion errors.
+We use cross-validation to choose Markov-order
+and perform feature selection. Thus, each training
+set is randomly split80% used for training and the
+remaining 20% for validationand based on vali-
+dation set performance, choices are made for model
+structure, prior, and which word lexicons to include.
+The choices of prior and model structure shown in
+Table 2 are used for our final testing.
+We conduct closed and open tests on all four
+datasets. The closed tests use only material from the
+training data for the particular corpus being tested.
+Open tests allows using other material, such as lex-
+icons from Internet. In open tests, we use lexi-
+</bodyText>
+<footnote confidence="0.521242">
+cons obtained from various resources as described
+\x0cCorpus Abbrev. Encoding #Train words #Test Words OOV rate (%)
+</footnote>
+<table confidence="0.95676475">
+UPenn Chinese Treebank CTB GB 250K 40K 18.1
+Beijing University PK GB 1.1M 17K 6.9
+Hong Kong City U HK Big 5 240K 35K 7.1
+Academia Sinica AS Big 5 5.8M 12K 2.2
+</table>
+<tableCaption confidence="0.840074">
+Table 1: Datasets statistics
+</tableCaption>
+<table confidence="0.903959">
+bin-Size M Markov order
+CTB 10 first-order + transitions
+PK 15 first-order + transitions
+HK 1 first-order
+AS 15 first-order + transitions
+</table>
+<tableCaption confidence="0.991626">
+Table 2: Optimal prior and Markov order setting
+</tableCaption>
+<bodyText confidence="0.996067333333333">
+in Section 3.1. In addition, we conduct cross-dataset
+tests, in which we train on one dataset and test on
+other datasets.
+</bodyText>
+<subsectionHeader confidence="0.995674">
+5.2 Overall results
+</subsectionHeader>
+<bodyText confidence="0.992580833333333">
+Final results of CRF based segmentation with new
+word detection are summarized in Table 3. The up-
+per part of the table contains the closed test results,
+and the lower part contains the open test results.
+Each entry is the performance of the given metric
+(precision, recall, F1, and Roov) on the test set.
+</bodyText>
+<table confidence="0.979106833333333">
+Closed
+Precision Recall F1 Roov
+CTB 0.828 0.870 0.849 0.550
+PK 0.935 0.947 0.941 0.660
+HK 0.917 0.940 0.928 0.531
+AS 0.950 0.962 0.956 0.292
+Open
+Precision Recall F1 Roov
+CTB 0.889 0.898 0.894 0.619
+PK 0.941 0.952 0.946 0.676
+HK 0.944 0.948 0.946 0.629
+AS 0.953 0.961 0.957 0.403
+</table>
+<tableCaption confidence="0.888716">
+Table 3: Overall results of CRF segmentation on
+closed and open tests
+</tableCaption>
+<bodyText confidence="0.989688094339623">
+To compare our results against other systems,
+we summarize the competition results reported
+in (Sproat and Emerson, 2003) in Table 4. XXc and
+XXo indicate the closed and open runs on dataset
+XX respectively. Entries contain the F1 perfor-
+mance of each participating site on different runs,
+with the best performance in bold. Our results are
+in the last row. Column SITE-AVG is the average
+F1 performance over the datasets on which a site re-
+ported results. Column OUR-AVG is the average F1
+performance of our system over the same datasets.
+Comparing performance across systems is diffi-
+cult since none of those systems reported results
+on all eight datasets (open and closed runs on 4
+datasets). Nevertheless, several observations could
+be made from Table 4. First, no single system
+achieved best results in all tests. Only one site (S01)
+achieved two best runs (CTBc and PKc) with an av-
+erage of 91.8% over 6 runs. S01 is one of the best
+segmentation systems in mainland China (Zhang et
+al., 2003). We also achieve two best runs (ASo and
+HKc), with a comparable average of 91.9% over the
+same 6 runs, and a 92.7% average over all the 8 runs.
+Second, performance varies significantly across dif-
+ferent datasets, indicating that the four datasets have
+different characteristics and use very different seg-
+mentation guidelines. We also notice that the worst
+results were obtained on CTB dataset for all sys-
+tems. This is due to significant inconsistent segmen-
+tation in training and testing (Sproat and Emerson,
+2003). We verify this by another test. We randomly
+split the training data into 80% training and 20%
+testing, and run the experiments for 3 times, result-
+ing in a testing F1 of 97.13%. Third, consider a
+comparison of our results with site S12, who use
+a sliding-window maximum entropy model (Xue,
+2003). They participated in two datasets, with an
+average of 93.8%. Our average over the same two
+runs is 94.2%. This gives some empirical evidence
+of the advantages of linear-chain CRFs over sliding-
+window maximum entropy models, however, this
+comparison still requires further investigation since
+there are many factors that could affect the perfor-
+mance such as different features used in both sys-
+tems.
+To further study the robustness of our approach
+to segmentation, we perform cross-testingthat is,
+training on one dataset and testing on other datasets.
+Table 5 summarizes these results, in which the rows
+are the training datasets and the columns are the
+testing datasets. Not surprisingly, cross testing re-
+sults are worse than the results using the same
+\x0cASc ASo CTBc CTBo HKc HKo PKc PKo SITE-AVG OUR-AVG
+</bodyText>
+<table confidence="0.999550846153846">
+S01 93.8 88.1 88.1 90.1 95.1 95.3 91.8 91.9
+S02 87.4 91.2 89.3 87.2
+S03 87.2 82.9 88.6 92.5 87.8 93.6
+S04 93.9 93.7 93.8 94.4
+S05 94.2 73.2 89.4 85.6 91.5
+S06 94.5 82.9 92.4 92.4 90.6 91.9
+S07 94.0 94.0 94.6
+S08 90.4 95.6 93.6 93.8 93.4 94.0
+S09 96.1 94.6 95.4 94.9
+S10 83.1 90.1 94.7 95.9 91.0 90.8
+S11 90.4 88.4 87.9 88.6 88.8 93.6
+S12 95.9 91.6 93.8 94.2
+95.6 95.7 84.9 89.4 92.8 94.6 94.1 94.6 92.7
+</table>
+<tableCaption confidence="0.999285">
+Table 4: Comparisons against other systems: the first column contains the 12 sites participating in bake-off
+</tableCaption>
+<bodyText confidence="0.982218466666667">
+competition; the second to the ninth columns contain their results on the 8 runs, where a bold entry is the
+winner of that run; column SITE-AVG contains the average performance of the site over the runs in which it
+participated, where a bold entry indicates that this site performs better than our system; column OUR-AVG
+is the average of our system over the same runs, where a bolded entry indicates our system performs better
+than the other site; the last row is the performance of our system over all the runs and the overall average.
+source as training due to different segmentation
+policies, with an exception on CTB where mod-
+els trained on other datasets perform better than the
+model trained on CTB itself. This is due to the data
+problem mentioned above. Overall, CRFs perform
+robustly well across all datasets.
+From both Table 3 and 5, we see, as expected,
+improvement from closed tests to open tests, indi-
+cating the significant contribution of domain knowl-
+edge lexicons.
+</bodyText>
+<table confidence="0.96641975">
+Closed
+CTB PK HK AS
+CTB 0.822 0.810 0.815
+PK 0.816 0.824 0.830
+HK 0.790 0.807 0.825
+AS 0.890 0.844 0.864
+Open
+CTB PK HK AS
+CTB 0.863 0.870 0.894
+PK 0.852 0.862 0.871
+HK 0.861 0.871 0.889
+AS 0.898 0.867 0.871
+</table>
+<tableCaption confidence="0.998553">
+Table 5: Crossing test of CRF segmentation
+</tableCaption>
+<subsectionHeader confidence="0.833031">
+5.3 Effects of new word detection
+</subsectionHeader>
+<bodyText confidence="0.81608">
+Table 6 shows the effect of new word detection
+on the closed tests. An interesting observation is
+</bodyText>
+<table confidence="0.936656">
+CTB PK HK AS
+w/o NWD 0.792 0.934 0.916 0.956
+NWD 0.849 0.941 0.928 0.946
+</table>
+<tableCaption confidence="0.995128">
+Table 6: New word detection effects: w/o NWD is
+</tableCaption>
+<bodyText confidence="0.99611175">
+the results without new word detection and NWD is
+the results with new word detection.
+that the improvement is monotonically related to the
+OOV rate (OOV rates are listed in Table 1). This
+is desirable because new word detection is most
+needed in situations that have high OOV rate. At
+low OOV rate, noisy new word detection can result
+in worse performance, as seen in the AS dataset.
+</bodyText>
+<subsectionHeader confidence="0.949368">
+5.4 Error analysis and discussion
+</subsectionHeader>
+<bodyText confidence="0.999619375">
+Several typical errors are observed in error anal-
+ysis. One typical error is caused by inconsistent
+segmentation labeling in the test set. This is most
+notorious in CTB dataset. The second most typi-
+cal error is in new, out-of-vocabulary words, espe-
+cially proper names. Although our new word detec-
+tion fixes many of these problems, it is not effective
+enough to recognize proper names well. One solu-
+tion to this problem could use a named entity ex-
+tractor to recognize proper names; this was found to
+be very helpful in Wu (2003).
+One of the most attractive advantages of CRFs
+(and maximum entropy models in general) is its the
+flexibility to easily incorporate arbitrary features,
+\x0chere in the form domain-knowledge-providing lex-
+icons. However, obtaining these lexicons is not a
+trivial matter. The quality of lexicons can affect
+the performance of CRFs significantly. In addition,
+compared to simple models like n-gram language
+models (Teahan et al., 2000), another shortcoming
+of CRF-based segmenters is that it requires signifi-
+cantly longer training time. However, training is a
+one-time process, and testing time is still linear in
+the length of the input.
+</bodyText>
+<sectionHeader confidence="0.998832" genericHeader="conclusions">
+6 Conclusions
+</sectionHeader>
+<bodyText confidence="0.9862344">
+The contribution of this paper is three-fold. First,
+we apply CRFs to Chinese word segmentation and
+find that they achieve state-of-the art performance.
+Second, we propose a probabilistic new word de-
+tection method that is integrated in segmentation,
+and show it to improve segmentation performance.
+Third, as far as we are aware, this is the first work
+to comprehensively evaluate on the four benchmark
+datasets, making a solid baseline for future research
+on Chinese word segmentation.
+</bodyText>
+<sectionHeader confidence="0.944357" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.633435666666667">
+This work was supported in part by the Center for In-
+telligent Information Retrieval, in part by The Cen-
+tral Intelligence Agency, the National Security Agency
+and National Science Foundation under NSF grant #IIS-
+0326249, and in part by SPAWARSYSCEN-SD grant
+number N66001-02-1-8903.
+</bodyText>
+<sectionHeader confidence="0.815011" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.998785211764706">
+K.J. Chen and M.H. Bai. 1998. Unknown Word Detec-
+tion for Chinese by a Corpus-based Learning Method.
+Computational Linguistics and Chinese Language
+Processing, 3(1):2744, Feburary.
+A. Culotta and A. McCallum. 2004. Confidence Esti-
+mation for Information Extraction. In Proceedings of
+Human Language Technology Conference and North
+American Chapter of the Association for Computa-
+tional Linguistics(HLT-NAACL).
+S. della Pietra, V. della Pietra, and J. Lafferty. 1995. In-
+ducing Features Of Random Fields. IEEE Transac-
+tions on Pattern Analysis and Machine Intelligence,
+19(4).
+J. Gao, M. Li, and C. Huang. 2003. Improved Source-
+Channel Models for Chinese Word Segmentation. In
+Proceedings of the 41th Annual Meeting of Associa-
+tion of Computaional Linguistics (ACL), Japan.
+J. Lafferty, A. McCallum, and F. Pereira. 2001. Condi-
+tional Random Fields: Probabilistic Models for Seg-
+menting and Labeling Sequence Data. In Proceedings
+of the 18th International Conf. on Machine Learning,
+pages 282289.
+R. Malouf. 2002. A Comparison of Algorithms for Max-
+imum Entropy Parameter Estimation. In Sixth Work-
+shop on Computational Language Learning (CoNLL).
+J. Nie, M. Hannan, and W. Jin. 1995. Unknown Word
+Detection and Segmentation of Chinese using Statis-
+tical and Heuristic Knowledge. Communications of
+the Chinese and Oriental Languages Information Pro-
+cessing Society, 5:4757.
+F. Peng and A. McCallum. 2004. Accurate Informa-
+tion Extraction from Research Papers using Condi-
+tional Random Fields. In Proceedings of Human
+Language Technology Conference and North Amer-
+ican Chapter of the Association for Computational
+Linguistics(HLT-NAACL), pages 329336.
+F. Peng and D. Schuurmans. 2001. Self-Supervised Chi-
+nese Word Segmentation. In F. Hoffmann et al., ed-
+itor, Proceedings of the 4th International Symposium
+of Intelligent Data Analysis, pages 238247. Springer-
+Verlag Berlin Heidelberg.
+L. Rabiner. 1990. A Tutorial on Hidden Markov Mod-
+els and Selected Applications in Speech Recognition.
+In Alex Weibel and Kay-Fu Lee, editors, Readings in
+Speech Recognition, pages 267296.
+R. Schwartz and Y. Chow. 1990. The N-best Algorithm:
+An Efficient and Exact Procedure for Finding the N
+most Likely Sentence Hypotheses. In Proceedings of
+IEEE International Conference on Acoustics, Speech,
+and Signal Processing (ICASSP).
+F. Sha and F. Pereira. 2003. Shallow Parsing with Con-
+ditional Random Fields. In Proceedings of Human
+Language Technology Conference and North Amer-
+ican Chapter of the Association for Computational
+Linguistics(HLT-NAACL).
+R. Sproat and T. Emerson. 2003. First International Chi-
+nese Word Segmentation Bakeoff. In Proceedings of
+the Second SIGHAN Workshop on Chinese Language
+Processing.
+R. Sproat and C. Shih. 2002. Corpus-based Methods
+in Chinese Morphology and Phonology. In Proceed-
+ings of the 19th International Conference on Compu-
+tational Linguistics (COLING).
+W. J. Teahan, Y. Wen, R. McNab, and I. H. Wit-
+ten. 2000. A Compression-based Algorithm for Chi-
+nese Word Segmentation. Computational Linguistics,
+26(3):375393.
+A. Wu and Z. Jiang. 2000. Statistically-Enhanced New
+Word Identification in a Rule-Based Chinese System.
+In Proceedings of the Second Chinese Language Pro-
+cessing Workshop, pages 4651, Hong Kong, China.
+Z. Wu. 1999. LDC Chinese Segmenter.
+http://www.ldc.upenn.edu/ Projects/ Chinese/ seg-
+menter/ mansegment.perl.
+A. Wu. 2003. Chinese Word Segmentation in MSR-
+NLP. In Proceedings of the Second SIGHAN Work-
+shop on Chinese Language Processing, Japan.
+N. Xue. 2003. Chinese Word Segmentation as Charac-
+ter Tagging. International Journal of Computational
+Linguistics and Chinese Language Processing, 8(1).
+H. Zhang, Q. Liu, X. Cheng, H. Zhang, and H. Yu.
+2003. Chinese Lexical Analysis Using Hierarchical
+Hidden Markov Model. In Proceedings of the Second
+SIGHAN Workshop, pages 6370, Japan.
+\x0c&amp;apos;
+</reference>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.969083">
+<title confidence="0.9976675">b&amp;apos;Chinese Segmentation and New Word Detection using Conditional Random Fields</title>
+<author confidence="0.998055">Fuchun Peng</author>
+<author confidence="0.998055">Fangfang Feng</author>
+<author confidence="0.998055">Andrew McCallum</author>
+<affiliation confidence="0.997233">Computer Science Department, University of Massachusetts Amherst</affiliation>
+<address confidence="0.992825">140 Governors Drive, Amherst, MA, U.S.A. 01003</address>
+<email confidence="0.999543">fuchun@cs.umass.edu</email>
+<email confidence="0.999543">feng@cs.umass.edu</email>
+<email confidence="0.999543">mccallum@cs.umass.edu</email>
+<abstract confidence="0.9990558125">Chinese word segmentation is a difficult, important and widely-studied sequence modeling problem. This paper demonstrates the ability of linear-chain conditional random fields (CRFs) to perform robust and accurate Chinese word segmentation by providing a principled framework that easily supports the integration of domain knowledge in the form of multiple lexicons of characters and words. We also present a probabilistic new word detection method, which further improves performance. Our system is evaluated on four datasets used in a recent comprehensive Chinese word segmentation competition. State-of-the-art performance is obtained.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>K J Chen</author>
+<author>M H Bai</author>
+</authors>
+<title>Unknown Word Detection for Chinese by a Corpus-based Learning Method.</title>
+<date>1998</date>
+<contexts>
+<context position="4744" citStr="Chen and Bai, 1998" startWordPosition="700" endWordPosition="703">ughly understood as discriminatively-trained hidden Markov models with next-state transition functions represented by exponential models (as in maximum en\x0ctropy classifiers), and with great flexibility to view the observation sequence in terms of arbitrary, overlapping features, with long-range dependencies, and at multiple levels of granularity. These beneficial properties suggests that CRFs are a promising approach for Chinese word segmentation. New word detection is one of the most important problems in Chinese information processing. Many machine learning approaches have been proposed (Chen and Bai, 1998; Wu and Jiang, 2000; Nie et al., 1995). New word detection is normally considered as a separate process from segmentation. However, integrating them would benefit both segmentation and new word detection. CRFs provide a convenient framework for doing this. They can produce not only a segmentation, but also confidence in local segmentation decisions, which can be used to find new, unfamiliar character sequences surrounded by high-confidence segmentations. Thus, our new word detection is not a stand-alone process, but an integral part of segmentation. Newly detected words are re-incorporated in</context>
+<context position="14759" citStr="Chen and Bai, 1998" startWordPosition="2324" endWordPosition="2327">racter in lexicon C2C1: previous two characters in lexicon C1C0C1: previous, current, and next character in the lexicon Figure 2: Feature conjunctions used in experiments use feature conjunctions in both the open and closed tests, as listed Figure 2. 4 Probabilistic New Word Identification Since no vocabulary list could ever be complete, new word (unknown word) identification is an important issue in Chinese segmentation. Unknown words cause segmentation errors in that these outof-vocabulary words in input text are often incorrectly segmented into single-character or other overly-short words (Chen and Bai, 1998). Traditionally, new word detection has been considered as a standalone process. We consider here new word detection as an integral part of segmentation, aiming to improve both segmentation and new word detection: detected new words are added to the word list lexicon in order to improve segmentation; improved segmentation can potentially further improve new word detection. We measure the performance of new word detection by its improvements on segmentation. Given a word segmentation proposed by the CRF, we can compute a confidence in each segment. We detect as new words those that are not in t</context>
+</contexts>
+<marker>Chen, Bai, 1998</marker>
+<rawString>K.J. Chen and M.H. Bai. 1998. Unknown Word Detection for Chinese by a Corpus-based Learning Method.</rawString>
+</citation>
+<citation valid="false">
+<booktitle>Computational Linguistics and Chinese Language Processing,</booktitle>
+<volume>3</volume>
+<issue>1</issue>
+<location>Feburary.</location>
+<marker></marker>
+<rawString>Computational Linguistics and Chinese Language Processing, 3(1):2744, Feburary.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Culotta</author>
+<author>A McCallum</author>
+</authors>
+<title>Confidence Estimation for Information Extraction.</title>
+<date>2004</date>
+<booktitle>In Proceedings of Human Language Technology Conference and North American Chapter of the Association for Computational Linguistics(HLT-NAACL).</booktitle>
+<contexts>
+<context position="15655" citStr="Culotta and McCallum, 2004" startWordPosition="2464" endWordPosition="2468">n order to improve segmentation; improved segmentation can potentially further improve new word detection. We measure the performance of new word detection by its improvements on segmentation. Given a word segmentation proposed by the CRF, we can compute a confidence in each segment. We detect as new words those that are not in the existing word list, yet are either highly confident segments, or low confident segments that are surrounded by high confident words. A confidence threshold of 0.9 is determined by cross-validation. Segment confidence is estimated using constrained forward-backward (Culotta and McCallum, 2004). The standard forward-backward algorithm (Rabiner, 1990) calculates Zx, the total likelihood of all label sequences y given a sequence x. Constrained forward-backward algorithm calculates Z 0 x, total likelihood of all paths passing through a constrained segment (in our case, a sequence of characters starting with a START tag followed by a few NONSTART tags before the next START tag). The confidence in this segment is then Z 0 x Zx , a real number between 0 and 1. In order to increase recall of new words, we consider not only the most likely (Viterbi) segmentation, but the segmentations in th</context>
+</contexts>
+<marker>Culotta, McCallum, 2004</marker>
+<rawString>A. Culotta and A. McCallum. 2004. Confidence Estimation for Information Extraction. In Proceedings of Human Language Technology Conference and North American Chapter of the Association for Computational Linguistics(HLT-NAACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S della Pietra</author>
+<author>V della Pietra</author>
+<author>J Lafferty</author>
+</authors>
+<title>Inducing Features Of Random Fields.</title>
+<date>1995</date>
+<journal>IEEE Transactions on Pattern Analysis and Machine Intelligence,</journal>
+<volume>19</volume>
+<issue>4</issue>
+<contexts>
+<context position="8468" citStr="Pietra et al., 1995" startWordPosition="1315" endWordPosition="1318">|x), can be efficiently determined using the Viterbi algorithm (Rabiner, 1990). An N-best list of labeling sequences can also be obtained using modified Viterbi algorithm and A* search (Schwartz and Chow, 1990). The parameters can be estimated by maximum likelihoodmaximizing the conditional probability of a set of label sequences, each given their corresponding input sequences. The log-likelihood of training set {(xi, yi) : i = 1, ...M} is written L = X i log P(yi|xi) = X i A T X t=1 X k kfk(yt1, yt, x, t) log Zxi ! . Traditional maximum entropy learning algorithms, such as GIS and IIS (della Pietra et al., 1995), can be used to train CRFs. However, our implementation uses a quasi-Newton gradient-climber BFGS for optimization, which has been shown to converge much faster (Malouf, 2002; Sha and Pereira, 2003). The gradient of the likelihood is P(y|x)/k = X i,t fk(yt1, y (i) t , x(i) , t) X i,y,t P(y|x(i) )fk(yt1, yt, x(i) , t) \x0cCRFs share many of the advantageous properties of standard maximum entropy classifiers, including their convex likelihood function, which guarantees that the learning procedure converges to the global maximum. 2.1 Regularization in CRFs To avoid over-fitting, log-likelihood i</context>
+</contexts>
+<marker>Pietra, Pietra, Lafferty, 1995</marker>
+<rawString>S. della Pietra, V. della Pietra, and J. Lafferty. 1995. Inducing Features Of Random Fields. IEEE Transactions on Pattern Analysis and Machine Intelligence, 19(4).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Gao</author>
+<author>M Li</author>
+<author>C Huang</author>
+</authors>
+<title>Improved SourceChannel Models for Chinese Word Segmentation.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the 41th Annual Meeting of Association of Computaional Linguistics (ACL),</booktitle>
+<contexts>
+<context position="2541" citStr="Gao et al (2003)" startWordPosition="375" endWordPosition="378"> in the rules. Machine learning approaches are more desirable and have been successful in both unsupervised learning (Peng and Schuurmans, 2001) and supervised learning (Teahan et al., 2000). Many current approaches suffer from either lack of exact inference over sequences or difficulty in incorporating domain knowledge effectively into segmentation. Domain knowledge is either not used, used in a limited way, or used in a complicated way spread across different components. For example, the N-gram generative language modeling based approach of Teahan et al (2000) does not use domain knowledge. Gao et al (2003) uses class-based language for word segmentation where some word category information can be incorporated. Zhang et al (2003) use a hierarchical hidden Markov Model to incorporate lexical knowledge. A recent advance in this area is Xue (2003), in which the author uses a sliding-window maximum entropy classifier to tag Chinese characters into one of four position tags, and then covert these tags into a segmentation using rules. Maximum entropy models give tremendous flexibility to incorporate arbitrary features. However, a traditional maximum entropy tagger, as used in Xue (2003), labels charac</context>
+</contexts>
+<marker>Gao, Li, Huang, 2003</marker>
+<rawString>J. Gao, M. Li, and C. Huang. 2003. Improved SourceChannel Models for Chinese Word Segmentation. In Proceedings of the 41th Annual Meeting of Association of Computaional Linguistics (ACL), Japan.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Lafferty</author>
+<author>A McCallum</author>
+<author>F Pereira</author>
+</authors>
+<title>Conditional Random Fields: Probabilistic Models for Segmenting and Labeling Sequence Data.</title>
+<date>2001</date>
+<booktitle>In Proceedings of the 18th International Conf. on Machine Learning,</booktitle>
+<pages>282289</pages>
+<contexts>
+<context position="3362" citStr="Lafferty et al., 2001" startWordPosition="498" endWordPosition="501">A recent advance in this area is Xue (2003), in which the author uses a sliding-window maximum entropy classifier to tag Chinese characters into one of four position tags, and then covert these tags into a segmentation using rules. Maximum entropy models give tremendous flexibility to incorporate arbitrary features. However, a traditional maximum entropy tagger, as used in Xue (2003), labels characters without considering dependencies among the predicted segmentation labels that is inherent in the state transitions of finitestate sequence models. Linear-chain conditional random fields (CRFs) (Lafferty et al., 2001) are models that address both issues above. Unlike heuristic methods, they are principled probabilistic finite state models on which exact inference over sequences can be efficiently performed. Unlike generative N-gram or hidden Markov models, they have the ability to straightforwardly combine rich domain knowledge, for example in this paper, in the form of multiple readily-available lexicons. Furthermore, they are discriminatively-trained, and are often more accurate than generative models, even with the same features. In their most general form, CRFs are arbitrary undirected graphical models</context>
+<context position="6599" citStr="Lafferty et al., 2001" startWordPosition="975" endWordPosition="978">ion (Sproat and Emerson, 2003) has made comparisons easier. The competition provided four datasets with significantly different segmentation guidelines, and consistent train-test splits. The performance of participating system varies significantly across different datasets. Our system achieves top performance in two of the runs, and a state-of-the-art performance on average. This indicates that CRFs are a viable model for robust Chinese word segmentation. 2 Conditional Random Fields Conditional random fields (CRFs) are undirected graphical models trained to maximize a conditional probability (Lafferty et al., 2001). A common special-case graph structure is a linear chain, which corresponds to a finite state machine, and is suitable for sequence labeling. A linear-chain CRF with parameters = {1, ...} defines a conditional probability for a state (label) sequence y = y1...yT (for example, labels indicating where words start or have their interior) given an input sequence x = x1...xT (for example, the characters of a Chinese sentence) to be P(y|x) = 1 Zx exp A T X t=1 X k kfk(yt1, yt, x, t) ! , (1) where Zx is the per-input normalization that makes the probability of all state sequences sum to one; fk(yt1,</context>
+</contexts>
+<marker>Lafferty, McCallum, Pereira, 2001</marker>
+<rawString>J. Lafferty, A. McCallum, and F. Pereira. 2001. Conditional Random Fields: Probabilistic Models for Segmenting and Labeling Sequence Data. In Proceedings of the 18th International Conf. on Machine Learning, pages 282289.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Malouf</author>
+</authors>
+<title>A Comparison of Algorithms for Maximum Entropy Parameter Estimation.</title>
+<date>2002</date>
+<booktitle>In Sixth Workshop on Computational Language Learning (CoNLL).</booktitle>
+<contexts>
+<context position="8643" citStr="Malouf, 2002" startWordPosition="1344" endWordPosition="1345">h (Schwartz and Chow, 1990). The parameters can be estimated by maximum likelihoodmaximizing the conditional probability of a set of label sequences, each given their corresponding input sequences. The log-likelihood of training set {(xi, yi) : i = 1, ...M} is written L = X i log P(yi|xi) = X i A T X t=1 X k kfk(yt1, yt, x, t) log Zxi ! . Traditional maximum entropy learning algorithms, such as GIS and IIS (della Pietra et al., 1995), can be used to train CRFs. However, our implementation uses a quasi-Newton gradient-climber BFGS for optimization, which has been shown to converge much faster (Malouf, 2002; Sha and Pereira, 2003). The gradient of the likelihood is P(y|x)/k = X i,t fk(yt1, y (i) t , x(i) , t) X i,y,t P(y|x(i) )fk(yt1, yt, x(i) , t) \x0cCRFs share many of the advantageous properties of standard maximum entropy classifiers, including their convex likelihood function, which guarantees that the learning procedure converges to the global maximum. 2.1 Regularization in CRFs To avoid over-fitting, log-likelihood is usually penalized by some prior distribution over the parameters. A commonly used prior is a zero-mean Gaussian. With a Gaussian prior, log-likelihood is penalized as follow</context>
+</contexts>
+<marker>Malouf, 2002</marker>
+<rawString>R. Malouf. 2002. A Comparison of Algorithms for Maximum Entropy Parameter Estimation. In Sixth Workshop on Computational Language Learning (CoNLL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Nie</author>
+<author>M Hannan</author>
+<author>W Jin</author>
+</authors>
+<title>Unknown Word Detection and Segmentation of Chinese using Statistical and Heuristic Knowledge.</title>
+<date>1995</date>
+<booktitle>Communications of the Chinese and Oriental Languages Information Processing Society,</booktitle>
+<pages>5--4757</pages>
+<contexts>
+<context position="4783" citStr="Nie et al., 1995" startWordPosition="708" endWordPosition="711">ined hidden Markov models with next-state transition functions represented by exponential models (as in maximum en\x0ctropy classifiers), and with great flexibility to view the observation sequence in terms of arbitrary, overlapping features, with long-range dependencies, and at multiple levels of granularity. These beneficial properties suggests that CRFs are a promising approach for Chinese word segmentation. New word detection is one of the most important problems in Chinese information processing. Many machine learning approaches have been proposed (Chen and Bai, 1998; Wu and Jiang, 2000; Nie et al., 1995). New word detection is normally considered as a separate process from segmentation. However, integrating them would benefit both segmentation and new word detection. CRFs provide a convenient framework for doing this. They can produce not only a segmentation, but also confidence in local segmentation decisions, which can be used to find new, unfamiliar character sequences surrounded by high-confidence segmentations. Thus, our new word detection is not a stand-alone process, but an integral part of segmentation. Newly detected words are re-incorporated into our word lexicon, and used to improv</context>
+</contexts>
+<marker>Nie, Hannan, Jin, 1995</marker>
+<rawString>J. Nie, M. Hannan, and W. Jin. 1995. Unknown Word Detection and Segmentation of Chinese using Statistical and Heuristic Knowledge. Communications of the Chinese and Oriental Languages Information Processing Society, 5:4757.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Peng</author>
+<author>A McCallum</author>
+</authors>
+<title>Accurate Information Extraction from Research Papers using Conditional Random Fields.</title>
+<date>2004</date>
+<booktitle>In Proceedings of Human Language Technology Conference and North American Chapter of the Association for Computational Linguistics(HLT-NAACL),</booktitle>
+<pages>329336</pages>
+<contexts>
+<context position="9843" citStr="Peng and McCallum (2004)" startWordPosition="1554" endWordPosition="1557">d is penalized as follows. L = X i log P(yi|xi) X k 2 k 22 k (2) where 2 k is the variance for feature dimension k. The variance can be feature dependent. However for simplicity, constant variance is often used for all features. We experiment an alternate version of Gaussian prior in which the variance is feature dependent. We bin features by frequency in the training set, and let the features in the same bin share the same variance. The discounted value is set to be k dck/Me2 where ck is the count of features, M is the bin size set by held out validation, and dae is the ceiling function. See Peng and McCallum (2004) for more details and further experiments. 2.2 State transition features Varying state-transition structures with different Markov order can be specified by different CRF feature functions, as determined by the number of output labels y examined together in a feature function. We define four different state transition feature functions corresponding to different Markov orders. Higher-order features capture more long-range dependencies, but also cause more data sparseness problems and require more memory for training. The best Markov order for a particular application can be selected by held-ou</context>
+</contexts>
+<marker>Peng, McCallum, 2004</marker>
+<rawString>F. Peng and A. McCallum. 2004. Accurate Information Extraction from Research Papers using Conditional Random Fields. In Proceedings of Human Language Technology Conference and North American Chapter of the Association for Computational Linguistics(HLT-NAACL), pages 329336.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Peng</author>
+<author>D Schuurmans</author>
+</authors>
+<title>Self-Supervised Chinese Word Segmentation.</title>
+<date>2001</date>
+<booktitle>Proceedings of the 4th International Symposium of Intelligent Data Analysis,</booktitle>
+<pages>238247</pages>
+<editor>In F. Hoffmann et al., editor,</editor>
+<publisher>SpringerVerlag</publisher>
+<location>Berlin Heidelberg.</location>
+<contexts>
+<context position="2069" citStr="Peng and Schuurmans, 2001" startWordPosition="299" endWordPosition="303">ord boundaries in Chinese. Approaches to Chinese segmentation fall roughly into two categories: heuristic dictionary-based methods and statistical machine learning methods. In dictionary-based methods, a predefined dictionary is used along with hand-generated rules for segmenting input sequence (Wu, 1999). However these approaches have been limited by the impossibility of creating a lexicon that includes all possible Chinese words and by the lack of robust statistical inference in the rules. Machine learning approaches are more desirable and have been successful in both unsupervised learning (Peng and Schuurmans, 2001) and supervised learning (Teahan et al., 2000). Many current approaches suffer from either lack of exact inference over sequences or difficulty in incorporating domain knowledge effectively into segmentation. Domain knowledge is either not used, used in a limited way, or used in a complicated way spread across different components. For example, the N-gram generative language modeling based approach of Teahan et al (2000) does not use domain knowledge. Gao et al (2003) uses class-based language for word segmentation where some word category information can be incorporated. Zhang et al (2003) us</context>
+</contexts>
+<marker>Peng, Schuurmans, 2001</marker>
+<rawString>F. Peng and D. Schuurmans. 2001. Self-Supervised Chinese Word Segmentation. In F. Hoffmann et al., editor, Proceedings of the 4th International Symposium of Intelligent Data Analysis, pages 238247. SpringerVerlag Berlin Heidelberg.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Rabiner</author>
+</authors>
+<title>A Tutorial on Hidden Markov Models and Selected Applications in Speech Recognition.</title>
+<date>1990</date>
+<booktitle>In Alex Weibel and Kay-Fu Lee, editors, Readings in Speech Recognition,</booktitle>
+<pages>267296</pages>
+<contexts>
+<context position="7926" citStr="Rabiner, 1990" startWordPosition="1218" endWordPosition="1219">associated with feature fk. The feature functions can measure any aspect of a state transition, yt1 yt, and the entire observation sequence, x, centered at the current time step, t. For example, one feature function might have value 1 when yt1 is the state START, yt is the state NOTSTART, and xt is a word appearing in a lexicon of peoples first names. Large positive values for k indicate a preference for such an event; large negative values make the event unlikely. The most probable label sequence for an input x, y = arg max y P(y|x), can be efficiently determined using the Viterbi algorithm (Rabiner, 1990). An N-best list of labeling sequences can also be obtained using modified Viterbi algorithm and A* search (Schwartz and Chow, 1990). The parameters can be estimated by maximum likelihoodmaximizing the conditional probability of a set of label sequences, each given their corresponding input sequences. The log-likelihood of training set {(xi, yi) : i = 1, ...M} is written L = X i log P(yi|xi) = X i A T X t=1 X k kfk(yt1, yt, x, t) log Zxi ! . Traditional maximum entropy learning algorithms, such as GIS and IIS (della Pietra et al., 1995), can be used to train CRFs. However, our implementation u</context>
+<context position="15712" citStr="Rabiner, 1990" startWordPosition="2474" endWordPosition="2475"> further improve new word detection. We measure the performance of new word detection by its improvements on segmentation. Given a word segmentation proposed by the CRF, we can compute a confidence in each segment. We detect as new words those that are not in the existing word list, yet are either highly confident segments, or low confident segments that are surrounded by high confident words. A confidence threshold of 0.9 is determined by cross-validation. Segment confidence is estimated using constrained forward-backward (Culotta and McCallum, 2004). The standard forward-backward algorithm (Rabiner, 1990) calculates Zx, the total likelihood of all label sequences y given a sequence x. Constrained forward-backward algorithm calculates Z 0 x, total likelihood of all paths passing through a constrained segment (in our case, a sequence of characters starting with a START tag followed by a few NONSTART tags before the next START tag). The confidence in this segment is then Z 0 x Zx , a real number between 0 and 1. In order to increase recall of new words, we consider not only the most likely (Viterbi) segmentation, but the segmentations in the top N most likely segmentations (an N-best list), and d</context>
+</contexts>
+<marker>Rabiner, 1990</marker>
+<rawString>L. Rabiner. 1990. A Tutorial on Hidden Markov Models and Selected Applications in Speech Recognition. In Alex Weibel and Kay-Fu Lee, editors, Readings in Speech Recognition, pages 267296.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Schwartz</author>
+<author>Y Chow</author>
+</authors>
+<title>The N-best Algorithm: An Efficient and Exact Procedure for Finding the N most Likely Sentence Hypotheses.</title>
+<date>1990</date>
+<booktitle>In Proceedings of IEEE International Conference on Acoustics, Speech, and Signal Processing (ICASSP).</booktitle>
+<contexts>
+<context position="8058" citStr="Schwartz and Chow, 1990" startWordPosition="1239" endWordPosition="1242">ervation sequence, x, centered at the current time step, t. For example, one feature function might have value 1 when yt1 is the state START, yt is the state NOTSTART, and xt is a word appearing in a lexicon of peoples first names. Large positive values for k indicate a preference for such an event; large negative values make the event unlikely. The most probable label sequence for an input x, y = arg max y P(y|x), can be efficiently determined using the Viterbi algorithm (Rabiner, 1990). An N-best list of labeling sequences can also be obtained using modified Viterbi algorithm and A* search (Schwartz and Chow, 1990). The parameters can be estimated by maximum likelihoodmaximizing the conditional probability of a set of label sequences, each given their corresponding input sequences. The log-likelihood of training set {(xi, yi) : i = 1, ...M} is written L = X i log P(yi|xi) = X i A T X t=1 X k kfk(yt1, yt, x, t) log Zxi ! . Traditional maximum entropy learning algorithms, such as GIS and IIS (della Pietra et al., 1995), can be used to train CRFs. However, our implementation uses a quasi-Newton gradient-climber BFGS for optimization, which has been shown to converge much faster (Malouf, 2002; Sha and Perei</context>
+</contexts>
+<marker>Schwartz, Chow, 1990</marker>
+<rawString>R. Schwartz and Y. Chow. 1990. The N-best Algorithm: An Efficient and Exact Procedure for Finding the N most Likely Sentence Hypotheses. In Proceedings of IEEE International Conference on Acoustics, Speech, and Signal Processing (ICASSP).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Sha</author>
+<author>F Pereira</author>
+</authors>
+<title>Shallow Parsing with Conditional Random Fields.</title>
+<date>2003</date>
+<booktitle>In Proceedings of Human Language Technology Conference and North American Chapter of the Association for Computational Linguistics(HLT-NAACL).</booktitle>
+<contexts>
+<context position="8667" citStr="Sha and Pereira, 2003" startWordPosition="1346" endWordPosition="1349">d Chow, 1990). The parameters can be estimated by maximum likelihoodmaximizing the conditional probability of a set of label sequences, each given their corresponding input sequences. The log-likelihood of training set {(xi, yi) : i = 1, ...M} is written L = X i log P(yi|xi) = X i A T X t=1 X k kfk(yt1, yt, x, t) log Zxi ! . Traditional maximum entropy learning algorithms, such as GIS and IIS (della Pietra et al., 1995), can be used to train CRFs. However, our implementation uses a quasi-Newton gradient-climber BFGS for optimization, which has been shown to converge much faster (Malouf, 2002; Sha and Pereira, 2003). The gradient of the likelihood is P(y|x)/k = X i,t fk(yt1, y (i) t , x(i) , t) X i,y,t P(y|x(i) )fk(yt1, yt, x(i) , t) \x0cCRFs share many of the advantageous properties of standard maximum entropy classifiers, including their convex likelihood function, which guarantees that the learning procedure converges to the global maximum. 2.1 Regularization in CRFs To avoid over-fitting, log-likelihood is usually penalized by some prior distribution over the parameters. A commonly used prior is a zero-mean Gaussian. With a Gaussian prior, log-likelihood is penalized as follows. L = X i log P(yi|xi) </context>
+</contexts>
+<marker>Sha, Pereira, 2003</marker>
+<rawString>F. Sha and F. Pereira. 2003. Shallow Parsing with Conditional Random Fields. In Proceedings of Human Language Technology Conference and North American Chapter of the Association for Computational Linguistics(HLT-NAACL).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Sproat</author>
+<author>T Emerson</author>
+</authors>
+<title>First International Chinese Word Segmentation Bakeoff.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the Second SIGHAN Workshop on Chinese Language Processing.</booktitle>
+<contexts>
+<context position="6007" citStr="Sproat and Emerson, 2003" startWordPosition="892" endWordPosition="895">ve segmentation. Improved segmentation can then be further used to improve new word detection. Comparing Chinese word segmentation accuracy across systems can be difficult because many research papers use different data sets and different ground-rules. Some published results claim 98% or 99% segmentation precision and recall, but these either count only the words that occur in the lexicon, or use unrealistically simple data, lexicons that have extremely small (or artificially non-existant) outof-vocabulary rates, short sentences or many numbers. A recent Chinese word segmentation competition (Sproat and Emerson, 2003) has made comparisons easier. The competition provided four datasets with significantly different segmentation guidelines, and consistent train-test splits. The performance of participating system varies significantly across different datasets. Our system achieves top performance in two of the runs, and a state-of-the-art performance on average. This indicates that CRFs are a viable model for robust Chinese word segmentation. 2 Conditional Random Fields Conditional random fields (CRFs) are undirected graphical models trained to maximize a conditional probability (Lafferty et al., 2001). A comm</context>
+<context position="17019" citStr="Sproat and Emerson, 2003" startWordPosition="2698" endWordPosition="2702">s can be corrected by new word detection. For example, person name C happens four times. In the first pass of segmentation, two of them are segmented correctly and the other two are mistakenly segmented as C (they are segmented differently because Viterbi algorithm decodes based on context.). However, C is identified as a new word and added to the word list lexicon. In the second pass of segmentation, the other two mistakes are corrected. 5 Experiments and Analysis To make a comprehensive evaluation, we use all four of the datasets from a recent Chinese word segmentation bake-off competition (Sproat and Emerson, 2003). These datasets represent four different segmentation standards. A summary of the datasets is shown in Table 1. The standard bake-off scoring program is used to calculate precision, recall, F1, and OOV word recall. 5.1 Experimental design Since CTB and PK are provided in the GB encoding while AS and HK use the Big5 encoding, we convert AS and HK datasets to GB in order to make cross-training-and-testing possible. Note that this conversion could potentially worsen performance slightly due to a few conversion errors. We use cross-validation to choose Markov-order and perform feature selection. </context>
+<context position="19589" citStr="Sproat and Emerson, 2003" startWordPosition="3131" endWordPosition="3134">, and the lower part contains the open test results. Each entry is the performance of the given metric (precision, recall, F1, and Roov) on the test set. Closed Precision Recall F1 Roov CTB 0.828 0.870 0.849 0.550 PK 0.935 0.947 0.941 0.660 HK 0.917 0.940 0.928 0.531 AS 0.950 0.962 0.956 0.292 Open Precision Recall F1 Roov CTB 0.889 0.898 0.894 0.619 PK 0.941 0.952 0.946 0.676 HK 0.944 0.948 0.946 0.629 AS 0.953 0.961 0.957 0.403 Table 3: Overall results of CRF segmentation on closed and open tests To compare our results against other systems, we summarize the competition results reported in (Sproat and Emerson, 2003) in Table 4. XXc and XXo indicate the closed and open runs on dataset XX respectively. Entries contain the F1 performance of each participating site on different runs, with the best performance in bold. Our results are in the last row. Column SITE-AVG is the average F1 performance over the datasets on which a site reported results. Column OUR-AVG is the average F1 performance of our system over the same datasets. Comparing performance across systems is difficult since none of those systems reported results on all eight datasets (open and closed runs on 4 datasets). Nevertheless, several observ</context>
+<context position="20975" citStr="Sproat and Emerson, 2003" startWordPosition="3367" endWordPosition="3370">average of 91.8% over 6 runs. S01 is one of the best segmentation systems in mainland China (Zhang et al., 2003). We also achieve two best runs (ASo and HKc), with a comparable average of 91.9% over the same 6 runs, and a 92.7% average over all the 8 runs. Second, performance varies significantly across different datasets, indicating that the four datasets have different characteristics and use very different segmentation guidelines. We also notice that the worst results were obtained on CTB dataset for all systems. This is due to significant inconsistent segmentation in training and testing (Sproat and Emerson, 2003). We verify this by another test. We randomly split the training data into 80% training and 20% testing, and run the experiments for 3 times, resulting in a testing F1 of 97.13%. Third, consider a comparison of our results with site S12, who use a sliding-window maximum entropy model (Xue, 2003). They participated in two datasets, with an average of 93.8%. Our average over the same two runs is 94.2%. This gives some empirical evidence of the advantages of linear-chain CRFs over slidingwindow maximum entropy models, however, this comparison still requires further investigation since there are m</context>
+</contexts>
+<marker>Sproat, Emerson, 2003</marker>
+<rawString>R. Sproat and T. Emerson. 2003. First International Chinese Word Segmentation Bakeoff. In Proceedings of the Second SIGHAN Workshop on Chinese Language Processing.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Sproat</author>
+<author>C Shih</author>
+</authors>
+<title>Corpus-based Methods in Chinese Morphology and Phonology.</title>
+<date>2002</date>
+<booktitle>In Proceedings of the 19th International Conference on Computational Linguistics (COLING).</booktitle>
+<contexts>
+<context position="1300" citStr="Sproat and Shih, 2002" startWordPosition="183" endWordPosition="186">o present a probabilistic new word detection method, which further improves performance. Our system is evaluated on four datasets used in a recent comprehensive Chinese word segmentation competition. State-of-the-art performance is obtained. 1 Introduction Unlike English and other western languages, many Asian languages such as Chinese, Japanese, and Thai, do not delimit words by white-space. Word segmentation is therefore a key precursor for language processing tasks in these languages. For Chinese, there has been significant research on finding word boundaries in unsegmented sequences (see (Sproat and Shih, 2002) for a review). Unfortunately, building a Chinese word segmentation system is complicated by the fact that there is no standard definition of word boundaries in Chinese. Approaches to Chinese segmentation fall roughly into two categories: heuristic dictionary-based methods and statistical machine learning methods. In dictionary-based methods, a predefined dictionary is used along with hand-generated rules for segmenting input sequence (Wu, 1999). However these approaches have been limited by the impossibility of creating a lexicon that includes all possible Chinese words and by the lack of rob</context>
+</contexts>
+<marker>Sproat, Shih, 2002</marker>
+<rawString>R. Sproat and C. Shih. 2002. Corpus-based Methods in Chinese Morphology and Phonology. In Proceedings of the 19th International Conference on Computational Linguistics (COLING).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>W J Teahan</author>
+<author>Y Wen</author>
+<author>R McNab</author>
+<author>I H Witten</author>
+</authors>
+<title>A Compression-based Algorithm for Chinese Word Segmentation.</title>
+<date>2000</date>
+<journal>Computational Linguistics,</journal>
+<volume>26</volume>
+<issue>3</issue>
+<contexts>
+<context position="2115" citStr="Teahan et al., 2000" startWordPosition="307" endWordPosition="310">mentation fall roughly into two categories: heuristic dictionary-based methods and statistical machine learning methods. In dictionary-based methods, a predefined dictionary is used along with hand-generated rules for segmenting input sequence (Wu, 1999). However these approaches have been limited by the impossibility of creating a lexicon that includes all possible Chinese words and by the lack of robust statistical inference in the rules. Machine learning approaches are more desirable and have been successful in both unsupervised learning (Peng and Schuurmans, 2001) and supervised learning (Teahan et al., 2000). Many current approaches suffer from either lack of exact inference over sequences or difficulty in incorporating domain knowledge effectively into segmentation. Domain knowledge is either not used, used in a limited way, or used in a complicated way spread across different components. For example, the N-gram generative language modeling based approach of Teahan et al (2000) does not use domain knowledge. Gao et al (2003) uses class-based language for word segmentation where some word category information can be incorporated. Zhang et al (2003) use a hierarchical hidden Markov Model to incorp</context>
+<context position="25454" citStr="Teahan et al., 2000" startWordPosition="4141" endWordPosition="4144">t effective enough to recognize proper names well. One solution to this problem could use a named entity extractor to recognize proper names; this was found to be very helpful in Wu (2003). One of the most attractive advantages of CRFs (and maximum entropy models in general) is its the flexibility to easily incorporate arbitrary features, \x0chere in the form domain-knowledge-providing lexicons. However, obtaining these lexicons is not a trivial matter. The quality of lexicons can affect the performance of CRFs significantly. In addition, compared to simple models like n-gram language models (Teahan et al., 2000), another shortcoming of CRF-based segmenters is that it requires significantly longer training time. However, training is a one-time process, and testing time is still linear in the length of the input. 6 Conclusions The contribution of this paper is three-fold. First, we apply CRFs to Chinese word segmentation and find that they achieve state-of-the art performance. Second, we propose a probabilistic new word detection method that is integrated in segmentation, and show it to improve segmentation performance. Third, as far as we are aware, this is the first work to comprehensively evaluate o</context>
+</contexts>
+<marker>Teahan, Wen, McNab, Witten, 2000</marker>
+<rawString>W. J. Teahan, Y. Wen, R. McNab, and I. H. Witten. 2000. A Compression-based Algorithm for Chinese Word Segmentation. Computational Linguistics, 26(3):375393.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Wu</author>
+<author>Z Jiang</author>
+</authors>
+<title>Statistically-Enhanced New Word Identification in a Rule-Based Chinese System.</title>
+<date>2000</date>
+<booktitle>In Proceedings of the Second Chinese Language Processing Workshop,</booktitle>
+<pages>4651</pages>
+<location>Hong Kong, China.</location>
+<contexts>
+<context position="4764" citStr="Wu and Jiang, 2000" startWordPosition="704" endWordPosition="707">discriminatively-trained hidden Markov models with next-state transition functions represented by exponential models (as in maximum en\x0ctropy classifiers), and with great flexibility to view the observation sequence in terms of arbitrary, overlapping features, with long-range dependencies, and at multiple levels of granularity. These beneficial properties suggests that CRFs are a promising approach for Chinese word segmentation. New word detection is one of the most important problems in Chinese information processing. Many machine learning approaches have been proposed (Chen and Bai, 1998; Wu and Jiang, 2000; Nie et al., 1995). New word detection is normally considered as a separate process from segmentation. However, integrating them would benefit both segmentation and new word detection. CRFs provide a convenient framework for doing this. They can produce not only a segmentation, but also confidence in local segmentation decisions, which can be used to find new, unfamiliar character sequences surrounded by high-confidence segmentations. Thus, our new word detection is not a stand-alone process, but an integral part of segmentation. Newly detected words are re-incorporated into our word lexicon,</context>
+</contexts>
+<marker>Wu, Jiang, 2000</marker>
+<rawString>A. Wu and Z. Jiang. 2000. Statistically-Enhanced New Word Identification in a Rule-Based Chinese System. In Proceedings of the Second Chinese Language Processing Workshop, pages 4651, Hong Kong, China.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>Z Wu</author>
+</authors>
+<date>1999</date>
+<note>LDC Chinese Segmenter. http://www.ldc.upenn.edu/ Projects/ Chinese/ segmenter/ mansegment.perl.</note>
+<contexts>
+<context position="1749" citStr="Wu, 1999" startWordPosition="248" endWordPosition="249">sing tasks in these languages. For Chinese, there has been significant research on finding word boundaries in unsegmented sequences (see (Sproat and Shih, 2002) for a review). Unfortunately, building a Chinese word segmentation system is complicated by the fact that there is no standard definition of word boundaries in Chinese. Approaches to Chinese segmentation fall roughly into two categories: heuristic dictionary-based methods and statistical machine learning methods. In dictionary-based methods, a predefined dictionary is used along with hand-generated rules for segmenting input sequence (Wu, 1999). However these approaches have been limited by the impossibility of creating a lexicon that includes all possible Chinese words and by the lack of robust statistical inference in the rules. Machine learning approaches are more desirable and have been successful in both unsupervised learning (Peng and Schuurmans, 2001) and supervised learning (Teahan et al., 2000). Many current approaches suffer from either lack of exact inference over sequences or difficulty in incorporating domain knowledge effectively into segmentation. Domain knowledge is either not used, used in a limited way, or used in </context>
+</contexts>
+<marker>Wu, 1999</marker>
+<rawString>Z. Wu. 1999. LDC Chinese Segmenter. http://www.ldc.upenn.edu/ Projects/ Chinese/ segmenter/ mansegment.perl.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Wu</author>
+</authors>
+<title>Chinese Word Segmentation in MSRNLP.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the Second SIGHAN Workshop on Chinese Language Processing,</booktitle>
+<contexts>
+<context position="25022" citStr="Wu (2003)" startWordPosition="4079" endWordPosition="4080">in worse performance, as seen in the AS dataset. 5.4 Error analysis and discussion Several typical errors are observed in error analysis. One typical error is caused by inconsistent segmentation labeling in the test set. This is most notorious in CTB dataset. The second most typical error is in new, out-of-vocabulary words, especially proper names. Although our new word detection fixes many of these problems, it is not effective enough to recognize proper names well. One solution to this problem could use a named entity extractor to recognize proper names; this was found to be very helpful in Wu (2003). One of the most attractive advantages of CRFs (and maximum entropy models in general) is its the flexibility to easily incorporate arbitrary features, \x0chere in the form domain-knowledge-providing lexicons. However, obtaining these lexicons is not a trivial matter. The quality of lexicons can affect the performance of CRFs significantly. In addition, compared to simple models like n-gram language models (Teahan et al., 2000), another shortcoming of CRF-based segmenters is that it requires significantly longer training time. However, training is a one-time process, and testing time is still</context>
+</contexts>
+<marker>Wu, 2003</marker>
+<rawString>A. Wu. 2003. Chinese Word Segmentation in MSRNLP. In Proceedings of the Second SIGHAN Workshop on Chinese Language Processing, Japan.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>N Xue</author>
+</authors>
+<title>Chinese Word Segmentation as Character Tagging.</title>
+<date>2003</date>
+<journal>International Journal of Computational Linguistics and Chinese Language Processing,</journal>
+<volume>8</volume>
+<issue>1</issue>
+<contexts>
+<context position="2783" citStr="Xue (2003)" startWordPosition="416" endWordPosition="417"> inference over sequences or difficulty in incorporating domain knowledge effectively into segmentation. Domain knowledge is either not used, used in a limited way, or used in a complicated way spread across different components. For example, the N-gram generative language modeling based approach of Teahan et al (2000) does not use domain knowledge. Gao et al (2003) uses class-based language for word segmentation where some word category information can be incorporated. Zhang et al (2003) use a hierarchical hidden Markov Model to incorporate lexical knowledge. A recent advance in this area is Xue (2003), in which the author uses a sliding-window maximum entropy classifier to tag Chinese characters into one of four position tags, and then covert these tags into a segmentation using rules. Maximum entropy models give tremendous flexibility to incorporate arbitrary features. However, a traditional maximum entropy tagger, as used in Xue (2003), labels characters without considering dependencies among the predicted segmentation labels that is inherent in the state transitions of finitestate sequence models. Linear-chain conditional random fields (CRFs) (Lafferty et al., 2001) are models that addr</context>
+<context position="21271" citStr="Xue, 2003" startWordPosition="3421" endWordPosition="3422">ent datasets, indicating that the four datasets have different characteristics and use very different segmentation guidelines. We also notice that the worst results were obtained on CTB dataset for all systems. This is due to significant inconsistent segmentation in training and testing (Sproat and Emerson, 2003). We verify this by another test. We randomly split the training data into 80% training and 20% testing, and run the experiments for 3 times, resulting in a testing F1 of 97.13%. Third, consider a comparison of our results with site S12, who use a sliding-window maximum entropy model (Xue, 2003). They participated in two datasets, with an average of 93.8%. Our average over the same two runs is 94.2%. This gives some empirical evidence of the advantages of linear-chain CRFs over slidingwindow maximum entropy models, however, this comparison still requires further investigation since there are many factors that could affect the performance such as different features used in both systems. To further study the robustness of our approach to segmentation, we perform cross-testingthat is, training on one dataset and testing on other datasets. Table 5 summarizes these results, in which the r</context>
+</contexts>
+<marker>Xue, 2003</marker>
+<rawString>N. Xue. 2003. Chinese Word Segmentation as Character Tagging. International Journal of Computational Linguistics and Chinese Language Processing, 8(1).</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H Zhang</author>
+<author>Q Liu</author>
+<author>X Cheng</author>
+<author>H Zhang</author>
+<author>H Yu</author>
+</authors>
+<title>Chinese Lexical Analysis Using Hierarchical Hidden Markov Model.</title>
+<date>2003</date>
+<booktitle>In Proceedings of the Second SIGHAN Workshop,</booktitle>
+<pages>6370</pages>
+<contexts>
+<context position="2666" citStr="Zhang et al (2003)" startWordPosition="395" endWordPosition="398">and Schuurmans, 2001) and supervised learning (Teahan et al., 2000). Many current approaches suffer from either lack of exact inference over sequences or difficulty in incorporating domain knowledge effectively into segmentation. Domain knowledge is either not used, used in a limited way, or used in a complicated way spread across different components. For example, the N-gram generative language modeling based approach of Teahan et al (2000) does not use domain knowledge. Gao et al (2003) uses class-based language for word segmentation where some word category information can be incorporated. Zhang et al (2003) use a hierarchical hidden Markov Model to incorporate lexical knowledge. A recent advance in this area is Xue (2003), in which the author uses a sliding-window maximum entropy classifier to tag Chinese characters into one of four position tags, and then covert these tags into a segmentation using rules. Maximum entropy models give tremendous flexibility to incorporate arbitrary features. However, a traditional maximum entropy tagger, as used in Xue (2003), labels characters without considering dependencies among the predicted segmentation labels that is inherent in the state transitions of fi</context>
+<context position="20462" citStr="Zhang et al., 2003" startWordPosition="3283" endWordPosition="3286"> the average F1 performance over the datasets on which a site reported results. Column OUR-AVG is the average F1 performance of our system over the same datasets. Comparing performance across systems is difficult since none of those systems reported results on all eight datasets (open and closed runs on 4 datasets). Nevertheless, several observations could be made from Table 4. First, no single system achieved best results in all tests. Only one site (S01) achieved two best runs (CTBc and PKc) with an average of 91.8% over 6 runs. S01 is one of the best segmentation systems in mainland China (Zhang et al., 2003). We also achieve two best runs (ASo and HKc), with a comparable average of 91.9% over the same 6 runs, and a 92.7% average over all the 8 runs. Second, performance varies significantly across different datasets, indicating that the four datasets have different characteristics and use very different segmentation guidelines. We also notice that the worst results were obtained on CTB dataset for all systems. This is due to significant inconsistent segmentation in training and testing (Sproat and Emerson, 2003). We verify this by another test. We randomly split the training data into 80% training</context>
+</contexts>
+<marker>Zhang, Liu, Cheng, Zhang, Yu, 2003</marker>
+<rawString>H. Zhang, Q. Liu, X. Cheng, H. Zhang, and H. Yu. 2003. Chinese Lexical Analysis Using Hierarchical Hidden Markov Model. In Proceedings of the Second SIGHAN Workshop, pages 6370, Japan. \x0c&amp;apos;</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>
