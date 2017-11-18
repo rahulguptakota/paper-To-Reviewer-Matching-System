@@ -1,0 +1,1500 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<algorithms version="110505">
+<algorithm name="SectLabel" version="110505">
+<variant no="0" confidence="0.000000">
+<bodyText confidence="0.548766">
+b&amp;apos;Proceedings of the 22nd International Conference on Computational Linguistics (Coling 2008), pages 841848
+</bodyText>
+<address confidence="0.607346">
+Manchester, August 2008
+</address>
+<title confidence="0.709907">
+Modeling Latent-Dynamic in Shallow Parsing:
+A Latent Conditional Model with Improved Inference
+</title>
+<author confidence="0.85086">
+Xu Sun Louis-Philippe Morency Daisuke Okanohara Junichi Tsujii
+</author>
+<affiliation confidence="0.873476">
+Department of Computer Science, The University of Tokyo, Hongo 7-3-1, Tokyo, Japan
+USC Institute for Creative Technologies, 13274 Fiji Way, Marina del Rey, USA
+School of Computer Science, The University of Manchester, 131 Princess St, Manchester, UK
+</affiliation>
+<email confidence="0.965154">
+{sunxu, hillbig, tsujii}@is.s.u-tokyo.ac.jp morency@ict.usc.edu
+</email>
+<sectionHeader confidence="0.989946" genericHeader="abstract">
+Abstract
+</sectionHeader>
+<bodyText confidence="0.999718818181818">
+Shallow parsing is one of many NLP tasks
+that can be reduced to a sequence la-
+beling problem. In this paper we show
+that the latent-dynamics (i.e., hidden sub-
+structure of shallow phrases) constitutes a
+problem in shallow parsing, and we show
+that modeling this intermediate structure
+is useful. By analyzing the automatically
+learned hidden states, we show how the
+latent conditional model explicitly learn
+latent-dynamics. We propose in this paper
+the Best Label Path (BLP) inference algo-
+rithm, which is able to produce the most
+probable label sequence on latent condi-
+tional models. It outperforms two existing
+inference algorithms. With the BLP infer-
+ence, the LDCRF model significantly out-
+performs CRF models on word features,
+and achieves comparable performance of
+the most successful shallow parsers on the
+CoNLL data when further using part-of-
+speech features.
+</bodyText>
+<sectionHeader confidence="0.998333" genericHeader="keywords">
+1 Introduction
+</sectionHeader>
+<bodyText confidence="0.994878568627451">
+Shallow parsing identifies the non-recursive cores
+of various phrase types in text. The paradigmatic
+shallow parsing problem is noun phrase chunking,
+in which the non-recursive cores of noun phrases,
+called base NPs, are identified. As the represen-
+tative problem in shallow parsing, noun phrase
+chunking has received much attention, with the de-
+velopment of standard evaluation datasets and with
+c
+2008. Licensed under the Creative Commons
+Attribution-Noncommercial-Share Alike 3.0 Unported li-
+cense (http://creativecommons.org/licenses/by-nc-sa/3.0/).
+Some rights reserved.
+extensive comparisons among methods (McDon-
+ald 2005; Sha &amp; Pereira 2003; Kudo &amp; Matsumoto
+2001).
+Syntactic contexts often have a complex under-
+lying structure. Chunk labels are usually far too
+general to fully encapsulate the syntactic behavior
+of word sequences. In practice, and given the lim-
+ited data, the relationship between specific words
+and their syntactic contexts may be best modeled
+at a level finer than chunk tags but coarser than
+lexical identities. For example, in the noun phrase
+(NP) chunking task, suppose that there are two lex-
+ical sequences, He is her and He gave her
+. The observed sequences, He is her and
+He gave her, would both be conventionally la-
+beled by BOB, where B signifies the beginning
+NP, and O the outside NP. However, this label-
+ing may be too general to encapsulate their respec-
+tive syntactic dynamics. In actuality, they have dif-
+ferent latent-structures, crucial in labeling the next
+word. For He is her , the NP started by her is
+still incomplete, so the label for is likely to be I,
+which conveys the continuation of the phrase, e.g.,
+[He] is [her brother]. In contrast, for He gave
+her , the phrase started by her is normally self-
+complete, and makes the next label more likely to
+be B, e.g., [He] gave [her] [flowers].
+In other words, latent-dynamics is an interme-
+diate representation between input features and la-
+bels, and explicitly modeling this can simplify the
+problem. In particular, in many real-world cases,
+when the part-of-speech tags are not available, the
+modeling on latent-dynamics would be particu-
+larly important.
+In this paper, we model latent-dynamics in
+shallow parsing by extending the Latent-Dynamic
+Conditional Random Fields (LDCRFs) (Morency
+et al. 2007), which offer advantages over previ-
+</bodyText>
+<page confidence="0.977327">
+841
+</page>
+<figure confidence="0.9956166">
+\x0cy y y
+1 2 m h h h
+1 2 m
+y y y
+1 2 m
+CRF LDCRF
+x x x
+1 2 m
+x x x
+1 2 m
+</figure>
+<figureCaption confidence="0.999748">
+Figure 1: Comparison between CRF and LDCRF.
+</figureCaption>
+<bodyText confidence="0.999829133333333">
+In these graphical models, x represents the obser-
+vation sequence, y represents labels and h repre-
+sents hidden states assigned to labels. Note that
+only gray circles are observed variables. Also,
+only the links with the current observation are
+shown, but for both models, long range dependen-
+cies are possible.
+ous learning methods by explicitly modeling hid-
+den state variables (see Figure 1). We expect LD-
+CRFs to be particularly useful in those cases with-
+out POS tags, though this paper is not limited to
+this.
+The inference technique is one of the most im-
+portant components for a structured classification
+model. In conventional models like CRFs, the op-
+timal label path can be directly searched by using
+dynamic programming. However, for latent condi-
+tional models like LDCRFs, the inference is kind
+of tricky, because of hidden state variables. In this
+paper, we propose an exact inference algorithm,
+the Best Label Path inference, to efficiently pro-
+duce the optimal label sequence on LDCRFs.
+The following section describes the related
+work. We then review LDCRFs, and propose the
+BLP inference. We further present a statistical
+interpretation on learned hidden states. Finally,
+we show that LDCRF-BLP is particularly effective
+when pure word features are used, and when POS
+tags are added, as existing systems did, it achieves
+comparable results to the best reported systems.
+</bodyText>
+<sectionHeader confidence="0.99962" genericHeader="introduction">
+2 Related Work
+</sectionHeader>
+<bodyText confidence="0.998843240740741">
+There is a wide range of related work on shallow
+parsing. Shallow parsing is frequently reduced to
+sequence labeling problems, and a large part of
+previous work uses machine learning approaches.
+Some approaches rely on k-order generative proba-
+bilistic models of paired input sequences and label
+sequences, such as HMMs (Freitag &amp; McCallum
+2000; Kupiec 1992) or multilevel Markov mod-
+els (Bikel et al. 1999). The generative model
+provides well-understood training and inference
+but requires stringent conditional independence as-
+sumptions.
+To accommodate multiple overlapping features
+on observations, some other approaches view the
+sequence labeling problem as a sequence of clas-
+sification problems, including support vector ma-
+chines (SVMs) (Kudo &amp; Matsumoto 2001) and a
+variety of other classifiers (Punyakanok &amp; Roth
+2001; Abney et al. 1999; Ratnaparkhi 1996).
+Since these classifiers cannot trade off decisions at
+different positions against each other (Lafferty et
+al. 2001), the best classifier based shallow parsers
+are forced to resort to heuristic combinations of
+multiple classifiers.
+A significant amount of recent work has shown
+the power of CRFs for sequence labeling tasks.
+CRFs use an exponential distribution to model the
+entire sequence, allowing for non-local dependen-
+cies between states and observations (Lafferty et
+al. 2001). Lafferty et al. (2001) showed that CRFs
+outperform classification models as well as HMMs
+on synthetic data and on POS tagging tasks. As for
+the task of shallow parsing, CRFs also outperform
+many other state-of-the-art models (Sha &amp; Pereira
+2003; McDonald et al. 2005).
+When the data has distinct sub-structures, mod-
+els that exploit hidden state variables are advanta-
+geous in learning (Matsuzaki et al. 2005; Petrov
+et al. 2007). Sutton et al. (2004) presented an
+extension to CRF called dynamic conditional ran-
+dom field (DCRF) model. As stated by the authors,
+training a DCRF model with unobserved nodes
+(hidden variables) makes their approach difficult
+to optimize. In the vision community, the LD-
+CRF model was recently proposed by Morency et
+al. (2007), and shown to outperform CRFs, SVMs,
+and HMMs for visual sequence labeling.
+In this paper, we introduce the concept of latent-
+dynamics for shallow parsing, showing how hid-
+den states automatically learned by the model
+present similar characteristics. We will also pro-
+pose an improved inference technique, the BLP,
+for producing the most probable label sequence in
+LDCRFs.
+</bodyText>
+<sectionHeader confidence="0.791626" genericHeader="method">
+3 Latent-Dynamic Conditional Random
+Fields
+</sectionHeader>
+<bodyText confidence="0.997987666666667">
+The task is to learn a mapping between a sequence
+of observations x = x1, x2, . . . , xm and a sequence
+of labels y = y1, y2, . . . , ym. Each yj is a class la-
+</bodyText>
+<page confidence="0.994706">
+842
+</page>
+<bodyText confidence="0.999553">
+\x0cbel for the jth token of a word sequence and is a
+member of a set Y of possible class labels. For
+each sequence, the model also assumes a vector of
+hidden state variables h = {h1, h2, . . . , hm}, which
+are not observable in the training examples.
+Given the above definitions, we define a latent
+conditional model as follows:
+</bodyText>
+<equation confidence="0.99632475">
+P(y|x, ) =
+X
+h
+P(y|h, x, )P(h|x, ), (1)
+</equation>
+<bodyText confidence="0.997236857142857">
+where are the parameters of the model. The LD-
+CRF model can seem as a natural extension of the
+CRF model, and the CRF model can seem as a spe-
+cial case of LDCRFs employing one hidden state
+for each label.
+To keep training and inference efficient, we re-
+strict the model to have disjointed sets of hidden
+states associated with each class label. Each hj is
+a member of a set Hyj of possible hidden states for
+the class label yj. We define H, the set of all pos-
+sible hidden states to be the union of all Hyj sets.
+Since sequences which have any hj &lt; Hyj will by
+definition have P(y|x, ) = 0, we can express our
+model as:
+</bodyText>
+<equation confidence="0.9956552">
+P(y|x, ) =
+X
+hHy1
+...Hym
+P(h|x, ), (2)
+</equation>
+<bodyText confidence="0.7308545">
+where P(h|x, ) is defined using the usual con-
+ditional random field formulation: P(h|x, ) =
+</bodyText>
+<equation confidence="0.615238">
+exp f(h|x)/
+P
+</equation>
+<bodyText confidence="0.9931648">
+h exp f(h|x), in which f(h|x) is
+the feature vector. Given a training set consisting
+of n labeled sequences (xi, yi) for i = 1 . . . n, train-
+ing is performed by optimizing the objective func-
+tion to learn the parameter :
+</bodyText>
+<equation confidence="0.9983522">
+L() =
+n
+X
+i=1
+log P(yi|xi, ) R(). (3)
+</equation>
+<bodyText confidence="0.995014333333333">
+The first term of this equation is the conditional
+log-likelihood of the training data. The second
+term is the regularizer.
+</bodyText>
+<sectionHeader confidence="0.813231" genericHeader="method">
+4 BLP Inference on Latent Conditional
+</sectionHeader>
+<subsectionHeader confidence="0.554242">
+Models
+</subsectionHeader>
+<bodyText confidence="0.952009">
+For testing, given a new test sequence x, we want
+to estimate the most probable label sequence (Best
+Label Path), y, that maximizes our conditional
+model:
+</bodyText>
+<equation confidence="0.986220666666667">
+y
+= argmaxyP(y|x,
+). (4)
+</equation>
+<bodyText confidence="0.995853052631579">
+In the CRF model, y can be simply searched by
+using the Viterbi algorithm. However, for latent
+conditional models like LDCRF, the Best Label
+Path y cannot directly be produced by the Viterbi
+algorithm because of the incorporation of hidden
+states.
+In this paper, we propose an exact inference al-
+gorithm, the Best Label Path inference (BLP), for
+producing the most probable label sequence y on
+LDCRF. In the BLP schema, top-n hidden paths
+HPn = {h1, h2 . . . hn} over hidden states are effi-
+ciently produced by using A search (Hart et al.,
+1968), and the corresponding probabilities of hid-
+den paths P(hi|x, ) are gained. Thereafter, based
+on HPn, the estimated probabilities of various la-
+bel paths, P(y|x, ), can be computed by summing
+the probabilities of hidden paths, P(h|x, ), con-
+cerning the association between hidden states and
+each class label:
+</bodyText>
+<equation confidence="0.9878236">
+P(y|x, ) =
+X
+h: hHy1
+...Hym hHPn
+P(h|x, ). (5)
+</equation>
+<bodyText confidence="0.989267666666667">
+By using the A search, HPn can be extended in-
+crementally in an efficient manner, until the algo-
+rithm finds that the Best Label Path is ready, and
+then the search stops and ends the BLP inference
+with success. The algorithm judges that y is ready
+when the following condition is achieved:
+</bodyText>
+<equation confidence="0.9992674">
+P(y1|x, ) P(y2|x, ) +
+X
+h&lt;Hy1
+...Hym
+P(h|x, ), (6)
+</equation>
+<bodyText confidence="0.516498714285714">
+where y1 is the most probable label sequence, and
+y2 is the second ranked label sequence estimated
+by using HPn. It would be straightforward to prove
+that y = y1, and further search is unnecessary, be-
+cause in this case, the unknown probability mass
+can not change the optimal label path. The un-
+known probability mass can be computed by using
+</bodyText>
+<equation confidence="0.99256525">
+X
+h&lt;Hy1
+...Hym
+P(h|x, ) = 1
+X
+hHy1
+...Hym
+P(h|x, ). (7)
+</equation>
+<bodyText confidence="0.973540125">
+The top-n hidden paths of HPn produced by the
+A-search are exact, and the BLP inference is ex-
+act. To guarantee HPn is exact in our BLP in-
+ference, an admissible heuristic function should
+be used in A search (Hart et al., 1968). We use
+a backward Viterbi algorithm (Viterbi, 1967) to
+compute the heuristic function of the forward A
+search:
+</bodyText>
+<equation confidence="0.973039058823529">
+Heui(hj) = max
+h
+0
+i =hjh
+0
+i HP|h|
+i
+P
+0
+(h
+0
+|x,
+), (8)
+843
+\x0cwhere h
+0
+i = hj represents a partial hidden path
+</equation>
+<bodyText confidence="0.976585761904762">
+started from the hidden state hj, and HP|h|
+i rep-
+resents all possible partial hidden paths from the
+position i to the ending position |h |. Heui(hj) is
+an admissible heuristic function for the A search
+over hidden paths, therefore HPn is exact and BLP
+inference is exact.
+The BLP inference is efficient when the prob-
+ability distribution among the hidden paths is in-
+tensive. By combining the forward A with the
+backward Viterbi algorithm, the time complexity
+of producing HPn is roughly a linear complexity
+concerning its size. In practice, on the CoNLL test
+data containing 2,012 sentences, the BLP infer-
+ence finished in five minutes when using the fea-
+ture set based on both word and POS information
+(see Table 3). The memory consumption is also
+relatively small, because it is an online style algo-
+rithm and it is not necessary to preserve HPn.
+In this paper, to make a comparison, we also
+study the Best Hidden Path inference (BHP):
+</bodyText>
+<equation confidence="0.998968">
+yBHP = argmaxyP(hy|x,
+), (9)
+</equation>
+<bodyText confidence="0.991768928571429">
+where hy Hy1 . . . Hym . In other words, the
+Best Hidden Path is the label sequence that is di-
+rectly projected from the most probable hidden
+path h.
+In (Morency et al. 2007), y is estimated by us-
+ing the Best Point-wise Marginal Path (BMP). To
+estimate the label yj of token j, the marginal prob-
+abilities P(hj = a|x, ) are computed for possible
+hidden states a H. Then, the marginal probabili-
+ties are summed and the optimal label is estimated
+by using the marginal probabilities.
+The BLP produces y while the BHP and the
+BMP perform an estimation on y. We will make
+an experimental comparison in Section 6.
+</bodyText>
+<sectionHeader confidence="0.996936" genericHeader="method">
+5 Analyzing Latent-Dynamics
+</sectionHeader>
+<bodyText confidence="0.994352">
+The chunks in shallow parsing are represented with
+the three labels shown in Table 1, and shallow pars-
+ing is treated as a sequence labeling task with those
+three labels. A challenge for most shallow parsing
+approaches is to determine the concepts learned by
+the model. In this section, we show how we can
+analyze the latent-dynamics.
+</bodyText>
+<subsectionHeader confidence="0.961969">
+5.1 Analyzing Latent-Dynamics
+</subsectionHeader>
+<bodyText confidence="0.994428166666667">
+In this section, we show how to analyze the charac-
+teristics of the hidden states. Our goal is to find the
+words characterizing a specific hidden state, and
+B words beginning a chunk
+I words continuing a chunk
+O words being outside a chunk
+</bodyText>
+<tableCaption confidence="0.947508">
+Table 1: Shallow parsing labels.
+</tableCaption>
+<bodyText confidence="0.987605380952381">
+then look at the selected words with their associ-
+ated POS tags to determine if the LDCRF model
+has learned meaningful latent-dynamics.
+In the experiments reported in this section, we
+did not use the features on POS tags in order to
+isolate the models capability of learning latent dy-
+namics. In other words, the model could simply
+learn the dynamics of POS tags as the latent dy-
+namics if the model is given the information about
+POS tags. The features used in the experiments are
+listed on the left side (Word Features) in Table 3.
+The main idea is to look at the marginal proba-
+bilities P(hj = a|x, ) for each word j, and select
+the hidden state a with the highest probability. By
+counting how often a specific word selected a as
+the optimal hidden state, i.e., (w, a), we can cre-
+ate statistics about the relationship between hidden
+states and words. We define relative frequency as
+the number of times a specific word selected a hid-
+den state while normalized by the global frequency
+of this word:
+</bodyText>
+<equation confidence="0.9972345">
+RltFreq(w, hj) =
+Freq( (w, hj) )
+Freq(w)
+. (10)
+</equation>
+<subsectionHeader confidence="0.994504">
+5.2 Learned Latent-Dynamics from CoNLL
+</subsectionHeader>
+<bodyText confidence="0.998958842105263">
+In this subsection, we show the latent-dynamics
+learned automatically from the CoNLL dataset.
+The details of these experiments are presented in
+the following section.
+The most frequent three words corresponding to
+the individual hidden states of the labels, B and O,
+are shown in Table 2. As shown, the automati-
+cally learned hidden states demonstrate prominent
+characteristics. The extrinsic label B, which begins
+a noun phrase, is automatically split into 4 sub-
+categories: wh-determiners (WDT, such as that)
+together with wh-pronouns (WP, such as who),
+the determiners (DT, such as any, an, a), the per-
+sonal pronouns (PRP, such as they, we, he), and
+the singular proper nouns (NNP, such as Nasdaq,
+Florida) together with the plural nouns (NNS,
+such as cities). The results of B1 suggests that
+the wh-determiners represented by that, and the
+wh-pronouns represented by who, perform simi-
+</bodyText>
+<page confidence="0.997343">
+844
+</page>
+<table confidence="0.999360925925926">
+\x0cLabels HidStat Words POS RltFreq
+B
+That WDT 0.85
+B1 who WP 0.49
+Who WP 0.33
+any DT 1.00
+B2 an DT 1.00
+a DT 0.98
+They PRP 1.00
+B3 we PRP 1.00
+he PRP 1.00
+Nasdaq NNP 1.00
+B4 Florida NNP 0.99
+cities NNS 0.99
+O
+But CC 0.88
+O1 by IN 0.73
+or IN 0.67
+4.6 CD 1.00
+O2 1 CD 1.00
+11 CD 0.62
+were VBD 0.94
+O3 rose VBD 0.93
+have VBP 0.92
+been VBN 0.97
+O4 be VB 0.94
+to TO 0.92
+</table>
+<tableCaption confidence="0.982438">
+Table 2: Latent-dynamics learned automatically by
+</tableCaption>
+<bodyText confidence="0.997070421052631">
+the LDCRF model. This table shows the top three
+words and their gold-standard POS tags for each
+hidden states.
+lar roles in modeling the dynamics in shallow pars-
+ing. Further, the singular proper nouns and the
+plural nouns are grouped together, suggesting that
+they may perform similar roles. Moreover, we can
+notice that B2 and B3 are highly consistent.
+The label O is automatically split into the coordi-
+nating conjunctions (CC) together with the prepo-
+sitions (IN) indexed by O1, the cardinal numbers
+(CD) indexed by O2, the past tense verbs (VBD)
+together with the personal verbs (VBP) indexed by
+O3, and another sub-category, O4. From the results
+we can find that gold-standard POS tags may not
+be adequate in modeling latent-dynamics in shal-
+low parsing, as we can notice that three hidden
+states out of four (O1, O3 and O4) contains relat-
+ing but different gold-standard POS tags.
+</bodyText>
+<sectionHeader confidence="0.998672" genericHeader="method">
+6 Experiments
+</sectionHeader>
+<bodyText confidence="0.9973675">
+Following previous studies on shallow parsing, our
+experiments are performed on the CoNLL 2000
+</bodyText>
+<equation confidence="0.893131">
+Word Features:
+{wi2, wi1, wi, wi+1, wi+2, wi1wi, wiwi+1}
+{hi, hi1hi, hi2hi1hi}
+POS Features:
+{ti1, ti, ti+1, ti2ti1, ti1ti, titi+1, ti+1ti+2,
+ti2ti1ti, ti1titi+1, titi+1ti+2}
+{hi, hi1hi, hi2hi1hi}
+</equation>
+<tableCaption confidence="0.988534">
+Table 3: Feature templates used in the experi-
+</tableCaption>
+<bodyText confidence="0.995288416666667">
+ments. wi is the current word; ti is current POS
+tag; and hi is the current hidden state (for the case
+of latent models) or the current label (for the case
+of conventional models).
+data set (Sang &amp; Buchholz 2000; Ramshow &amp;
+Marcus 1995). The training set consists of 8,936
+sentences, and the test set consists of 2,012 sen-
+tences. The standard evaluation metrics for this
+task are precision p (the fraction of output chunks
+matching the reference chunks), recall r (the frac-
+tion of reference chunks returned), and the F-
+measure given by F = 2pr/(p + r).
+</bodyText>
+<subsectionHeader confidence="0.965283">
+6.1 LDCRF for Shallow Parsing
+</subsectionHeader>
+<bodyText confidence="0.997942333333333">
+We implemented LDCRFs in C++, and optimized
+the system to cope with large scale problems, in
+which the feature dimension is beyond millions.
+We employ similar predicate sets defined in Sha
+&amp; Pereira (2003). We follow them in using predi-
+cates that depend on words as well as POS tags in
+the neighborhood of a given position, taking into
+account only those 417,835 features which occur
+at least once in the training data. The features are
+listed in Table 3.
+As for numerical optimization (Malouf 2002;
+Wallach 2002), we performed gradient decent with
+the Limited-Memory BFGS (L-BFGS) optimiza-
+tion technique (Nocedal &amp; Wright 1999). L-BFGS
+is a second-order Quasi-Newton method that nu-
+merically estimates the curvature from previous
+gradients and updates. With no requirement on
+specialized Hessian approximation, L-BFGS can
+handle large-scale problems in an efficient manner.
+We implemented an L-BFGS optimizer in C++ by
+modifying the OWLQN package (Andrew &amp; Gao
+2007) developed by Galen Andrew. In our exper-
+iments, storing 10 pairs of previous gradients for
+the approximation of the functions inverse Hes-
+sian worked well, making the amount of the ex-
+tra memory required modest. Using more pre-
+vious gradients will probably decrease the num-
+</bodyText>
+<page confidence="0.989273">
+845
+</page>
+<bodyText confidence="0.998154588235294">
+\x0cber of iterations required to reach convergence,
+but would increase memory requirements signifi-
+cantly. To make a comparison, we also employed
+the Conjugate-Gradient (CG) optimization algo-
+rithm. For details of CG, see Shewchuk (1994).
+Since the objective function of the LDCRF
+model is non-convex, it is suggested to use the ran-
+dom initialization of parameters for the training.
+To reduce overfitting, we employed an L2 Gaus-
+sian weight prior (Chen &amp; Rosenfeld 1999). Dur-
+ing training and validation, we varied the number
+of hidden states per label (from 2 to 6 states per
+label), and also varied the L2-regularization term
+(with values 10k, k from -3 to 3). Our experiments
+suggested that using 4 or 5 hidden states per label
+for the shallow parser is a viable compromise be-
+tween accuracy and efficiency.
+</bodyText>
+<sectionHeader confidence="0.998687" genericHeader="evaluation">
+7 Results and Discussion
+</sectionHeader>
+<subsectionHeader confidence="0.990404">
+7.1 Performance on Word Features
+</subsectionHeader>
+<bodyText confidence="0.99877675">
+As discussed in Section 4, it is preferred to not
+use the features on POS tags in order to isolate
+the models capability of learning latent dynam-
+ics. In this sub-section, we use pure word fea-
+tures with their counts above 10 in the training data
+to perform experimental comparisons among dif-
+ferent inference algorithms on LDCRFs, including
+BLP, BHP, and existing BMP.
+Since the CRF model is one of the success-
+ful models in sequential labeling tasks (Lafferty et
+al. 2001; Sha &amp; Pereira 2003; McDonald et al.
+2005), in this section, we also compare LDCRFs
+with CRFs. We tried to make experimental results
+more comparable between LDCRF and CRF mod-
+els, and have therefore employed the same fea-
+tures set, optimizer and fine-tuning strategy be-
+tween LDCRF and CRF models.
+The experimental results are shown in Table 4.
+In the table, Acc. signifies label accuracy, which
+is useful for the significance test in the follow-
+ing sub-section. As shown, LDCRF-BLP outper-
+forms LDCRF-BHP and LDCRF-BMP, suggesting
+that BLP inference 1 is superior. The superiority
+of BLP is statistically significant, which will be
+shown in next sub-section. On the other side, all
+the LDCRF models outperform the CRF model. In
+particular, the gap between LDCRF-BLP and CRF
+is 1.53 percent.
+</bodyText>
+<page confidence="0.88631">
+1
+</page>
+<bodyText confidence="0.946716333333333">
+In practice, for efficiency, we approximated the BLP on a
+few sentences by limiting the number of search steps.
+Models: WF Acc. Pre. Rec. F1
+</bodyText>
+<table confidence="0.99826575">
+LDCRF-BLP 97.01 90.33 88.91 89.61
+LDCRF-BHP 96.52 90.26 88.21 89.22
+LDCRF-BMP 97.26 89.83 89.06 89.44
+CRF 96.11 88.12 88.03 88.08
+</table>
+<tableCaption confidence="0.998611">
+Table 4: Experimental comparisons among differ-
+</tableCaption>
+<bodyText confidence="0.8146238">
+ent inference algorithms on LDCRFs, and the per-
+formance of CRFs using the same feature set on
+pure word features. The BLP inference outper-
+forms the BHP and BMP inference. LDCRFs out-
+perform CRFs.
+</bodyText>
+<table confidence="0.906740666666667">
+Models F1 Gap Acc. Gap Sig.
+BLP vs. BHP 0.39 0.49 1e-10
+BLP vs. CRF 1.53 0.90 5e-13
+</table>
+<tableCaption confidence="0.989263">
+Table 5: The significance tests. LDCRF-BLP is
+</tableCaption>
+<figureCaption confidence="0.465511">
+significantly more accurate than LDCRF-BHP and
+CRFs.
+</figureCaption>
+<subsectionHeader confidence="0.98151">
+7.2 Labeling Accuracy and Significance Test
+</subsectionHeader>
+<bodyText confidence="0.999281291666667">
+As shown in Table 4, the accuracy rate for individ-
+ual labeling decisions is over-optimistic as a mea-
+sure for shallow parsing. Nevertheless, since test-
+ing the significance of shallow parsers F-measures
+is tricky, individual labeling accuracy provides a
+more convenient basis for statistical significance
+tests (Sha &amp; Pereira 2003). One such test is the
+McNemar test on paired observations (Gillick &amp;
+Cox 1989). As shown in Table 5, for the LD-
+CRF model, the BLP inference schema is sta-
+tistically more accurate than the BHP inference
+schema. Also, Evaluations show that the McNe-
+mars value on labeling disagreement between the
+LDCRF-BLP and CRF models is 5e-13, suggest-
+ing that LDCRF-BLP is significantly more accu-
+rate than CRFs.
+On the other hand, the accuracy rate of BMP in-
+ference is a special case. Since the BMP inference
+is essentially an accuracy-first inference schema,
+the accuracy rate and the F-measure have a differ-
+ent relation in BMP. As we can see, the individual
+labeling accuracy achieved by the LDCRF-BMP
+model is as high as 97.26%, but its F-measure is
+still lower than LDCRF-BLP.
+</bodyText>
+<subsectionHeader confidence="0.999748">
+7.3 Convergence Speed
+</subsectionHeader>
+<bodyText confidence="0.998239666666667">
+It would be interesting to compare the convergence
+speed between the objective loss function of LD-
+CRFs and CRFs. We apply the L-BFGS optimiza-
+</bodyText>
+<page confidence="0.988629">
+846
+</page>
+<figure confidence="0.996457642857143">
+\x0c150
+200
+250
+300
+350
+400
+450
+500
+0 50 100 150 200 250
+Penalized
+Loss
+Passes
+LDCRF
+CRF
+</figure>
+<figureCaption confidence="0.8701645">
+Figure 2: The value of the penalized loss based on
+the number of iterations: LDCRFs vs. CRFs.
+</figureCaption>
+<figure confidence="0.988935615384615">
+160
+180
+200
+220
+240
+260
+280
+0 50 100 150 200 250
+Penalized
+Loss
+Passes
+L-BFGS
+CG
+</figure>
+<figureCaption confidence="0.7904215">
+Figure 3: Training the LDCRF model: L-BFGS
+vs. CG.
+</figureCaption>
+<bodyText confidence="0.994748608695652">
+tion algorithm to optimize the loss function of LD-
+CRF and CRF models, making a comparison be-
+tween them. We find that the iterations required
+for the convergence of LDCRFs is less than for
+CRFs (see Figure 2). Normally, the LDCRF model
+arrives at the plateau of convergence in 120-150
+iterations, while CRFs require 210-240 iterations.
+When we replace the L-BFGS optimizer by the CG
+optimization algorithm, we observed as well that
+LDCRF converges faster on iteration numbers than
+CRF does.
+On the contrary, however, the time cost of the
+LDCRF model in each iteration is higher than the
+CRF model, because of the incorporation of hid-
+den states. The time cost of the LDCRF model
+in each iteration is roughly a quadratic increase
+concerning the increase of the number of hidden
+states. Therefore, though the LDCRF model re-
+quires less passes for the convergence, it is practi-
+cally slower than the CRF model. Improving the
+scalability of the LDCRF model would be a inter-
+esting topic in the future.
+Furthermore, we make a comparison between
+</bodyText>
+<table confidence="0.9961481">
+Models: WF+POS Pre. Rec. F1
+LDCRF-BLP 94.65 94.03 94.34
+CRF
+N/A N/A 93.6
+(Vishwanathan et al. 06)
+CRF
+94.57 94.00 94.29
+(McDonald et al. 05)
+Voted perceptron
+N/A N/A 93.53
+(Collins 02)
+Generalized Winnow
+93.80 93.99 93.89
+(Zhang et al. 02)
+SVM combination
+94.15 94.29 94.22
+(Kudo &amp; Matsumoto 01)
+Memo. classifier
+93.63 92.89 93.26
+(Sang 00)
+</table>
+<tableCaption confidence="0.998774">
+Table 6: Performance of the LDCRF-BLP model,
+</tableCaption>
+<bodyText confidence="0.989114333333333">
+and the comparison with CRFs and other success-
+ful approaches. In this table, all the systems have
+employed POS features.
+the L-BFGS and the CG optimizer for LDCRFs.
+We observe that the L-BFGS optimizer is slightly
+faster than CG on LDCRFs (see Figure 3), which
+echoes the comparison between the L-BFGS and
+the CG optimizing technique on the CRF model
+(Sha &amp; Pereira 2003).
+</bodyText>
+<subsectionHeader confidence="0.9642095">
+7.4 Comparisons to Other Systems with POS
+Features
+</subsectionHeader>
+<bodyText confidence="0.99951875">
+Performance of the LDCRF-BLP model and some
+of the best results reported previously are summa-
+rized in Table 6. Our LDCRF model achieved
+comparable performance to those best reported
+systems in terms of the F-measure.
+McDonald et al. (2005) achieved an F-measure
+of 94.29% by using a CRF model. By employing a
+multi-model combination approach, Kudo &amp; Mat-
+sumoto (2001) also achieved a good performance.
+They use a combination of 8 kernel SVMs with
+a heuristic voting strategy. An advantage of LD-
+CRFs over max-margin based approaches is that
+LDCRFs can output N-best label sequences and
+their probabilities using efficient marginalization
+operations, which can be used for other compo-
+nents in an information extraction system.
+</bodyText>
+<sectionHeader confidence="0.993433" genericHeader="conclusions">
+8 Conclusions and Future Work
+</sectionHeader>
+<bodyText confidence="0.999614">
+In this paper, we have shown that automatic model-
+ing on latent-dynamics can be useful in shallow
+parsing. By analyzing the automatically learned
+</bodyText>
+<page confidence="0.958487">
+847
+</page>
+<bodyText confidence="0.99973395">
+\x0chidden states, we showed how LDCRFs can natu-
+rally learn latent-dynamics in shallow parsing.
+We proposed an improved inference algorithm,
+the BLP, for LDCRFs. We performed experiments
+using the CoNLL data, and showed how the BLP
+inference outperforms existing inference engines.
+When further employing POS features as other
+systems did, the performance of the LDCRF-BLP
+model is comparable to those best reported results.
+The LDCRF model demonstrates a significant ad-
+vantage over other models on pure word features
+in this paper. We expect it to be particularly useful
+in the real-world tasks without rich features.
+The latent conditional model handles latent-
+dynamics naturally, and can be easily extended to
+other labeling tasks. Also, the BLP inference algo-
+rithm can be extended to other latent conditional
+models for producing optimal label sequences. As
+a future work, we plan to further speed up the BLP
+algorithm.
+</bodyText>
+<sectionHeader confidence="0.97897" genericHeader="acknowledgments">
+Acknowledgments
+</sectionHeader>
+<bodyText confidence="0.939384333333333">
+Many thanks to Yoshimasa Tsuruoka for helpful
+discussions on the experiments and paper-writing.
+This research was partially supported by Grant-
+</bodyText>
+<reference confidence="0.849890875">
+in-Aid for Specially Promoted Research 18002007
+(MEXT, Japan). The work at the USC Institute for
+Creative Technology was sponsored by the U.S.
+Army Research, Development, and Engineering
+Command (RDECOM), and the content does not
+necessarily reflect the position or the policy of the
+Government, and no official endorsement should
+be inferred.
+</reference>
+<sectionHeader confidence="0.692122" genericHeader="references">
+References
+</sectionHeader>
+<reference confidence="0.999646012048193">
+Abney, S. 1991. Parsing by chunks. In R. Berwick, S. Ab-
+ney, and C. Tenny, editors, Principle-based Parsing. Kluwer
+Academic Publishers.
+Abney, S.; Schapire, R. E. and Singer, Y. 1999. Boosting
+applied to tagging and PP attachment. In Proc. EMNLP/VLC-
+99.
+Andrew, G. and Gao, J. 2007. Scalable training of L1-
+regularized log-linear models. In Proc. ICML-07.
+Bikel, D. M.; Schwartz, R. L. and Weischedel, R. M. 1999.
+An algorithm that learns whats in a name. Machine Learning,
+34: 211-231.
+Chen, S. F. and Rosenfeld, R. 1999. A Gaussian prior
+for smooth-ing maximum entropy models. Technical Report
+CMU-CS-99-108, CMU.
+Collins, M. 2002. Discriminative training methods for hid-
+den Markov models: Theory and experiments with perceptron
+algorithms. In Proc. EMNLP-02.
+Freitag, D. and McCallum, A. 2000. Information extrac-
+tion with HMM structures learned by stochastic optimization.
+In Proc. AAAI-00.
+Gillick, L. and Cox, S. 1989. Some statistical issues in
+the comparison of speech recognition algorithms. In Interna-
+tional Conference on Acoustics Speech and Signal Process-
+ing, v1, pages 532-535.
+Hart, P.E.; Nilsson, N.J.; and Raphael, B. 1968. A formal
+basis for the heuristic determination of minimum cost path.
+IEEE Trans. On System Science and Cybernetics, SSC-4(2):
+100-107.
+Kudo, T. and Matsumoto, Y. 2001. Chunking with support
+vector machines. In Proc. NAACL-01.
+Kupiec, J. 1992. Robust part-of-speech tagging using a
+hidden Markov model. Computer Speech and Language.
+6:225-242.
+Lafferty, J.; McCallum, A. and Pereira, F. 2001. Condi-
+tional random fields: Probabilistic models for segmenting and
+labeling sequence data. In Proc. ICML-01, pages 282-289.
+Malouf, R. 2002. A comparison of algorithms for maxi-
+mum entropy parameter estimation. In Proc. CoNLL-02.
+Matsuzaki, T.; Miyao Y. and Tsujii, J. 2005. Probabilistic
+CFG with Latent Annotations. In Proc. ACL-05.
+McDonald, R.; Crammer, K. and Pereira, F. 2005. Flexible
+Text Segmentation with Structured Multilabel Classification.
+In Proc. HLT/EMNLP-05, pages 987- 994.
+Morency, L.P.; Quattoni, A. and Darrell, T. 2007. Latent-
+Dynamic Discriminative Models for Continuous Gesture
+Recognition. In Proc. CVPR-07, pages 1- 8.
+Nocedal, J. and Wright, S. J. 1999. Numerical Optimiza-
+tion. Springer.
+Petrov, S.; Pauls, A.; and Klein, D. 2007. Discriminative
+log-linear grammars with latent variables. In Proc. NIPS-07.
+Punyakanok, V. and Roth, D. 2001. The use of classifiers
+in sequential inference. In Proc. NIPS-01, pages 995-1001.
+MIT Press.
+Ramshaw, L. A. and Marcus, M. P. 1995. Text chunking
+using transformation-based learning. In Proc. Third Work-
+shop on Very Large Corpora. In Proc. ACL-95.
+Ratnaparkhi, A. 1996. A maximum entropy model for
+part-of-speech tagging. In Proc. EMNLP-96.
+Sang, E.F.T.K. 2000. Noun Phrase Representation by Sys-
+tem Combination. In Proc. ANLP/NAACL-00.
+Sang, E.F.T.K and Buchholz, S. 2000. Introduction to the
+CoNLL-2000 shared task: Chunking. In Proc. CoNLL-00,
+pages 127-132.
+Sha, F. and Pereira, F. 2003. Shallow Parsing with Condi-
+tional Random Fields. In Proc. HLT/NAACL-03.
+Shewchuk, J. R. 1994. An introduction to the
+conjugate gradient method without the agonizing pain.
+http://www.2.cs.cmu.edu/jrs/jrspapers.html/#cg.
+Sutton, C.; Rohanimanesh, K. and McCallum, A. 2004.
+Dynamic conditional random fields: Factorized probabilistic
+models for labeling and segmenting sequence data. In Proc.
+ICML-04.
+Viterbi, A.J. 1967. Error bounds for convolutional codes
+and an asymptotically optimum decoding algorithm. IEEE
+Transactions on Information Theory. 13(2):260-269.
+Vishwanathan, S.; Schraudolph, N. N.; Schmidt, M.W. and
+Murphy, K. 2006. Accelerated training of conditional random
+fields with stochastic meta-descent. In Proc. ICML-06.
+Wallach, H. 2002. Efficient training of conditional random
+fields. In Proc. 6th Annual CLUK Research Colloquium.
+Zhang, T.; Damerau, F. and Johnson, D. 2002. Text chunk-
+ing based on a generalization of winnow. Journal of Machine
+Learning Research, 2:615-637.
+</reference>
+<page confidence="0.969894">
+848
+</page>
+<figure confidence="0.256166">
+\x0c&amp;apos;
+</figure>
+</variant>
+</algorithm>
+<algorithm name="ParsHed" version="110505">
+<variant no="0" confidence="0.371182">
+<note confidence="0.846671">b&amp;apos;Proceedings of the 22nd International Conference on Computational Linguistics (Coling 2008), pages 841848 Manchester, August 2008</note>
+<title confidence="0.9978475">Modeling Latent-Dynamic in Shallow Parsing: A Latent Conditional Model with Improved Inference</title>
+<author confidence="0.999772">Xu Sun Louis-Philippe Morency Daisuke Okanohara Junichi Tsujii</author>
+<affiliation confidence="0.97254">Department of Computer Science, The University of Tokyo, Hongo 7-3-1, Tokyo, Japan</affiliation>
+<address confidence="0.6872415">USC Institute for Creative Technologies, 13274 Fiji Way, Marina del Rey, USA School of Computer Science, The University of Manchester, 131 Princess St, Manchester, UK</address>
+<email confidence="0.996162">sunxu@is.s.u-tokyo.ac.jpmorency@ict.usc.edu</email>
+<email confidence="0.996162">hillbig@is.s.u-tokyo.ac.jpmorency@ict.usc.edu</email>
+<email confidence="0.996162">tsujii@is.s.u-tokyo.ac.jpmorency@ict.usc.edu</email>
+<abstract confidence="0.998365826086956">Shallow parsing is one of many NLP tasks that can be reduced to a sequence labeling problem. In this paper we show that the latent-dynamics (i.e., hidden substructure of shallow phrases) constitutes a problem in shallow parsing, and we show that modeling this intermediate structure is useful. By analyzing the automatically learned hidden states, we show how the latent conditional model explicitly learn latent-dynamics. We propose in this paper the Best Label Path (BLP) inference algorithm, which is able to produce the most probable label sequence on latent conditional models. It outperforms two existing inference algorithms. With the BLP inference, the LDCRF model significantly outperforms CRF models on word features, and achieves comparable performance of the most successful shallow parsers on the CoNLL data when further using part-ofspeech features.</abstract>
+</variant>
+</algorithm>
+<algorithm name="ParsCit" version="110505">
+<citationList>
+<citation valid="true">
+<authors>
+<author>S Abney</author>
+</authors>
+<title>Parsing by chunks. In</title>
+<date>1991</date>
+<editor>R. Berwick, S. Abney, and C. Tenny, editors, Principle-based Parsing.</editor>
+<publisher>Kluwer Academic Publishers.</publisher>
+<marker>Abney, 1991</marker>
+<rawString>Abney, S. 1991. Parsing by chunks. In R. Berwick, S. Abney, and C. Tenny, editors, Principle-based Parsing. Kluwer Academic Publishers.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Abney</author>
+<author>R E Schapire</author>
+<author>Y Singer</author>
+</authors>
+<title>Boosting applied to tagging and PP attachment.</title>
+<date>1999</date>
+<booktitle>In Proc. EMNLP/VLC99.</booktitle>
+<contexts>
+<context position="6168" citStr="Abney et al. 1999" startWordPosition="970" endWordPosition="973">der generative probabilistic models of paired input sequences and label sequences, such as HMMs (Freitag &amp; McCallum 2000; Kupiec 1992) or multilevel Markov models (Bikel et al. 1999). The generative model provides well-understood training and inference but requires stringent conditional independence assumptions. To accommodate multiple overlapping features on observations, some other approaches view the sequence labeling problem as a sequence of classification problems, including support vector machines (SVMs) (Kudo &amp; Matsumoto 2001) and a variety of other classifiers (Punyakanok &amp; Roth 2001; Abney et al. 1999; Ratnaparkhi 1996). Since these classifiers cannot trade off decisions at different positions against each other (Lafferty et al. 2001), the best classifier based shallow parsers are forced to resort to heuristic combinations of multiple classifiers. A significant amount of recent work has shown the power of CRFs for sequence labeling tasks. CRFs use an exponential distribution to model the entire sequence, allowing for non-local dependencies between states and observations (Lafferty et al. 2001). Lafferty et al. (2001) showed that CRFs outperform classification models as well as HMMs on synt</context>
+</contexts>
+<marker>Abney, Schapire, Singer, 1999</marker>
+<rawString>Abney, S.; Schapire, R. E. and Singer, Y. 1999. Boosting applied to tagging and PP attachment. In Proc. EMNLP/VLC99.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>G Andrew</author>
+<author>J Gao</author>
+</authors>
+<title>Scalable training of L1-regularized log-linear models.</title>
+<date>2007</date>
+<booktitle>In Proc. ICML-07.</booktitle>
+<contexts>
+<context position="19234" citStr="Andrew &amp; Gao 2007" startWordPosition="3273" endWordPosition="3276"> those 417,835 features which occur at least once in the training data. The features are listed in Table 3. As for numerical optimization (Malouf 2002; Wallach 2002), we performed gradient decent with the Limited-Memory BFGS (L-BFGS) optimization technique (Nocedal &amp; Wright 1999). L-BFGS is a second-order Quasi-Newton method that numerically estimates the curvature from previous gradients and updates. With no requirement on specialized Hessian approximation, L-BFGS can handle large-scale problems in an efficient manner. We implemented an L-BFGS optimizer in C++ by modifying the OWLQN package (Andrew &amp; Gao 2007) developed by Galen Andrew. In our experiments, storing 10 pairs of previous gradients for the approximation of the functions inverse Hessian worked well, making the amount of the extra memory required modest. Using more previous gradients will probably decrease the num845 \x0cber of iterations required to reach convergence, but would increase memory requirements significantly. To make a comparison, we also employed the Conjugate-Gradient (CG) optimization algorithm. For details of CG, see Shewchuk (1994). Since the objective function of the LDCRF model is non-convex, it is suggested to use th</context>
+</contexts>
+<marker>Andrew, Gao, 2007</marker>
+<rawString>Andrew, G. and Gao, J. 2007. Scalable training of L1-regularized log-linear models. In Proc. ICML-07.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D M Bikel</author>
+<author>R L Schwartz</author>
+<author>R M Weischedel</author>
+</authors>
+<title>An algorithm that learns whats in a name.</title>
+<date>1999</date>
+<journal>Machine Learning,</journal>
+<volume>34</volume>
+<pages>211--231</pages>
+<contexts>
+<context position="5733" citStr="Bikel et al. 1999" startWordPosition="909" endWordPosition="912">we show that LDCRF-BLP is particularly effective when pure word features are used, and when POS tags are added, as existing systems did, it achieves comparable results to the best reported systems. 2 Related Work There is a wide range of related work on shallow parsing. Shallow parsing is frequently reduced to sequence labeling problems, and a large part of previous work uses machine learning approaches. Some approaches rely on k-order generative probabilistic models of paired input sequences and label sequences, such as HMMs (Freitag &amp; McCallum 2000; Kupiec 1992) or multilevel Markov models (Bikel et al. 1999). The generative model provides well-understood training and inference but requires stringent conditional independence assumptions. To accommodate multiple overlapping features on observations, some other approaches view the sequence labeling problem as a sequence of classification problems, including support vector machines (SVMs) (Kudo &amp; Matsumoto 2001) and a variety of other classifiers (Punyakanok &amp; Roth 2001; Abney et al. 1999; Ratnaparkhi 1996). Since these classifiers cannot trade off decisions at different positions against each other (Lafferty et al. 2001), the best classifier based s</context>
+</contexts>
+<marker>Bikel, Schwartz, Weischedel, 1999</marker>
+<rawString>Bikel, D. M.; Schwartz, R. L. and Weischedel, R. M. 1999. An algorithm that learns whats in a name. Machine Learning, 34: 211-231.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S F Chen</author>
+<author>R Rosenfeld</author>
+</authors>
+<title>A Gaussian prior for smooth-ing maximum entropy models.</title>
+<date>1999</date>
+<tech>Technical Report CMU-CS-99-108, CMU.</tech>
+<contexts>
+<context position="19976" citStr="Chen &amp; Rosenfeld 1999" startWordPosition="3392" endWordPosition="3395">tions inverse Hessian worked well, making the amount of the extra memory required modest. Using more previous gradients will probably decrease the num845 \x0cber of iterations required to reach convergence, but would increase memory requirements significantly. To make a comparison, we also employed the Conjugate-Gradient (CG) optimization algorithm. For details of CG, see Shewchuk (1994). Since the objective function of the LDCRF model is non-convex, it is suggested to use the random initialization of parameters for the training. To reduce overfitting, we employed an L2 Gaussian weight prior (Chen &amp; Rosenfeld 1999). During training and validation, we varied the number of hidden states per label (from 2 to 6 states per label), and also varied the L2-regularization term (with values 10k, k from -3 to 3). Our experiments suggested that using 4 or 5 hidden states per label for the shallow parser is a viable compromise between accuracy and efficiency. 7 Results and Discussion 7.1 Performance on Word Features As discussed in Section 4, it is preferred to not use the features on POS tags in order to isolate the models capability of learning latent dynamics. In this sub-section, we use pure word features with t</context>
+</contexts>
+<marker>Chen, Rosenfeld, 1999</marker>
+<rawString>Chen, S. F. and Rosenfeld, R. 1999. A Gaussian prior for smooth-ing maximum entropy models. Technical Report CMU-CS-99-108, CMU.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>M Collins</author>
+</authors>
+<title>Discriminative training methods for hidden Markov models: Theory and experiments with perceptron algorithms.</title>
+<date>2002</date>
+<booktitle>In Proc. EMNLP-02.</booktitle>
+<marker>Collins, 2002</marker>
+<rawString>Collins, M. 2002. Discriminative training methods for hidden Markov models: Theory and experiments with perceptron algorithms. In Proc. EMNLP-02.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>D Freitag</author>
+<author>A McCallum</author>
+</authors>
+<title>Information extraction with HMM structures learned by stochastic optimization.</title>
+<date>2000</date>
+<booktitle>In Proc. AAAI-00.</booktitle>
+<contexts>
+<context position="5671" citStr="Freitag &amp; McCallum 2000" startWordPosition="898" endWordPosition="901">nt a statistical interpretation on learned hidden states. Finally, we show that LDCRF-BLP is particularly effective when pure word features are used, and when POS tags are added, as existing systems did, it achieves comparable results to the best reported systems. 2 Related Work There is a wide range of related work on shallow parsing. Shallow parsing is frequently reduced to sequence labeling problems, and a large part of previous work uses machine learning approaches. Some approaches rely on k-order generative probabilistic models of paired input sequences and label sequences, such as HMMs (Freitag &amp; McCallum 2000; Kupiec 1992) or multilevel Markov models (Bikel et al. 1999). The generative model provides well-understood training and inference but requires stringent conditional independence assumptions. To accommodate multiple overlapping features on observations, some other approaches view the sequence labeling problem as a sequence of classification problems, including support vector machines (SVMs) (Kudo &amp; Matsumoto 2001) and a variety of other classifiers (Punyakanok &amp; Roth 2001; Abney et al. 1999; Ratnaparkhi 1996). Since these classifiers cannot trade off decisions at different positions against </context>
+</contexts>
+<marker>Freitag, McCallum, 2000</marker>
+<rawString>Freitag, D. and McCallum, A. 2000. Information extraction with HMM structures learned by stochastic optimization. In Proc. AAAI-00.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L Gillick</author>
+<author>S Cox</author>
+</authors>
+<title>Some statistical issues in the comparison of speech recognition algorithms.</title>
+<date>1989</date>
+<booktitle>In International Conference on Acoustics Speech and Signal Processing, v1,</booktitle>
+<pages>532--535</pages>
+<contexts>
+<context position="22779" citStr="Gillick &amp; Cox 1989" startWordPosition="3860" endWordPosition="3863">c. Gap Sig. BLP vs. BHP 0.39 0.49 1e-10 BLP vs. CRF 1.53 0.90 5e-13 Table 5: The significance tests. LDCRF-BLP is significantly more accurate than LDCRF-BHP and CRFs. 7.2 Labeling Accuracy and Significance Test As shown in Table 4, the accuracy rate for individual labeling decisions is over-optimistic as a measure for shallow parsing. Nevertheless, since testing the significance of shallow parsers F-measures is tricky, individual labeling accuracy provides a more convenient basis for statistical significance tests (Sha &amp; Pereira 2003). One such test is the McNemar test on paired observations (Gillick &amp; Cox 1989). As shown in Table 5, for the LDCRF model, the BLP inference schema is statistically more accurate than the BHP inference schema. Also, Evaluations show that the McNemars value on labeling disagreement between the LDCRF-BLP and CRF models is 5e-13, suggesting that LDCRF-BLP is significantly more accurate than CRFs. On the other hand, the accuracy rate of BMP inference is a special case. Since the BMP inference is essentially an accuracy-first inference schema, the accuracy rate and the F-measure have a different relation in BMP. As we can see, the individual labeling accuracy achieved by the </context>
+</contexts>
+<marker>Gillick, Cox, 1989</marker>
+<rawString>Gillick, L. and Cox, S. 1989. Some statistical issues in the comparison of speech recognition algorithms. In International Conference on Acoustics Speech and Signal Processing, v1, pages 532-535.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>P E Hart</author>
+<author>N J Nilsson</author>
+<author>B Raphael</author>
+</authors>
+<title>A formal basis for the heuristic determination of minimum cost path.</title>
+<date>1968</date>
+<journal>IEEE Trans. On System Science and Cybernetics,</journal>
+<volume>4</volume>
+<issue>2</issue>
+<pages>100--107</pages>
+<contexts>
+<context position="10283" citStr="Hart et al., 1968" startWordPosition="1705" endWordPosition="1708">l Path), y, that maximizes our conditional model: y = argmaxyP(y|x, ). (4) In the CRF model, y can be simply searched by using the Viterbi algorithm. However, for latent conditional models like LDCRF, the Best Label Path y cannot directly be produced by the Viterbi algorithm because of the incorporation of hidden states. In this paper, we propose an exact inference algorithm, the Best Label Path inference (BLP), for producing the most probable label sequence y on LDCRF. In the BLP schema, top-n hidden paths HPn = {h1, h2 . . . hn} over hidden states are efficiently produced by using A search (Hart et al., 1968), and the corresponding probabilities of hidden paths P(hi|x, ) are gained. Thereafter, based on HPn, the estimated probabilities of various label paths, P(y|x, ), can be computed by summing the probabilities of hidden paths, P(h|x, ), concerning the association between hidden states and each class label: P(y|x, ) = X h: hHy1 ...Hym hHPn P(h|x, ). (5) By using the A search, HPn can be extended incrementally in an efficient manner, until the algorithm finds that the Best Label Path is ready, and then the search stops and ends the BLP inference with success. The algorithm judges that y is ready </context>
+<context position="11599" citStr="Hart et al., 1968" startWordPosition="1945" endWordPosition="1948"> y1 is the most probable label sequence, and y2 is the second ranked label sequence estimated by using HPn. It would be straightforward to prove that y = y1, and further search is unnecessary, because in this case, the unknown probability mass can not change the optimal label path. The unknown probability mass can be computed by using X h&lt;Hy1 ...Hym P(h|x, ) = 1 X hHy1 ...Hym P(h|x, ). (7) The top-n hidden paths of HPn produced by the A-search are exact, and the BLP inference is exact. To guarantee HPn is exact in our BLP inference, an admissible heuristic function should be used in A search (Hart et al., 1968). We use a backward Viterbi algorithm (Viterbi, 1967) to compute the heuristic function of the forward A search: Heui(hj) = max h 0 i =hjh 0 i HP|h| i P 0 (h 0 |x, ), (8) 843 \x0cwhere h 0 i = hj represents a partial hidden path started from the hidden state hj, and HP|h| i represents all possible partial hidden paths from the position i to the ending position |h |. Heui(hj) is an admissible heuristic function for the A search over hidden paths, therefore HPn is exact and BLP inference is exact. The BLP inference is efficient when the probability distribution among the hidden paths is intensiv</context>
+</contexts>
+<marker>Hart, Nilsson, Raphael, 1968</marker>
+<rawString>Hart, P.E.; Nilsson, N.J.; and Raphael, B. 1968. A formal basis for the heuristic determination of minimum cost path. IEEE Trans. On System Science and Cybernetics, SSC-4(2): 100-107.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Kudo</author>
+<author>Y Matsumoto</author>
+</authors>
+<title>Chunking with support vector machines.</title>
+<date>2001</date>
+<booktitle>In Proc. NAACL-01.</booktitle>
+<contexts>
+<context position="2159" citStr="Kudo &amp; Matsumoto 2001" startWordPosition="303" endWordPosition="306">cores of various phrase types in text. The paradigmatic shallow parsing problem is noun phrase chunking, in which the non-recursive cores of noun phrases, called base NPs, are identified. As the representative problem in shallow parsing, noun phrase chunking has received much attention, with the development of standard evaluation datasets and with c 2008. Licensed under the Creative Commons Attribution-Noncommercial-Share Alike 3.0 Unported license (http://creativecommons.org/licenses/by-nc-sa/3.0/). Some rights reserved. extensive comparisons among methods (McDonald 2005; Sha &amp; Pereira 2003; Kudo &amp; Matsumoto 2001). Syntactic contexts often have a complex underlying structure. Chunk labels are usually far too general to fully encapsulate the syntactic behavior of word sequences. In practice, and given the limited data, the relationship between specific words and their syntactic contexts may be best modeled at a level finer than chunk tags but coarser than lexical identities. For example, in the noun phrase (NP) chunking task, suppose that there are two lexical sequences, He is her and He gave her . The observed sequences, He is her and He gave her, would both be conventionally labeled by BOB, where B si</context>
+<context position="6090" citStr="Kudo &amp; Matsumoto 2001" startWordPosition="956" endWordPosition="959">art of previous work uses machine learning approaches. Some approaches rely on k-order generative probabilistic models of paired input sequences and label sequences, such as HMMs (Freitag &amp; McCallum 2000; Kupiec 1992) or multilevel Markov models (Bikel et al. 1999). The generative model provides well-understood training and inference but requires stringent conditional independence assumptions. To accommodate multiple overlapping features on observations, some other approaches view the sequence labeling problem as a sequence of classification problems, including support vector machines (SVMs) (Kudo &amp; Matsumoto 2001) and a variety of other classifiers (Punyakanok &amp; Roth 2001; Abney et al. 1999; Ratnaparkhi 1996). Since these classifiers cannot trade off decisions at different positions against each other (Lafferty et al. 2001), the best classifier based shallow parsers are forced to resort to heuristic combinations of multiple classifiers. A significant amount of recent work has shown the power of CRFs for sequence labeling tasks. CRFs use an exponential distribution to model the entire sequence, allowing for non-local dependencies between states and observations (Lafferty et al. 2001). Lafferty et al. (2</context>
+<context position="26159" citStr="Kudo &amp; Matsumoto (2001)" startWordPosition="4440" endWordPosition="4444"> observe that the L-BFGS optimizer is slightly faster than CG on LDCRFs (see Figure 3), which echoes the comparison between the L-BFGS and the CG optimizing technique on the CRF model (Sha &amp; Pereira 2003). 7.4 Comparisons to Other Systems with POS Features Performance of the LDCRF-BLP model and some of the best results reported previously are summarized in Table 6. Our LDCRF model achieved comparable performance to those best reported systems in terms of the F-measure. McDonald et al. (2005) achieved an F-measure of 94.29% by using a CRF model. By employing a multi-model combination approach, Kudo &amp; Matsumoto (2001) also achieved a good performance. They use a combination of 8 kernel SVMs with a heuristic voting strategy. An advantage of LDCRFs over max-margin based approaches is that LDCRFs can output N-best label sequences and their probabilities using efficient marginalization operations, which can be used for other components in an information extraction system. 8 Conclusions and Future Work In this paper, we have shown that automatic modeling on latent-dynamics can be useful in shallow parsing. By analyzing the automatically learned 847 \x0chidden states, we showed how LDCRFs can naturally learn lat</context>
+</contexts>
+<marker>Kudo, Matsumoto, 2001</marker>
+<rawString>Kudo, T. and Matsumoto, Y. 2001. Chunking with support vector machines. In Proc. NAACL-01.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Kupiec</author>
+</authors>
+<title>Robust part-of-speech tagging using a hidden Markov model.</title>
+<date>1992</date>
+<journal>Computer Speech and Language.</journal>
+<pages>6--225</pages>
+<contexts>
+<context position="5685" citStr="Kupiec 1992" startWordPosition="902" endWordPosition="903">tation on learned hidden states. Finally, we show that LDCRF-BLP is particularly effective when pure word features are used, and when POS tags are added, as existing systems did, it achieves comparable results to the best reported systems. 2 Related Work There is a wide range of related work on shallow parsing. Shallow parsing is frequently reduced to sequence labeling problems, and a large part of previous work uses machine learning approaches. Some approaches rely on k-order generative probabilistic models of paired input sequences and label sequences, such as HMMs (Freitag &amp; McCallum 2000; Kupiec 1992) or multilevel Markov models (Bikel et al. 1999). The generative model provides well-understood training and inference but requires stringent conditional independence assumptions. To accommodate multiple overlapping features on observations, some other approaches view the sequence labeling problem as a sequence of classification problems, including support vector machines (SVMs) (Kudo &amp; Matsumoto 2001) and a variety of other classifiers (Punyakanok &amp; Roth 2001; Abney et al. 1999; Ratnaparkhi 1996). Since these classifiers cannot trade off decisions at different positions against each other (La</context>
+</contexts>
+<marker>Kupiec, 1992</marker>
+<rawString>Kupiec, J. 1992. Robust part-of-speech tagging using a hidden Markov model. Computer Speech and Language. 6:225-242.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Lafferty</author>
+<author>A McCallum</author>
+<author>F Pereira</author>
+</authors>
+<title>Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In</title>
+<date>2001</date>
+<booktitle>Proc. ICML-01,</booktitle>
+<pages>282--289</pages>
+<contexts>
+<context position="6304" citStr="Lafferty et al. 2001" startWordPosition="989" endWordPosition="992">2) or multilevel Markov models (Bikel et al. 1999). The generative model provides well-understood training and inference but requires stringent conditional independence assumptions. To accommodate multiple overlapping features on observations, some other approaches view the sequence labeling problem as a sequence of classification problems, including support vector machines (SVMs) (Kudo &amp; Matsumoto 2001) and a variety of other classifiers (Punyakanok &amp; Roth 2001; Abney et al. 1999; Ratnaparkhi 1996). Since these classifiers cannot trade off decisions at different positions against each other (Lafferty et al. 2001), the best classifier based shallow parsers are forced to resort to heuristic combinations of multiple classifiers. A significant amount of recent work has shown the power of CRFs for sequence labeling tasks. CRFs use an exponential distribution to model the entire sequence, allowing for non-local dependencies between states and observations (Lafferty et al. 2001). Lafferty et al. (2001) showed that CRFs outperform classification models as well as HMMs on synthetic data and on POS tagging tasks. As for the task of shallow parsing, CRFs also outperform many other state-of-the-art models (Sha &amp; </context>
+<context position="20842" citStr="Lafferty et al. 2001" startWordPosition="3543" endWordPosition="3546">tes per label for the shallow parser is a viable compromise between accuracy and efficiency. 7 Results and Discussion 7.1 Performance on Word Features As discussed in Section 4, it is preferred to not use the features on POS tags in order to isolate the models capability of learning latent dynamics. In this sub-section, we use pure word features with their counts above 10 in the training data to perform experimental comparisons among different inference algorithms on LDCRFs, including BLP, BHP, and existing BMP. Since the CRF model is one of the successful models in sequential labeling tasks (Lafferty et al. 2001; Sha &amp; Pereira 2003; McDonald et al. 2005), in this section, we also compare LDCRFs with CRFs. We tried to make experimental results more comparable between LDCRF and CRF models, and have therefore employed the same features set, optimizer and fine-tuning strategy between LDCRF and CRF models. The experimental results are shown in Table 4. In the table, Acc. signifies label accuracy, which is useful for the significance test in the following sub-section. As shown, LDCRF-BLP outperforms LDCRF-BHP and LDCRF-BMP, suggesting that BLP inference 1 is superior. The superiority of BLP is statisticall</context>
+</contexts>
+<marker>Lafferty, McCallum, Pereira, 2001</marker>
+<rawString>Lafferty, J.; McCallum, A. and Pereira, F. 2001. Conditional random fields: Probabilistic models for segmenting and labeling sequence data. In Proc. ICML-01, pages 282-289.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R Malouf</author>
+</authors>
+<title>A comparison of algorithms for maximum entropy parameter estimation.</title>
+<date>2002</date>
+<booktitle>In Proc. CoNLL-02.</booktitle>
+<contexts>
+<context position="18766" citStr="Malouf 2002" startWordPosition="3208" endWordPosition="3209">fraction of reference chunks returned), and the Fmeasure given by F = 2pr/(p + r). 6.1 LDCRF for Shallow Parsing We implemented LDCRFs in C++, and optimized the system to cope with large scale problems, in which the feature dimension is beyond millions. We employ similar predicate sets defined in Sha &amp; Pereira (2003). We follow them in using predicates that depend on words as well as POS tags in the neighborhood of a given position, taking into account only those 417,835 features which occur at least once in the training data. The features are listed in Table 3. As for numerical optimization (Malouf 2002; Wallach 2002), we performed gradient decent with the Limited-Memory BFGS (L-BFGS) optimization technique (Nocedal &amp; Wright 1999). L-BFGS is a second-order Quasi-Newton method that numerically estimates the curvature from previous gradients and updates. With no requirement on specialized Hessian approximation, L-BFGS can handle large-scale problems in an efficient manner. We implemented an L-BFGS optimizer in C++ by modifying the OWLQN package (Andrew &amp; Gao 2007) developed by Galen Andrew. In our experiments, storing 10 pairs of previous gradients for the approximation of the functions invers</context>
+</contexts>
+<marker>Malouf, 2002</marker>
+<rawString>Malouf, R. 2002. A comparison of algorithms for maximum entropy parameter estimation. In Proc. CoNLL-02.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Matsuzaki</author>
+<author>Y Miyao</author>
+<author>J Tsujii</author>
+</authors>
+<title>Probabilistic CFG with Latent Annotations.</title>
+<date>2005</date>
+<booktitle>In Proc. ACL-05.</booktitle>
+<contexts>
+<context position="7078" citStr="Matsuzaki et al. 2005" startWordPosition="1110" endWordPosition="1113">as shown the power of CRFs for sequence labeling tasks. CRFs use an exponential distribution to model the entire sequence, allowing for non-local dependencies between states and observations (Lafferty et al. 2001). Lafferty et al. (2001) showed that CRFs outperform classification models as well as HMMs on synthetic data and on POS tagging tasks. As for the task of shallow parsing, CRFs also outperform many other state-of-the-art models (Sha &amp; Pereira 2003; McDonald et al. 2005). When the data has distinct sub-structures, models that exploit hidden state variables are advantageous in learning (Matsuzaki et al. 2005; Petrov et al. 2007). Sutton et al. (2004) presented an extension to CRF called dynamic conditional random field (DCRF) model. As stated by the authors, training a DCRF model with unobserved nodes (hidden variables) makes their approach difficult to optimize. In the vision community, the LDCRF model was recently proposed by Morency et al. (2007), and shown to outperform CRFs, SVMs, and HMMs for visual sequence labeling. In this paper, we introduce the concept of latentdynamics for shallow parsing, showing how hidden states automatically learned by the model present similar characteristics. We</context>
+</contexts>
+<marker>Matsuzaki, Miyao, Tsujii, 2005</marker>
+<rawString>Matsuzaki, T.; Miyao Y. and Tsujii, J. 2005. Probabilistic CFG with Latent Annotations. In Proc. ACL-05.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>R McDonald</author>
+<author>K Crammer</author>
+<author>F Pereira</author>
+</authors>
+<title>Flexible Text Segmentation with Structured Multilabel Classification.</title>
+<date>2005</date>
+<booktitle>In Proc. HLT/EMNLP-05,</booktitle>
+<pages>987--994</pages>
+<contexts>
+<context position="6939" citStr="McDonald et al. 2005" startWordPosition="1088" endWordPosition="1091">ssifier based shallow parsers are forced to resort to heuristic combinations of multiple classifiers. A significant amount of recent work has shown the power of CRFs for sequence labeling tasks. CRFs use an exponential distribution to model the entire sequence, allowing for non-local dependencies between states and observations (Lafferty et al. 2001). Lafferty et al. (2001) showed that CRFs outperform classification models as well as HMMs on synthetic data and on POS tagging tasks. As for the task of shallow parsing, CRFs also outperform many other state-of-the-art models (Sha &amp; Pereira 2003; McDonald et al. 2005). When the data has distinct sub-structures, models that exploit hidden state variables are advantageous in learning (Matsuzaki et al. 2005; Petrov et al. 2007). Sutton et al. (2004) presented an extension to CRF called dynamic conditional random field (DCRF) model. As stated by the authors, training a DCRF model with unobserved nodes (hidden variables) makes their approach difficult to optimize. In the vision community, the LDCRF model was recently proposed by Morency et al. (2007), and shown to outperform CRFs, SVMs, and HMMs for visual sequence labeling. In this paper, we introduce the conc</context>
+<context position="20885" citStr="McDonald et al. 2005" startWordPosition="3551" endWordPosition="3554">viable compromise between accuracy and efficiency. 7 Results and Discussion 7.1 Performance on Word Features As discussed in Section 4, it is preferred to not use the features on POS tags in order to isolate the models capability of learning latent dynamics. In this sub-section, we use pure word features with their counts above 10 in the training data to perform experimental comparisons among different inference algorithms on LDCRFs, including BLP, BHP, and existing BMP. Since the CRF model is one of the successful models in sequential labeling tasks (Lafferty et al. 2001; Sha &amp; Pereira 2003; McDonald et al. 2005), in this section, we also compare LDCRFs with CRFs. We tried to make experimental results more comparable between LDCRF and CRF models, and have therefore employed the same features set, optimizer and fine-tuning strategy between LDCRF and CRF models. The experimental results are shown in Table 4. In the table, Acc. signifies label accuracy, which is useful for the significance test in the following sub-section. As shown, LDCRF-BLP outperforms LDCRF-BHP and LDCRF-BMP, suggesting that BLP inference 1 is superior. The superiority of BLP is statistically significant, which will be shown in next </context>
+<context position="26032" citStr="McDonald et al. (2005)" startWordPosition="4420" endWordPosition="4423">ccessful approaches. In this table, all the systems have employed POS features. the L-BFGS and the CG optimizer for LDCRFs. We observe that the L-BFGS optimizer is slightly faster than CG on LDCRFs (see Figure 3), which echoes the comparison between the L-BFGS and the CG optimizing technique on the CRF model (Sha &amp; Pereira 2003). 7.4 Comparisons to Other Systems with POS Features Performance of the LDCRF-BLP model and some of the best results reported previously are summarized in Table 6. Our LDCRF model achieved comparable performance to those best reported systems in terms of the F-measure. McDonald et al. (2005) achieved an F-measure of 94.29% by using a CRF model. By employing a multi-model combination approach, Kudo &amp; Matsumoto (2001) also achieved a good performance. They use a combination of 8 kernel SVMs with a heuristic voting strategy. An advantage of LDCRFs over max-margin based approaches is that LDCRFs can output N-best label sequences and their probabilities using efficient marginalization operations, which can be used for other components in an information extraction system. 8 Conclusions and Future Work In this paper, we have shown that automatic modeling on latent-dynamics can be useful</context>
+</contexts>
+<marker>McDonald, Crammer, Pereira, 2005</marker>
+<rawString>McDonald, R.; Crammer, K. and Pereira, F. 2005. Flexible Text Segmentation with Structured Multilabel Classification. In Proc. HLT/EMNLP-05, pages 987- 994.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L P Morency</author>
+<author>A Quattoni</author>
+<author>T Darrell</author>
+</authors>
+<title>LatentDynamic Discriminative Models for Continuous Gesture Recognition.</title>
+<date>2007</date>
+<booktitle>In Proc. CVPR-07,</booktitle>
+<pages>1--8</pages>
+<contexts>
+<context position="3778" citStr="Morency et al. 2007" startWordPosition="574" endWordPosition="577"> In contrast, for He gave her , the phrase started by her is normally selfcomplete, and makes the next label more likely to be B, e.g., [He] gave [her] [flowers]. In other words, latent-dynamics is an intermediate representation between input features and labels, and explicitly modeling this can simplify the problem. In particular, in many real-world cases, when the part-of-speech tags are not available, the modeling on latent-dynamics would be particularly important. In this paper, we model latent-dynamics in shallow parsing by extending the Latent-Dynamic Conditional Random Fields (LDCRFs) (Morency et al. 2007), which offer advantages over previ841 \x0cy y y 1 2 m h h h 1 2 m y y y 1 2 m CRF LDCRF x x x 1 2 m x x x 1 2 m Figure 1: Comparison between CRF and LDCRF. In these graphical models, x represents the observation sequence, y represents labels and h represents hidden states assigned to labels. Note that only gray circles are observed variables. Also, only the links with the current observation are shown, but for both models, long range dependencies are possible. ous learning methods by explicitly modeling hidden state variables (see Figure 1). We expect LDCRFs to be particularly useful in those</context>
+<context position="7426" citStr="Morency et al. (2007)" startWordPosition="1167" endWordPosition="1170">As for the task of shallow parsing, CRFs also outperform many other state-of-the-art models (Sha &amp; Pereira 2003; McDonald et al. 2005). When the data has distinct sub-structures, models that exploit hidden state variables are advantageous in learning (Matsuzaki et al. 2005; Petrov et al. 2007). Sutton et al. (2004) presented an extension to CRF called dynamic conditional random field (DCRF) model. As stated by the authors, training a DCRF model with unobserved nodes (hidden variables) makes their approach difficult to optimize. In the vision community, the LDCRF model was recently proposed by Morency et al. (2007), and shown to outperform CRFs, SVMs, and HMMs for visual sequence labeling. In this paper, we introduce the concept of latentdynamics for shallow parsing, showing how hidden states automatically learned by the model present similar characteristics. We will also propose an improved inference technique, the BLP, for producing the most probable label sequence in LDCRFs. 3 Latent-Dynamic Conditional Random Fields The task is to learn a mapping between a sequence of observations x = x1, x2, . . . , xm and a sequence of labels y = y1, y2, . . . , ym. Each yj is a class la842 \x0cbel for the jth tok</context>
+<context position="12964" citStr="Morency et al. 2007" startWordPosition="2196" endWordPosition="2199"> its size. In practice, on the CoNLL test data containing 2,012 sentences, the BLP inference finished in five minutes when using the feature set based on both word and POS information (see Table 3). The memory consumption is also relatively small, because it is an online style algorithm and it is not necessary to preserve HPn. In this paper, to make a comparison, we also study the Best Hidden Path inference (BHP): yBHP = argmaxyP(hy|x, ), (9) where hy Hy1 . . . Hym . In other words, the Best Hidden Path is the label sequence that is directly projected from the most probable hidden path h. In (Morency et al. 2007), y is estimated by using the Best Point-wise Marginal Path (BMP). To estimate the label yj of token j, the marginal probabilities P(hj = a|x, ) are computed for possible hidden states a H. Then, the marginal probabilities are summed and the optimal label is estimated by using the marginal probabilities. The BLP produces y while the BHP and the BMP perform an estimation on y. We will make an experimental comparison in Section 6. 5 Analyzing Latent-Dynamics The chunks in shallow parsing are represented with the three labels shown in Table 1, and shallow parsing is treated as a sequence labeling</context>
+</contexts>
+<marker>Morency, Quattoni, Darrell, 2007</marker>
+<rawString>Morency, L.P.; Quattoni, A. and Darrell, T. 2007. LatentDynamic Discriminative Models for Continuous Gesture Recognition. In Proc. CVPR-07, pages 1- 8.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J Nocedal</author>
+<author>S J Wright</author>
+</authors>
+<title>Numerical Optimization.</title>
+<date>1999</date>
+<publisher>Springer.</publisher>
+<contexts>
+<context position="18896" citStr="Nocedal &amp; Wright 1999" startWordPosition="3224" endWordPosition="3227">lemented LDCRFs in C++, and optimized the system to cope with large scale problems, in which the feature dimension is beyond millions. We employ similar predicate sets defined in Sha &amp; Pereira (2003). We follow them in using predicates that depend on words as well as POS tags in the neighborhood of a given position, taking into account only those 417,835 features which occur at least once in the training data. The features are listed in Table 3. As for numerical optimization (Malouf 2002; Wallach 2002), we performed gradient decent with the Limited-Memory BFGS (L-BFGS) optimization technique (Nocedal &amp; Wright 1999). L-BFGS is a second-order Quasi-Newton method that numerically estimates the curvature from previous gradients and updates. With no requirement on specialized Hessian approximation, L-BFGS can handle large-scale problems in an efficient manner. We implemented an L-BFGS optimizer in C++ by modifying the OWLQN package (Andrew &amp; Gao 2007) developed by Galen Andrew. In our experiments, storing 10 pairs of previous gradients for the approximation of the functions inverse Hessian worked well, making the amount of the extra memory required modest. Using more previous gradients will probably decrease</context>
+</contexts>
+<marker>Nocedal, Wright, 1999</marker>
+<rawString>Nocedal, J. and Wright, S. J. 1999. Numerical Optimization. Springer.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Petrov</author>
+<author>A Pauls</author>
+<author>D Klein</author>
+</authors>
+<title>Discriminative log-linear grammars with latent variables.</title>
+<date>2007</date>
+<booktitle>In Proc. NIPS-07.</booktitle>
+<contexts>
+<context position="7099" citStr="Petrov et al. 2007" startWordPosition="1114" endWordPosition="1117">RFs for sequence labeling tasks. CRFs use an exponential distribution to model the entire sequence, allowing for non-local dependencies between states and observations (Lafferty et al. 2001). Lafferty et al. (2001) showed that CRFs outperform classification models as well as HMMs on synthetic data and on POS tagging tasks. As for the task of shallow parsing, CRFs also outperform many other state-of-the-art models (Sha &amp; Pereira 2003; McDonald et al. 2005). When the data has distinct sub-structures, models that exploit hidden state variables are advantageous in learning (Matsuzaki et al. 2005; Petrov et al. 2007). Sutton et al. (2004) presented an extension to CRF called dynamic conditional random field (DCRF) model. As stated by the authors, training a DCRF model with unobserved nodes (hidden variables) makes their approach difficult to optimize. In the vision community, the LDCRF model was recently proposed by Morency et al. (2007), and shown to outperform CRFs, SVMs, and HMMs for visual sequence labeling. In this paper, we introduce the concept of latentdynamics for shallow parsing, showing how hidden states automatically learned by the model present similar characteristics. We will also propose an</context>
+</contexts>
+<marker>Petrov, Pauls, Klein, 2007</marker>
+<rawString>Petrov, S.; Pauls, A.; and Klein, D. 2007. Discriminative log-linear grammars with latent variables. In Proc. NIPS-07.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>V Punyakanok</author>
+<author>D Roth</author>
+</authors>
+<title>The use of classifiers in sequential inference.</title>
+<date>2001</date>
+<booktitle>In Proc. NIPS-01,</booktitle>
+<pages>995--1001</pages>
+<publisher>MIT Press.</publisher>
+<contexts>
+<context position="6149" citStr="Punyakanok &amp; Roth 2001" startWordPosition="966" endWordPosition="969"> approaches rely on k-order generative probabilistic models of paired input sequences and label sequences, such as HMMs (Freitag &amp; McCallum 2000; Kupiec 1992) or multilevel Markov models (Bikel et al. 1999). The generative model provides well-understood training and inference but requires stringent conditional independence assumptions. To accommodate multiple overlapping features on observations, some other approaches view the sequence labeling problem as a sequence of classification problems, including support vector machines (SVMs) (Kudo &amp; Matsumoto 2001) and a variety of other classifiers (Punyakanok &amp; Roth 2001; Abney et al. 1999; Ratnaparkhi 1996). Since these classifiers cannot trade off decisions at different positions against each other (Lafferty et al. 2001), the best classifier based shallow parsers are forced to resort to heuristic combinations of multiple classifiers. A significant amount of recent work has shown the power of CRFs for sequence labeling tasks. CRFs use an exponential distribution to model the entire sequence, allowing for non-local dependencies between states and observations (Lafferty et al. 2001). Lafferty et al. (2001) showed that CRFs outperform classification models as w</context>
+</contexts>
+<marker>Punyakanok, Roth, 2001</marker>
+<rawString>Punyakanok, V. and Roth, D. 2001. The use of classifiers in sequential inference. In Proc. NIPS-01, pages 995-1001. MIT Press.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>L A Ramshaw</author>
+<author>M P Marcus</author>
+</authors>
+<title>Text chunking using transformation-based learning.</title>
+<date>1995</date>
+<booktitle>In Proc. Third Workshop on Very Large Corpora. In Proc. ACL-95.</booktitle>
+<marker>Ramshaw, Marcus, 1995</marker>
+<rawString>Ramshaw, L. A. and Marcus, M. P. 1995. Text chunking using transformation-based learning. In Proc. Third Workshop on Very Large Corpora. In Proc. ACL-95.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A Ratnaparkhi</author>
+</authors>
+<title>A maximum entropy model for part-of-speech tagging.</title>
+<date>1996</date>
+<booktitle>In Proc. EMNLP-96.</booktitle>
+<contexts>
+<context position="6187" citStr="Ratnaparkhi 1996" startWordPosition="974" endWordPosition="975">abilistic models of paired input sequences and label sequences, such as HMMs (Freitag &amp; McCallum 2000; Kupiec 1992) or multilevel Markov models (Bikel et al. 1999). The generative model provides well-understood training and inference but requires stringent conditional independence assumptions. To accommodate multiple overlapping features on observations, some other approaches view the sequence labeling problem as a sequence of classification problems, including support vector machines (SVMs) (Kudo &amp; Matsumoto 2001) and a variety of other classifiers (Punyakanok &amp; Roth 2001; Abney et al. 1999; Ratnaparkhi 1996). Since these classifiers cannot trade off decisions at different positions against each other (Lafferty et al. 2001), the best classifier based shallow parsers are forced to resort to heuristic combinations of multiple classifiers. A significant amount of recent work has shown the power of CRFs for sequence labeling tasks. CRFs use an exponential distribution to model the entire sequence, allowing for non-local dependencies between states and observations (Lafferty et al. 2001). Lafferty et al. (2001) showed that CRFs outperform classification models as well as HMMs on synthetic data and on P</context>
+</contexts>
+<marker>Ratnaparkhi, 1996</marker>
+<rawString>Ratnaparkhi, A. 1996. A maximum entropy model for part-of-speech tagging. In Proc. EMNLP-96.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E F T K Sang</author>
+</authors>
+<title>Noun Phrase Representation by System Combination.</title>
+<date>2000</date>
+<booktitle>In Proc. ANLP/NAACL-00.</booktitle>
+<marker>Sang, 2000</marker>
+<rawString>Sang, E.F.T.K. 2000. Noun Phrase Representation by System Combination. In Proc. ANLP/NAACL-00.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>E F T K Sang</author>
+<author>S Buchholz</author>
+</authors>
+<title>Introduction to the CoNLL-2000 shared task: Chunking.</title>
+<date>2000</date>
+<booktitle>In Proc. CoNLL-00,</booktitle>
+<pages>127--132</pages>
+<contexts>
+<context position="17898" citStr="Sang &amp; Buchholz 2000" startWordPosition="3056" endWordPosition="3059">) contains relating but different gold-standard POS tags. 6 Experiments Following previous studies on shallow parsing, our experiments are performed on the CoNLL 2000 Word Features: {wi2, wi1, wi, wi+1, wi+2, wi1wi, wiwi+1} {hi, hi1hi, hi2hi1hi} POS Features: {ti1, ti, ti+1, ti2ti1, ti1ti, titi+1, ti+1ti+2, ti2ti1ti, ti1titi+1, titi+1ti+2} {hi, hi1hi, hi2hi1hi} Table 3: Feature templates used in the experiments. wi is the current word; ti is current POS tag; and hi is the current hidden state (for the case of latent models) or the current label (for the case of conventional models). data set (Sang &amp; Buchholz 2000; Ramshow &amp; Marcus 1995). The training set consists of 8,936 sentences, and the test set consists of 2,012 sentences. The standard evaluation metrics for this task are precision p (the fraction of output chunks matching the reference chunks), recall r (the fraction of reference chunks returned), and the Fmeasure given by F = 2pr/(p + r). 6.1 LDCRF for Shallow Parsing We implemented LDCRFs in C++, and optimized the system to cope with large scale problems, in which the feature dimension is beyond millions. We employ similar predicate sets defined in Sha &amp; Pereira (2003). We follow them in using</context>
+</contexts>
+<marker>Sang, Buchholz, 2000</marker>
+<rawString>Sang, E.F.T.K and Buchholz, S. 2000. Introduction to the CoNLL-2000 shared task: Chunking. In Proc. CoNLL-00, pages 127-132.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>F Sha</author>
+<author>F Pereira</author>
+</authors>
+<title>Shallow Parsing with Conditional Random Fields. In</title>
+<date>2003</date>
+<booktitle>Proc. HLT/NAACL-03.</booktitle>
+<contexts>
+<context position="2135" citStr="Sha &amp; Pereira 2003" startWordPosition="299" endWordPosition="302">s the non-recursive cores of various phrase types in text. The paradigmatic shallow parsing problem is noun phrase chunking, in which the non-recursive cores of noun phrases, called base NPs, are identified. As the representative problem in shallow parsing, noun phrase chunking has received much attention, with the development of standard evaluation datasets and with c 2008. Licensed under the Creative Commons Attribution-Noncommercial-Share Alike 3.0 Unported license (http://creativecommons.org/licenses/by-nc-sa/3.0/). Some rights reserved. extensive comparisons among methods (McDonald 2005; Sha &amp; Pereira 2003; Kudo &amp; Matsumoto 2001). Syntactic contexts often have a complex underlying structure. Chunk labels are usually far too general to fully encapsulate the syntactic behavior of word sequences. In practice, and given the limited data, the relationship between specific words and their syntactic contexts may be best modeled at a level finer than chunk tags but coarser than lexical identities. For example, in the noun phrase (NP) chunking task, suppose that there are two lexical sequences, He is her and He gave her . The observed sequences, He is her and He gave her, would both be conventionally la</context>
+<context position="6916" citStr="Sha &amp; Pereira 2003" startWordPosition="1084" endWordPosition="1087"> 2001), the best classifier based shallow parsers are forced to resort to heuristic combinations of multiple classifiers. A significant amount of recent work has shown the power of CRFs for sequence labeling tasks. CRFs use an exponential distribution to model the entire sequence, allowing for non-local dependencies between states and observations (Lafferty et al. 2001). Lafferty et al. (2001) showed that CRFs outperform classification models as well as HMMs on synthetic data and on POS tagging tasks. As for the task of shallow parsing, CRFs also outperform many other state-of-the-art models (Sha &amp; Pereira 2003; McDonald et al. 2005). When the data has distinct sub-structures, models that exploit hidden state variables are advantageous in learning (Matsuzaki et al. 2005; Petrov et al. 2007). Sutton et al. (2004) presented an extension to CRF called dynamic conditional random field (DCRF) model. As stated by the authors, training a DCRF model with unobserved nodes (hidden variables) makes their approach difficult to optimize. In the vision community, the LDCRF model was recently proposed by Morency et al. (2007), and shown to outperform CRFs, SVMs, and HMMs for visual sequence labeling. In this paper</context>
+<context position="18473" citStr="Sha &amp; Pereira (2003)" startWordPosition="3154" endWordPosition="3157">ional models). data set (Sang &amp; Buchholz 2000; Ramshow &amp; Marcus 1995). The training set consists of 8,936 sentences, and the test set consists of 2,012 sentences. The standard evaluation metrics for this task are precision p (the fraction of output chunks matching the reference chunks), recall r (the fraction of reference chunks returned), and the Fmeasure given by F = 2pr/(p + r). 6.1 LDCRF for Shallow Parsing We implemented LDCRFs in C++, and optimized the system to cope with large scale problems, in which the feature dimension is beyond millions. We employ similar predicate sets defined in Sha &amp; Pereira (2003). We follow them in using predicates that depend on words as well as POS tags in the neighborhood of a given position, taking into account only those 417,835 features which occur at least once in the training data. The features are listed in Table 3. As for numerical optimization (Malouf 2002; Wallach 2002), we performed gradient decent with the Limited-Memory BFGS (L-BFGS) optimization technique (Nocedal &amp; Wright 1999). L-BFGS is a second-order Quasi-Newton method that numerically estimates the curvature from previous gradients and updates. With no requirement on specialized Hessian approxima</context>
+<context position="20862" citStr="Sha &amp; Pereira 2003" startWordPosition="3547" endWordPosition="3550">shallow parser is a viable compromise between accuracy and efficiency. 7 Results and Discussion 7.1 Performance on Word Features As discussed in Section 4, it is preferred to not use the features on POS tags in order to isolate the models capability of learning latent dynamics. In this sub-section, we use pure word features with their counts above 10 in the training data to perform experimental comparisons among different inference algorithms on LDCRFs, including BLP, BHP, and existing BMP. Since the CRF model is one of the successful models in sequential labeling tasks (Lafferty et al. 2001; Sha &amp; Pereira 2003; McDonald et al. 2005), in this section, we also compare LDCRFs with CRFs. We tried to make experimental results more comparable between LDCRF and CRF models, and have therefore employed the same features set, optimizer and fine-tuning strategy between LDCRF and CRF models. The experimental results are shown in Table 4. In the table, Acc. signifies label accuracy, which is useful for the significance test in the following sub-section. As shown, LDCRF-BLP outperforms LDCRF-BHP and LDCRF-BMP, suggesting that BLP inference 1 is superior. The superiority of BLP is statistically significant, which</context>
+<context position="22700" citStr="Sha &amp; Pereira 2003" startWordPosition="3846" endWordPosition="3849">outperforms the BHP and BMP inference. LDCRFs outperform CRFs. Models F1 Gap Acc. Gap Sig. BLP vs. BHP 0.39 0.49 1e-10 BLP vs. CRF 1.53 0.90 5e-13 Table 5: The significance tests. LDCRF-BLP is significantly more accurate than LDCRF-BHP and CRFs. 7.2 Labeling Accuracy and Significance Test As shown in Table 4, the accuracy rate for individual labeling decisions is over-optimistic as a measure for shallow parsing. Nevertheless, since testing the significance of shallow parsers F-measures is tricky, individual labeling accuracy provides a more convenient basis for statistical significance tests (Sha &amp; Pereira 2003). One such test is the McNemar test on paired observations (Gillick &amp; Cox 1989). As shown in Table 5, for the LDCRF model, the BLP inference schema is statistically more accurate than the BHP inference schema. Also, Evaluations show that the McNemars value on labeling disagreement between the LDCRF-BLP and CRF models is 5e-13, suggesting that LDCRF-BLP is significantly more accurate than CRFs. On the other hand, the accuracy rate of BMP inference is a special case. Since the BMP inference is essentially an accuracy-first inference schema, the accuracy rate and the F-measure have a different re</context>
+<context position="25740" citStr="Sha &amp; Pereira 2003" startWordPosition="4373" endWordPosition="4376">5) Voted perceptron N/A N/A 93.53 (Collins 02) Generalized Winnow 93.80 93.99 93.89 (Zhang et al. 02) SVM combination 94.15 94.29 94.22 (Kudo &amp; Matsumoto 01) Memo. classifier 93.63 92.89 93.26 (Sang 00) Table 6: Performance of the LDCRF-BLP model, and the comparison with CRFs and other successful approaches. In this table, all the systems have employed POS features. the L-BFGS and the CG optimizer for LDCRFs. We observe that the L-BFGS optimizer is slightly faster than CG on LDCRFs (see Figure 3), which echoes the comparison between the L-BFGS and the CG optimizing technique on the CRF model (Sha &amp; Pereira 2003). 7.4 Comparisons to Other Systems with POS Features Performance of the LDCRF-BLP model and some of the best results reported previously are summarized in Table 6. Our LDCRF model achieved comparable performance to those best reported systems in terms of the F-measure. McDonald et al. (2005) achieved an F-measure of 94.29% by using a CRF model. By employing a multi-model combination approach, Kudo &amp; Matsumoto (2001) also achieved a good performance. They use a combination of 8 kernel SVMs with a heuristic voting strategy. An advantage of LDCRFs over max-margin based approaches is that LDCRFs c</context>
+</contexts>
+<marker>Sha, Pereira, 2003</marker>
+<rawString>Sha, F. and Pereira, F. 2003. Shallow Parsing with Conditional Random Fields. In Proc. HLT/NAACL-03.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>J R Shewchuk</author>
+</authors>
+<title>An introduction to the conjugate gradient method without the agonizing pain.</title>
+<date>1994</date>
+<note>http://www.2.cs.cmu.edu/jrs/jrspapers.html/#cg.</note>
+<contexts>
+<context position="19744" citStr="Shewchuk (1994)" startWordPosition="3355" endWordPosition="3356">ient manner. We implemented an L-BFGS optimizer in C++ by modifying the OWLQN package (Andrew &amp; Gao 2007) developed by Galen Andrew. In our experiments, storing 10 pairs of previous gradients for the approximation of the functions inverse Hessian worked well, making the amount of the extra memory required modest. Using more previous gradients will probably decrease the num845 \x0cber of iterations required to reach convergence, but would increase memory requirements significantly. To make a comparison, we also employed the Conjugate-Gradient (CG) optimization algorithm. For details of CG, see Shewchuk (1994). Since the objective function of the LDCRF model is non-convex, it is suggested to use the random initialization of parameters for the training. To reduce overfitting, we employed an L2 Gaussian weight prior (Chen &amp; Rosenfeld 1999). During training and validation, we varied the number of hidden states per label (from 2 to 6 states per label), and also varied the L2-regularization term (with values 10k, k from -3 to 3). Our experiments suggested that using 4 or 5 hidden states per label for the shallow parser is a viable compromise between accuracy and efficiency. 7 Results and Discussion 7.1 </context>
+</contexts>
+<marker>Shewchuk, 1994</marker>
+<rawString>Shewchuk, J. R. 1994. An introduction to the conjugate gradient method without the agonizing pain. http://www.2.cs.cmu.edu/jrs/jrspapers.html/#cg.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>C Sutton</author>
+<author>K Rohanimanesh</author>
+<author>A McCallum</author>
+</authors>
+<title>Dynamic conditional random fields: Factorized probabilistic models for labeling and segmenting sequence data. In</title>
+<date>2004</date>
+<booktitle>Proc. ICML-04.</booktitle>
+<contexts>
+<context position="7121" citStr="Sutton et al. (2004)" startWordPosition="1118" endWordPosition="1121">ling tasks. CRFs use an exponential distribution to model the entire sequence, allowing for non-local dependencies between states and observations (Lafferty et al. 2001). Lafferty et al. (2001) showed that CRFs outperform classification models as well as HMMs on synthetic data and on POS tagging tasks. As for the task of shallow parsing, CRFs also outperform many other state-of-the-art models (Sha &amp; Pereira 2003; McDonald et al. 2005). When the data has distinct sub-structures, models that exploit hidden state variables are advantageous in learning (Matsuzaki et al. 2005; Petrov et al. 2007). Sutton et al. (2004) presented an extension to CRF called dynamic conditional random field (DCRF) model. As stated by the authors, training a DCRF model with unobserved nodes (hidden variables) makes their approach difficult to optimize. In the vision community, the LDCRF model was recently proposed by Morency et al. (2007), and shown to outperform CRFs, SVMs, and HMMs for visual sequence labeling. In this paper, we introduce the concept of latentdynamics for shallow parsing, showing how hidden states automatically learned by the model present similar characteristics. We will also propose an improved inference te</context>
+</contexts>
+<marker>Sutton, Rohanimanesh, McCallum, 2004</marker>
+<rawString>Sutton, C.; Rohanimanesh, K. and McCallum, A. 2004. Dynamic conditional random fields: Factorized probabilistic models for labeling and segmenting sequence data. In Proc. ICML-04.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>A J Viterbi</author>
+</authors>
+<title>Error bounds for convolutional codes and an asymptotically optimum decoding algorithm.</title>
+<date>1967</date>
+<journal>IEEE Transactions on Information Theory.</journal>
+<pages>13--2</pages>
+<contexts>
+<context position="11652" citStr="Viterbi, 1967" startWordPosition="1955" endWordPosition="1956">cond ranked label sequence estimated by using HPn. It would be straightforward to prove that y = y1, and further search is unnecessary, because in this case, the unknown probability mass can not change the optimal label path. The unknown probability mass can be computed by using X h&lt;Hy1 ...Hym P(h|x, ) = 1 X hHy1 ...Hym P(h|x, ). (7) The top-n hidden paths of HPn produced by the A-search are exact, and the BLP inference is exact. To guarantee HPn is exact in our BLP inference, an admissible heuristic function should be used in A search (Hart et al., 1968). We use a backward Viterbi algorithm (Viterbi, 1967) to compute the heuristic function of the forward A search: Heui(hj) = max h 0 i =hjh 0 i HP|h| i P 0 (h 0 |x, ), (8) 843 \x0cwhere h 0 i = hj represents a partial hidden path started from the hidden state hj, and HP|h| i represents all possible partial hidden paths from the position i to the ending position |h |. Heui(hj) is an admissible heuristic function for the A search over hidden paths, therefore HPn is exact and BLP inference is exact. The BLP inference is efficient when the probability distribution among the hidden paths is intensive. By combining the forward A with the backward Viter</context>
+</contexts>
+<marker>Viterbi, 1967</marker>
+<rawString>Viterbi, A.J. 1967. Error bounds for convolutional codes and an asymptotically optimum decoding algorithm. IEEE Transactions on Information Theory. 13(2):260-269.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>S Vishwanathan</author>
+<author>N N Schraudolph</author>
+<author>M W Schmidt</author>
+<author>K Murphy</author>
+</authors>
+<title>Accelerated training of conditional random fields with stochastic meta-descent.</title>
+<date>2006</date>
+<booktitle>In Proc. ICML-06.</booktitle>
+<marker>Vishwanathan, Schraudolph, Schmidt, Murphy, 2006</marker>
+<rawString>Vishwanathan, S.; Schraudolph, N. N.; Schmidt, M.W. and Murphy, K. 2006. Accelerated training of conditional random fields with stochastic meta-descent. In Proc. ICML-06.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>H Wallach</author>
+</authors>
+<title>Efficient training of conditional random fields.</title>
+<date>2002</date>
+<booktitle>In Proc. 6th Annual CLUK Research Colloquium.</booktitle>
+<contexts>
+<context position="18781" citStr="Wallach 2002" startWordPosition="3210" endWordPosition="3211">eference chunks returned), and the Fmeasure given by F = 2pr/(p + r). 6.1 LDCRF for Shallow Parsing We implemented LDCRFs in C++, and optimized the system to cope with large scale problems, in which the feature dimension is beyond millions. We employ similar predicate sets defined in Sha &amp; Pereira (2003). We follow them in using predicates that depend on words as well as POS tags in the neighborhood of a given position, taking into account only those 417,835 features which occur at least once in the training data. The features are listed in Table 3. As for numerical optimization (Malouf 2002; Wallach 2002), we performed gradient decent with the Limited-Memory BFGS (L-BFGS) optimization technique (Nocedal &amp; Wright 1999). L-BFGS is a second-order Quasi-Newton method that numerically estimates the curvature from previous gradients and updates. With no requirement on specialized Hessian approximation, L-BFGS can handle large-scale problems in an efficient manner. We implemented an L-BFGS optimizer in C++ by modifying the OWLQN package (Andrew &amp; Gao 2007) developed by Galen Andrew. In our experiments, storing 10 pairs of previous gradients for the approximation of the functions inverse Hessian worke</context>
+</contexts>
+<marker>Wallach, 2002</marker>
+<rawString>Wallach, H. 2002. Efficient training of conditional random fields. In Proc. 6th Annual CLUK Research Colloquium.</rawString>
+</citation>
+<citation valid="true">
+<authors>
+<author>T Zhang</author>
+<author>F Damerau</author>
+<author>D Johnson</author>
+</authors>
+<title>Text chunking based on a generalization of winnow.</title>
+<date>2002</date>
+<journal>Journal of Machine Learning Research,</journal>
+<pages>2--615</pages>
+<marker>Zhang, Damerau, Johnson, 2002</marker>
+<rawString>Zhang, T.; Damerau, F. and Johnson, D. 2002. Text chunking based on a generalization of winnow. Journal of Machine Learning Research, 2:615-637.</rawString>
+</citation>
+</citationList>
+</algorithm>
+</algorithms>
