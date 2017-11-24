@@ -167,8 +167,8 @@ for file in files:
 
 			contexts = citation.find('contexts')
 			if contexts==None: 
-				# totalCitations[citationID] += 1
-				# feature1[(citationID, paperID)] += 1
+				totalCitations[citationID] += 1
+				feature1[(citationID, paperID)] += 1
 				pass
 				# print "Reference without context:", Onetitle
 			else:

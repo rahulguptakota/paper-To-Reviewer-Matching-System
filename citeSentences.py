@@ -62,6 +62,8 @@ for dirName, subdirList, fileList in os.walk(rootDir, topdown=False):
 				# time.sleep(1)
 				citeSentences += filter(lambda sent: "CITATION" in sent, sentences)
 
+	print (dirName)
+	sys.exit()
 	with open(dirName + "/citeSents.csv","w") as f:
 		wr = csv.writer(f, delimiter="\n")
 		citeSentences = list(set(citeSentences))
