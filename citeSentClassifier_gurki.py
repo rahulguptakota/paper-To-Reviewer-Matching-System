@@ -46,6 +46,7 @@ def testClassifier(x_train, y_train, x_test, y_test, clf, name):
     metrics: list
              [training time, testing time, recall and precision for every class, macro-averaged F1 score]
     """
+    print(name)
     metrics = []
     start = dt.now()
     clf.fit(x_train, y_train)
@@ -149,6 +150,7 @@ for x in train:
 
 vectorizer = CountVectorizer()
 vectorizer.fit(train_arr)
+pickle.dump(vectorizer, open("vectorizer.p", "wb"))
 train_mat = vectorizer.transform(train_arr)
 print train_mat
 # print train_mat.shape
@@ -157,6 +159,7 @@ print train_mat
 
 tfidf = TfidfTransformer()
 tfidf.fit(train_mat)
+pickle.dump(tfidf, open("tfidf.p", "wb"))
 train_tfmat = tfidf.transform(train_mat)
 print train_tfmat.shape
 print train_tfmat[0]
